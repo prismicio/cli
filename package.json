@@ -1,0 +1,48 @@
+{
+	"name": "prismic-cli-poc",
+	"version": "0.0.0",
+	"description": "A proof-of-concept developer CLI for Prismic.",
+	"keywords": [
+		"prismic",
+		"typescript"
+	],
+	"license": "Apache-2.0",
+	"author": "Prismic <contact@prismic.io> (https://prismic.io)",
+	"repository": {
+		"type": "git",
+		"url": "ssh://git@github.com/prismicio-community/prismic-cli-poc.git"
+	},
+	"bin": {
+		"prismic": "./dist/index.mjs"
+	},
+	"files": [
+		"./dist",
+		"./src"
+	],
+	"type": "module",
+	"scripts": {
+		"build": "tsdown",
+		"dev": "tsdown --watch",
+		"format": "oxfmt",
+		"prepare": "npm run build",
+		"lint": "oxlint --deny-warnings",
+		"types": "tsc --noEmit",
+		"unit": "vitest run --coverage",
+		"unit:watch": "vitest watch",
+		"test": "npm run lint && npm run types && npm run unit && npm run build"
+	},
+	"devDependencies": {
+		"@prismicio/e2e-tests-utils": "1.15.0",
+		"@prismicio/types-internal": "3.16.1",
+		"@types/node": "25.0.9",
+		"@vitest/coverage-v8": "4.0.17",
+		"oxfmt": "^0.24.0",
+		"oxlint": "1.39.0",
+		"tsdown": "0.19.0",
+		"typescript": "5.9.3",
+		"vitest": "4.0.17"
+	},
+	"engines": {
+		"node": ">=24"
+	}
+}
