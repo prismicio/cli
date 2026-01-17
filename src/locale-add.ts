@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 
-import { getCredentials, getCookieValue } from "./lib/auth";
+import { authenticatedFetch, isAuthenticated } from "./lib/auth";
+import { getRepoDashboardUrl } from "./lib/urls";
 
 export async function localeAdd(): Promise<void> {
 	const { values, positionals } = parseArgs({
@@ -14,7 +15,9 @@ export async function localeAdd(): Promise<void> {
 	});
 
 	if (values.help) {
-		console.info(`Usage: prismic locale add <code> --repo <domain> [--name "Display Name"]
+		console.info(
+			`
+Usage: prismic locale add <code> --repo <domain> [--name "Display Name"]
 
 Add a new locale to a Prismic repository.
 
@@ -24,7 +27,9 @@ Arguments:
 Options:
   -r, --repo   Repository domain (required)
   -n, --name   Custom display name (creates custom locale)
-  -h, --help   Show this help message`);
+  -h, --help   Show this help message
+`.trim(),
+		);
 		return;
 	}
 
@@ -41,26 +46,18 @@ Options:
 		return;
 	}
 
-	const credentials = await getCredentials();
-
-	if (!credentials) {
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
 		console.error("Not logged in. Run `prismic login` first.");
-		process.exitCode = 1;
-		return;
-	}
-
-	const authToken = getCookieValue(credentials.cookies, "prismic-auth");
-	if (!authToken) {
-		console.error("Invalid credentials. Run `prismic login` first.");
 		process.exitCode = 1;
 		return;
 	}
 
 	try {
 		if (values.name) {
-			await addCustomLocale(values.repo, code, values.name, credentials.cookies);
+			await addCustomLocale(values.repo, code, values.name);
 		} else {
-			await addStandardLocale(values.repo, code, credentials.cookies);
+			await addStandardLocale(values.repo, code);
 		}
 		console.info(`Locale added: ${code}`);
 	} catch (error) {
@@ -73,69 +70,47 @@ Options:
 	}
 }
 
-async function addStandardLocale(repo: string, code: string, cookies: string[]): Promise<void> {
-	const url = new URL(`https://${repo}.prismic.io/app/settings/multilanguages`);
-	const cookieHeader = cookies.join("; ");
-
-	const body = { languages: [code] };
-
-	const response = await fetch(url, {
+async function addStandardLocale(repo: string, code: string): Promise<void> {
+	const url = new URL("/app/settings/multilanguages", await getRepoDashboardUrl(repo));
+	const response = await authenticatedFetch(url, {
 		method: "POST",
-		headers: {
-			Cookie: cookieHeader,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify(body),
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			languages: [code],
+		}),
 	});
-
 	if (!response.ok) {
 		const text = await response.text();
 		// Treat "already existing languages" as success
-		if (response.status === 400 && text.includes("already existing languages")) {
-			return;
-		}
+		if (response.status === 400 && text.includes("already existing languages")) return;
 		throw new Error(`${response.status} ${response.statusText}: ${text}`);
 	}
 }
 
-async function addCustomLocale(
-	repo: string,
-	code: string,
-	name: string,
-	cookies: string[]
-): Promise<void> {
-	const url = new URL(`https://${repo}.prismic.io/app/settings/multilanguages/custom`);
-	const cookieHeader = cookies.join("; ");
+async function addCustomLocale(repo: string, code: string, name: string): Promise<void> {
+	const url = new URL("/app/settings/multilanguages/custom", await getRepoDashboardUrl(repo));
 
 	// Parse lang and region from code (e.g., "es-mx" -> lang: "es", region: "mx")
 	const [langPart, regionPart] = code.split("-");
 
-	const body = {
-		lang: {
-			label: name,
-			id: langPart || code,
-		},
-		region: {
-			label: name,
-			id: regionPart || langPart || code,
-		},
-	};
-
-	const response = await fetch(url, {
+	const response = await authenticatedFetch(url, {
 		method: "POST",
-		headers: {
-			Cookie: cookieHeader,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify(body),
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			lang: {
+				label: name,
+				id: langPart || code,
+			},
+			region: {
+				label: name,
+				id: regionPart || langPart || code,
+			},
+		}),
 	});
-
 	if (!response.ok) {
 		const text = await response.text();
 		// Treat "already existing languages" as success
-		if (response.status === 400 && text.includes("already existing languages")) {
-			return;
-		}
+		if (response.status === 400 && text.includes("already existing languages")) return;
 		throw new Error(`${response.status} ${response.statusText}: ${text}`);
 	}
 }

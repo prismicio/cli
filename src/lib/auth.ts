@@ -1,54 +1,73 @@
-import { readFile } from "node:fs/promises";
+import { access, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 
-export const PRISMIC_AUTH_FILE = new URL(".prismic", pathToFileURL(homedir() + "/"));
-export const PRISMIC_BASE_URL = "https://prismic.io";
+const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
+const DEFAULT_HOST = new URL("https://prismic.io");
 
-export interface Credentials {
-	base: string;
-	cookies: string[];
-	shortId?: string;
-	intercomHash?: string;
+type AuthContents = {
+	token?: string;
+	host?: string;
+};
+
+export async function authenticatedFetch(
+	...[input, init]: Parameters<typeof fetch>
+): Promise<Response> {
+	const request = new Request(input, init);
+	const token = await readToken();
+	if (token) request.headers.set("Cookie", `prismic-auth=${token}`);
+	return fetch(request);
 }
 
-export async function getCredentials(): Promise<Credentials | null> {
-	let contents: string;
+export async function saveToken(token: string, options?: { host?: string }): Promise<void> {
+	const contents: AuthContents = { token, host: options?.host };
+	await writeFile(AUTH_FILE_PATH, JSON.stringify(contents, null, 2));
+}
+
+export async function isAuthenticated(): Promise<boolean> {
+	const token = await readToken();
+	return Boolean(token);
+}
+
+export async function readToken(): Promise<string | undefined> {
+	const auth = await readAuthFile();
+	return auth?.token;
+}
+
+export async function readHost(): Promise<URL> {
 	try {
-		contents = await readFile(PRISMIC_AUTH_FILE, "utf-8");
+		const auth = await readAuthFile();
+		if (!auth?.host) return DEFAULT_HOST;
+		return new URL(auth.host);
 	} catch {
-		return null;
+		return DEFAULT_HOST;
 	}
+}
 
+async function readAuthFile(): Promise<AuthContents | undefined> {
 	try {
-		const data = JSON.parse(contents);
-		if (isValidCredentials(data)) {
-			return data;
-		}
-		return null;
+		const contents = await readFile(AUTH_FILE_PATH, "utf-8");
+		return JSON.parse(contents);
 	} catch {
-		return null;
+		return undefined;
 	}
 }
 
-function isValidCredentials(data: unknown): data is Credentials {
-	return (
-		typeof data === "object" &&
-		data !== null &&
-		"base" in data &&
-		typeof data.base === "string" &&
-		"cookies" in data &&
-		Array.isArray(data.cookies) &&
-		data.cookies.every((c: unknown) => typeof c === "string")
-	);
+export async function removeToken(): Promise<boolean> {
+	try {
+		await access(AUTH_FILE_PATH);
+	} catch {
+		return true;
+	}
+
+	const auth = await readAuthFile();
+	if (!auth) return false;
+	await rm(AUTH_FILE_PATH);
+	return true;
 }
 
-export function getCookieValue(cookies: string[], name: string): string | null {
-	for (const cookie of cookies) {
-		const [cookieName, ...rest] = cookie.split("=");
-		if (cookieName === name) {
-			return rest.join("=").split(";")[0];
-		}
-	}
-	return null;
+function appendTrailingSlash(url: string | URL) {
+	const newURL = new URL(url);
+	if (!newURL.pathname.endsWith("/")) newURL.pathname += "/";
+	return newURL;
 }

@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 
-import { getCredentials } from "./lib/auth";
+import { authenticatedFetch, isAuthenticated } from "./lib/auth";
+import { getInternalApiUrl } from "./lib/urls";
 
 export async function localeRemove(): Promise<void> {
 	const { values, positionals } = parseArgs({
@@ -13,7 +14,9 @@ export async function localeRemove(): Promise<void> {
 	});
 
 	if (values.help) {
-		console.info(`Usage: prismic locale remove <code> --repo <domain>
+		console.info(
+			`
+Usage: prismic locale remove <code> --repo <domain>
 
 Remove a locale from a Prismic repository.
 
@@ -22,7 +25,9 @@ Arguments:
 
 Options:
   -r, --repo   Repository domain (required)
-  -h, --help   Show this help message`);
+  -h, --help   Show this help message
+`.trim(),
+		);
 		return;
 	}
 
@@ -39,31 +44,20 @@ Options:
 		return;
 	}
 
-	const credentials = await getCredentials();
-
-	if (!credentials) {
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
 		console.error("Not logged in. Run `prismic login` first.");
 		process.exitCode = 1;
 		return;
 	}
 
-	const url = new URL(`https://api.internal.prismic.io/locale/repository/locales/${code}`);
+	const url = new URL(`/locale/repository/locales/${code}`, await getInternalApiUrl());
 	url.searchParams.set("repository", values.repo);
-	const cookieHeader = credentials.cookies.join("; ");
-
-	const response = await fetch(url, {
-		method: "DELETE",
-		headers: {
-			Cookie: cookieHeader,
-		},
-	});
-
+	const response = await authenticatedFetch(url, { method: "DELETE" });
 	if (!response.ok) {
 		const text = await response.text();
 		console.error(`Failed to remove locale: ${response.status} ${response.statusText}`);
-		if (text) {
-			console.error(text);
-		}
+		if (text) console.error(text);
 		process.exitCode = 1;
 		return;
 	}

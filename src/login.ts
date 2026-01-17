@@ -1,19 +1,10 @@
 import { exec } from "node:child_process";
-import { writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
-import { homedir } from "node:os";
-import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
-const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
-const PRISMIC_AUTH_FILE = new URL(".prismic", pathToFileURL(homedir()) + "/");
+import { saveToken } from "./lib/auth";
 
-interface PrismicCredentials {
-	base: string;
-	cookies: string;
-	shortId?: string;
-	intercomHash?: string;
-}
+const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 export async function login(): Promise<void> {
 	const { values } = parseArgs({
@@ -22,7 +13,14 @@ export async function login(): Promise<void> {
 	});
 
 	if (values.help) {
-		console.info("Usage: prismic login\n\nLog in to Prismic via browser.");
+		console.info(
+			`
+Usage: prismic login
+
+Log in to Prismic via browser.
+`.trim(),
+		);
+
 		return;
 	}
 
@@ -49,18 +47,25 @@ export async function login(): Promise<void> {
 
 				req.on("end", async () => {
 					try {
-						const data = JSON.parse(body);
+						const { cookies, email } = JSON.parse(body);
 
-						const credentials: PrismicCredentials = {
-							base: "https://prismic.io",
-							cookies: data.cookies,
-							shortId: data.shortId,
-							intercomHash: data.intercomHash,
-						};
+						const cookie: string | undefined = cookies.find((c: string) =>
+							c.startsWith("prismic-auth="),
+						);
+						const token = cookie?.split(";")[0]?.replace(/^prismic-auth=/, "");
 
-						await saveCredentials(credentials);
+						if (!token) {
+							res.writeHead(400, {
+								"Access-Control-Allow-Origin": "*",
+								"Content-Type": "application/json",
+							});
+							res.end(JSON.stringify({ error: "Invalid request" }));
+							return;
+						}
 
-						console.info(`Logged in to Prismic as ${data.email}`);
+						await saveToken(token);
+
+						console.info(`Logged in to Prismic as ${email}`);
 
 						res.writeHead(200, {
 							"Access-Control-Allow-Origin": "*",
@@ -116,10 +121,6 @@ export async function login(): Promise<void> {
 			reject(error);
 		});
 	});
-}
-
-async function saveCredentials(credentials: PrismicCredentials): Promise<void> {
-	await writeFile(PRISMIC_AUTH_FILE, JSON.stringify(credentials, null, 2));
 }
 
 function buildLoginUrl(port: number): URL {

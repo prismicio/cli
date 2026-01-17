@@ -1,6 +1,8 @@
 import { parseArgs } from "node:util";
 
-import { getCredentials, getCookieValue } from "./lib/auth";
+import { isAuthenticated, authenticatedFetch } from "./lib/auth";
+import { getInternalApiUrl } from "./lib/urls";
+import { getLocales } from "./locale-list";
 
 export async function localeSetDefault(): Promise<void> {
 	const { values, positionals } = parseArgs({
@@ -39,23 +41,15 @@ Options:
 		return;
 	}
 
-	const credentials = await getCredentials();
-
-	if (!credentials) {
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
 		console.error("Not logged in. Run `prismic login` first.");
 		process.exitCode = 1;
 		return;
 	}
 
-	const authToken = getCookieValue(credentials.cookies, "prismic-auth");
-	if (!authToken) {
-		console.error("Invalid credentials. Run `prismic login` first.");
-		process.exitCode = 1;
-		return;
-	}
-
 	try {
-		await setDefaultLocale(values.repo, code, credentials.cookies);
+		await setDefaultLocale(values.repo, code);
 		console.info(`Default locale set: ${code}`);
 	} catch (error) {
 		if (error instanceof Error) {
@@ -67,72 +61,32 @@ Options:
 	}
 }
 
-interface Locale {
-	id: string;
-	label: string;
-	customName: string | null;
-	isMaster: boolean;
-}
-
-async function getLocales(repo: string, cookies: string[]): Promise<Locale[]> {
-	const url = new URL("https://api.internal.prismic.io/locale/repository/locales");
-	url.searchParams.set("repository", repo);
-	const cookieHeader = cookies.join("; ");
-
-	const response = await fetch(url, {
-		method: "GET",
-		headers: {
-			Cookie: cookieHeader,
-		},
-	});
-
-	if (!response.ok) {
-		const text = await response.text();
-		throw new Error(`${response.status} ${response.statusText}: ${text}`);
-	}
-
-	const data = await response.json();
-
-	if (data.results && Array.isArray(data.results)) {
-		return data.results;
-	}
-
-	throw new Error(`Unexpected response format: ${JSON.stringify(data)}`);
-}
-
-async function setDefaultLocale(repo: string, code: string, cookies: string[]): Promise<void> {
+async function setDefaultLocale(repo: string, code: string): Promise<void> {
 	// First, get the existing locales to find the one we want to set as default
-	const locales = await getLocales(repo, cookies);
+	const locales = await getLocales(repo);
 	const locale = locales.find((l) => l.id === code);
-
 	if (!locale) {
-		throw new Error(`Locale "${code}" not found in repository. Available locales: ${locales.map((l) => l.id).join(", ")}`);
+		throw new Error(
+			`Locale "${code}" not found in repository. Available locales: ${locales.map((l) => l.id).join(", ")}`,
+		);
 	}
 
 	if (locale.isMaster) {
 		throw new Error(`Locale "${code}" is already the default.`);
 	}
 
-	const url = new URL("https://api.internal.prismic.io/locale/repository/locales");
+	const url = new URL("/locale/repository/locales", await getInternalApiUrl());
 	url.searchParams.set("repository", repo);
-	const cookieHeader = cookies.join("; ");
-
-	const body = {
-		id: locale.id,
-		label: locale.label,
-		customName: locale.customName,
-		isMaster: true,
-	};
-
-	const response = await fetch(url, {
+	const response = await authenticatedFetch(url, {
 		method: "POST",
-		headers: {
-			Cookie: cookieHeader,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify(body),
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			id: locale.id,
+			label: locale.label,
+			customName: locale.customName,
+			isMaster: true,
+		}),
 	});
-
 	if (!response.ok) {
 		const text = await response.text();
 		throw new Error(`${response.status} ${response.statusText}: ${text}`);
