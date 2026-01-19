@@ -2,6 +2,7 @@ import { parseArgs } from "node:util";
 import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
+import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getInternalApiUrl } from "./lib/url";
 import { type Locale, getLocales } from "./locale-list";
@@ -61,11 +62,11 @@ export async function localeSetDefault(): Promise<void> {
 			handleUnauthenticated();
 		} else if (v.isValiError(localesResponse.error)) {
 			console.error(
-				`Failed to set default locale: Invalid response: ${JSON.stringify(localesResponse.error.issues)}`,
+				`Failed to set default locale: Invalid response: ${stringify(localesResponse.error.issues)}`,
 			);
 			process.exitCode = 1;
 		} else {
-			console.error(`Failed to set default locale: ${localesResponse.value}`);
+			console.error(`Failed to set default locale: ${stringify(localesResponse.value)}`);
 			process.exitCode = 1;
 		}
 
@@ -93,7 +94,7 @@ export async function localeSetDefault(): Promise<void> {
 		if (response.error instanceof ForbiddenRequestError) {
 			handleUnauthenticated();
 		} else {
-			console.error(`Failed to set default locale: ${response.value}`);
+			console.error(`Failed to set default locale: ${stringify(response.value)}`);
 			process.exitCode = 1;
 		}
 		return;

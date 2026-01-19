@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
+import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 
@@ -71,7 +72,7 @@ export async function localeAdd(): Promise<void> {
 		if (response.error instanceof ForbiddenRequestError) {
 			handleUnauthenticated();
 		} else {
-			console.error(`Failed to add locale: ${response.value}`);
+			console.error(`Failed to add locale: ${stringify(response.value)}`);
 			process.exitCode = 1;
 		}
 

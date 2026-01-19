@@ -35,6 +35,9 @@ export async function request<T>(
 	if (!headers.has("Content-Type") && init.body) {
 		headers.set("Content-Type", "application/json");
 	}
+	if (init.body instanceof FormData) {
+		headers.delete("Content-Type");
+	}
 
 	const body =
 		headers.get("Content-Type") === "application/json"

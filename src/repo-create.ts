@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 
 import { isAuthenticated, readHost } from "./lib/auth";
+import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 
@@ -48,7 +49,7 @@ export async function repoCreate(): Promise<void> {
 		if (response.error instanceof ForbiddenRequestError) {
 			handleUnauthenticated();
 		} else {
-			console.error(`Failed to create repository: ${response.value}`);
+			console.error(`Failed to create repository: ${stringify(response.value)}`);
 			process.exitCode = 1;
 		}
 		return;

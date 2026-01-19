@@ -53,11 +53,11 @@ export async function localeList(): Promise<void> {
 			handleUnauthenticated();
 		} else if (v.isValiError(response.error)) {
 			console.error(
-				`Failed to list locales: Invalid response: ${JSON.stringify(response.error.issues)}`,
+				`Failed to list locales: Invalid response: ${stringify(response.error.issues)}`,
 			);
 			process.exitCode = 1;
 		} else {
-			console.error(`Failed to list locales: ${response.value}`);
+			console.error(`Failed to list locales: ${stringify(response.value)}`);
 			process.exitCode = 1;
 		}
 		return;

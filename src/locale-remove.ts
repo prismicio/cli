@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
+import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getInternalApiUrl } from "./lib/url";
 
@@ -58,7 +59,7 @@ export async function localeRemove(): Promise<void> {
 		if (response.error instanceof ForbiddenRequestError) {
 			handleUnauthenticated();
 		} else {
-			console.error(`Failed to remove locale: ${response.value}`);
+			console.error(`Failed to remove locale: ${stringify(response.value)}`);
 			process.exitCode = 1;
 		}
 		return;
