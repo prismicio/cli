@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 
 const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
-const DEFAULT_HOST = new URL("https://prismic.io");
+const DEFAULT_HOST = "https://prismic.io";
 
 type AuthContents = {
 	token?: string;
@@ -28,10 +28,10 @@ export async function readToken(): Promise<string | undefined> {
 export async function readHost(): Promise<URL> {
 	try {
 		const auth = await readAuthFile();
-		if (!auth?.host) return DEFAULT_HOST;
+		if (!auth?.host) return new URL(DEFAULT_HOST);
 		return new URL(auth.host);
 	} catch {
-		return DEFAULT_HOST;
+		return new URL(DEFAULT_HOST);
 	}
 }
 
