@@ -6,6 +6,7 @@ import { locale } from "./locale";
 import { login } from "./login";
 import { logout } from "./logout";
 import { repo } from "./repo";
+import { whoami } from "./whoami";
 
 const HELP = `
 Usage: prismic <command>
@@ -13,6 +14,7 @@ Usage: prismic <command>
 Commands:
   login              Log in to Prismic
   logout             Log out of Prismic
+  whoami             Show the currently logged in user
   repo               Manage Prismic repositories
   locale             Manage locales in a repository
 
@@ -32,6 +34,9 @@ switch (positionals[0]) {
 		break;
 	case "logout":
 		await logout();
+		break;
+	case "whoami":
+		await whoami();
 		break;
 	case "repo":
 		await repo();
