@@ -71,7 +71,7 @@ export async function request<T>(
 	}
 }
 
-class RequestError extends Error {
+export class RequestError extends Error {
 	name = "RequestError" as const;
 	response: Response;
 
@@ -80,25 +80,21 @@ class RequestError extends Error {
 		this.response = response;
 	}
 
-	async text() {
+	async text(): Promise<string> {
 		return this.response.clone().text();
 	}
 
-	async json() {
+	async json(): Promise<unknown> {
 		return this.response.clone().json();
 	}
 
-	get status() {
+	get status(): number {
 		return this.response.status;
 	}
 
-	get statusText() {
+	get statusText(): string {
 		return this.response.statusText;
 	}
 }
 
 export class ForbiddenRequestError extends RequestError {}
-
-export function isRequestError(error: unknown): error is RequestError {
-	return error instanceof RequestError;
-}

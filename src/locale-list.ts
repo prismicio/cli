@@ -4,7 +4,7 @@ import * as v from "valibot";
 import { isAuthenticated } from "./lib/auth";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, type ParsedRequestResponse, request } from "./lib/request";
-import { getInternalApiUrl } from "./lib/urls";
+import { getInternalApiUrl } from "./lib/url";
 
 const HELP = `
 Usage: prismic locale list --repo <domain>

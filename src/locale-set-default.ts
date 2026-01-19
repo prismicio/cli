@@ -3,7 +3,7 @@ import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
 import { ForbiddenRequestError, request } from "./lib/request";
-import { getInternalApiUrl } from "./lib/urls";
+import { getInternalApiUrl } from "./lib/url";
 import { type Locale, getLocales } from "./locale-list";
 
 const HELP = `

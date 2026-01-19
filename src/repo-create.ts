@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 
 import { isAuthenticated, readHost } from "./lib/auth";
 import { ForbiddenRequestError, request } from "./lib/request";
-import { getRepoDashboardUrl } from "./lib/urls";
+import { getRepoUrl } from "./lib/url";
 
 const HELP = `
 Usage: prismic repo create --name <name>
@@ -55,7 +55,7 @@ export async function repoCreate(): Promise<void> {
 	}
 
 	console.info(`Repository created: ${domain}`);
-	console.info(`URL: ${await getRepoDashboardUrl(domain)}`);
+	console.info(`URL: ${await getRepoUrl(domain)}`);
 }
 
 async function createRepository(domain: string) {

@@ -2,7 +2,7 @@ import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
 import { ForbiddenRequestError, request } from "./lib/request";
-import { getRepoDashboardUrl } from "./lib/urls";
+import { getRepoUrl } from "./lib/url";
 
 const HELP = `
 Usage: prismic locale add <code> --repo <domain> [--name "Display Name"]
@@ -82,7 +82,7 @@ export async function localeAdd(): Promise<void> {
 }
 
 async function addStandardLocale(repo: string, code: string) {
-	const url = new URL("/app/settings/multilanguages", await getRepoDashboardUrl(repo));
+	const url = new URL("/app/settings/multilanguages", await getRepoUrl(repo));
 	return await request(url, {
 		method: "POST",
 		body: { languages: [code] },
@@ -91,7 +91,7 @@ async function addStandardLocale(repo: string, code: string) {
 
 async function addCustomLocale(repo: string, code: string, name: string) {
 	const [langPart, regionPart] = code.split("-");
-	const url = new URL("/app/settings/multilanguages/custom", await getRepoDashboardUrl(repo));
+	const url = new URL("/app/settings/multilanguages/custom", await getRepoUrl(repo));
 	return await request(url, {
 		method: "POST",
 		body: {

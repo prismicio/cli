@@ -2,7 +2,7 @@ import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
 import { ForbiddenRequestError, request } from "./lib/request";
-import { getInternalApiUrl } from "./lib/urls";
+import { getInternalApiUrl } from "./lib/url";
 
 const HELP = `
 Usage: prismic locale remove <code> --repo <domain>
