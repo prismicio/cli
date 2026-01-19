@@ -6,6 +6,15 @@ import { saveToken } from "./lib/auth";
 
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
+const HELP = `
+Usage: prismic login
+
+Log in to Prismic via browser.
+
+Options:
+  -h, --help   Show this help message
+`.trim();
+
 export async function login(): Promise<void> {
 	const { values } = parseArgs({
 		args: process.argv.slice(3),
@@ -13,14 +22,7 @@ export async function login(): Promise<void> {
 	});
 
 	if (values.help) {
-		console.info(
-			`
-Usage: prismic login
-
-Log in to Prismic via browser.
-`.trim(),
-		);
-
+		console.info(HELP);
 		return;
 	}
 
@@ -127,7 +129,6 @@ function buildLoginUrl(port: number): URL {
 	const url = new URL(`https://prismic.io/dashboard/cli/login`);
 	url.searchParams.set("source", "slice-machine");
 	url.searchParams.set("port", port.toString());
-
 	return url;
 }
 

@@ -2,6 +2,15 @@ import { parseArgs } from "node:util";
 
 import { removeToken } from "./lib/auth";
 
+const HELP = `
+Usage: prismic logout
+
+Log out of Prismic.
+
+Options:
+  -h, --help   Show this help message
+`.trim();
+
 export async function logout(): Promise<void> {
 	const { values } = parseArgs({
 		args: process.argv.slice(3),
@@ -9,13 +18,7 @@ export async function logout(): Promise<void> {
 	});
 
 	if (values.help) {
-		console.info(
-			`
-Usage: prismic logout
-
-Log out of Prismic.
-`.trim(),
-		);
+		console.info(HELP);
 		return;
 	}
 

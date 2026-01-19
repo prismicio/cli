@@ -1,22 +1,10 @@
 import { parseArgs } from "node:util";
 
-import { authenticatedFetch, isAuthenticated } from "./lib/auth";
+import { isAuthenticated } from "./lib/auth";
+import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoDashboardUrl } from "./lib/urls";
 
-export async function localeAdd(): Promise<void> {
-	const { values, positionals } = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "locale", "add"
-		options: {
-			help: { type: "boolean", short: "h" },
-			repo: { type: "string", short: "r" },
-			name: { type: "string", short: "n" },
-		},
-		allowPositionals: true,
-	});
-
-	if (values.help) {
-		console.info(
-			`
+const HELP = `
 Usage: prismic locale add <code> --repo <domain> [--name "Display Name"]
 
 Add a new locale to a Prismic repository.
@@ -28,19 +16,34 @@ Options:
   -r, --repo   Repository domain (required)
   -n, --name   Custom display name (creates custom locale)
   -h, --help   Show this help message
-`.trim(),
-		);
+`.trim();
+
+export async function localeAdd(): Promise<void> {
+	const {
+		values: { help, name, repo },
+		positionals: [code],
+	} = parseArgs({
+		args: process.argv.slice(4), // skip: node, script, "locale", "add"
+		options: {
+			help: { type: "boolean", short: "h" },
+			repo: { type: "string", short: "r" },
+			name: { type: "string", short: "n" },
+		},
+		allowPositionals: true,
+	});
+
+	if (help) {
+		console.info(HELP);
 		return;
 	}
 
-	const code = positionals[0];
 	if (!code) {
 		console.error("Missing required argument: <code>");
 		process.exitCode = 1;
 		return;
 	}
 
-	if (!values.repo) {
+	if (!repo) {
 		console.error("Missing required option: --repo");
 		process.exitCode = 1;
 		return;
@@ -48,69 +51,57 @@ Options:
 
 	const authenticated = await isAuthenticated();
 	if (!authenticated) {
-		console.error("Not logged in. Run `prismic login` first.");
-		process.exitCode = 1;
+		handleUnauthenticated();
+
 		return;
 	}
 
-	try {
-		if (values.name) {
-			await addCustomLocale(values.repo, code, values.name);
-		} else {
-			await addStandardLocale(values.repo, code);
+	const response = name
+		? await addCustomLocale(repo, code, name)
+		: await addStandardLocale(repo, code);
+	if (!response.ok) {
+		if (
+			typeof response.value === "string" &&
+			response.value.includes("already existing languages")
+		) {
+			// Treat as success
+			return;
 		}
-		console.info(`Locale added: ${code}`);
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to add locale: ${error.message}`);
+
+		if (response.error instanceof ForbiddenRequestError) {
+			handleUnauthenticated();
 		} else {
-			console.error("Failed to add locale");
+			console.error(`Failed to add locale: ${response.value}`);
+			process.exitCode = 1;
 		}
-		process.exitCode = 1;
+
+		return;
 	}
+
+	console.info(`Locale added: ${code}`);
 }
 
-async function addStandardLocale(repo: string, code: string): Promise<void> {
+async function addStandardLocale(repo: string, code: string) {
 	const url = new URL("/app/settings/multilanguages", await getRepoDashboardUrl(repo));
-	const response = await authenticatedFetch(url, {
+	return await request(url, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			languages: [code],
-		}),
+		body: { languages: [code] },
 	});
-	if (!response.ok) {
-		const text = await response.text();
-		// Treat "already existing languages" as success
-		if (response.status === 400 && text.includes("already existing languages")) return;
-		throw new Error(`${response.status} ${response.statusText}: ${text}`);
-	}
 }
 
-async function addCustomLocale(repo: string, code: string, name: string): Promise<void> {
-	const url = new URL("/app/settings/multilanguages/custom", await getRepoDashboardUrl(repo));
-
-	// Parse lang and region from code (e.g., "es-mx" -> lang: "es", region: "mx")
+async function addCustomLocale(repo: string, code: string, name: string) {
 	const [langPart, regionPart] = code.split("-");
-
-	const response = await authenticatedFetch(url, {
+	const url = new URL("/app/settings/multilanguages/custom", await getRepoDashboardUrl(repo));
+	return await request(url, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			lang: {
-				label: name,
-				id: langPart || code,
-			},
-			region: {
-				label: name,
-				id: regionPart || langPart || code,
-			},
-		}),
+		body: {
+			lang: { label: name, id: langPart || code },
+			region: { label: name, id: regionPart || langPart || code },
+		},
 	});
-	if (!response.ok) {
-		const text = await response.text();
-		// Treat "already existing languages" as success
-		if (response.status === 400 && text.includes("already existing languages")) return;
-		throw new Error(`${response.status} ${response.statusText}: ${text}`);
-	}
+}
+
+function handleUnauthenticated(): void {
+	console.error("Not logged in. Run `prismic login` first.");
+	process.exitCode = 1;
 }

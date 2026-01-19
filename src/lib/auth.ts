@@ -10,15 +10,6 @@ type AuthContents = {
 	host?: string;
 };
 
-export async function authenticatedFetch(
-	...[input, init]: Parameters<typeof fetch>
-): Promise<Response> {
-	const request = new Request(input, init);
-	const token = await readToken();
-	if (token) request.headers.set("Cookie", `prismic-auth=${token}`);
-	return fetch(request);
-}
-
 export async function saveToken(token: string, options?: { host?: string }): Promise<void> {
 	const contents: AuthContents = { token, host: options?.host };
 	await writeFile(AUTH_FILE_PATH, JSON.stringify(contents, null, 2));

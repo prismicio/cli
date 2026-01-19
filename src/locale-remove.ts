@@ -1,21 +1,10 @@
 import { parseArgs } from "node:util";
 
-import { authenticatedFetch, isAuthenticated } from "./lib/auth";
+import { isAuthenticated } from "./lib/auth";
+import { ForbiddenRequestError, request } from "./lib/request";
 import { getInternalApiUrl } from "./lib/urls";
 
-export async function localeRemove(): Promise<void> {
-	const { values, positionals } = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "locale", "remove"
-		options: {
-			help: { type: "boolean", short: "h" },
-			repo: { type: "string", short: "r" },
-		},
-		allowPositionals: true,
-	});
-
-	if (values.help) {
-		console.info(
-			`
+const HELP = `
 Usage: prismic locale remove <code> --repo <domain>
 
 Remove a locale from a Prismic repository.
@@ -26,19 +15,33 @@ Arguments:
 Options:
   -r, --repo   Repository domain (required)
   -h, --help   Show this help message
-`.trim(),
-		);
+`.trim();
+
+export async function localeRemove(): Promise<void> {
+	const {
+		values: { repo, help },
+		positionals: [code],
+	} = parseArgs({
+		args: process.argv.slice(4), // skip: node, script, "locale", "remove"
+		options: {
+			help: { type: "boolean", short: "h" },
+			repo: { type: "string", short: "r" },
+		},
+		allowPositionals: true,
+	});
+
+	if (help) {
+		console.info(HELP);
 		return;
 	}
 
-	const code = positionals[0];
 	if (!code) {
 		console.error("Missing required argument: <code>");
 		process.exitCode = 1;
 		return;
 	}
 
-	if (!values.repo) {
+	if (!repo) {
 		console.error("Missing required option: --repo");
 		process.exitCode = 1;
 		return;
@@ -46,21 +49,31 @@ Options:
 
 	const authenticated = await isAuthenticated();
 	if (!authenticated) {
-		console.error("Not logged in. Run `prismic login` first.");
-		process.exitCode = 1;
+		handleUnauthenticated();
 		return;
 	}
 
-	const url = new URL(`/locale/repository/locales/${code}`, await getInternalApiUrl());
-	url.searchParams.set("repository", values.repo);
-	const response = await authenticatedFetch(url, { method: "DELETE" });
+	const response = await removeLocale(repo, code);
 	if (!response.ok) {
-		const text = await response.text();
-		console.error(`Failed to remove locale: ${response.status} ${response.statusText}`);
-		if (text) console.error(text);
-		process.exitCode = 1;
+		if (response.error instanceof ForbiddenRequestError) {
+			handleUnauthenticated();
+		} else {
+			console.error(`Failed to remove locale: ${response.value}`);
+			process.exitCode = 1;
+		}
 		return;
 	}
 
 	console.info(`Removed locale: ${code}`);
+}
+
+async function removeLocale(repository: string, code: string) {
+	const url = new URL(`/locale/repository/locales/${code}`, await getInternalApiUrl());
+	url.searchParams.set("repository", repository);
+	return await request(url, { method: "DELETE" });
+}
+
+function handleUnauthenticated() {
+	console.error("Not logged in. Run `prismic login` first.");
+	process.exitCode = 1;
 }

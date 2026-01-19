@@ -1,10 +1,26 @@
 import { parseArgs } from "node:util";
+import * as v from "valibot";
 
-import { authenticatedFetch, isAuthenticated } from "./lib/auth";
+import { isAuthenticated } from "./lib/auth";
+import { stringify } from "./lib/json";
+import { ForbiddenRequestError, type ParsedRequestResponse, request } from "./lib/request";
 import { getInternalApiUrl } from "./lib/urls";
 
+const HELP = `
+Usage: prismic locale list --repo <domain>
+
+List all locales in a Prismic repository.
+
+Options:
+  -r, --repo   Repository domain (required)
+      --json   Output as JSON
+  -h, --help   Show this help message
+`.trim();
+
 export async function localeList(): Promise<void> {
-	const { values } = parseArgs({
+	const {
+		values: { help, repo, json },
+	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "locale", "list"
 		options: {
 			help: { type: "boolean", short: "h" },
@@ -14,23 +30,12 @@ export async function localeList(): Promise<void> {
 		allowPositionals: false,
 	});
 
-	if (values.help) {
-		console.info(
-			`
-Usage: prismic locale list --repo <domain>
-
-List all locales in a Prismic repository.
-
-Options:
-  -r, --repo   Repository domain (required)
-      --json   Output as JSON
-  -h, --help   Show this help message
-`.trim(),
-		);
+	if (help) {
+		console.info(HELP);
 		return;
 	}
 
-	if (!values.repo) {
+	if (!repo) {
 		console.error("Missing required option: --repo");
 		process.exitCode = 1;
 		return;
@@ -38,52 +43,57 @@ Options:
 
 	const authenticated = await isAuthenticated();
 	if (!authenticated) {
-		console.error("Not logged in. Run `prismic login` first.");
-		process.exitCode = 1;
+		handleUnauthenticated();
 		return;
 	}
 
-	try {
-		const locales = await getLocales(values.repo);
+	const response = await getLocales(repo);
+	if (!response.ok) {
+		if (response.error instanceof ForbiddenRequestError) {
+			handleUnauthenticated();
+		} else if (v.isValiError(response.error)) {
+			console.error(
+				`Failed to list locales: Invalid response: ${JSON.stringify(response.error.issues)}`,
+			);
+			process.exitCode = 1;
+		} else {
+			console.error(`Failed to list locales: ${response.value}`);
+			process.exitCode = 1;
+		}
+		return;
+	}
 
-		if (values.json) {
-			console.info(JSON.stringify(locales, null, 2));
-		} else {
-			for (const locale of locales) {
-				const defaultLabel = locale.isMaster ? " (default)" : "";
-				console.info(`${locale.id}  ${locale.label}${defaultLabel}`);
-			}
+	const locales = response.value.results;
+	if (json) {
+		console.info(stringify(locales));
+	} else {
+		for (const locale of locales) {
+			const defaultLabel = locale.isMaster ? " (default)" : "";
+			console.info(`${locale.id}  ${locale.label}${defaultLabel}`);
 		}
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to list locales: ${error.message}`);
-		} else {
-			console.error("Failed to list locales");
-		}
-		process.exitCode = 1;
 	}
 }
 
-type Locale = {
-	id: string;
-	label: string;
-	customName: string | null;
-	isMaster: boolean;
-};
+const LocaleSchema = v.object({
+	id: v.string(),
+	label: v.string(),
+	customName: v.nullable(v.string()),
+	isMaster: v.boolean(),
+});
+export type Locale = v.InferOutput<typeof LocaleSchema>;
 
-export async function getLocales(repo: string): Promise<Locale[]> {
+const GetLocalesResponseSchema = v.object({
+	results: v.array(LocaleSchema),
+});
+type GetLocalesResponse = v.InferOutput<typeof GetLocalesResponseSchema>;
+
+export async function getLocales(repo: string): Promise<ParsedRequestResponse<GetLocalesResponse>> {
 	const url = new URL("/locale/repository/locales", await getInternalApiUrl());
 	url.searchParams.set("repository", repo);
-	const response = await authenticatedFetch(url, { method: "GET" });
-	if (!response.ok) {
-		const text = await response.text();
-		throw new Error(`${response.status} ${response.statusText}: ${text}`);
-	}
+	return await request(url, { schema: GetLocalesResponseSchema });
+}
 
-	const json = await response.json();
-	if (json.results && Array.isArray(json.results)) {
-		return json.results;
-	}
-
-	throw new Error(`Unexpected response format: ${JSON.stringify(json)}`);
+function handleUnauthenticated(): void {
+	console.error("Not logged in. Run `prismic login` first.");
+	process.exitCode = 1;
 }

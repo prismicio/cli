@@ -1,21 +1,13 @@
 import { parseArgs } from "node:util";
+import * as v from "valibot";
 
-import { isAuthenticated, authenticatedFetch } from "./lib/auth";
+import { isAuthenticated } from "./lib/auth";
+import { ForbiddenRequestError, request } from "./lib/request";
 import { getInternalApiUrl } from "./lib/urls";
-import { getLocales } from "./locale-list";
+import { type Locale, getLocales } from "./locale-list";
 
-export async function localeSetDefault(): Promise<void> {
-	const { values, positionals } = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "locale", "set-default"
-		options: {
-			help: { type: "boolean", short: "h" },
-			repo: { type: "string", short: "r" },
-		},
-		allowPositionals: true,
-	});
-
-	if (values.help) {
-		console.info(`Usage: prismic locale set-default <code> --repo <domain>
+const HELP = `
+Usage: prismic locale set-default <code> --repo <domain>
 
 Set the default locale for a Prismic repository.
 
@@ -24,18 +16,34 @@ Arguments:
 
 Options:
   -r, --repo   Repository domain (required)
-  -h, --help   Show this help message`);
+  -h, --help   Show this help message
+`.trim();
+
+export async function localeSetDefault(): Promise<void> {
+	const {
+		values: { help, repo },
+		positionals: [code],
+	} = parseArgs({
+		args: process.argv.slice(4), // skip: node, script, "locale", "set-default"
+		options: {
+			help: { type: "boolean", short: "h" },
+			repo: { type: "string", short: "r" },
+		},
+		allowPositionals: true,
+	});
+
+	if (help) {
+		console.info(HELP);
 		return;
 	}
 
-	const code = positionals[0];
 	if (!code) {
 		console.error("Missing required argument: <code>");
 		process.exitCode = 1;
 		return;
 	}
 
-	if (!values.repo) {
+	if (!repo) {
 		console.error("Missing required option: --repo");
 		process.exitCode = 1;
 		return;
@@ -43,52 +51,72 @@ Options:
 
 	const authenticated = await isAuthenticated();
 	if (!authenticated) {
-		console.error("Not logged in. Run `prismic login` first.");
+		handleUnauthenticated();
+		return;
+	}
+
+	const localesResponse = await getLocales(repo);
+	if (!localesResponse.ok) {
+		if (localesResponse.error instanceof ForbiddenRequestError) {
+			handleUnauthenticated();
+		} else if (v.isValiError(localesResponse.error)) {
+			console.error(
+				`Failed to set default locale: Invalid response: ${JSON.stringify(localesResponse.error.issues)}`,
+			);
+			process.exitCode = 1;
+		} else {
+			console.error(`Failed to set default locale: ${localesResponse.value}`);
+			process.exitCode = 1;
+		}
+
+		return;
+	}
+
+	const locales = localesResponse.value.results;
+	const locale = locales.find((l) => l.id === code);
+	if (!locale) {
+		console.error(
+			`Locale "${code}" not found in repository. Available locales: ${locales.map((l) => l.id).join(", ")}`,
+		);
 		process.exitCode = 1;
 		return;
 	}
 
-	try {
-		await setDefaultLocale(values.repo, code);
-		console.info(`Default locale set: ${code}`);
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to set default locale: ${error.message}`);
-		} else {
-			console.error("Failed to set default locale");
-		}
+	if (locale.isMaster) {
+		console.error(`Locale "${code}" is already the default.`);
 		process.exitCode = 1;
+		return;
 	}
+
+	const response = await setDefaultLocale(repo, locale);
+	if (!response.ok) {
+		if (response.error instanceof ForbiddenRequestError) {
+			handleUnauthenticated();
+		} else {
+			console.error(`Failed to set default locale: ${response.value}`);
+			process.exitCode = 1;
+		}
+		return;
+	}
+
+	console.info(`Default locale set: ${code}`);
 }
 
-async function setDefaultLocale(repo: string, code: string): Promise<void> {
-	// First, get the existing locales to find the one we want to set as default
-	const locales = await getLocales(repo);
-	const locale = locales.find((l) => l.id === code);
-	if (!locale) {
-		throw new Error(
-			`Locale "${code}" not found in repository. Available locales: ${locales.map((l) => l.id).join(", ")}`,
-		);
-	}
-
-	if (locale.isMaster) {
-		throw new Error(`Locale "${code}" is already the default.`);
-	}
-
+async function setDefaultLocale(repo: string, locale: Locale) {
 	const url = new URL("/locale/repository/locales", await getInternalApiUrl());
 	url.searchParams.set("repository", repo);
-	const response = await authenticatedFetch(url, {
+	return await request(url, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
+		body: {
 			id: locale.id,
 			label: locale.label,
 			customName: locale.customName,
 			isMaster: true,
-		}),
+		},
 	});
-	if (!response.ok) {
-		const text = await response.text();
-		throw new Error(`${response.status} ${response.statusText}: ${text}`);
-	}
+}
+
+function handleUnauthenticated(): void {
+	console.error("Not logged in. Run `prismic login` first.");
+	process.exitCode = 1;
 }
