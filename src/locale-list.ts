@@ -93,7 +93,7 @@ export async function getLocales(repo: string): Promise<ParsedRequestResponse<Ge
 	return await request(url, { schema: GetLocalesResponseSchema });
 }
 
-function handleUnauthenticated(): void {
+function handleUnauthenticated() {
 	console.error("Not logged in. Run `prismic login` first.");
 	process.exitCode = 1;
 }

@@ -1,6 +1,5 @@
 import { exec } from "node:child_process";
 import { parseArgs } from "node:util";
-
 import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
@@ -95,16 +94,12 @@ async function fetchProfile(): ReturnType<typeof request<v.InferOutput<typeof Pr
 
 function openInBrowser(url: string): void {
 	const cmd =
-		process.platform === "darwin"
-			? "open"
-			: process.platform === "win32"
-				? "start"
-				: "xdg-open";
+		process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
 
 	exec(`${cmd} "${url}"`);
 }
 
-function handleUnauthenticated(): void {
+function handleUnauthenticated() {
 	console.error("Not logged in. Run `prismic login` first.");
 	process.exitCode = 1;
 }

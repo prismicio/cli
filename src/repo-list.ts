@@ -1,5 +1,4 @@
 import { parseArgs } from "node:util";
-
 import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
@@ -91,7 +90,7 @@ async function fetchProfile(): ReturnType<typeof request<v.InferOutput<typeof Pr
 	return await request(url, { schema: ProfileSchema });
 }
 
-function handleUnauthenticated(): void {
+function handleUnauthenticated() {
 	console.error("Not logged in. Run `prismic login` first.");
 	process.exitCode = 1;
 }

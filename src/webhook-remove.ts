@@ -4,27 +4,27 @@ import { isAuthenticated } from "./lib/auth";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
-import { getPreviews } from "./preview-list";
+import { getWebhooks } from "./webhook-view";
 
 const HELP = `
-Usage: prismic preview remove <url> --repo <domain>
+Usage: prismic webhook remove <url> --repo <domain>
 
-Remove a preview configuration from a Prismic repository.
+Delete a webhook from a Prismic repository.
 
 Arguments:
-  <url>        Preview URL to remove
+  <url>          Webhook URL
 
 Options:
-  -r, --repo   Repository domain (required)
-  -h, --help   Show this help message
+  -r, --repo     Repository domain (required)
+  -h, --help     Show this help message
 `.trim();
 
-export async function previewRemove(): Promise<void> {
+export async function webhookRemove(): Promise<void> {
 	const {
 		values: { help, repo },
-		positionals: [previewUrl],
+		positionals: [webhookUrl],
 	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "preview", "remove"
+		args: process.argv.slice(4), // skip: node, script, "webhook", "remove"
 		options: {
 			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
@@ -37,7 +37,7 @@ export async function previewRemove(): Promise<void> {
 		return;
 	}
 
-	if (!previewUrl) {
+	if (!webhookUrl) {
 		console.error("Missing required argument: <url>");
 		process.exitCode = 1;
 		return;
@@ -55,44 +55,41 @@ export async function previewRemove(): Promise<void> {
 		return;
 	}
 
-	const previewsResponse = await getPreviews(repo);
-	if (!previewsResponse.ok) {
-		if (previewsResponse.error instanceof ForbiddenRequestError) {
+	const webhooksResponse = await getWebhooks(repo);
+	if (!webhooksResponse.ok) {
+		if (webhooksResponse.error instanceof ForbiddenRequestError) {
 			handleUnauthenticated();
 		} else {
-			console.error(`Failed to fetch previews: ${stringify(previewsResponse.value)}`);
+			console.error(`Failed to remove webhook: ${stringify(webhooksResponse.value)}`);
 			process.exitCode = 1;
 		}
 		return;
 	}
 
-	const preview = previewsResponse.value.results.find((p) => p.url === previewUrl);
-	if (!preview) {
-		console.error(`Preview not found: ${previewUrl}`);
+	const webhook = webhooksResponse.value.find((w) => w.config.url === webhookUrl);
+	if (!webhook) {
+		console.error(`Webhook not found: ${webhookUrl}`);
 		process.exitCode = 1;
 		return;
 	}
 
-	const response = await removePreview(repo, preview.id);
+	const response = await deleteWebhook(repo, webhook.config._id);
 	if (!response.ok) {
 		if (response.error instanceof ForbiddenRequestError) {
 			handleUnauthenticated();
 		} else {
-			console.error(`Failed to remove preview: ${stringify(response.value)}`);
+			console.error(`Failed to remove webhook: ${stringify(response.value)}`);
 			process.exitCode = 1;
 		}
 		return;
 	}
 
-	console.info(`Preview removed: ${previewUrl}`);
+	console.info(`Webhook removed: ${webhookUrl}`);
 }
 
-async function removePreview(repo: string, id: string) {
-	const url = new URL(`/previews/delete/${id}`, await getRepoUrl(repo));
-	return await request(url, {
-		method: "POST",
-		body: {},
-	});
+async function deleteWebhook(repo: string, webhookId: string) {
+	const url = new URL(`/app/settings/webhooks/${webhookId}/delete`, await getRepoUrl(repo));
+	return await request(url, { method: "POST" });
 }
 
 function handleUnauthenticated() {

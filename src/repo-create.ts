@@ -86,7 +86,7 @@ function toKebabCase(str: string): string {
 		.replace(/^-+|-+$/g, "");
 }
 
-function handleUnauthenticated(): void {
+function handleUnauthenticated() {
 	console.error("Not logged in. Run `prismic login` first.");
 	process.exitCode = 1;
 }

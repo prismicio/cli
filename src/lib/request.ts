@@ -6,11 +6,18 @@ type CustomRequestInit = Omit<RequestInit, "body"> & {
 	body?: RequestInit["body"] | Record<PropertyKey, unknown>;
 };
 
-export type RequestResponse<T> =
-	| { ok: true; value: T }
-	| { ok: false; value: unknown; error: RequestError | ForbiddenRequestError };
+export type RequestResponse<T> = SuccessfulRequestResponse<T> | FailedRequestResponse;
 export type ParsedRequestResponse<T> =
 	| RequestResponse<T>
+	| { ok: false; value: unknown; error: v.ValiError<v.GenericSchema<T>> };
+export type SuccessfulRequestResponse<T> = { ok: true; value: T };
+export type FailedRequestResponse = {
+	ok: false;
+	value: unknown;
+	error: RequestError | ForbiddenRequestError;
+};
+export type FailedParsedRequestResponse<T> =
+	| FailedRequestResponse
 	| { ok: false; value: unknown; error: v.ValiError<v.GenericSchema<T>> };
 
 export async function request<T>(

@@ -112,7 +112,7 @@ async function addPreview(
 	});
 }
 
-function handleUnauthenticated(): void {
+function handleUnauthenticated() {
 	console.error("Not logged in. Run `prismic login` first.");
 	process.exitCode = 1;
 }

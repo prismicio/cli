@@ -7,6 +7,7 @@ import { login } from "./login";
 import { logout } from "./logout";
 import { preview } from "./preview";
 import { repo } from "./repo";
+import { webhook } from "./webhook";
 import { whoami } from "./whoami";
 
 const HELP = `
@@ -19,6 +20,7 @@ Commands:
   repo               Manage Prismic repositories
   locale             Manage locales in a repository
   preview            Manage preview configurations
+  webhook            Manage webhooks in a repository
 
 Options:
   -h, --help   Show this help message
@@ -48,6 +50,9 @@ switch (positionals[0]) {
 		break;
 	case "preview":
 		await preview();
+		break;
+	case "webhook":
+		await webhook();
 		break;
 	default: {
 		if (positionals[0]) {

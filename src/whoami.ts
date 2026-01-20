@@ -47,16 +47,12 @@ export async function whoami(): Promise<void> {
 	console.info(response.value.email);
 }
 
-const ProfileSchema = v.object({
-	email: v.string(),
-});
-
 async function getProfile() {
 	const url = new URL("profile", await getUserServiceUrl());
-	return await request(url, { schema: ProfileSchema });
+	return await request(url, { schema: v.object({ email: v.string() }) });
 }
 
-function handleUnauthenticated(): void {
+function handleUnauthenticated() {
 	console.error("Not logged in. Run `prismic login` first.");
 	process.exitCode = 1;
 }

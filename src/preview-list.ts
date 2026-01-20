@@ -85,12 +85,14 @@ const GetPreviewsResponseSchema = v.object({
 });
 type GetPreviewsResponse = v.InferOutput<typeof GetPreviewsResponseSchema>;
 
-export async function getPreviews(repo: string): Promise<ParsedRequestResponse<GetPreviewsResponse>> {
+export async function getPreviews(
+	repo: string,
+): Promise<ParsedRequestResponse<GetPreviewsResponse>> {
 	const url = new URL("/core/repository/preview_configs", await getRepoUrl(repo));
 	return await request(url, { schema: GetPreviewsResponseSchema });
 }
 
-function handleUnauthenticated(): void {
+function handleUnauthenticated() {
 	console.error("Not logged in. Run `prismic login` first.");
 	process.exitCode = 1;
 }
