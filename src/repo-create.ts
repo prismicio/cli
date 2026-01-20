@@ -1,7 +1,7 @@
-import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 
 import { isAuthenticated, readHost } from "./lib/auth";
+import { createConfig, readConfig, updateConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
@@ -10,32 +10,55 @@ const HELP = `
 Create a new Prismic repository.
 
 USAGE
-  prismic repo create [flags]
+  prismic repo create <domain> [flags]
+
+ARGUMENTS
+  domain   Repository domain (required). Must be at least 4 characters,
+           start and end with alphanumeric, and contain only alphanumerics and hyphens.
 
 FLAGS
-  -n, --name string   Repository name (required)
+  -n, --name string   Display name for the repository (defaults to domain)
+      --no-config     Skip creating or updating prismic.config.json
+      --replace       Replace existing repositoryName in prismic.config.json
   -h, --help          Show help for command
 
 LEARN MORE
   Use \`prismic repo <command> --help\` for more information about a command.
 `.trim();
 
+const DOMAIN_REGEX = /^[a-zA-Z0-9][-a-zA-Z0-9]{2,}[a-zA-Z0-9]$/;
+
 export async function repoCreate(): Promise<void> {
-	const { values } = parseArgs({
+	const {
+		values: { help, name, "no-config": noConfig, replace },
+		positionals: [domain],
+	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "repo", "create"
 		options: {
 			help: { type: "boolean", short: "h" },
 			name: { type: "string", short: "n" },
+			"no-config": { type: "boolean" },
+			replace: { type: "boolean" },
 		},
+		allowPositionals: true,
 	});
 
-	if (values.help) {
+	if (help) {
 		console.info(HELP);
 		return;
 	}
 
-	if (!values.name) {
-		console.error("Missing required option: --name");
+	if (!domain) {
+		console.error("Missing required argument: domain");
+		process.exitCode = 1;
+		return;
+	}
+
+	if (!DOMAIN_REGEX.test(domain)) {
+		console.error("Invalid domain format.");
+		console.error(
+			"Must be at least 4 characters, start and end with alphanumeric, and contain only alphanumerics and hyphens.",
+		);
 		process.exitCode = 1;
 		return;
 	}
@@ -46,48 +69,55 @@ export async function repoCreate(): Promise<void> {
 		return;
 	}
 
-	const domain = toDomain(values.name);
+	// Check existing config before repo creation (unless --no-config)
+	const existingConfig = await readConfig();
+	if (!noConfig && existingConfig.ok && !replace) {
+		console.error(`This project already has a repository: ${existingConfig.config.repositoryName}`);
+		console.error("Use --replace to replace it, or --no-config to skip config creation.");
+		process.exitCode = 1;
+		return;
+	}
 
-	const response = await createRepository(domain);
+	const response = await createRepository(domain, name);
 	if (!response.ok) {
 		if (response.error instanceof ForbiddenRequestError) {
 			handleUnauthenticated();
 		} else {
-			console.error(`Failed to create repository: ${stringify(response.value)}`);
+			console.error(`Failed to create repository: ${stringify(response.error)}`);
 			process.exitCode = 1;
 		}
 		return;
+	}
+
+	// Create or update config after successful repo creation
+	if (!noConfig) {
+		if (existingConfig.ok) {
+			await updateConfig({ repositoryName: domain });
+		} else {
+			const result = await createConfig({ repositoryName: domain });
+			if (!result.ok) {
+				console.warn("Could not create prismic.config.json: " + result.error.message);
+			}
+		}
 	}
 
 	console.info(`Repository created: ${domain}`);
 	console.info(`URL: ${await getRepoUrl(domain)}`);
 }
 
-async function createRepository(domain: string) {
+async function createRepository(domain: string, name = domain) {
 	const url = new URL("/app/dashboard/repositories", await readHost());
 	return await request(url, {
 		method: "POST",
 		body: {
 			domain,
+			name,
 			framework: "next",
 			plan: "personal",
 			usageIntent: "Exploring Prismic's features for future projects.",
 			usageIntentIndex: 0,
 		},
 	});
-}
-
-function toDomain(name: string): string {
-	const kebab = toKebabCase(name);
-	const suffix = randomBytes(4).toString("hex");
-	return `${kebab}-${suffix}`;
-}
-
-function toKebabCase(str: string): string {
-	return str
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "");
 }
 
 function handleUnauthenticated() {
