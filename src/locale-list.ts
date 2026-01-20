@@ -17,8 +17,8 @@ USAGE
   prismic locale list [flags]
 
 FLAGS
-  -r, --repo string   Repository domain
       --json          Output as JSON
+  -r, --repo string   Repository domain
   -h, --help          Show help for command
 
 LEARN MORE
@@ -31,9 +31,9 @@ export async function localeList(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "locale", "list"
 		options: {
-			help: { type: "boolean", short: "h" },
-			repo: { type: "string", short: "r" },
 			json: { type: "boolean" },
+			repo: { type: "string", short: "r" },
+			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: false,
 	});

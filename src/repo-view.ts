@@ -18,8 +18,8 @@ USAGE
   prismic repo view [flags]
 
 FLAGS
+  -w, --web           Open repository in browser
   -r, --repo string   Repository domain
-      --web           Open repository in browser
   -h, --help          Show help for command
 
 LEARN MORE
@@ -41,9 +41,9 @@ export async function repoView(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "repo", "view"
 		options: {
-			help: { type: "boolean", short: "h" },
+			web: { type: "boolean", short: "w" },
 			repo: { type: "string", short: "r" },
-			web: { type: "boolean" },
+			help: { type: "boolean", short: "h" },
 		},
 	});
 

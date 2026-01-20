@@ -34,8 +34,8 @@ export async function webhookDisable(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "disable"
 		options: {
-			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
+			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});

@@ -20,10 +20,10 @@ ARGUMENTS
   <url>   Webhook URL to receive events
 
 FLAGS
-  -r, --repo string      Repository domain
   -n, --name string      Webhook name
   -s, --secret string    Secret for webhook signature
   -t, --trigger string   Trigger events (can be repeated)
+  -r, --repo string      Repository domain
   -h, --help             Show help for command
 
 TRIGGERS
@@ -49,11 +49,11 @@ export async function webhookCreate(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "create"
 		options: {
-			help: { type: "boolean", short: "h" },
-			repo: { type: "string", short: "r" },
 			name: { type: "string", short: "n" },
 			secret: { type: "string", short: "s" },
 			trigger: { type: "string", multiple: true, short: "t" },
+			repo: { type: "string", short: "r" },
+			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});

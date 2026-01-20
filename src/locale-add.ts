@@ -34,9 +34,9 @@ export async function localeAdd(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "locale", "add"
 		options: {
-			help: { type: "boolean", short: "h" },
-			repo: { type: "string", short: "r" },
 			name: { type: "string", short: "n" },
+			repo: { type: "string", short: "r" },
+			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});

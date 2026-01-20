@@ -35,8 +35,8 @@ export async function localeSetDefault(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "locale", "set-default"
 		options: {
-			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
+			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});

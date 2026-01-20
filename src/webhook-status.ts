@@ -33,8 +33,8 @@ export async function webhookStatus(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "status"
 		options: {
-			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
+			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});

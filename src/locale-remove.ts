@@ -33,8 +33,8 @@ export async function localeRemove(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "locale", "remove"
 		options: {
-			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
+			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});

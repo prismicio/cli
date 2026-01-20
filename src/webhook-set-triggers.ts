@@ -20,8 +20,8 @@ ARGUMENTS
   <url>   Webhook URL
 
 FLAGS
-  -r, --repo string      Repository domain
   -t, --trigger string   Trigger events (can be repeated, at least one required)
+  -r, --repo string      Repository domain
   -h, --help             Show help for command
 
 TRIGGERS
@@ -45,9 +45,9 @@ export async function webhookSetTriggers(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "set-triggers"
 		options: {
-			help: { type: "boolean", short: "h" },
-			repo: { type: "string", short: "r" },
 			trigger: { type: "string", multiple: true, short: "t" },
+			repo: { type: "string", short: "r" },
+			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});

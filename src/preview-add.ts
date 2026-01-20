@@ -19,8 +19,8 @@ ARGUMENTS
   <url>   Preview URL (e.g. https://example.com/api/preview)
 
 FLAGS
-  -r, --repo string   Repository domain
   -n, --name string   Display name (defaults to hostname)
+  -r, --repo string   Repository domain
   -h, --help          Show help for command
 
 LEARN MORE
@@ -34,9 +34,9 @@ export async function previewAdd(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "preview", "add"
 		options: {
-			help: { type: "boolean", short: "h" },
-			repo: { type: "string", short: "r" },
 			name: { type: "string", short: "n" },
+			repo: { type: "string", short: "r" },
+			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});

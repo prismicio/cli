@@ -34,8 +34,8 @@ export async function previewRemove(): Promise<void> {
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "preview", "remove"
 		options: {
-			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
+			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});
