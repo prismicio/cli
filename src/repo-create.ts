@@ -9,6 +9,9 @@ import { getRepoUrl } from "./lib/url";
 const HELP = `
 Create a new Prismic repository.
 
+Creates prismic.config.json in the current directory. If a config file already
+exists, use --replace to update it with the new repository.
+
 USAGE
   prismic repo create <domain> [flags]
 
@@ -92,10 +95,17 @@ export async function repoCreate(): Promise<void> {
 	// Create or update config after successful repo creation
 	if (!noConfig) {
 		if (existingConfig.ok) {
-			await updateConfig({ repositoryName: domain });
+			const result = await updateConfig({ repositoryName: domain });
+			if (result.ok) {
+				console.info("Updated prismic.config.json");
+			} else {
+				console.warn("Could not update prismic.config.json: " + result.error.message);
+			}
 		} else {
 			const result = await createConfig({ repositoryName: domain });
-			if (!result.ok) {
+			if (result.ok) {
+				console.info("Created prismic.config.json");
+			} else {
 				console.warn("Could not create prismic.config.json: " + result.error.message);
 			}
 		}
