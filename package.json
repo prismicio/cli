@@ -1,6 +1,7 @@
 {
 	"name": "prismic-cli-poc",
 	"version": "0.0.0",
+	"private": true,
 	"description": "A proof-of-concept developer CLI for Prismic.",
 	"keywords": [
 		"prismic",

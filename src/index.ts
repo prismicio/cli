@@ -7,6 +7,7 @@ import { login } from "./login";
 import { logout } from "./logout";
 import { preview } from "./preview";
 import { repo } from "./repo";
+import { token } from "./token";
 import { webhook } from "./webhook";
 import { whoami } from "./whoami";
 
@@ -23,6 +24,7 @@ COMMANDS
   repo      Manage Prismic repositories
   locale    Manage locales in a repository
   preview   Manage preview configurations
+  token     Manage API tokens in a repository
   webhook   Manage webhooks in a repository
 
 FLAGS
@@ -56,6 +58,9 @@ switch (positionals[0]) {
 		break;
 	case "preview":
 		await preview();
+		break;
+	case "token":
+		await token();
 		break;
 	case "webhook":
 		await webhook();

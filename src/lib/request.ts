@@ -14,7 +14,7 @@ export type SuccessfulRequestResponse<T> = { ok: true; value: T };
 export type FailedRequestResponse = {
 	ok: false;
 	value: unknown;
-	error: RequestError | ForbiddenRequestError;
+	error: RequestError | ForbiddenRequestError | UnauthorizedRequestError;
 };
 export type FailedParsedRequestResponse<T> =
 	| FailedRequestResponse
@@ -35,9 +35,10 @@ export async function request<T>(
 	const { credentials = "include" } = init;
 
 	const headers = new Headers(init.headers);
+	headers.set("Accept", "application/json");
 	if (credentials === "include") {
 		const token = await readToken();
-		if (token) headers.set("Cookie", `prismic-auth=${token}`);
+		if (token) headers.set("Cookie", `SESSION=fake_session; prismic-auth=${token}`);
 	}
 	if (!headers.has("Content-Type") && init.body) {
 		headers.set("Content-Type", "application/json");
@@ -71,7 +72,10 @@ export async function request<T>(
 			throw error;
 		}
 	} else {
-		if (response.status === 403) {
+		if (response.status === 401) {
+			const error = new UnauthorizedRequestError(response);
+			return { ok: false, value, error };
+		} else if (response.status === 403) {
 			const error = new ForbiddenRequestError(response);
 			return { ok: false, value, error };
 		} else {
@@ -108,3 +112,5 @@ export class RequestError extends Error {
 }
 
 export class ForbiddenRequestError extends RequestError {}
+
+export class UnauthorizedRequestError extends RequestError {}
