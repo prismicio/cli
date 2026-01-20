@@ -2,26 +2,34 @@ import { parseArgs } from "node:util";
 import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 
 const HELP = `
-Usage: prismic repo set-name <name> --repo <domain>
-
 Set the display name of a Prismic repository.
 
-Arguments:
-  <name>       The new display name for the repository
+By default, this command reads the repository from prismic.config.json at the
+project root.
 
-Options:
-  -r, --repo   Repository domain (required)
-  -h, --help   Show this help message
+USAGE
+  prismic repo set-name <name> [flags]
+
+ARGUMENTS
+  <name>   The new display name for the repository
+
+FLAGS
+  -r, --repo string   Repository domain
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 export async function repoSetName(): Promise<void> {
 	const {
-		values: { help, repo },
+		values: { help, repo = await safeGetRepositoryFromConfig() },
 		positionals: [displayName],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "repo", "set-name"
@@ -44,7 +52,7 @@ export async function repoSetName(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

@@ -1,27 +1,35 @@
 import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 
 const HELP = `
-Usage: prismic preview add <url> --repo <domain> [--name "Name"]
-
 Add a preview configuration to a Prismic repository.
 
-Arguments:
-  <url>        Preview URL (e.g., https://example.com/api/preview)
+By default, this command reads the repository from prismic.config.json at the
+project root.
 
-Options:
-  -r, --repo   Repository domain (required)
-  -n, --name   Display name (defaults to hostname)
-  -h, --help   Show this help message
+USAGE
+  prismic preview add <url> [flags]
+
+ARGUMENTS
+  <url>   Preview URL (e.g. https://example.com/api/preview)
+
+FLAGS
+  -r, --repo string   Repository domain
+  -n, --name string   Display name (defaults to hostname)
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 export async function previewAdd(): Promise<void> {
 	const {
-		values: { help, name, repo },
+		values: { help, name, repo = await safeGetRepositoryFromConfig() },
 		positionals: [previewUrl],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "preview", "add"
@@ -45,7 +53,7 @@ export async function previewAdd(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

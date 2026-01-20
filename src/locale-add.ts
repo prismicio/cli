@@ -1,27 +1,35 @@
 import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 
 const HELP = `
-Usage: prismic locale add <code> --repo <domain> [--name "Display Name"]
-
 Add a new locale to a Prismic repository.
 
-Arguments:
-  <code>     Locale code (e.g., fr-fr, es-es)
+By default, this command reads the repository from prismic.config.json at the
+project root.
 
-Options:
-  -r, --repo   Repository domain (required)
-  -n, --name   Custom display name (creates custom locale)
-  -h, --help   Show this help message
+USAGE
+  prismic locale add <code> [flags]
+
+ARGUMENTS
+  <code>   Locale code (e.g. fr-fr, es-es)
+
+FLAGS
+  -n, --name string   Custom display name (creates custom locale)
+  -r, --repo string   Repository domain
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 export async function localeAdd(): Promise<void> {
 	const {
-		values: { help, name, repo },
+		values: { help, name, repo = await safeGetRepositoryFromConfig() },
 		positionals: [code],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "locale", "add"
@@ -45,7 +53,7 @@ export async function localeAdd(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

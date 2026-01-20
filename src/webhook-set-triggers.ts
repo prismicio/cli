@@ -1,38 +1,46 @@
 import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError } from "./lib/request";
 import { updateWebhook } from "./webhook-enable";
 import { getWebhooks, TRIGGER_DISPLAY } from "./webhook-view";
 
 const HELP = `
-Usage: prismic webhook set-triggers <url> --repo <domain> --trigger <event> [--trigger <event>...]
-
 Update which events trigger a webhook.
 
-Arguments:
-  <url>          Webhook URL
+By default, this command reads the repository from prismic.config.json at the
+project root.
 
-Options:
-  -r, --repo     Repository domain (required)
-  -t, --trigger  Trigger events (can be repeated, at least one required)
-  -h, --help     Show this help message
+USAGE
+  prismic webhook set-triggers <url> [flags]
 
-Available triggers:
+ARGUMENTS
+  <url>   Webhook URL
+
+FLAGS
+  -r, --repo string      Repository domain
+  -t, --trigger string   Trigger events (can be repeated, at least one required)
+  -h, --help             Show help for command
+
+TRIGGERS
   document.published    When documents are published
   document.unpublished  When documents are unpublished
   release.created       When a release is created
   release.updated       When a release is edited or deleted
   tag.created           When a tag is created
   tag.deleted           When a tag is deleted
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 const VALID_TRIGGERS = Object.values(TRIGGER_DISPLAY);
 
 export async function webhookSetTriggers(): Promise<void> {
 	const {
-		values: { help, repo, trigger },
+		values: { help, repo = await safeGetRepositoryFromConfig(), trigger },
 		positionals: [webhookUrl],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "set-triggers"
@@ -56,7 +64,7 @@ export async function webhookSetTriggers(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

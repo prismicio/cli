@@ -3,12 +3,16 @@ import { parseArgs } from "node:util";
 import { removeToken } from "./lib/auth";
 
 const HELP = `
-Usage: prismic logout
-
 Log out of Prismic.
 
-Options:
-  -h, --help   Show this help message
+USAGE
+  prismic logout [flags]
+
+FLAGS
+  -h, --help   Show help for command
+
+LEARN MORE
+  Use \`prismic <command> --help\` for more information about a command.
 `.trim();
 
 export async function logout(): Promise<void> {

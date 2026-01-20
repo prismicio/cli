@@ -7,13 +7,17 @@ import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl, getUserServiceUrl } from "./lib/url";
 
 const HELP = `
-Usage: prismic repo list [options]
-
 List all Prismic repositories.
 
-Options:
-  --json       Output as JSON
-  -h, --help   Show this help message
+USAGE
+  prismic repo list [flags]
+
+FLAGS
+      --json     Output as JSON
+  -h, --help     Show help for command
+
+LEARN MORE
+  Use \`prismic repo <command> --help\` for more information about a command.
 `.trim();
 
 const ProfileSchema = v.object({

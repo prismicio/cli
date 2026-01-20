@@ -1,27 +1,35 @@
 import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError } from "./lib/request";
 import { updateWebhook } from "./webhook-enable";
 import { getWebhooks } from "./webhook-view";
 
 const HELP = `
-Usage: prismic webhook disable <url> --repo <domain>
-
 Disable a webhook in a Prismic repository.
 
-Arguments:
-  <url>          Webhook URL
+By default, this command reads the repository from prismic.config.json at the
+project root.
 
-Options:
-  -r, --repo     Repository domain (required)
-  -h, --help     Show this help message
+USAGE
+  prismic webhook disable <url> [flags]
+
+ARGUMENTS
+  <url>   Webhook URL
+
+FLAGS
+  -r, --repo string   Repository domain
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 export async function webhookDisable(): Promise<void> {
 	const {
-		values: { help, repo },
+		values: { help, repo = await safeGetRepositoryFromConfig() },
 		positionals: [webhookUrl],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "disable"
@@ -44,7 +52,7 @@ export async function webhookDisable(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

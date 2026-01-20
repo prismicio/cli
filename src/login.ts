@@ -7,12 +7,16 @@ import { saveToken } from "./lib/auth";
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 const HELP = `
-Usage: prismic login
-
 Log in to Prismic via browser.
 
-Options:
-  -h, --help   Show this help message
+USAGE
+  prismic login [flags]
+
+FLAGS
+  -h, --help   Show help for command
+
+LEARN MORE
+  Use \`prismic <command> --help\` for more information about a command.
 `.trim();
 
 export async function login(): Promise<void> {

@@ -7,13 +7,17 @@ import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 
 const HELP = `
-Usage: prismic repo create --name <name>
-
 Create a new Prismic repository.
 
-Options:
-  -n, --name   Repository name (required)
-  -h, --help   Show this help message
+USAGE
+  prismic repo create [flags]
+
+FLAGS
+  -n, --name string   Repository name (required)
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic repo <command> --help\` for more information about a command.
 `.trim();
 
 export async function repoCreate(): Promise<void> {

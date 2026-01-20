@@ -2,27 +2,35 @@ import { parseArgs } from "node:util";
 import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getInternalApiUrl } from "./lib/url";
 import { type Locale, getLocales } from "./locale-list";
 
 const HELP = `
-Usage: prismic locale set-default <code> --repo <domain>
-
 Set the default locale for a Prismic repository.
 
-Arguments:
-  <code>     Locale code (e.g., en-us, fr-fr)
+By default, this command reads the repository from prismic.config.json at the
+project root.
 
-Options:
-  -r, --repo   Repository domain (required)
-  -h, --help   Show this help message
+USAGE
+  prismic locale set-default <code> [flags]
+
+ARGUMENTS
+  <code>   Locale code (e.g. en-us, fr-fr)
+
+FLAGS
+  -r, --repo string   Repository domain
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 export async function localeSetDefault(): Promise<void> {
 	const {
-		values: { help, repo },
+		values: { help, repo = await safeGetRepositoryFromConfig() },
 		positionals: [code],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "locale", "set-default"
@@ -45,7 +53,7 @@ export async function localeSetDefault(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

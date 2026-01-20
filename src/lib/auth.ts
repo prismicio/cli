@@ -2,6 +2,8 @@ import { access, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 
+import { appendTrailingSlash } from "./url";
+
 const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 const DEFAULT_HOST = "https://prismic.io";
 
@@ -55,10 +57,4 @@ export async function removeToken(): Promise<boolean> {
 	if (!auth) return false;
 	await rm(AUTH_FILE_PATH);
 	return true;
-}
-
-function appendTrailingSlash(url: string | URL) {
-	const newURL = new URL(url);
-	if (!newURL.pathname.endsWith("/")) newURL.pathname += "/";
-	return newURL;
 }

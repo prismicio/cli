@@ -18,8 +18,8 @@ export async function getUserServiceUrl(): Promise<URL> {
 	return appendTrailingSlash(host);
 }
 
-function appendTrailingSlash(url: URL) {
+export function appendTrailingSlash(url: string | URL): URL {
 	const newURL = new URL(url);
-	if (!url.pathname.endsWith("/")) url.pathname += "/";
+	if (!newURL.pathname.endsWith("/")) newURL.pathname += "/";
 	return newURL;
 }

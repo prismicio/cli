@@ -3,19 +3,27 @@ import { parseArgs } from "node:util";
 import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl, getUserServiceUrl } from "./lib/url";
 
 const HELP = `
-Usage: prismic repo view --repo <domain> [options]
-
 View a Prismic repository.
 
-Options:
-  -r, --repo   Repository domain (required)
-  --web        Open repository in browser
-  -h, --help   Show this help message
+By default, this command reads the repository from prismic.config.json at the
+project root.
+
+USAGE
+  prismic repo view [flags]
+
+FLAGS
+  -r, --repo string   Repository domain
+      --web           Open repository in browser
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 const ProfileSchema = v.object({
@@ -29,7 +37,7 @@ const ProfileSchema = v.object({
 
 export async function repoView(): Promise<void> {
 	const {
-		values: { help, repo, web },
+		values: { help, repo = await safeGetRepositoryFromConfig(), web },
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "repo", "view"
 		options: {
@@ -45,7 +53,7 @@ export async function repoView(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

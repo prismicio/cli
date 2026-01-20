@@ -6,20 +6,22 @@ import { localeRemove } from "./locale-remove";
 import { localeSetDefault } from "./locale-set-default";
 
 const HELP = `
-Usage: prismic locale <subcommand> [options]
-
 Manage locales in a Prismic repository.
 
-Subcommands:
+USAGE
+  prismic locale <command> [flags]
+
+COMMANDS
   add           Add a locale to a repository
   list          List locales in a repository
   remove        Remove a locale from a repository
   set-default   Set the default locale for a repository
 
-Options:
-  -h, --help    Show this help message
+FLAGS
+  -h, --help    Show help for command
 
-Run 'prismic locale <subcommand> --help' for more information.
+LEARN MORE
+  Use \`prismic locale <command> --help\` for more information about a command.
 `.trim();
 
 export async function locale(): Promise<void> {

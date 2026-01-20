@@ -6,20 +6,22 @@ import { repoSetName } from "./repo-set-name";
 import { repoView } from "./repo-view";
 
 const HELP = `
-Usage: prismic repo <subcommand> [options]
-
 Manage Prismic repositories.
 
-Subcommands:
-  create        Create a new Prismic repository
-  list          List all repositories
-  view          View repository details
-  set-name      Set repository display name
+USAGE
+  prismic repo <command> [flags]
 
-Options:
-  -h, --help    Show this help message
+COMMANDS
+  create      Create a new Prismic repository
+  list        List all repositories
+  view        View repository details
+  set-name    Set repository display name
 
-Run 'prismic repo <subcommand> --help' for more information.
+FLAGS
+  -h, --help   Show help for command
+
+LEARN MORE
+  Use \`prismic repo <command> --help\` for more information about a command.
 `.trim();
 
 export async function repo(): Promise<void> {

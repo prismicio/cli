@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
@@ -8,22 +9,29 @@ import { parsePreviewUrl } from "./preview-add";
 import { getPreviews } from "./preview-list";
 
 const HELP = `
-Usage: prismic preview set-name <url> <name> --repo <domain>
-
 Update the name of a preview configuration.
 
-Arguments:
-  <url>        Preview URL to update
-  <name>       New display name
+By default, this command reads the repository from prismic.config.json at the
+project root.
 
-Options:
-  -r, --repo   Repository domain (required)
-  -h, --help   Show this help message
+USAGE
+  prismic preview set-name <url> <name> [flags]
+
+ARGUMENTS
+  <url>    Preview URL to update
+  <name>   New display name
+
+FLAGS
+  -r, --repo string   Repository domain
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 export async function previewSetName(): Promise<void> {
 	const {
-		values: { help, repo },
+		values: { help, repo = await safeGetRepositoryFromConfig() },
 		positionals: [previewUrl, name],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "preview", "set-name"
@@ -52,7 +60,7 @@ export async function previewSetName(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

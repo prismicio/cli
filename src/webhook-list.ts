@@ -2,24 +2,32 @@ import { parseArgs } from "node:util";
 import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError } from "./lib/request";
 import { getWebhooks } from "./webhook-view";
 
 const HELP = `
-Usage: prismic webhook list --repo <domain>
-
 List all webhooks in a Prismic repository.
 
-Options:
-  -r, --repo   Repository domain (required)
-      --json   Output as JSON
-  -h, --help   Show this help message
+By default, this command reads the repository from prismic.config.json at the
+project root.
+
+USAGE
+  prismic webhook list [flags]
+
+FLAGS
+  -r, --repo string   Repository domain
+      --json          Output as JSON
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 export async function webhookList(): Promise<void> {
 	const {
-		values: { help, repo, json },
+		values: { help, repo = await safeGetRepositoryFromConfig(), json },
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "list"
 		options: {
@@ -36,7 +44,7 @@ export async function webhookList(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

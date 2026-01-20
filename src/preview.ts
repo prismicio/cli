@@ -6,20 +6,22 @@ import { previewRemove } from "./preview-remove";
 import { previewSetName } from "./preview-set-name";
 
 const HELP = `
-Usage: prismic preview <subcommand> [options]
-
 Manage preview configurations in a Prismic repository.
 
-Subcommands:
-  add           Add a preview configuration
-  list          List preview configurations
-  remove        Remove a preview configuration
-  set-name      Update a preview's name
+USAGE
+  prismic preview <command> [flags]
 
-Options:
-  -h, --help    Show this help message
+COMMANDS
+  add         Add a preview configuration
+  list        List preview configurations
+  remove      Remove a preview configuration
+  set-name    Update a preview's name
 
-Run 'prismic preview <subcommand> --help' for more information.
+FLAGS
+  -h, --help   Show help for command
+
+LEARN MORE
+  Use \`prismic preview <command> --help\` for more information about a command.
 `.trim();
 
 export async function preview(): Promise<void> {

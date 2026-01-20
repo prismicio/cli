@@ -1,27 +1,32 @@
 import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 import { TRIGGER_DISPLAY, type Webhook } from "./webhook-view";
 
 const HELP = `
-Usage: prismic webhook create <url> --repo <domain> [options]
-
 Create a new webhook in a Prismic repository.
 
-Arguments:
-  <url>          Webhook URL to receive events
+By default, this command reads the repository from prismic.config.json at the
+project root.
 
-Options:
-  -r, --repo     Repository domain (required)
-  -n, --name     Webhook name
-  -s, --secret   Secret for webhook signature
-  -t, --trigger  Trigger events (can be repeated)
-  -h, --help     Show this help message
+USAGE
+  prismic webhook create <url> [flags]
 
-Available triggers:
+ARGUMENTS
+  <url>   Webhook URL to receive events
+
+FLAGS
+  -r, --repo string      Repository domain
+  -n, --name string      Webhook name
+  -s, --secret string    Secret for webhook signature
+  -t, --trigger string   Trigger events (can be repeated)
+  -h, --help             Show help for command
+
+TRIGGERS
   document.published    When documents are published
   document.unpublished  When documents are unpublished
   release.created       When a release is created
@@ -30,13 +35,16 @@ Available triggers:
   tag.deleted           When a tag is deleted
 
 If no triggers specified, all are enabled.
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 const VALID_TRIGGERS = Object.values(TRIGGER_DISPLAY);
 
 export async function webhookCreate(): Promise<void> {
 	const {
-		values: { help, repo, name, secret, trigger = [] },
+		values: { help, repo = await safeGetRepositoryFromConfig(), name, secret, trigger = [] },
 		positionals: [webhookUrl],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "create"
@@ -62,7 +70,7 @@ export async function webhookCreate(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

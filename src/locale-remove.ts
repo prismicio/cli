@@ -1,26 +1,34 @@
 import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getInternalApiUrl } from "./lib/url";
 
 const HELP = `
-Usage: prismic locale remove <code> --repo <domain>
-
 Remove a locale from a Prismic repository.
 
-Arguments:
-  <code>     Locale code (e.g., en-us, fr-fr)
+By default, this command reads the repository from prismic.config.json at the
+project root.
 
-Options:
-  -r, --repo   Repository domain (required)
-  -h, --help   Show this help message
+USAGE
+  prismic locale remove <code> [flags]
+
+ARGUMENTS
+  <code>   Locale code (e.g. en-us, fr-fr)
+
+FLAGS
+  -r, --repo string   Repository domain
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 export async function localeRemove(): Promise<void> {
 	const {
-		values: { repo, help },
+		values: { repo = await safeGetRepositoryFromConfig(), help },
 		positionals: [code],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "locale", "remove"
@@ -43,7 +51,7 @@ export async function localeRemove(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}

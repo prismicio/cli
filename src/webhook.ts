@@ -13,11 +13,12 @@ import { webhookTest } from "./webhook-test";
 import { webhookView } from "./webhook-view";
 
 const HELP = `
-Usage: prismic webhook <subcommand> [options]
-
 Manage webhooks in a Prismic repository.
 
-Subcommands:
+USAGE
+  prismic webhook <command> [flags]
+
+COMMANDS
   list           List all webhooks
   create         Create a new webhook
   view           View webhook details
@@ -30,10 +31,11 @@ Subcommands:
   remove-header  Remove a custom HTTP header
   set-triggers   Update webhook triggers
 
-Options:
-  -h, --help     Show this help message
+FLAGS
+  -h, --help     Show help for command
 
-Run 'prismic webhook <subcommand> --help' for more information.
+LEARN MORE
+  Use \`prismic webhook <command> --help\` for more information about a command.
 `.trim();
 
 export async function webhook(): Promise<void> {

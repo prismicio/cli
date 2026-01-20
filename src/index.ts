@@ -11,19 +11,25 @@ import { webhook } from "./webhook";
 import { whoami } from "./whoami";
 
 const HELP = `
-Usage: prismic <command>
+Prismic CLI for managing repositories and configurations.
 
-Commands:
-  login              Log in to Prismic
-  logout             Log out of Prismic
-  whoami             Show the currently logged in user
-  repo               Manage Prismic repositories
-  locale             Manage locales in a repository
-  preview            Manage preview configurations
-  webhook            Manage webhooks in a repository
+USAGE
+  prismic <command> [flags]
 
-Options:
-  -h, --help   Show this help message
+COMMANDS
+  login     Log in to Prismic
+  logout    Log out of Prismic
+  whoami    Show the currently logged in user
+  repo      Manage Prismic repositories
+  locale    Manage locales in a repository
+  preview   Manage preview configurations
+  webhook   Manage webhooks in a repository
+
+FLAGS
+  -h, --help   Show help for command
+
+LEARN MORE
+  Use \`prismic <command> --help\` for more information about a command.
 `.trim();
 
 const { positionals } = parseArgs({

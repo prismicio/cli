@@ -6,12 +6,16 @@ import { ForbiddenRequestError, request } from "./lib/request";
 import { getUserServiceUrl } from "./lib/url";
 
 const HELP = `
-Usage: prismic whoami
-
 Show the currently logged in user.
 
-Options:
-  -h, --help   Show this help message
+USAGE
+  prismic whoami [flags]
+
+FLAGS
+  -h, --help   Show help for command
+
+LEARN MORE
+  Use \`prismic <command> --help\` for more information about a command.
 `.trim();
 
 export async function whoami(): Promise<void> {

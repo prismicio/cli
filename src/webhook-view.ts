@@ -2,21 +2,29 @@ import { parseArgs } from "node:util";
 import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, type ParsedRequestResponse, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 
 const HELP = `
-Usage: prismic webhook view <url> --repo <domain>
-
 View details of a webhook in a Prismic repository.
 
-Arguments:
-  <url>          Webhook URL
+By default, this command reads the repository from prismic.config.json at the
+project root.
 
-Options:
-  -r, --repo     Repository domain (required)
-  -h, --help     Show this help message
+USAGE
+  prismic webhook view <url> [flags]
+
+ARGUMENTS
+  <url>   Webhook URL
+
+FLAGS
+  -r, --repo string   Repository domain
+  -h, --help          Show help for command
+
+LEARN MORE
+  Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
 export const TRIGGER_DISPLAY = {
@@ -30,7 +38,7 @@ export const TRIGGER_DISPLAY = {
 
 export async function webhookView(): Promise<void> {
 	const {
-		values: { help, repo },
+		values: { help, repo = await safeGetRepositoryFromConfig() },
 		positionals: [webhookUrl],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "view"
@@ -53,7 +61,7 @@ export async function webhookView(): Promise<void> {
 	}
 
 	if (!repo) {
-		console.error("Missing required option: --repo");
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
