@@ -2,6 +2,9 @@
 *.tgz
 dist
 examples/**/package-lock.json
+slices
+customtypes
+prismic.config.json
 
 # os
 .DS_Store

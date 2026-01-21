@@ -1,0 +1,179 @@
+import type {
+	CustomType,
+	DynamicSlices,
+} from "@prismicio/types-internal/lib/customtypes";
+
+import { readFile, writeFile } from "node:fs/promises";
+import { parseArgs } from "node:util";
+import * as v from "valibot";
+
+import { findUpward } from "./lib/file";
+import { stringify } from "./lib/json";
+
+const HELP = `
+Disconnect a shared slice from a custom type's slice zone.
+
+USAGE
+  prismic custom-type disconnect-slice <type-id> <slice-id> [flags]
+
+ARGUMENTS
+  type-id                Custom type identifier (required)
+  slice-id               Slice identifier (required)
+
+FLAGS
+  -z, --slice-zone string  Target slice zone field ID (default: "slices")
+  -h, --help               Show help for command
+
+EXAMPLES
+  prismic custom-type disconnect-slice homepage CallToAction
+  prismic custom-type disconnect-slice homepage CallToAction --slice-zone slices
+  prismic custom-type disconnect-slice article HeroSection -z body
+`.trim();
+
+const CustomTypeSchema = v.object({
+	id: v.string(),
+	label: v.string(),
+	repeatable: v.boolean(),
+	status: v.boolean(),
+	format: v.string(),
+	json: v.record(v.string(), v.record(v.string(), v.unknown())),
+});
+
+export async function customTypeDisconnectSlice(): Promise<void> {
+	const {
+		values: { help, "slice-zone": sliceZoneId },
+		positionals: [typeId, sliceId],
+	} = parseArgs({
+		args: process.argv.slice(4), // skip: node, script, "custom-type", "disconnect-slice"
+		options: {
+			"slice-zone": { type: "string", short: "z" },
+			help: { type: "boolean", short: "h" },
+		},
+		allowPositionals: true,
+	});
+
+	if (help) {
+		console.info(HELP);
+		return;
+	}
+
+	if (!typeId) {
+		console.error("Missing required argument: type-id\n");
+		console.error(
+			"Usage: prismic custom-type disconnect-slice <type-id> <slice-id>",
+		);
+		process.exitCode = 1;
+		return;
+	}
+
+	if (!sliceId) {
+		console.error("Missing required argument: slice-id\n");
+		console.error(
+			"Usage: prismic custom-type disconnect-slice <type-id> <slice-id>",
+		);
+		process.exitCode = 1;
+		return;
+	}
+
+	// Find the custom type file
+	const projectRoot = await findUpward("package.json");
+	if (!projectRoot) {
+		console.error("Could not find project root (no package.json found)");
+		process.exitCode = 1;
+		return;
+	}
+
+	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
+
+	// Read and parse the model
+	let model: CustomType;
+	try {
+		const contents = await readFile(modelPath, "utf8");
+		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
+		if (!result.success) {
+			console.error(`Invalid custom type model: ${modelPath.href}`);
+			process.exitCode = 1;
+			return;
+		}
+		model = result.output as CustomType;
+	} catch (error) {
+		if (
+			error instanceof Error &&
+			"code" in error &&
+			error.code === "ENOENT"
+		) {
+			console.error(`Custom type not found: ${typeId}\n`);
+			console.error(
+				`Create it first with: prismic custom-type create ${typeId}`,
+			);
+			process.exitCode = 1;
+			return;
+		}
+		if (error instanceof Error) {
+			console.error(`Failed to read custom type: ${error.message}`);
+		} else {
+			console.error("Failed to read custom type");
+		}
+		process.exitCode = 1;
+		return;
+	}
+
+	const targetSliceZoneId = sliceZoneId ?? "slices";
+
+	// Find existing slice zone
+	let sliceZone: DynamicSlices | undefined;
+	let sliceZoneFieldId: string | undefined;
+
+	// Search all tabs for a Slices field matching the target ID
+	for (const [, tabFields] of Object.entries(model.json)) {
+		for (const [fieldId, field] of Object.entries(tabFields)) {
+			if (
+				(field as { type?: string }).type === "Slices" &&
+				fieldId === targetSliceZoneId
+			) {
+				sliceZone = field as DynamicSlices;
+				sliceZoneFieldId = fieldId;
+				break;
+			}
+		}
+		if (sliceZone) break;
+	}
+
+	// Slice zone must exist for disconnect
+	if (!sliceZone) {
+		console.error(
+			`Slice zone "${targetSliceZoneId}" not found in custom type "${typeId}"`,
+		);
+		process.exitCode = 1;
+		return;
+	}
+
+	// Check if slice is connected
+	if (!sliceZone.config?.choices || !(sliceId in sliceZone.config.choices)) {
+		console.error(
+			`Slice "${sliceId}" is not connected to slice zone "${sliceZoneFieldId}" in ${typeId}`,
+		);
+		process.exitCode = 1;
+		return;
+	}
+
+	// Remove the slice reference
+	delete sliceZone.config.choices[sliceId];
+
+	// Write updated model
+	try {
+		await writeFile(modelPath, stringify(model));
+	} catch (error) {
+		if (error instanceof Error) {
+			console.error(`Failed to update custom type: ${error.message}`);
+		} else {
+			console.error("Failed to update custom type");
+		}
+		process.exitCode = 1;
+		return;
+	}
+
+	console.info(
+		`Disconnected slice "${sliceId}" from slice zone "${sliceZoneFieldId}" in ${typeId}`,
+	);
+}

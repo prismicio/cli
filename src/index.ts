@@ -2,11 +2,14 @@
 
 import { parseArgs } from "node:util";
 
+import { customType } from "./custom-type";
 import { locale } from "./locale";
 import { login } from "./login";
 import { logout } from "./logout";
+import { pageType } from "./page-type";
 import { preview } from "./preview";
 import { repo } from "./repo";
+import { slice } from "./slice";
 import { token } from "./token";
 import { webhook } from "./webhook";
 import { whoami } from "./whoami";
@@ -18,14 +21,17 @@ USAGE
   prismic <command> [flags]
 
 COMMANDS
-  login     Log in to Prismic
-  logout    Log out of Prismic
-  whoami    Show the currently logged in user
-  repo      Manage Prismic repositories
-  locale    Manage locales in a repository
-  preview   Manage preview configurations
-  token     Manage API tokens in a repository
-  webhook   Manage webhooks in a repository
+  login       Log in to Prismic
+  logout      Log out of Prismic
+  whoami      Show the currently logged in user
+  repo        Manage Prismic repositories
+  locale      Manage locales in a repository
+  page-type   Manage page types in a repository
+  custom-type Manage custom types in a repository
+  slice       Manage slices in a project
+  preview     Manage preview configurations
+  token       Manage API tokens in a repository
+  webhook     Manage webhooks in a repository
 
 FLAGS
   -h, --help   Show help for command
@@ -55,6 +61,15 @@ switch (positionals[0]) {
 		break;
 	case "locale":
 		await locale();
+		break;
+	case "page-type":
+		await pageType();
+		break;
+	case "custom-type":
+		await customType();
+		break;
+	case "slice":
+		await slice();
 		break;
 	case "preview":
 		await preview();

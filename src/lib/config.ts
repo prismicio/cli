@@ -1,10 +1,10 @@
-import { access, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import * as v from "valibot";
 
+import { findUpward } from "./file";
 import { stringify } from "./json";
-import { appendTrailingSlash } from "./url";
 
 const CONFIG_FILENAME = "prismic.config.json";
 
@@ -90,70 +90,22 @@ export async function updateConfig(
 	return { ok: true, config: updatedConfig };
 }
 
-type FindConfigResult = { ok: true; path: URL } | { ok: false; error: MissingPrismicConfig };
+async function findConfig(cwd = pathToFileURL(process.cwd())) {
+	const path = await findUpward(CONFIG_FILENAME, { start: cwd, stop: "package.json" });
+	if (!path) return { ok: false, error: new MissingPrismicConfig() } as const;
+	return { ok: true, path } as const;
+}
 
-async function findConfig(cwd = pathToFileURL(process.cwd())): Promise<FindConfigResult> {
-	let dir = appendTrailingSlash(cwd);
-
-	while (true) {
-		const configPath = new URL(CONFIG_FILENAME, dir);
-		try {
-			await access(configPath);
-			return { ok: true, path: configPath };
-		} catch {}
-
-		const packageJsonPath = new URL("package.json", dir);
-		try {
-			await access(packageJsonPath);
-			return { ok: false, error: new MissingPrismicConfig() };
-		} catch {}
-
-		const parent = new URL("..", dir);
-		if (parent.href === dir.href) {
-			return { ok: false, error: new MissingPrismicConfig() };
-		}
-
-		dir = parent;
-	}
+async function findSuggestedConfigPath(cwd = pathToFileURL(process.cwd())) {
+	const path = await findUpward("package.json", { start: cwd });
+	if (!path) return { ok: false, error: new UnknownProjectRoot() } as const;
+	return { ok: true, path: new URL(CONFIG_FILENAME, path) } as const;
 }
 
 export class MissingPrismicConfig extends Error {
 	message = "Could not find a prismic.config.json file.";
 }
 
-type FindSuggestedConfigPathResult =
-	| { ok: true; path: URL }
-	| { ok: false; error: UnknownProjectRoot };
-
-async function findSuggestedConfigPath(
-	cwd = pathToFileURL(process.cwd()),
-): Promise<FindSuggestedConfigPathResult> {
-	const packageJsonPath = await findPackageJson(cwd);
-	if (!packageJsonPath) {
-		return { ok: false, error: new UnknownProjectRoot() };
-	}
-	return { ok: true, path: new URL(CONFIG_FILENAME, packageJsonPath) };
-}
-
 export class UnknownProjectRoot extends Error {
 	message = "Could not find a package.json file.";
-}
-
-async function findPackageJson(cwd = pathToFileURL(process.cwd())) {
-	let dir = appendTrailingSlash(cwd);
-
-	while (true) {
-		const packageJsonPath = new URL("package.json", dir);
-		try {
-			await access(packageJsonPath);
-			return packageJsonPath;
-		} catch {}
-
-		const parent = new URL("..", dir);
-		if (parent.href === dir.href) {
-			return undefined;
-		}
-
-		dir = parent;
-	}
 }
