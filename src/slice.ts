@@ -1,7 +1,15 @@
 import { parseArgs } from "node:util";
 
 import { sliceAddField } from "./slice-add-field";
+import { sliceAddVariation } from "./slice-add-variation";
 import { sliceCreate } from "./slice-create";
+import { sliceList } from "./slice-list";
+import { sliceListVariations } from "./slice-list-variations";
+import { sliceRemove } from "./slice-remove";
+import { sliceRemoveField } from "./slice-remove-field";
+import { sliceRemoveVariation } from "./slice-remove-variation";
+import { sliceRename } from "./slice-rename";
+import { sliceView } from "./slice-view";
 
 const HELP = `
 Manage slices in a Prismic project.
@@ -10,8 +18,16 @@ USAGE
   prismic slice <command> [flags]
 
 COMMANDS
-  create      Create a new slice
-  add-field   Add a field to a slice
+  create            Create a new slice
+  list              List all slices
+  view              View details of a slice
+  rename            Rename a slice
+  remove            Remove a slice
+  add-field         Add a field to a slice
+  remove-field      Remove a field from a slice
+  add-variation     Add a variation to a slice
+  remove-variation  Remove a variation from a slice
+  list-variations   List all variations of a slice
 
 FLAGS
   -h, --help   Show help for command
@@ -36,8 +52,32 @@ export async function slice(): Promise<void> {
 		case "create":
 			await sliceCreate();
 			break;
+		case "list":
+			await sliceList();
+			break;
+		case "view":
+			await sliceView();
+			break;
+		case "rename":
+			await sliceRename();
+			break;
+		case "remove":
+			await sliceRemove();
+			break;
 		case "add-field":
 			await sliceAddField();
+			break;
+		case "remove-field":
+			await sliceRemoveField();
+			break;
+		case "add-variation":
+			await sliceAddVariation();
+			break;
+		case "remove-variation":
+			await sliceRemoveVariation();
+			break;
+		case "list-variations":
+			await sliceListVariations();
 			break;
 		default: {
 			if (subcommand) {
