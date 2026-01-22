@@ -1,11 +1,9 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
-import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchRemoteCustomType, updateCustomType } from "./lib/custom-types-api";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
 Remove a field from a custom type.
@@ -18,31 +16,29 @@ ARGUMENTS
   field-id     Field identifier (required)
 
 FLAGS
-  --tab string  Specific tab (searches all tabs if not specified)
-  -h, --help    Show help for command
+  -r, --repo string   Repository domain
+      --tab string    Specific tab (searches all tabs if not specified)
+      --types string  Generate types to file (default: "prismicio-types.d.ts")
+      --no-types      Skip type generation
+  -h, --help          Show help for command
 
 EXAMPLES
   prismic custom-type remove-field settings title
   prismic custom-type remove-field settings description --tab "Content"
+  prismic custom-type remove-field settings title --repo my-repo
 `.trim();
-
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.optional(v.string()),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
 
 export async function customTypeRemoveField(): Promise<void> {
 	const {
-		values: { help, tab },
+		values: { help, tab, repo: repoFlag, types, "no-types": noTypes },
 		positionals: [typeId, fieldId],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "custom-type", "remove-field"
 		options: {
+			repo: { type: "string", short: "r" },
 			tab: { type: "string" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -67,48 +63,28 @@ export async function customTypeRemoveField(): Promise<void> {
 		return;
 	}
 
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
-
-	// Read and parse the model
-	let model: CustomType;
-	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid custom type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			console.error(`Custom type not found: ${typeId}\n`);
-			console.error(`Create it first with: prismic custom-type create ${typeId}`);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read custom type: ${error.message}`);
-		} else {
-			console.error("Failed to read custom type");
-		}
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
 		process.exitCode = 1;
 		return;
 	}
 
-	// Check if this is actually a custom type (not a page type)
-	if (model.format === "page") {
-		console.error(`"${typeId}" is not a custom type (format: page)`);
+	const fetchResult = await fetchRemoteCustomType(repo, typeId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
 		process.exitCode = 1;
 		return;
 	}
+
+	const model = fetchResult.value;
 
 	// Find and remove the field
 	let foundTab: string | undefined;
@@ -144,18 +120,16 @@ export async function customTypeRemoveField(): Promise<void> {
 		}
 	}
 
-	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(model));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update custom type: ${error.message}`);
-		} else {
-			console.error("Failed to update custom type");
-		}
+	const updateResult = await updateCustomType(repo, model);
+	if (!updateResult.ok) {
+		console.error(`Failed to update custom type: ${updateResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
 
 	console.info(`Removed field "${fieldId}" from tab "${foundTab}" in custom type "${typeId}"`);
+
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
+	}
 }

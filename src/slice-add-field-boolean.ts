@@ -1,11 +1,12 @@
-import type { BooleanField, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { BooleanField } from "@prismicio/types-internal/lib/customtypes";
 
-import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
-import { stringify } from "./lib/json";
-import { findSliceModel } from "./lib/slice";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchSlice, updateSlice } from "./lib/custom-types-api";
 import { humanReadable } from "./lib/string";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
 Add a boolean (toggle) field to an existing slice.
@@ -18,11 +19,14 @@ ARGUMENTS
   field-id               Field identifier (required)
 
 FLAGS
+  -r, --repo string      Repository domain
   -v, --variation string Target variation (default: first variation)
   -l, --label string     Display label for the field (inferred from field-id if omitted)
       --default          Set default value to true
       --true-label string Label shown when toggle is on
       --false-label string Label shown when toggle is off
+      --types string     Generate types to file (default: "prismicio-types.d.ts")
+      --no-types         Skip type generation
   -h, --help             Show help for command
 
 EXAMPLES
@@ -35,21 +39,27 @@ export async function sliceAddFieldBoolean(): Promise<void> {
 	const {
 		values: {
 			help,
+			repo: repoFlag,
 			variation,
 			label,
 			default: defaultValue,
 			"true-label": trueLabel,
 			"false-label": falseLabel,
+			types,
+			"no-types": noTypes,
 		},
 		positionals: [sliceId, fieldId],
 	} = parseArgs({
 		args: process.argv.slice(5), // skip: node, script, "slice", "add-field", "boolean"
 		options: {
+			repo: { type: "string", short: "r" },
 			variation: { type: "string", short: "v" },
 			label: { type: "string", short: "l" },
 			default: { type: "boolean" },
 			"true-label": { type: "string" },
 			"false-label": { type: "string" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -74,15 +84,28 @@ export async function sliceAddFieldBoolean(): Promise<void> {
 		return;
 	}
 
-	// Find the slice model
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const { model, modelPath } = result;
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
+		process.exitCode = 1;
+		return;
+	}
+
+	const fetchResult = await fetchSlice(repo, sliceId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
+		process.exitCode = 1;
+		return;
+	}
+
+	const model = fetchResult.value;
 
 	// Check for variations
 	if (model.variations.length === 0) {
@@ -132,15 +155,10 @@ export async function sliceAddFieldBoolean(): Promise<void> {
 	// Add field to variation
 	targetVariation.primary[fieldId] = fieldDefinition;
 
-	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(model as SharedSlice));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update slice: ${error.message}`);
-		} else {
-			console.error("Failed to update slice");
-		}
+	// Update remote slice
+	const updateResult = await updateSlice(repo, model);
+	if (!updateResult.ok) {
+		console.error(`Failed to update slice: ${updateResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
@@ -148,4 +166,8 @@ export async function sliceAddFieldBoolean(): Promise<void> {
 	console.info(
 		`Added field "${fieldId}" (Boolean) to "${targetVariation.id}" variation in ${sliceId}`,
 	);
+
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
+	}
 }

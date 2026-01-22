@@ -1,14 +1,14 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { exists, findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { insertSlice } from "./lib/custom-types-api";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
-Create a new slice in a Prismic project.
+Create a new slice in a Prismic repository.
 
 USAGE
   prismic slice create <id> [flags]
@@ -17,7 +17,10 @@ ARGUMENTS
   id       Slice identifier (required)
 
 FLAGS
+  -r, --repo string   Repository domain
   -n, --name string   Display name for the slice
+      --types string  Generate types to file (default: "prismicio-types.d.ts")
+      --no-types      Skip type generation
   -h, --help          Show help for command
 
 LEARN MORE
@@ -26,12 +29,15 @@ LEARN MORE
 
 export async function sliceCreate(): Promise<void> {
 	const {
-		values: { help, name },
+		values: { help, name, repo: repoFlag, types, "no-types": noTypes },
 		positionals: [id],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "slice", "create"
 		options: {
+			repo: { type: "string", short: "r" },
 			name: { type: "string", short: "n" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -44,6 +50,20 @@ export async function sliceCreate(): Promise<void> {
 
 	if (!id) {
 		console.error("Missing required argument: id");
+		process.exitCode = 1;
+		return;
+	}
+
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
+		process.exitCode = 1;
+		return;
+	}
+
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
 		process.exitCode = 1;
 		return;
 	}
@@ -67,61 +87,18 @@ export async function sliceCreate(): Promise<void> {
 		],
 	};
 
-	const slicesDirectory = await getSlicesDirectory();
-	const sliceDirectory = new URL(pascalCase(model.name) + "/", slicesDirectory);
-	const modelPath = new URL("model.json", sliceDirectory);
-
-	try {
-		await mkdir(new URL(".", modelPath), { recursive: true });
-		await writeFile(modelPath, stringify(model));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to create slice: ${error.message}`);
-		} else {
-			console.error(`Failed to create slice`);
-		}
+	const insertResult = await insertSlice(repo, model);
+	if (!insertResult.ok) {
+		console.error(`Failed to create slice: ${insertResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
 
-	console.info(`Created slice at ${modelPath.href}`);
-}
+	console.info(`Created slice "${id}" in repository "${repo}"`);
 
-async function getSlicesDirectory(): Promise<URL> {
-	const framework = await detectFramework();
-	const projectRoot = await findUpward("package.json");
-	switch (framework) {
-		case "next": {
-			const hasSrcDir = await exists(new URL("src", projectRoot));
-			if (hasSrcDir) return new URL("src/slices/", projectRoot);
-		}
-		case "nuxt": {
-			const hasAppDir = await exists(new URL("app", projectRoot));
-			if (hasAppDir) return new URL("app/slices/", projectRoot);
-		}
-		case "sveltekit": {
-			return new URL("src/slices/", projectRoot);
-		}
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
 	}
-	return new URL("slices/", projectRoot);
-}
-
-const PackageJsonSchema = v.object({
-	dependencies: v.optional(v.record(v.string(), v.string())),
-});
-
-type Framework = "next" | "nuxt" | "sveltekit";
-
-async function detectFramework(): Promise<Framework | undefined> {
-	const packageJsonPath = await findUpward("package.json");
-	if (!packageJsonPath) return;
-	try {
-		const contents = await readFile(packageJsonPath, "utf8");
-		const { dependencies = {} } = v.parse(PackageJsonSchema, JSON.parse(contents));
-		if ("next" in dependencies) return "next";
-		if ("nuxt" in dependencies) return "nuxt";
-		if ("@sveltejs/kit" in dependencies) return "sveltekit";
-	} catch {}
 }
 
 function pascalCase(input: string): string {

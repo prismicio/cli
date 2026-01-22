@@ -4,13 +4,12 @@ import type {
 	SharedSliceRef,
 } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
-import { findSliceModel } from "./lib/slice";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchRemotePageType, fetchSlice, updateCustomType } from "./lib/custom-types-api";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
 Connect a shared slice to a page type's slice zone.
@@ -23,7 +22,10 @@ ARGUMENTS
   slice-id               Slice identifier (required)
 
 FLAGS
+  -r, --repo string        Repository domain
   -z, --slice-zone string  Target slice zone field ID (default: "slices")
+      --types string       Generate types to file (default: "prismicio-types.d.ts")
+      --no-types           Skip type generation
   -h, --help               Show help for command
 
 EXAMPLES
@@ -32,23 +34,17 @@ EXAMPLES
   prismic page-type connect-slice article HeroSection -z body
 `.trim();
 
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.string(),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
-
 export async function pageTypeConnectSlice(): Promise<void> {
 	const {
-		values: { help, "slice-zone": sliceZoneId },
+		values: { help, repo: repoFlag, "slice-zone": sliceZoneId, types, "no-types": noTypes },
 		positionals: [typeId, sliceId],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "page-type", "connect-slice"
 		options: {
+			repo: { type: "string", short: "r" },
 			"slice-zone": { type: "string", short: "z" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -61,73 +57,49 @@ export async function pageTypeConnectSlice(): Promise<void> {
 
 	if (!typeId) {
 		console.error("Missing required argument: type-id\n");
-		console.error(
-			"Usage: prismic page-type connect-slice <type-id> <slice-id>",
-		);
+		console.error("Usage: prismic page-type connect-slice <type-id> <slice-id>");
 		process.exitCode = 1;
 		return;
 	}
 
 	if (!sliceId) {
 		console.error("Missing required argument: slice-id\n");
-		console.error(
-			"Usage: prismic page-type connect-slice <type-id> <slice-id>",
-		);
+		console.error("Usage: prismic page-type connect-slice <type-id> <slice-id>");
 		process.exitCode = 1;
 		return;
 	}
 
-	// Verify the slice exists
-	const sliceResult = await findSliceModel(sliceId);
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
+		process.exitCode = 1;
+		return;
+	}
+
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
+		process.exitCode = 1;
+		return;
+	}
+
+	// Verify the slice exists on remote
+	const sliceResult = await fetchSlice(repo, sliceId);
 	if (!sliceResult.ok) {
 		console.error(sliceResult.error);
 		process.exitCode = 1;
 		return;
 	}
 
-	// Find the page type file
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
+	// Fetch the page type
+	const fetchResult = await fetchRemotePageType(repo, typeId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
 		process.exitCode = 1;
 		return;
 	}
 
-	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
-
-	// Read and parse the model
-	let model: CustomType;
-	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid page type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (
-			error instanceof Error &&
-			"code" in error &&
-			error.code === "ENOENT"
-		) {
-			console.error(`Page type not found: ${typeId}\n`);
-			console.error(
-				`Create it first with: prismic page-type create ${typeId}`,
-			);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read page type: ${error.message}`);
-		} else {
-			console.error("Failed to read page type");
-		}
-		process.exitCode = 1;
-		return;
-	}
-
+	const model: CustomType = fetchResult.value;
 	const targetSliceZoneId = sliceZoneId ?? "slices";
 
 	// Find existing slice zone or create a new one
@@ -137,10 +109,7 @@ export async function pageTypeConnectSlice(): Promise<void> {
 	// Search all tabs for a Slices field matching the target ID
 	for (const [, tabFields] of Object.entries(model.json)) {
 		for (const [fieldId, field] of Object.entries(tabFields)) {
-			if (
-				(field as { type?: string }).type === "Slices" &&
-				fieldId === targetSliceZoneId
-			) {
+			if ((field as { type?: string }).type === "Slices" && fieldId === targetSliceZoneId) {
 				sliceZone = field as DynamicSlices;
 				sliceZoneFieldId = fieldId;
 				break;
@@ -153,9 +122,7 @@ export async function pageTypeConnectSlice(): Promise<void> {
 	if (!sliceZone) {
 		if (sliceZoneId) {
 			// User specified a slice zone that doesn't exist
-			console.error(
-				`Slice zone "${sliceZoneId}" not found in page type "${typeId}"`,
-			);
+			console.error(`Slice zone "${sliceZoneId}" not found in page type "${typeId}"`);
 			process.exitCode = 1;
 			return;
 		}
@@ -202,20 +169,16 @@ export async function pageTypeConnectSlice(): Promise<void> {
 	const sliceRef: SharedSliceRef = { type: "SharedSlice" };
 	sliceZone.config.choices[sliceId] = sliceRef;
 
-	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(model));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update page type: ${error.message}`);
-		} else {
-			console.error("Failed to update page type");
-		}
+	const updateResult = await updateCustomType(repo, model);
+	if (!updateResult.ok) {
+		console.error(`Failed to update page type: ${updateResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
 
-	console.info(
-		`Connected slice "${sliceId}" to slice zone "${sliceZoneFieldId}" in ${typeId}`,
-	);
+	console.info(`Connected slice "${sliceId}" to slice zone "${sliceZoneFieldId}" in ${typeId}`);
+
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
+	}
 }

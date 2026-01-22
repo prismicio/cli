@@ -1,14 +1,11 @@
-import type {
-	CustomType,
-	DynamicSlices,
-} from "@prismicio/types-internal/lib/customtypes";
+import type { CustomType, DynamicSlices } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchRemoteCustomType, updateCustomType } from "./lib/custom-types-api";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
 Disconnect a shared slice from a custom type's slice zone.
@@ -21,7 +18,10 @@ ARGUMENTS
   slice-id               Slice identifier (required)
 
 FLAGS
+  -r, --repo string        Repository domain
   -z, --slice-zone string  Target slice zone field ID (default: "slices")
+      --types string       Generate types to file (default: "prismicio-types.d.ts")
+      --no-types           Skip type generation
   -h, --help               Show help for command
 
 EXAMPLES
@@ -30,23 +30,17 @@ EXAMPLES
   prismic custom-type disconnect-slice article HeroSection -z body
 `.trim();
 
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.string(),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
-
 export async function customTypeDisconnectSlice(): Promise<void> {
 	const {
-		values: { help, "slice-zone": sliceZoneId },
+		values: { help, repo: repoFlag, "slice-zone": sliceZoneId, types, "no-types": noTypes },
 		positionals: [typeId, sliceId],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "custom-type", "disconnect-slice"
 		options: {
+			repo: { type: "string", short: "r" },
 			"slice-zone": { type: "string", short: "z" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -59,65 +53,40 @@ export async function customTypeDisconnectSlice(): Promise<void> {
 
 	if (!typeId) {
 		console.error("Missing required argument: type-id\n");
-		console.error(
-			"Usage: prismic custom-type disconnect-slice <type-id> <slice-id>",
-		);
+		console.error("Usage: prismic custom-type disconnect-slice <type-id> <slice-id>");
 		process.exitCode = 1;
 		return;
 	}
 
 	if (!sliceId) {
 		console.error("Missing required argument: slice-id\n");
-		console.error(
-			"Usage: prismic custom-type disconnect-slice <type-id> <slice-id>",
-		);
+		console.error("Usage: prismic custom-type disconnect-slice <type-id> <slice-id>");
 		process.exitCode = 1;
 		return;
 	}
 
-	// Find the custom type file
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
-
-	// Read and parse the model
-	let model: CustomType;
-	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid custom type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (
-			error instanceof Error &&
-			"code" in error &&
-			error.code === "ENOENT"
-		) {
-			console.error(`Custom type not found: ${typeId}\n`);
-			console.error(
-				`Create it first with: prismic custom-type create ${typeId}`,
-			);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read custom type: ${error.message}`);
-		} else {
-			console.error("Failed to read custom type");
-		}
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
 		process.exitCode = 1;
 		return;
 	}
 
+	const fetchResult = await fetchRemoteCustomType(repo, typeId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
+		process.exitCode = 1;
+		return;
+	}
+
+	const model: CustomType = fetchResult.value;
 	const targetSliceZoneId = sliceZoneId ?? "slices";
 
 	// Find existing slice zone
@@ -127,10 +96,7 @@ export async function customTypeDisconnectSlice(): Promise<void> {
 	// Search all tabs for a Slices field matching the target ID
 	for (const [, tabFields] of Object.entries(model.json)) {
 		for (const [fieldId, field] of Object.entries(tabFields)) {
-			if (
-				(field as { type?: string }).type === "Slices" &&
-				fieldId === targetSliceZoneId
-			) {
+			if ((field as { type?: string }).type === "Slices" && fieldId === targetSliceZoneId) {
 				sliceZone = field as DynamicSlices;
 				sliceZoneFieldId = fieldId;
 				break;
@@ -141,9 +107,7 @@ export async function customTypeDisconnectSlice(): Promise<void> {
 
 	// Slice zone must exist for disconnect
 	if (!sliceZone) {
-		console.error(
-			`Slice zone "${targetSliceZoneId}" not found in custom type "${typeId}"`,
-		);
+		console.error(`Slice zone "${targetSliceZoneId}" not found in custom type "${typeId}"`);
 		process.exitCode = 1;
 		return;
 	}
@@ -160,15 +124,9 @@ export async function customTypeDisconnectSlice(): Promise<void> {
 	// Remove the slice reference
 	delete sliceZone.config.choices[sliceId];
 
-	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(model));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update custom type: ${error.message}`);
-		} else {
-			console.error("Failed to update custom type");
-		}
+	const updateResult = await updateCustomType(repo, model);
+	if (!updateResult.ok) {
+		console.error(`Failed to update custom type: ${updateResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
@@ -176,4 +134,8 @@ export async function customTypeDisconnectSlice(): Promise<void> {
 	console.info(
 		`Disconnected slice "${sliceId}" from slice zone "${sliceZoneFieldId}" in ${typeId}`,
 	);
+
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
+	}
 }

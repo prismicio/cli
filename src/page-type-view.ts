@@ -1,10 +1,8 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
-import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { findUpward } from "./lib/file";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchRemotePageType } from "./lib/custom-types-api";
 
 const HELP = `
 View details of a specific page type.
@@ -16,30 +14,24 @@ ARGUMENTS
   type-id      Page type identifier (required)
 
 FLAGS
-  --json       Output as JSON
-  -h, --help   Show help for command
+  -r, --repo string   Repository domain
+      --json          Output as JSON
+  -h, --help          Show help for command
 
 EXAMPLES
   prismic page-type view homepage
   prismic page-type view homepage --json
+  prismic page-type view homepage --repo my-repo
 `.trim();
-
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.optional(v.string()),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
 
 export async function pageTypeView(): Promise<void> {
 	const {
-		values: { help, json },
+		values: { help, json, repo: repoFlag },
 		positionals: [typeId],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "page-type", "view"
 		options: {
+			repo: { type: "string", short: "r" },
 			json: { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
@@ -58,47 +50,28 @@ export async function pageTypeView(): Promise<void> {
 		return;
 	}
 
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
-
-	let model: CustomType;
-	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid page type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			console.error(`Page type not found: ${typeId}\n`);
-			console.error(`Create it first with: prismic page-type create ${typeId}`);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read page type: ${error.message}`);
-		} else {
-			console.error("Failed to read page type");
-		}
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
 		process.exitCode = 1;
 		return;
 	}
 
-	// Check if this is actually a page type
-	if (model.format !== "page") {
-		console.error(`"${typeId}" is not a page type (format: ${model.format ?? "custom"})`);
+	const result = await fetchRemotePageType(repo, typeId);
+	if (!result.ok) {
+		console.error(result.error);
 		process.exitCode = 1;
 		return;
 	}
+
+	const model = result.value;
 
 	if (json) {
 		console.info(JSON.stringify(model, null, 2));

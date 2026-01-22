@@ -93,9 +93,7 @@ const RepositoryResponseSchema = v.object({
 });
 type RepositoryResponse = v.InferOutput<typeof RepositoryResponseSchema>;
 
-async function getSimulatorUrl(
-	repo: string,
-): Promise<ParsedRequestResponse<RepositoryResponse>> {
+async function getSimulatorUrl(repo: string): Promise<ParsedRequestResponse<RepositoryResponse>> {
 	const url = new URL("/core/repository", await getRepoUrl(repo));
 	return await request(url, { schema: RepositoryResponseSchema });
 }

@@ -1,39 +1,33 @@
-import { readdir, readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { findUpward } from "./lib/file";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchRemoteNonPageCustomTypes } from "./lib/custom-types-api";
 
 const HELP = `
-List all custom types in a Prismic project.
+List all custom types in a Prismic repository.
 
 USAGE
   prismic custom-type list [flags]
 
 FLAGS
-  --json       Output as JSON
-  -h, --help   Show help for command
+  -r, --repo string   Repository domain
+      --json          Output as JSON
+  -h, --help          Show help for command
 
 EXAMPLES
   prismic custom-type list
   prismic custom-type list --json
+  prismic custom-type list --repo my-repo
 `.trim();
-
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.optional(v.string()),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
 
 export async function customTypeList(): Promise<void> {
 	const {
-		values: { help, json },
+		values: { help, json, repo: repoFlag },
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "custom-type", "list"
 		options: {
+			repo: { type: "string", short: "r" },
 			json: { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
@@ -45,49 +39,28 @@ export async function customTypeList(): Promise<void> {
 		return;
 	}
 
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const customTypesDirectory = new URL("customtypes/", projectRoot);
-
-	let entries: string[];
-	try {
-		entries = (await readdir(customTypesDirectory, {
-			withFileTypes: false,
-		})) as unknown as string[];
-	} catch {
-		if (json) {
-			console.info(JSON.stringify([]));
-		} else {
-			console.info("No custom types found.");
-		}
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
+		process.exitCode = 1;
 		return;
 	}
 
-	const customTypes: { id: string; label: string; repeatable: boolean }[] = [];
-
-	for (const entry of entries) {
-		const modelPath = new URL(`${entry}/index.json`, customTypesDirectory);
-		try {
-			const contents = await readFile(modelPath, "utf8");
-			const parsed = JSON.parse(contents);
-			const result = v.safeParse(CustomTypeSchema, parsed);
-			// Custom types have format !== "page" (either "custom" or undefined)
-			if (result.success && result.output.format !== "page") {
-				customTypes.push({
-					id: result.output.id,
-					label: result.output.label,
-					repeatable: result.output.repeatable,
-				});
-			}
-		} catch {
-			// Skip directories without valid index.json
-		}
+	const result = await fetchRemoteNonPageCustomTypes(repo);
+	if (!result.ok) {
+		console.error(result.error);
+		process.exitCode = 1;
+		return;
 	}
+
+	const customTypes = result.value;
 
 	if (customTypes.length === 0) {
 		if (json) {
@@ -99,7 +72,17 @@ export async function customTypeList(): Promise<void> {
 	}
 
 	if (json) {
-		console.info(JSON.stringify(customTypes, null, 2));
+		console.info(
+			JSON.stringify(
+				customTypes.map((ct) => ({
+					id: ct.id,
+					label: ct.label,
+					repeatable: ct.repeatable,
+				})),
+				null,
+				2,
+			),
+		);
 	} else {
 		console.info("ID\tLABEL\tTYPE");
 		for (const customType of customTypes) {

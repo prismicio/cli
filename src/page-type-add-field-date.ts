@@ -1,12 +1,12 @@
 import type { CustomType, Date as DateField } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchRemotePageType, updateCustomType } from "./lib/custom-types-api";
 import { humanReadable } from "./lib/string";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
 Add a date field to an existing page type.
@@ -19,10 +19,13 @@ ARGUMENTS
   field-id               Field identifier (required)
 
 FLAGS
+  -r, --repo string      Repository domain
   -t, --tab string       Target tab (default: first existing tab, or "Main")
   -l, --label string     Display label for the field (inferred from field-id if omitted)
   -p, --placeholder string Placeholder text
       --default string   Default date value (YYYY-MM-DD format)
+      --types string     Generate types to file (default: "prismicio-types.d.ts")
+      --no-types         Skip type generation
   -h, --help             Show help for command
 
 EXAMPLES
@@ -31,26 +34,20 @@ EXAMPLES
   prismic page-type add-field date article date --label "Publication Date" --default "2024-01-01"
 `.trim();
 
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.string(),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
-
 export async function pageTypeAddFieldDate(): Promise<void> {
 	const {
-		values: { help, tab, label, placeholder, default: defaultValue },
+		values: { help, repo: repoFlag, tab, label, placeholder, default: defaultValue, types, "no-types": noTypes },
 		positionals: [typeId, fieldId],
 	} = parseArgs({
 		args: process.argv.slice(5), // skip: node, script, "page-type", "add-field", "date"
 		options: {
+			repo: { type: "string", short: "r" },
 			tab: { type: "string", short: "t" },
 			label: { type: "string", short: "l" },
 			placeholder: { type: "string", short: "p" },
 			default: { type: "string" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -75,42 +72,28 @@ export async function pageTypeAddFieldDate(): Promise<void> {
 		return;
 	}
 
-	// Find the page type file
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
-
-	// Read and parse the model
-	let model: CustomType;
-	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid page type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			console.error(`Page type not found: ${typeId}\n`);
-			console.error(`Create it first with: prismic page-type create ${typeId}`);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read page type: ${error.message}`);
-		} else {
-			console.error("Failed to read page type");
-		}
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
 		process.exitCode = 1;
 		return;
 	}
+
+	const fetchResult = await fetchRemotePageType(repo, typeId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
+		process.exitCode = 1;
+		return;
+	}
+
+	const model: CustomType = fetchResult.value;
 
 	// Determine target tab
 	const existingTabs = Object.keys(model.json);
@@ -143,20 +126,16 @@ export async function pageTypeAddFieldDate(): Promise<void> {
 	// Add field to model
 	model.json[targetTab][fieldId] = fieldDefinition;
 
-	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(model));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update page type: ${error.message}`);
-		} else {
-			console.error("Failed to update page type");
-		}
+	const updateResult = await updateCustomType(repo, model);
+	if (!updateResult.ok) {
+		console.error(`Failed to update page type: ${updateResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
 
-	console.info(
-		`Added field "${fieldId}" (Date) to "${targetTab}" tab in ${typeId}`,
-	);
+	console.info(`Added field "${fieldId}" (Date) to "${targetTab}" tab in ${typeId}`);
+
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
+	}
 }

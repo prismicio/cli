@@ -1,11 +1,12 @@
-import type { Number, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { Number } from "@prismicio/types-internal/lib/customtypes";
 
-import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
-import { stringify } from "./lib/json";
-import { findSliceModel } from "./lib/slice";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchSlice, updateSlice } from "./lib/custom-types-api";
 import { humanReadable } from "./lib/string";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
 Add a number field to an existing slice.
@@ -18,9 +19,12 @@ ARGUMENTS
   field-id               Field identifier (required)
 
 FLAGS
+  -r, --repo string      Repository domain
   -v, --variation string Target variation (default: first variation)
   -l, --label string     Display label for the field (inferred from field-id if omitted)
   -p, --placeholder string Placeholder text
+      --types string  Generate types to file (default: "prismicio-types.d.ts")
+      --no-types      Skip type generation
   -h, --help             Show help for command
 
 EXAMPLES
@@ -31,14 +35,17 @@ EXAMPLES
 
 export async function sliceAddFieldNumber(): Promise<void> {
 	const {
-		values: { help, variation, label, placeholder },
+		values: { help, repo: repoFlag, variation, label, placeholder, types, "no-types": noTypes },
 		positionals: [sliceId, fieldId],
 	} = parseArgs({
 		args: process.argv.slice(5), // skip: node, script, "slice", "add-field", "number"
 		options: {
+			repo: { type: "string", short: "r" },
 			variation: { type: "string", short: "v" },
 			label: { type: "string", short: "l" },
 			placeholder: { type: "string", short: "p" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -63,15 +70,28 @@ export async function sliceAddFieldNumber(): Promise<void> {
 		return;
 	}
 
-	// Find the slice model
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const { model, modelPath } = result;
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
+		process.exitCode = 1;
+		return;
+	}
+
+	const fetchResult = await fetchSlice(repo, sliceId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
+		process.exitCode = 1;
+		return;
+	}
+
+	const model = fetchResult.value;
 
 	// Check for variations
 	if (model.variations.length === 0) {
@@ -119,15 +139,10 @@ export async function sliceAddFieldNumber(): Promise<void> {
 	// Add field to variation
 	targetVariation.primary[fieldId] = fieldDefinition;
 
-	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(model as SharedSlice));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update slice: ${error.message}`);
-		} else {
-			console.error("Failed to update slice");
-		}
+	// Update remote slice
+	const updateResult = await updateSlice(repo, model);
+	if (!updateResult.ok) {
+		console.error(`Failed to update slice: ${updateResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
@@ -135,4 +150,8 @@ export async function sliceAddFieldNumber(): Promise<void> {
 	console.info(
 		`Added field "${fieldId}" (Number) to "${targetVariation.id}" variation in ${sliceId}`,
 	);
+
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
+	}
 }

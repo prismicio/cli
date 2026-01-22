@@ -43,10 +43,16 @@ export async function fetchRemoteCustomTypes(repo: string): Promise<FetchResult<
 
 		if (!response.ok) {
 			if (response.status === 401) {
-				return { ok: false, error: "Unauthorized. Your session may have expired. Run `prismic login` again." };
+				return {
+					ok: false,
+					error: "Unauthorized. Your session may have expired. Run `prismic login` again.",
+				};
 			}
 			if (response.status === 403) {
-				return { ok: false, error: `Access denied. You may not have access to repository "${repo}".` };
+				return {
+					ok: false,
+					error: `Access denied. You may not have access to repository "${repo}".`,
+				};
 			}
 			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
 		}
@@ -82,10 +88,16 @@ export async function fetchRemoteSlices(repo: string): Promise<FetchResult<Share
 
 		if (!response.ok) {
 			if (response.status === 401) {
-				return { ok: false, error: "Unauthorized. Your session may have expired. Run `prismic login` again." };
+				return {
+					ok: false,
+					error: "Unauthorized. Your session may have expired. Run `prismic login` again.",
+				};
 			}
 			if (response.status === 403) {
-				return { ok: false, error: `Access denied. You may not have access to repository "${repo}".` };
+				return {
+					ok: false,
+					error: `Access denied. You may not have access to repository "${repo}".`,
+				};
 			}
 			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
 		}
@@ -102,6 +114,160 @@ export async function fetchRemoteSlices(repo: string): Promise<FetchResult<Share
 	}
 }
 
+export async function fetchCustomType(repo: string, id: string): Promise<FetchResult<CustomType>> {
+	const token = await readToken();
+	if (!token) {
+		return { ok: false, error: "Not authenticated" };
+	}
+
+	const baseUrl = await getCustomTypesApiUrl();
+	const url = new URL(`customtypes/${encodeURIComponent(id)}`, baseUrl);
+
+	try {
+		const response = await fetch(url, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+				repository: repo,
+			},
+		});
+
+		if (!response.ok) {
+			if (response.status === 401) {
+				return {
+					ok: false,
+					error: "Unauthorized. Your session may have expired. Run `prismic login` again.",
+				};
+			}
+			if (response.status === 403) {
+				return {
+					ok: false,
+					error: `Access denied. You may not have access to repository "${repo}".`,
+				};
+			}
+			if (response.status === 404) {
+				return { ok: false, error: `Custom type "${id}" not found in repository "${repo}".` };
+			}
+			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
+		}
+
+		const data = await response.json();
+		const result = v.safeParse(CustomTypeSchema, data);
+		if (!result.success) {
+			return { ok: false, error: "Invalid response from Custom Types API" };
+		}
+
+		return { ok: true, value: result.output as CustomType };
+	} catch (error) {
+		return { ok: false, error: `Network error: ${error instanceof Error ? error.message : error}` };
+	}
+}
+
+export async function fetchSlice(repo: string, id: string): Promise<FetchResult<SharedSlice>> {
+	const token = await readToken();
+	if (!token) {
+		return { ok: false, error: "Not authenticated" };
+	}
+
+	const baseUrl = await getCustomTypesApiUrl();
+	const url = new URL(`slices/${encodeURIComponent(id)}`, baseUrl);
+
+	try {
+		const response = await fetch(url, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+				repository: repo,
+			},
+		});
+
+		if (!response.ok) {
+			if (response.status === 401) {
+				return {
+					ok: false,
+					error: "Unauthorized. Your session may have expired. Run `prismic login` again.",
+				};
+			}
+			if (response.status === 403) {
+				return {
+					ok: false,
+					error: `Access denied. You may not have access to repository "${repo}".`,
+				};
+			}
+			if (response.status === 404) {
+				return { ok: false, error: `Slice "${id}" not found in repository "${repo}".` };
+			}
+			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
+		}
+
+		const data = await response.json();
+		const result = v.safeParse(SharedSliceSchema, data);
+		if (!result.success) {
+			return { ok: false, error: "Invalid response from Custom Types API" };
+		}
+
+		return { ok: true, value: result.output as SharedSlice };
+	} catch (error) {
+		return { ok: false, error: `Network error: ${error instanceof Error ? error.message : error}` };
+	}
+}
+
+export async function fetchRemoteCustomType(
+	repo: string,
+	id: string,
+): Promise<FetchResult<CustomType>> {
+	const result = await fetchCustomType(repo, id);
+	if (!result.ok) {
+		return result;
+	}
+
+	if (result.value.format === "page") {
+		return {
+			ok: false,
+			error: `"${id}" is not a custom type (format: page)`,
+		};
+	}
+
+	return result;
+}
+
+export async function fetchRemoteNonPageCustomTypes(
+	repo: string,
+): Promise<FetchResult<CustomType[]>> {
+	const result = await fetchRemoteCustomTypes(repo);
+	if (!result.ok) {
+		return result;
+	}
+
+	return { ok: true, value: result.value.filter((ct) => ct.format !== "page") };
+}
+
+export async function fetchRemotePageType(
+	repo: string,
+	id: string,
+): Promise<FetchResult<CustomType>> {
+	const result = await fetchCustomType(repo, id);
+	if (!result.ok) {
+		return result;
+	}
+
+	if (result.value.format !== "page") {
+		return {
+			ok: false,
+			error: `"${id}" is not a page type (format: ${result.value.format ?? "custom"})`,
+		};
+	}
+
+	return result;
+}
+
+export async function fetchRemotePageTypes(repo: string): Promise<FetchResult<CustomType[]>> {
+	const result = await fetchRemoteCustomTypes(repo);
+	if (!result.ok) {
+		return result;
+	}
+
+	return { ok: true, value: result.value.filter((ct) => ct.format === "page") };
+}
+
 export async function readLocalCustomTypes(): Promise<FetchResult<CustomType[]>> {
 	const projectRoot = await findUpward("package.json");
 	if (!projectRoot) {
@@ -113,7 +279,7 @@ export async function readLocalCustomTypes(): Promise<FetchResult<CustomType[]>>
 
 	let entries: string[];
 	try {
-		entries = await readdir(customTypesDir, { withFileTypes: false }) as unknown as string[];
+		entries = (await readdir(customTypesDir, { withFileTypes: false })) as unknown as string[];
 	} catch {
 		// No customtypes directory means no local custom types
 		return { ok: true, value: [] };
@@ -147,7 +313,7 @@ export async function readLocalSlices(): Promise<FetchResult<SharedSlice[]>> {
 
 	let entries: string[];
 	try {
-		entries = await readdir(slicesDir, { withFileTypes: false }) as unknown as string[];
+		entries = (await readdir(slicesDir, { withFileTypes: false })) as unknown as string[];
 	} catch {
 		// No slices directory means no local slices
 		return { ok: true, value: [] };
@@ -171,7 +337,10 @@ export async function readLocalSlices(): Promise<FetchResult<SharedSlice[]>> {
 	return { ok: true, value: slices };
 }
 
-export async function insertCustomType(repo: string, model: CustomType): Promise<FetchResult<void>> {
+export async function insertCustomType(
+	repo: string,
+	model: CustomType,
+): Promise<FetchResult<void>> {
 	const token = await readToken();
 	if (!token) {
 		return { ok: false, error: "Not authenticated" };
@@ -193,10 +362,16 @@ export async function insertCustomType(repo: string, model: CustomType): Promise
 
 		if (!response.ok) {
 			if (response.status === 401) {
-				return { ok: false, error: "Unauthorized. Your session may have expired. Run `prismic login` again." };
+				return {
+					ok: false,
+					error: "Unauthorized. Your session may have expired. Run `prismic login` again.",
+				};
 			}
 			if (response.status === 403) {
-				return { ok: false, error: `Access denied. You may not have access to repository "${repo}".` };
+				return {
+					ok: false,
+					error: `Access denied. You may not have access to repository "${repo}".`,
+				};
 			}
 			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
 		}
@@ -207,7 +382,10 @@ export async function insertCustomType(repo: string, model: CustomType): Promise
 	}
 }
 
-export async function updateCustomType(repo: string, model: CustomType): Promise<FetchResult<void>> {
+export async function updateCustomType(
+	repo: string,
+	model: CustomType,
+): Promise<FetchResult<void>> {
 	const token = await readToken();
 	if (!token) {
 		return { ok: false, error: "Not authenticated" };
@@ -229,10 +407,16 @@ export async function updateCustomType(repo: string, model: CustomType): Promise
 
 		if (!response.ok) {
 			if (response.status === 401) {
-				return { ok: false, error: "Unauthorized. Your session may have expired. Run `prismic login` again." };
+				return {
+					ok: false,
+					error: "Unauthorized. Your session may have expired. Run `prismic login` again.",
+				};
 			}
 			if (response.status === 403) {
-				return { ok: false, error: `Access denied. You may not have access to repository "${repo}".` };
+				return {
+					ok: false,
+					error: `Access denied. You may not have access to repository "${repo}".`,
+				};
 			}
 			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
 		}
@@ -263,10 +447,16 @@ export async function deleteCustomType(repo: string, id: string): Promise<FetchR
 
 		if (!response.ok) {
 			if (response.status === 401) {
-				return { ok: false, error: "Unauthorized. Your session may have expired. Run `prismic login` again." };
+				return {
+					ok: false,
+					error: "Unauthorized. Your session may have expired. Run `prismic login` again.",
+				};
 			}
 			if (response.status === 403) {
-				return { ok: false, error: `Access denied. You may not have access to repository "${repo}".` };
+				return {
+					ok: false,
+					error: `Access denied. You may not have access to repository "${repo}".`,
+				};
 			}
 			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
 		}
@@ -299,10 +489,16 @@ export async function insertSlice(repo: string, model: SharedSlice): Promise<Fet
 
 		if (!response.ok) {
 			if (response.status === 401) {
-				return { ok: false, error: "Unauthorized. Your session may have expired. Run `prismic login` again." };
+				return {
+					ok: false,
+					error: "Unauthorized. Your session may have expired. Run `prismic login` again.",
+				};
 			}
 			if (response.status === 403) {
-				return { ok: false, error: `Access denied. You may not have access to repository "${repo}".` };
+				return {
+					ok: false,
+					error: `Access denied. You may not have access to repository "${repo}".`,
+				};
 			}
 			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
 		}
@@ -335,10 +531,16 @@ export async function updateSlice(repo: string, model: SharedSlice): Promise<Fet
 
 		if (!response.ok) {
 			if (response.status === 401) {
-				return { ok: false, error: "Unauthorized. Your session may have expired. Run `prismic login` again." };
+				return {
+					ok: false,
+					error: "Unauthorized. Your session may have expired. Run `prismic login` again.",
+				};
 			}
 			if (response.status === 403) {
-				return { ok: false, error: `Access denied. You may not have access to repository "${repo}".` };
+				return {
+					ok: false,
+					error: `Access denied. You may not have access to repository "${repo}".`,
+				};
 			}
 			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
 		}
@@ -369,10 +571,16 @@ export async function deleteSlice(repo: string, id: string): Promise<FetchResult
 
 		if (!response.ok) {
 			if (response.status === 401) {
-				return { ok: false, error: "Unauthorized. Your session may have expired. Run `prismic login` again." };
+				return {
+					ok: false,
+					error: "Unauthorized. Your session may have expired. Run `prismic login` again.",
+				};
 			}
 			if (response.status === 403) {
-				return { ok: false, error: `Access denied. You may not have access to repository "${repo}".` };
+				return {
+					ok: false,
+					error: `Access denied. You may not have access to repository "${repo}".`,
+				};
 			}
 			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
 		}

@@ -1,10 +1,11 @@
 import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
-import { mkdir, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
-import { findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { insertCustomType } from "./lib/custom-types-api";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
 Create a new page type in a Prismic repository.
@@ -16,8 +17,11 @@ ARGUMENTS
   id       Page type identifier (required)
 
 FLAGS
+  -r, --repo string   Repository domain
   -n, --name string   Display name for the page type
       --single        Create as a singleton (non-repeatable) type
+      --types string  Generate types to file (default: "prismicio-types.d.ts")
+      --no-types      Skip type generation
   -h, --help          Show help for command
 
 LEARN MORE
@@ -26,13 +30,16 @@ LEARN MORE
 
 export async function pageTypeCreate(): Promise<void> {
 	const {
-		values: { help, name, single },
+		values: { help, name, single, repo: repoFlag, types, "no-types": noTypes },
 		positionals: [id],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "page-type", "create"
 		options: {
+			repo: { type: "string", short: "r" },
 			name: { type: "string", short: "n" },
 			single: { type: "boolean" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -49,6 +56,20 @@ export async function pageTypeCreate(): Promise<void> {
 		return;
 	}
 
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
+		process.exitCode = 1;
+		return;
+	}
+
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
+		process.exitCode = 1;
+		return;
+	}
+
 	const model = {
 		id,
 		label: name ?? pascalCase(id),
@@ -61,31 +82,18 @@ export async function pageTypeCreate(): Promise<void> {
 		},
 	} satisfies CustomType;
 
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
+	const result = await insertCustomType(repo, model);
+	if (!result.ok) {
+		console.error(`Failed to create page type: ${result.error}`);
 		process.exitCode = 1;
 		return;
 	}
 
-	const customTypesDirectory = new URL("customtypes/", projectRoot);
-	const typeDirectory = new URL(id + "/", customTypesDirectory);
-	const modelPath = new URL("index.json", typeDirectory);
+	console.info(`Created page type "${id}" in repository "${repo}"`);
 
-	try {
-		await mkdir(new URL(".", modelPath), { recursive: true });
-		await writeFile(modelPath, stringify(model));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to create page type: ${error.message}`);
-		} else {
-			console.error(`Failed to create page type`);
-		}
-		process.exitCode = 1;
-		return;
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
 	}
-
-	console.info(`Created page type at ${modelPath.href}`);
 }
 
 export function pascalCase(input: string): string {

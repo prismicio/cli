@@ -1,5 +1,4 @@
 import { parseArgs } from "node:util";
-
 import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
@@ -65,9 +64,7 @@ export async function repoGetAccess(): Promise<void> {
 		if (response.error instanceof ForbiddenRequestError) {
 			handleUnauthenticated();
 		} else {
-			console.error(
-				`Failed to get repository access: ${stringify(response.value)}`,
-			);
+			console.error(`Failed to get repository access: ${stringify(response.value)}`);
 			process.exitCode = 1;
 		}
 		return;

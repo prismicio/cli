@@ -1,8 +1,9 @@
-import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
-import { stringify } from "./lib/json";
-import { findSliceModel } from "./lib/slice";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchSlice, updateSlice } from "./lib/custom-types-api";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
 Remove a field from a slice variation.
@@ -15,25 +16,32 @@ ARGUMENTS
   field-id     Field identifier (required)
 
 FLAGS
-  --variation string  Target variation (default: "default")
-  --zone string       Field zone: "primary" or "items" (default: "primary")
-  -h, --help          Show help for command
+  -r, --repo string        Repository domain
+  --variation string       Target variation (default: "default")
+  --zone string            Field zone: "primary" or "items" (default: "primary")
+      --types string       Generate types to file (default: "prismicio-types.d.ts")
+      --no-types           Skip type generation
+  -h, --help               Show help for command
 
 EXAMPLES
   prismic slice remove-field MySlice title
   prismic slice remove-field MySlice title --variation withImage
   prismic slice remove-field MySlice item_title --zone items
+  prismic slice remove-field MySlice title --repo my-repo
 `.trim();
 
 export async function sliceRemoveField(): Promise<void> {
 	const {
-		values: { help, variation, zone },
+		values: { help, variation, zone, repo: repoFlag, types, "no-types": noTypes },
 		positionals: [sliceId, fieldId],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "slice", "remove-field"
 		options: {
+			repo: { type: "string", short: "r" },
 			variation: { type: "string", default: "default" },
 			zone: { type: "string", default: "primary" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -64,33 +72,42 @@ export async function sliceRemoveField(): Promise<void> {
 		return;
 	}
 
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const { model, modelPath } = result;
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
+		process.exitCode = 1;
+		return;
+	}
+
+	const fetchResult = await fetchSlice(repo, sliceId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
+		process.exitCode = 1;
+		return;
+	}
+
+	const model = fetchResult.value;
 
 	// Find the variation
 	const targetVariation = model.variations.find((v) => v.id === variation);
 	if (!targetVariation) {
 		console.error(`Variation not found: ${variation}`);
-		console.error(
-			`Available variations: ${model.variations.map((v) => v.id).join(", ")}`,
-		);
+		console.error(`Available variations: ${model.variations.map((v) => v.id).join(", ")}`);
 		process.exitCode = 1;
 		return;
 	}
 
 	// Check if field exists
-	const zoneFields =
-		zone === "primary" ? targetVariation.primary : targetVariation.items;
+	const zoneFields = zone === "primary" ? targetVariation.primary : targetVariation.items;
 	if (!zoneFields || !(fieldId in zoneFields)) {
-		console.error(
-			`Field "${fieldId}" not found in ${zone} zone of variation "${variation}"`,
-		);
+		console.error(`Field "${fieldId}" not found in ${zone} zone of variation "${variation}"`);
 		process.exitCode = 1;
 		return;
 	}
@@ -98,15 +115,9 @@ export async function sliceRemoveField(): Promise<void> {
 	// Remove the field
 	delete zoneFields[fieldId];
 
-	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(model));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update slice: ${error.message}`);
-		} else {
-			console.error("Failed to update slice");
-		}
+	const updateResult = await updateSlice(repo, model);
+	if (!updateResult.ok) {
+		console.error(`Failed to update slice: ${updateResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
@@ -114,4 +125,8 @@ export async function sliceRemoveField(): Promise<void> {
 	console.info(
 		`Removed field "${fieldId}" from ${zone} zone in variation "${variation}" of slice "${sliceId}"`,
 	);
+
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
+	}
 }

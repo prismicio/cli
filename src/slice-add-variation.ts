@@ -1,10 +1,12 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
-import { stringify } from "./lib/json";
-import { findSliceModel, pascalCase } from "./lib/slice";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchSlice, updateSlice } from "./lib/custom-types-api";
+import { pascalCase } from "./lib/slice";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
 Add a new variation to a slice.
@@ -17,25 +19,32 @@ ARGUMENTS
   variation-id   New variation identifier (required)
 
 FLAGS
-  --name string       Display name for the variation
-  --copy-from string  Copy fields from an existing variation
-  -h, --help          Show help for command
+  -r, --repo string        Repository domain
+  --name string            Display name for the variation
+  --copy-from string       Copy fields from an existing variation
+      --types string       Generate types to file (default: "prismicio-types.d.ts")
+      --no-types           Skip type generation
+  -h, --help               Show help for command
 
 EXAMPLES
   prismic slice add-variation MySlice withImage
   prismic slice add-variation MySlice withImage --name "With Image"
   prismic slice add-variation MySlice withImage --copy-from default
+  prismic slice add-variation MySlice withImage --repo my-repo
 `.trim();
 
 export async function sliceAddVariation(): Promise<void> {
 	const {
-		values: { help, name, "copy-from": copyFrom },
+		values: { help, name, "copy-from": copyFrom, repo: repoFlag, types, "no-types": noTypes },
 		positionals: [sliceId, variationId],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "slice", "add-variation"
 		options: {
+			repo: { type: "string", short: "r" },
 			name: { type: "string" },
 			"copy-from": { type: "string" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -48,30 +57,40 @@ export async function sliceAddVariation(): Promise<void> {
 
 	if (!sliceId) {
 		console.error("Missing required argument: slice-id\n");
-		console.error(
-			"Usage: prismic slice add-variation <slice-id> <variation-id>",
-		);
+		console.error("Usage: prismic slice add-variation <slice-id> <variation-id>");
 		process.exitCode = 1;
 		return;
 	}
 
 	if (!variationId) {
 		console.error("Missing required argument: variation-id\n");
-		console.error(
-			"Usage: prismic slice add-variation <slice-id> <variation-id>",
-		);
+		console.error("Usage: prismic slice add-variation <slice-id> <variation-id>");
 		process.exitCode = 1;
 		return;
 	}
 
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const { model, modelPath } = result;
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
+		process.exitCode = 1;
+		return;
+	}
+
+	const fetchResult = await fetchSlice(repo, sliceId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
+		process.exitCode = 1;
+		return;
+	}
+
+	const model = fetchResult.value;
 
 	// Check if variation already exists
 	if (model.variations.some((v) => v.id === variationId)) {
@@ -87,9 +106,7 @@ export async function sliceAddVariation(): Promise<void> {
 		const sourceVariation = model.variations.find((v) => v.id === copyFrom);
 		if (!sourceVariation) {
 			console.error(`Source variation not found: ${copyFrom}`);
-			console.error(
-				`Available variations: ${model.variations.map((v) => v.id).join(", ")}`,
-			);
+			console.error(`Available variations: ${model.variations.map((v) => v.id).join(", ")}`);
 			process.exitCode = 1;
 			return;
 		}
@@ -118,20 +135,16 @@ export async function sliceAddVariation(): Promise<void> {
 		variations: [...model.variations, newVariation],
 	};
 
-	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(updatedModel as SharedSlice));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update slice: ${error.message}`);
-		} else {
-			console.error("Failed to update slice");
-		}
+	const updateResult = await updateSlice(repo, updatedModel as SharedSlice);
+	if (!updateResult.ok) {
+		console.error(`Failed to update slice: ${updateResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
 
-	console.info(
-		`Added variation "${variationId}" to slice "${sliceId}"`,
-	);
+	console.info(`Added variation "${variationId}" to slice "${sliceId}"`);
+
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
+	}
 }

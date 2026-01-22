@@ -1,13 +1,12 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
-import { readFile, rm } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { findUpward } from "./lib/file";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { deleteCustomType, fetchRemoteCustomType } from "./lib/custom-types-api";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
-Remove a custom type from the project.
+Remove a custom type from the repository.
 
 USAGE
   prismic custom-type remove <type-id> [flags]
@@ -16,31 +15,29 @@ ARGUMENTS
   type-id      Custom type identifier (required)
 
 FLAGS
-  -y           Confirm removal
-  -h, --help   Show help for command
+  -r, --repo string   Repository domain
+  -y                   Confirm removal
+      --types string   Generate types to file (default: "prismicio-types.d.ts")
+      --no-types       Skip type generation
+  -h, --help           Show help for command
 
 EXAMPLES
   prismic custom-type remove settings
   prismic custom-type remove settings -y
+  prismic custom-type remove settings --repo my-repo -y
 `.trim();
-
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.optional(v.string()),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
 
 export async function customTypeRemove(): Promise<void> {
 	const {
-		values: { help, y },
+		values: { help, y, repo: repoFlag, types, "no-types": noTypes },
 		positionals: [typeId],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "custom-type", "remove"
 		options: {
+			repo: { type: "string", short: "r" },
 			y: { type: "boolean", short: "y" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -58,69 +55,46 @@ export async function customTypeRemove(): Promise<void> {
 		return;
 	}
 
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const typeDirectory = new URL(`customtypes/${typeId}/`, projectRoot);
-	const modelPath = new URL("index.json", typeDirectory);
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
+		process.exitCode = 1;
+		return;
+	}
 
 	// Verify the custom type exists and is actually a custom type
-	let model: CustomType;
-	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid custom type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			console.error(`Custom type not found: ${typeId}`);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read custom type: ${error.message}`);
-		} else {
-			console.error("Failed to read custom type");
-		}
-		process.exitCode = 1;
-		return;
-	}
-
-	// Check if this is actually a custom type (not a page type)
-	if (model.format === "page") {
-		console.error(`"${typeId}" is not a custom type (format: page)`);
+	const fetchResult = await fetchRemoteCustomType(repo, typeId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
 		process.exitCode = 1;
 		return;
 	}
 
 	// Require -y flag to confirm deletion
 	if (!y) {
-		console.error(`Refusing to remove custom type "${typeId}" (this will delete the entire directory).`);
+		console.error(`Refusing to remove custom type "${typeId}" (this is a destructive action).`);
 		console.error("Re-run with -y to confirm.");
 		process.exitCode = 1;
 		return;
 	}
 
-	// Delete the custom type directory
-	try {
-		await rm(typeDirectory, { recursive: true });
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to remove custom type: ${error.message}`);
-		} else {
-			console.error("Failed to remove custom type");
-		}
+	const deleteResult = await deleteCustomType(repo, typeId);
+	if (!deleteResult.ok) {
+		console.error(`Failed to remove custom type: ${deleteResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
 
-	console.info(`Removed custom type "${typeId}"`);
+	console.info(`Removed custom type "${typeId}" from repository "${repo}"`);
+
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
+	}
 }

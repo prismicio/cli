@@ -12,7 +12,7 @@ import { pageTypeSetRepeatable } from "./page-type-set-repeatable";
 import { pageTypeView } from "./page-type-view";
 
 const HELP = `
-Manage page types in a Prismic repository.
+Manage page types in a Prismic repository. Commands operate on the remote repository.
 
 USAGE
   prismic page-type <command> [flags]

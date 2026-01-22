@@ -29,6 +29,51 @@ EXAMPLES
   prismic codegen types --output custom.d.ts
 `.trim();
 
+export async function generateTypesFile(repo: string, output = "prismicio-types.d.ts"): Promise<void> {
+	try {
+		const [customTypesResult, slicesResult, localesResult] = await Promise.all([
+			fetchRemoteCustomTypes(repo),
+			fetchRemoteSlices(repo),
+			getLocales(repo),
+		]);
+
+		if (!customTypesResult.ok) {
+			console.warn(`Warning: Could not generate types: ${customTypesResult.error}`);
+			return;
+		}
+		if (!slicesResult.ok) {
+			console.warn(`Warning: Could not generate types: ${slicesResult.error}`);
+			return;
+		}
+		if (!localesResult.ok) {
+			console.warn(`Warning: Could not generate types: ${localesResult.error}`);
+			return;
+		}
+
+		const customTypes = customTypesResult.value as unknown as CustomTypeModel[];
+		const slices = slicesResult.value as unknown as SharedSliceModel[];
+		const localeIDs = localesResult.value.results.map((l) => l.id);
+
+		const types = generateTypes({
+			customTypeModels: customTypes,
+			sharedSliceModels: slices,
+			localeIDs,
+			typesProvider: "@prismicio/client",
+			clientIntegration: {
+				includeCreateClientInterface: customTypes.length > 0 || slices.length > 0,
+				includeContentNamespace: true,
+			},
+		});
+
+		const content = NON_EDITABLE_FILE_HEADER + "\n\n" + types;
+		await writeFile(output, content);
+		console.info(`Generated types written to ${output}`);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.warn(`Warning: Type generation failed: ${message}`);
+	}
+}
+
 export async function codegenTypes(): Promise<void> {
 	const {
 		values: { help, repo = await safeGetRepositoryFromConfig(), output = "prismicio-types.d.ts" },
@@ -59,47 +104,5 @@ export async function codegenTypes(): Promise<void> {
 		return;
 	}
 
-	const [customTypesResult, slicesResult, localesResult] = await Promise.all([
-		fetchRemoteCustomTypes(repo),
-		fetchRemoteSlices(repo),
-		getLocales(repo),
-	]);
-
-	if (!customTypesResult.ok) {
-		console.error(`Failed to fetch custom types: ${customTypesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!slicesResult.ok) {
-		console.error(`Failed to fetch slices: ${slicesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!localesResult.ok) {
-		console.error(`Failed to fetch locales: ${localesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
-
-	const customTypes = customTypesResult.value as unknown as CustomTypeModel[];
-	const slices = slicesResult.value as unknown as SharedSliceModel[];
-	const localeIDs = localesResult.value.results.map((l) => l.id);
-
-	const types = generateTypes({
-		customTypeModels: customTypes,
-		sharedSliceModels: slices,
-		localeIDs,
-		typesProvider: "@prismicio/client",
-		clientIntegration: {
-			includeCreateClientInterface: customTypes.length > 0 || slices.length > 0,
-			includeContentNamespace: true,
-		},
-	});
-
-	const content = NON_EDITABLE_FILE_HEADER + "\n\n" + types;
-
-	await writeFile(output, content);
-	console.info(`Generated types written to ${output}`);
+	await generateTypesFile(repo, output);
 }

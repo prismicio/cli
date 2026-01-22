@@ -11,7 +11,7 @@ import { customTypeSetName } from "./custom-type-set-name";
 import { customTypeView } from "./custom-type-view";
 
 const HELP = `
-Manage custom types in a Prismic repository.
+Manage custom types in a Prismic repository. Commands operate on the remote repository.
 
 USAGE
   prismic custom-type <command> [flags]

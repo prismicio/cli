@@ -1,6 +1,8 @@
 import { parseArgs } from "node:util";
 
-import { findSliceModel } from "./lib/slice";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchSlice } from "./lib/custom-types-api";
 
 const HELP = `
 View details of a specific slice.
@@ -12,21 +14,24 @@ ARGUMENTS
   slice-id     Slice identifier (required)
 
 FLAGS
-  --json       Output as JSON
-  -h, --help   Show help for command
+  -r, --repo string   Repository domain
+  --json              Output as JSON
+  -h, --help          Show help for command
 
 EXAMPLES
   prismic slice view MySlice
   prismic slice view MySlice --json
+  prismic slice view MySlice --repo my-repo
 `.trim();
 
 export async function sliceView(): Promise<void> {
 	const {
-		values: { help, json },
+		values: { help, json, repo: repoFlag },
 		positionals: [sliceId],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "slice", "view"
 		options: {
+			repo: { type: "string", short: "r" },
 			json: { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
@@ -45,14 +50,28 @@ export async function sliceView(): Promise<void> {
 		return;
 	}
 
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const { model } = result;
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
+		process.exitCode = 1;
+		return;
+	}
+
+	const fetchResult = await fetchSlice(repo, sliceId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
+		process.exitCode = 1;
+		return;
+	}
+
+	const model = fetchResult.value;
 
 	if (json) {
 		console.info(JSON.stringify(model, null, 2));

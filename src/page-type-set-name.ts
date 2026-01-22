@@ -1,11 +1,9 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
-import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchRemotePageType, updateCustomType } from "./lib/custom-types-api";
+import { generateTypesFile } from "./codegen-types";
 
 const HELP = `
 Change a page type's display name (label).
@@ -18,29 +16,27 @@ ARGUMENTS
   new-name     New display name (required)
 
 FLAGS
-  -h, --help   Show help for command
+  -r, --repo string   Repository domain
+      --types string  Generate types to file (default: "prismicio-types.d.ts")
+      --no-types      Skip type generation
+  -h, --help          Show help for command
 
 EXAMPLES
   prismic page-type set-name homepage "Home Page"
   prismic page-type set-name blog_post "Blog Post"
+  prismic page-type set-name homepage "Home Page" --repo my-repo
 `.trim();
-
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.optional(v.string()),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
 
 export async function pageTypeSetName(): Promise<void> {
 	const {
-		values: { help },
+		values: { help, repo: repoFlag, types, "no-types": noTypes },
 		positionals: [typeId, newName],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "page-type", "set-name"
 		options: {
+			repo: { type: "string", short: "r" },
+			types: { type: "string" },
+			"no-types": { type: "boolean" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
@@ -65,64 +61,40 @@ export async function pageTypeSetName(): Promise<void> {
 		return;
 	}
 
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
+	const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+	if (!repo) {
+		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
 		return;
 	}
 
-	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
-
-	// Read and parse the model
-	let model: CustomType;
-	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid page type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			console.error(`Page type not found: ${typeId}\n`);
-			console.error(`Create it first with: prismic page-type create ${typeId}`);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read page type: ${error.message}`);
-		} else {
-			console.error("Failed to read page type");
-		}
+	const authenticated = await isAuthenticated();
+	if (!authenticated) {
+		console.error("Not logged in. Run `prismic login` first.");
 		process.exitCode = 1;
 		return;
 	}
 
-	// Check if this is actually a page type
-	if (model.format !== "page") {
-		console.error(`"${typeId}" is not a page type (format: ${model.format ?? "custom"})`);
+	const fetchResult = await fetchRemotePageType(repo, typeId);
+	if (!fetchResult.ok) {
+		console.error(fetchResult.error);
 		process.exitCode = 1;
 		return;
 	}
 
-	// Update the model
+	const model = fetchResult.value;
 	model.label = newName;
 
-	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(model));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update page type: ${error.message}`);
-		} else {
-			console.error("Failed to update page type");
-		}
+	const updateResult = await updateCustomType(repo, model);
+	if (!updateResult.ok) {
+		console.error(`Failed to update page type: ${updateResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
 
 	console.info(`Renamed page type "${typeId}" to "${newName}"`);
+
+	if (!noTypes) {
+		await generateTypesFile(repo, types || undefined);
+	}
 }

@@ -71,10 +71,15 @@ export async function tokenDelete(): Promise<void> {
 	]);
 
 	if (!accessResponse.ok) {
-		if (accessResponse.error instanceof ForbiddenRequestError || accessResponse.error instanceof UnauthorizedRequestError) {
+		if (
+			accessResponse.error instanceof ForbiddenRequestError ||
+			accessResponse.error instanceof UnauthorizedRequestError
+		) {
 			handleUnauthenticated();
 		} else if (v.isValiError(accessResponse.error)) {
-			console.error(`Failed to list access tokens: Invalid response: ${stringify(accessResponse.error.issues)}`);
+			console.error(
+				`Failed to list access tokens: Invalid response: ${stringify(accessResponse.error.issues)}`,
+			);
 			process.exitCode = 1;
 		} else {
 			console.error(`Failed to list access tokens: ${stringify(accessResponse.value)}`);
@@ -84,10 +89,15 @@ export async function tokenDelete(): Promise<void> {
 	}
 
 	if (!writeResponse.ok) {
-		if (writeResponse.error instanceof ForbiddenRequestError || writeResponse.error instanceof UnauthorizedRequestError) {
+		if (
+			writeResponse.error instanceof ForbiddenRequestError ||
+			writeResponse.error instanceof UnauthorizedRequestError
+		) {
 			handleUnauthenticated();
 		} else if (v.isValiError(writeResponse.error)) {
-			console.error(`Failed to list write tokens: Invalid response: ${stringify(writeResponse.error.issues)}`);
+			console.error(
+				`Failed to list write tokens: Invalid response: ${stringify(writeResponse.error.issues)}`,
+			);
 			process.exitCode = 1;
 		} else {
 			console.error(`Failed to list write tokens: ${stringify(writeResponse.value)}`);
@@ -100,7 +110,11 @@ export async function tokenDelete(): Promise<void> {
 	let foundAuth: AccessToken | undefined;
 	for (const app of accessResponse.value) {
 		for (const auth of app.wroom_auths) {
-			if (auth.token === tokenValue || auth.token.startsWith(tokenValue) || auth.token.endsWith(tokenValue)) {
+			if (
+				auth.token === tokenValue ||
+				auth.token.startsWith(tokenValue) ||
+				auth.token.endsWith(tokenValue)
+			) {
 				foundAuth = auth;
 				break;
 			}
@@ -114,7 +128,10 @@ export async function tokenDelete(): Promise<void> {
 		const response = await request(url, { method: "DELETE" });
 
 		if (!response.ok) {
-			if (response.error instanceof ForbiddenRequestError || response.error instanceof UnauthorizedRequestError) {
+			if (
+				response.error instanceof ForbiddenRequestError ||
+				response.error instanceof UnauthorizedRequestError
+			) {
 				handleUnauthenticated();
 			} else {
 				console.error(`Failed to delete token: ${stringify(response.value)}`);
@@ -129,7 +146,8 @@ export async function tokenDelete(): Promise<void> {
 
 	// Find in write tokens
 	const foundWriteToken = writeResponse.value.tokens.find(
-		(t: WriteToken) => t.token === tokenValue || t.token.startsWith(tokenValue) || t.token.endsWith(tokenValue),
+		(t: WriteToken) =>
+			t.token === tokenValue || t.token.startsWith(tokenValue) || t.token.endsWith(tokenValue),
 	);
 
 	if (foundWriteToken) {
@@ -138,7 +156,10 @@ export async function tokenDelete(): Promise<void> {
 		const response = await request(url, { method: "DELETE" });
 
 		if (!response.ok) {
-			if (response.error instanceof ForbiddenRequestError || response.error instanceof UnauthorizedRequestError) {
+			if (
+				response.error instanceof ForbiddenRequestError ||
+				response.error instanceof UnauthorizedRequestError
+			) {
 				handleUnauthenticated();
 			} else {
 				console.error(`Failed to delete token: ${stringify(response.value)}`);

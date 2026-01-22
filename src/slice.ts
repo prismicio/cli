@@ -12,7 +12,7 @@ import { sliceRename } from "./slice-rename";
 import { sliceView } from "./slice-view";
 
 const HELP = `
-Manage slices in a Prismic project.
+Manage slices in a Prismic repository. Commands operate on the remote repository.
 
 USAGE
   prismic slice <command> [flags]

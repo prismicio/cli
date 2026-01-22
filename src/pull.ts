@@ -34,7 +34,14 @@ EXAMPLES
 
 export async function pull(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryFromConfig(), "dry-run": dryRun, "types-only": typesOnly, "slices-only": slicesOnly, json },
+		values: {
+			help,
+			repo = await safeGetRepositoryFromConfig(),
+			"dry-run": dryRun,
+			"types-only": typesOnly,
+			"slices-only": slicesOnly,
+			json,
+		},
 	} = parseArgs({
 		args: process.argv.slice(3), // skip: node, script, "pull"
 		options: {
@@ -75,7 +82,9 @@ export async function pull(): Promise<void> {
 	const shouldFetchSlices = !typesOnly;
 
 	const [customTypesResult, slicesResult] = await Promise.all([
-		shouldFetchTypes ? fetchRemoteCustomTypes(repo) : Promise.resolve({ ok: true, value: [] } as const),
+		shouldFetchTypes
+			? fetchRemoteCustomTypes(repo)
+			: Promise.resolve({ ok: true, value: [] } as const),
 		shouldFetchSlices ? fetchRemoteSlices(repo) : Promise.resolve({ ok: true, value: [] } as const),
 	]);
 
@@ -123,7 +132,9 @@ export async function pull(): Promise<void> {
 					console.info(`  ${relativeSlicesDir}${pascalCase(slice.name)}/model.json`);
 				}
 			}
-			console.info(`\nDry run complete: ${customTypes.length} custom types, ${slices.length} slices`);
+			console.info(
+				`\nDry run complete: ${customTypes.length} custom types, ${slices.length} slices`,
+			);
 		}
 		return;
 	}
@@ -160,7 +171,9 @@ export async function pull(): Promise<void> {
 					console.info(`  ${relativePath}`);
 				}
 			} catch (error) {
-				console.error(`Failed to write custom type ${ct.id}: ${error instanceof Error ? error.message : error}`);
+				console.error(
+					`Failed to write custom type ${ct.id}: ${error instanceof Error ? error.message : error}`,
+				);
 				process.exitCode = 1;
 				return;
 			}
@@ -187,7 +200,9 @@ export async function pull(): Promise<void> {
 					console.info(`  ${relativePath}`);
 				}
 			} catch (error) {
-				console.error(`Failed to write slice ${slice.name}: ${error instanceof Error ? error.message : error}`);
+				console.error(
+					`Failed to write slice ${slice.name}: ${error instanceof Error ? error.message : error}`,
+				);
 				process.exitCode = 1;
 				return;
 			}
@@ -198,7 +213,9 @@ export async function pull(): Promise<void> {
 	if (json) {
 		console.info(stringify({ writtenTypes, writtenSlices }));
 	} else {
-		console.info(`\nPull complete: ${writtenTypes.length} custom types, ${writtenSlices.length} slices`);
+		console.info(
+			`\nPull complete: ${writtenTypes.length} custom types, ${writtenSlices.length} slices`,
+		);
 	}
 }
 
