@@ -5,6 +5,7 @@ import { parseArgs } from "node:util";
 
 import { stringify } from "./lib/json";
 import { findSliceModel } from "./lib/slice";
+import { humanReadable } from "./lib/string";
 
 const HELP = `
 Add a geographic coordinates field to an existing slice.
@@ -18,7 +19,7 @@ ARGUMENTS
 
 FLAGS
   -v, --variation string Target variation (default: first variation)
-  -l, --label string     Display label for the field
+  -l, --label string     Display label for the field (inferred from field-id if omitted)
   -h, --help             Show help for command
 
 EXAMPLES
@@ -108,7 +109,7 @@ export async function sliceAddFieldGeoPoint(): Promise<void> {
 	const fieldDefinition: GeoPoint = {
 		type: "GeoPoint",
 		config: {
-			...(label && { label }),
+			label: label ?? humanReadable(fieldId),
 		},
 	};
 

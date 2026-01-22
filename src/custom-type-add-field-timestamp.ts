@@ -6,6 +6,7 @@ import * as v from "valibot";
 
 import { findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
+import { humanReadable } from "./lib/string";
 
 const HELP = `
 Add a timestamp (date and time) field to an existing custom type.
@@ -19,7 +20,7 @@ ARGUMENTS
 
 FLAGS
   -t, --tab string       Target tab (default: first existing tab, or "Main")
-  -l, --label string     Display label for the field
+  -l, --label string     Display label for the field (inferred from field-id if omitted)
   -p, --placeholder string Placeholder text
       --default string   Default timestamp value (ISO 8601 format)
   -h, --help             Show help for command
@@ -133,7 +134,7 @@ export async function customTypeAddFieldTimestamp(): Promise<void> {
 	const fieldDefinition: Timestamp = {
 		type: "Timestamp",
 		config: {
-			...(label && { label }),
+			label: label ?? humanReadable(fieldId),
 			...(placeholder && { placeholder }),
 			...(defaultValue && { default: defaultValue }),
 		},

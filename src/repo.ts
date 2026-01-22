@@ -1,7 +1,9 @@
 import { parseArgs } from "node:util";
 
 import { repoCreate } from "./repo-create";
+import { repoGetAccess } from "./repo-get-access";
 import { repoList } from "./repo-list";
+import { repoSetAccess } from "./repo-set-access";
 import { repoSetName } from "./repo-set-name";
 import { repoView } from "./repo-view";
 
@@ -15,6 +17,8 @@ COMMANDS
   create      Create a new Prismic repository
   list        List all repositories
   view        View repository details
+  get-access  Get Content API access level
+  set-access  Set Content API access level
   set-name    Set repository display name
 
 FLAGS
@@ -45,6 +49,12 @@ export async function repo(): Promise<void> {
 			break;
 		case "view":
 			await repoView();
+			break;
+		case "get-access":
+			await repoGetAccess();
+			break;
+		case "set-access":
+			await repoSetAccess();
 			break;
 		case "set-name":
 			await repoSetName();

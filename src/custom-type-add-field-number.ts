@@ -6,6 +6,7 @@ import * as v from "valibot";
 
 import { findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
+import { humanReadable } from "./lib/string";
 
 const HELP = `
 Add a number field to an existing custom type.
@@ -19,7 +20,7 @@ ARGUMENTS
 
 FLAGS
   -t, --tab string       Target tab (default: first existing tab, or "Main")
-  -l, --label string     Display label for the field
+  -l, --label string     Display label for the field (inferred from field-id if omitted)
   -p, --placeholder string Placeholder text
       --min number       Minimum value
       --max number       Maximum value
@@ -160,7 +161,7 @@ export async function customTypeAddFieldNumber(): Promise<void> {
 	const fieldDefinition: NumberField = {
 		type: "Number",
 		config: {
-			...(label && { label }),
+			label: label ?? humanReadable(fieldId),
 			...(placeholder && { placeholder }),
 			...(minValue !== undefined && { min: minValue }),
 			...(maxValue !== undefined && { max: maxValue }),

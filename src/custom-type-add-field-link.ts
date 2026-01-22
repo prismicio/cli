@@ -6,6 +6,7 @@ import * as v from "valibot";
 
 import { findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
+import { humanReadable } from "./lib/string";
 
 const HELP = `
 Add a link field to an existing custom type.
@@ -19,7 +20,7 @@ ARGUMENTS
 
 FLAGS
   -t, --tab string         Target tab (default: first existing tab, or "Main")
-  -l, --label string       Display label for the field
+  -l, --label string       Display label for the field (inferred from field-id if omitted)
   -p, --placeholder string Placeholder text
       --variation string   Slice variations (can be used multiple times)
       --allow-text         Allow text with link
@@ -149,7 +150,7 @@ export async function customTypeAddFieldLink(): Promise<void> {
 	const fieldDefinition: Link = {
 		type: "Link",
 		config: {
-			...(label && { label }),
+			label: label ?? humanReadable(fieldId),
 			...(placeholder && { placeholder }),
 			...(variation && variation.length > 0 && { variants: variation }),
 			...(allowText && { allowText: true }),

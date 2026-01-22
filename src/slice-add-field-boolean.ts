@@ -5,6 +5,7 @@ import { parseArgs } from "node:util";
 
 import { stringify } from "./lib/json";
 import { findSliceModel } from "./lib/slice";
+import { humanReadable } from "./lib/string";
 
 const HELP = `
 Add a boolean (toggle) field to an existing slice.
@@ -18,7 +19,7 @@ ARGUMENTS
 
 FLAGS
   -v, --variation string Target variation (default: first variation)
-  -l, --label string     Display label for the field
+  -l, --label string     Display label for the field (inferred from field-id if omitted)
       --default          Set default value to true
       --true-label string Label shown when toggle is on
       --false-label string Label shown when toggle is off
@@ -121,7 +122,7 @@ export async function sliceAddFieldBoolean(): Promise<void> {
 	const fieldDefinition: BooleanField = {
 		type: "Boolean",
 		config: {
-			...(label && { label }),
+			label: label ?? humanReadable(fieldId),
 			...(defaultValue && { default_value: true }),
 			...(trueLabel && { placeholder_true: trueLabel }),
 			...(falseLabel && { placeholder_false: falseLabel }),

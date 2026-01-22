@@ -5,6 +5,7 @@ import { parseArgs } from "node:util";
 
 import { stringify } from "./lib/json";
 import { findSliceModel } from "./lib/slice";
+import { humanReadable } from "./lib/string";
 
 const HELP = `
 Add a select (dropdown) field to an existing slice.
@@ -18,7 +19,7 @@ ARGUMENTS
 
 FLAGS
   -v, --variation string Target variation (default: first variation)
-  -l, --label string     Display label for the field
+  -l, --label string     Display label for the field (inferred from field-id if omitted)
   -p, --placeholder string Placeholder text
       --option string    Add an option (can be used multiple times)
       --default string   Default selected value
@@ -114,7 +115,7 @@ export async function sliceAddFieldSelect(): Promise<void> {
 	const fieldDefinition: Select = {
 		type: "Select",
 		config: {
-			...(label && { label }),
+			label: label ?? humanReadable(fieldId),
 			...(placeholder && { placeholder }),
 			...(option && option.length > 0 && { options: option }),
 			...(defaultValue && { default_value: defaultValue }),

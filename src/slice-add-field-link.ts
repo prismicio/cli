@@ -5,6 +5,7 @@ import { parseArgs } from "node:util";
 
 import { stringify } from "./lib/json";
 import { findSliceModel } from "./lib/slice";
+import { humanReadable } from "./lib/string";
 
 const HELP = `
 Add a link field to an existing slice.
@@ -18,7 +19,7 @@ ARGUMENTS
 
 FLAGS
   -v, --variation string   Target variation (default: first variation)
-  -l, --label string       Display label for the field
+  -l, --label string       Display label for the field (inferred from field-id if omitted)
   -p, --placeholder string Placeholder text
       --allow-text         Allow text with link
       --allow-target-blank Allow opening link in new tab
@@ -125,7 +126,7 @@ export async function sliceAddFieldLink(): Promise<void> {
 	const fieldDefinition: Link = {
 		type: "Link",
 		config: {
-			...(label && { label }),
+			label: label ?? humanReadable(fieldId),
 			...(placeholder && { placeholder }),
 			...(allowText && { allowText: true }),
 			...(allowTargetBlank && { allowTargetBlank: true }),

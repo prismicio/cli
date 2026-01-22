@@ -1,9 +1,12 @@
 import { parseArgs } from "node:util";
 
 import { previewAdd } from "./preview-add";
+import { previewGetSimulator } from "./preview-get-simulator";
 import { previewList } from "./preview-list";
 import { previewRemove } from "./preview-remove";
+import { previewRemoveSimulator } from "./preview-remove-simulator";
 import { previewSetName } from "./preview-set-name";
+import { previewSetSimulator } from "./preview-set-simulator";
 
 const HELP = `
 Manage preview configurations in a Prismic repository.
@@ -12,10 +15,13 @@ USAGE
   prismic preview <command> [flags]
 
 COMMANDS
-  add         Add a preview configuration
-  list        List preview configurations
-  remove      Remove a preview configuration
-  set-name    Update a preview's name
+  add               Add a preview configuration
+  list              List preview configurations
+  remove            Remove a preview configuration
+  set-name          Update a preview's name
+  set-simulator     Set the slice simulator URL
+  get-simulator     Show the slice simulator URL
+  remove-simulator  Remove the slice simulator URL
 
 FLAGS
   -h, --help   Show help for command
@@ -48,6 +54,15 @@ export async function preview(): Promise<void> {
 			break;
 		case "set-name":
 			await previewSetName();
+			break;
+		case "set-simulator":
+			await previewSetSimulator();
+			break;
+		case "get-simulator":
+			await previewGetSimulator();
+			break;
+		case "remove-simulator":
+			await previewRemoveSimulator();
 			break;
 		default: {
 			if (subcommand) {

@@ -6,6 +6,7 @@ import * as v from "valibot";
 
 import { findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
+import { humanReadable } from "./lib/string";
 
 const HELP = `
 Add a rich text field to an existing page type.
@@ -19,7 +20,7 @@ ARGUMENTS
 
 FLAGS
   -t, --tab string       Target tab (default: first existing tab, or "Main")
-  -l, --label string     Display label for the field
+  -l, --label string     Display label for the field (inferred from field-id if omitted)
   -p, --placeholder string Placeholder text
       --single string    Allowed block types for single-line (comma-separated)
       --multi string     Allowed block types for multi-line (comma-separated)
@@ -151,7 +152,7 @@ export async function pageTypeAddFieldRichText(): Promise<void> {
 	const fieldDefinition: RichText = {
 		type: "StructuredText",
 		config: {
-			...(label && { label }),
+			label: label ?? humanReadable(fieldId),
 			...(placeholder && { placeholder }),
 			...(single && { single }),
 			...(multi && { multi }),
