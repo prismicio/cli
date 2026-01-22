@@ -1,7 +1,6 @@
 {
-	"name": "prismic-cli-poc",
+	"name": "@angeloashmore/prismic-cli-poc",
 	"version": "0.0.0",
-	"private": true,
 	"description": "A proof-of-concept developer CLI for Prismic.",
 	"keywords": [
 		"prismic",
@@ -21,6 +20,9 @@
 		"./src"
 	],
 	"type": "module",
+	"publishConfig": {
+		"access": "public"
+	},
 	"scripts": {
 		"build": "tsdown",
 		"dev": "tsdown --watch",
