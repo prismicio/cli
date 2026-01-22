@@ -41,6 +41,7 @@
 		"@vitest/coverage-v8": "4.0.17",
 		"oxfmt": "^0.24.0",
 		"oxlint": "1.39.0",
+		"prismic-ts-codegen": "^0.1.28",
 		"tsdown": "0.19.0",
 		"typescript": "5.9.3",
 		"valibot": "^1.2.0",

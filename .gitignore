@@ -6,6 +6,7 @@ slices
 customtypes
 prismic.config.json
 TODO.md
+prismicio-types.d.ts
 
 # os
 .DS_Store

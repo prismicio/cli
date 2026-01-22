@@ -2,6 +2,7 @@
 
 import { parseArgs } from "node:util";
 
+import { codegen } from "./codegen";
 import { customType } from "./custom-type";
 import { init } from "./init";
 import { locale } from "./locale";
@@ -35,6 +36,7 @@ COMMANDS
   slice       Manage slices in a project
   pull        Pull types and slices from Prismic
   push        Push types and slices to Prismic
+  codegen     Generate code from Prismic models
   preview     Manage preview configurations
   token       Manage API tokens in a repository
   webhook     Manage webhooks in a repository
@@ -85,6 +87,9 @@ switch (positionals[0]) {
 		break;
 	case "push":
 		await push();
+		break;
+	case "codegen":
+		await codegen();
 		break;
 	case "preview":
 		await preview();
