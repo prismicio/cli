@@ -10,7 +10,7 @@ on:
 
 jobs:
   cleanup:
-    if: github.repository_owner == 'prismicio'
+    if: github.repository_owner == 'prismicio-community'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
