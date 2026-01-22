@@ -3,6 +3,7 @@
 import { parseArgs } from "node:util";
 
 import { customType } from "./custom-type";
+import { init } from "./init";
 import { locale } from "./locale";
 import { login } from "./login";
 import { logout } from "./logout";
@@ -21,6 +22,7 @@ USAGE
   prismic <command> [flags]
 
 COMMANDS
+  init        Initialize a Prismic project
   login       Log in to Prismic
   logout      Log out of Prismic
   whoami      Show the currently logged in user
@@ -47,6 +49,9 @@ const { positionals } = parseArgs({
 });
 
 switch (positionals[0]) {
+	case "init":
+		await init();
+		break;
 	case "login":
 		await login();
 		break;
