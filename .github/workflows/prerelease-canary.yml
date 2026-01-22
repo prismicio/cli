@@ -22,7 +22,7 @@ jobs:
       - name: "Deprecate previous canary"
         run: |
           PACKAGE_NAME=$(jq -r ".name" package.json)
-          PREVIOUS_VERSION=$(npm view "$PACKAGE_NAME" dist-tags.canary 2>/dev/null)
+          PREVIOUS_VERSION=$(npm view "$PACKAGE_NAME" dist-tags.canary 2>/dev/null || true)
           if [ -n "$PREVIOUS_VERSION" ]; then
             npm deprecate "$PACKAGE_NAME@$PREVIOUS_VERSION" "Replaced by newer canary version"
           fi
