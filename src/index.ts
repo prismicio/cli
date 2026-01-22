@@ -9,9 +9,10 @@ import { login } from "./login";
 import { logout } from "./logout";
 import { pageType } from "./page-type";
 import { preview } from "./preview";
+import { pull } from "./pull";
+import { push } from "./push";
 import { repo } from "./repo";
 import { slice } from "./slice";
-import { sync } from "./sync";
 import { token } from "./token";
 import { webhook } from "./webhook";
 import { whoami } from "./whoami";
@@ -32,7 +33,8 @@ COMMANDS
   page-type   Manage page types in a repository
   custom-type Manage custom types in a repository
   slice       Manage slices in a project
-  sync        Sync types and slices from Prismic
+  pull        Pull types and slices from Prismic
+  push        Push types and slices to Prismic
   preview     Manage preview configurations
   token       Manage API tokens in a repository
   webhook     Manage webhooks in a repository
@@ -78,8 +80,11 @@ switch (positionals[0]) {
 	case "slice":
 		await slice();
 		break;
-	case "sync":
-		await sync();
+	case "pull":
+		await pull();
+		break;
+	case "push":
+		await push();
 		break;
 	case "preview":
 		await preview();

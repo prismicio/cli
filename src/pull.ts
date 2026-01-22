@@ -1,53 +1,42 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
 import { mkdir, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { isAuthenticated, readHost, readToken } from "./lib/auth";
+import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
 import { findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
-import { getSlicesDirectory, pascalCase, SharedSliceSchema } from "./lib/slice";
+import { getSlicesDirectory, pascalCase } from "./lib/slice";
 
 const HELP = `
-Sync custom types and slices from Prismic to local files.
+Pull custom types and slices from Prismic to local files.
 
 By default, this command reads the repository from prismic.config.json at the
 project root.
 
 USAGE
-  prismic sync [flags]
+  prismic pull [flags]
 
 FLAGS
   -r, --repo string   Repository domain
-      --dry-run       Show what would be synced without writing files
-      --types-only    Only sync custom types
-      --slices-only   Only sync slices
+      --dry-run       Show what would be pulled without writing files
+      --types-only    Only pull custom types
+      --slices-only   Only pull slices
       --json          Output as JSON
   -h, --help          Show help for command
 
 EXAMPLES
-  prismic sync
-  prismic sync --repo my-repo
-  prismic sync --dry-run
-  prismic sync --types-only
+  prismic pull
+  prismic pull --repo my-repo
+  prismic pull --dry-run
+  prismic pull --types-only
 `.trim();
 
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.optional(v.string()),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.optional(v.string()),
-	json: v.record(v.string(), v.unknown()),
-});
-
-export async function sync(): Promise<void> {
+export async function pull(): Promise<void> {
 	const {
 		values: { help, repo = await safeGetRepositoryFromConfig(), "dry-run": dryRun, "types-only": typesOnly, "slices-only": slicesOnly, json },
 	} = parseArgs({
-		args: process.argv.slice(3), // skip: node, script, "sync"
+		args: process.argv.slice(3), // skip: node, script, "pull"
 		options: {
 			repo: { type: "string", short: "r" },
 			"dry-run": { type: "boolean" },
@@ -78,7 +67,7 @@ export async function sync(): Promise<void> {
 	}
 
 	if (!json) {
-		console.info(`Syncing from repository: ${repo}\n`);
+		console.info(`Pulling from repository: ${repo}\n`);
 	}
 
 	// Fetch remote data in parallel
@@ -114,7 +103,7 @@ export async function sync(): Promise<void> {
 		}
 	}
 
-	// Dry run - just show what would be synced
+	// Dry run - just show what would be pulled
 	if (dryRun) {
 		if (json) {
 			console.info(stringify({ customTypes, slices }));
@@ -209,93 +198,7 @@ export async function sync(): Promise<void> {
 	if (json) {
 		console.info(stringify({ writtenTypes, writtenSlices }));
 	} else {
-		console.info(`\nSync complete: ${writtenTypes.length} custom types, ${writtenSlices.length} slices`);
-	}
-}
-
-async function getCustomTypesApiUrl(): Promise<URL> {
-	const host = await readHost();
-	host.hostname = `customtypes.${host.hostname}`;
-	return host;
-}
-
-type FetchResult<T> = { ok: true; value: T } | { ok: false; error: string };
-
-async function fetchRemoteCustomTypes(repo: string): Promise<FetchResult<CustomType[]>> {
-	const token = await readToken();
-	if (!token) {
-		return { ok: false, error: "Not authenticated" };
-	}
-
-	const baseUrl = await getCustomTypesApiUrl();
-	const url = new URL("customtypes", baseUrl);
-
-	try {
-		const response = await fetch(url, {
-			headers: {
-				Authorization: `Bearer ${token}`,
-				repository: repo,
-			},
-		});
-
-		if (!response.ok) {
-			if (response.status === 401) {
-				return { ok: false, error: "Unauthorized. Your session may have expired. Run `prismic login` again." };
-			}
-			if (response.status === 403) {
-				return { ok: false, error: `Access denied. You may not have access to repository "${repo}".` };
-			}
-			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
-		}
-
-		const data = await response.json();
-		const result = v.safeParse(v.array(CustomTypeSchema), data);
-		if (!result.success) {
-			return { ok: false, error: "Invalid response from Custom Types API" };
-		}
-
-		return { ok: true, value: result.output as CustomType[] };
-	} catch (error) {
-		return { ok: false, error: `Network error: ${error instanceof Error ? error.message : error}` };
-	}
-}
-
-async function fetchRemoteSlices(repo: string): Promise<FetchResult<SharedSlice[]>> {
-	const token = await readToken();
-	if (!token) {
-		return { ok: false, error: "Not authenticated" };
-	}
-
-	const baseUrl = await getCustomTypesApiUrl();
-	const url = new URL("slices", baseUrl);
-
-	try {
-		const response = await fetch(url, {
-			headers: {
-				Authorization: `Bearer ${token}`,
-				repository: repo,
-			},
-		});
-
-		if (!response.ok) {
-			if (response.status === 401) {
-				return { ok: false, error: "Unauthorized. Your session may have expired. Run `prismic login` again." };
-			}
-			if (response.status === 403) {
-				return { ok: false, error: `Access denied. You may not have access to repository "${repo}".` };
-			}
-			return { ok: false, error: `API error: ${response.status} ${response.statusText}` };
-		}
-
-		const data = await response.json();
-		const result = v.safeParse(v.array(SharedSliceSchema), data);
-		if (!result.success) {
-			return { ok: false, error: "Invalid response from Custom Types API" };
-		}
-
-		return { ok: true, value: result.output as SharedSlice[] };
-	} catch (error) {
-		return { ok: false, error: `Network error: ${error instanceof Error ? error.message : error}` };
+		console.info(`\nPull complete: ${writtenTypes.length} custom types, ${writtenSlices.length} slices`);
 	}
 }
 
