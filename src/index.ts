@@ -2,6 +2,7 @@
 
 import { parseArgs } from "node:util";
 
+import packageJson from "../package.json" with { type: "json" };
 import { codegen } from "./codegen";
 import { customType } from "./custom-type";
 import { init } from "./init";
@@ -42,69 +43,80 @@ COMMANDS
   webhook     Manage webhooks in a repository
 
 FLAGS
-  -h, --help   Show help for command
+  -v, --version  Show CLI version
+  -h, --help     Show help for command
 
 LEARN MORE
   Use \`prismic <command> --help\` for more information about a command.
 `.trim();
 
-const { positionals } = parseArgs({
-	options: { help: { type: "boolean", short: "h" } },
+const {
+	positionals,
+	values: { version },
+} = parseArgs({
+	options: {
+		help: { type: "boolean", short: "h" },
+		version: { type: "boolean", short: "v" },
+	},
 	allowPositionals: true,
 	strict: false,
 });
 
-switch (positionals[0]) {
-	case "init":
-		await init();
-		break;
-	case "login":
-		await login();
-		break;
-	case "logout":
-		await logout();
-		break;
-	case "whoami":
-		await whoami();
-		break;
-	case "repo":
-		await repo();
-		break;
-	case "locale":
-		await locale();
-		break;
-	case "page-type":
-		await pageType();
-		break;
-	case "custom-type":
-		await customType();
-		break;
-	case "slice":
-		await slice();
-		break;
-	case "pull":
-		await pull();
-		break;
-	case "push":
-		await push();
-		break;
-	case "codegen":
-		await codegen();
-		break;
-	case "preview":
-		await preview();
-		break;
-	case "token":
-		await token();
-		break;
-	case "webhook":
-		await webhook();
-		break;
-	default: {
-		if (positionals[0]) {
-			console.error(`Unknown command: ${positionals[0]}`);
-			process.exitCode = 1;
+if (version) {
+	console.info(packageJson.version);
+} else {
+	switch (positionals[0]) {
+		case "init":
+			await init();
+			break;
+		case "login":
+			await login();
+			break;
+		case "logout":
+			await logout();
+			break;
+		case "whoami":
+			await whoami();
+			break;
+		case "repo":
+			await repo();
+			break;
+		case "locale":
+			await locale();
+			break;
+		case "page-type":
+			await pageType();
+			break;
+		case "custom-type":
+			await customType();
+			break;
+		case "slice":
+			await slice();
+			break;
+		case "pull":
+			await pull();
+			break;
+		case "push":
+			await push();
+			break;
+		case "codegen":
+			await codegen();
+			break;
+		case "preview":
+			await preview();
+			break;
+		case "token":
+			await token();
+			break;
+		case "webhook":
+			await webhook();
+			break;
+		default: {
+			if (positionals[0]) {
+				console.error(`Unknown command: ${positionals[0]}`);
+				process.exitCode = 1;
+			}
+			console.info(HELP);
 		}
-		console.info(HELP);
 	}
 }
