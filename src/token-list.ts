@@ -4,7 +4,12 @@ import * as v from "valibot";
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
-import { ForbiddenRequestError, type ParsedRequestResponse, request, UnauthorizedRequestError } from "./lib/request";
+import {
+	ForbiddenRequestError,
+	type ParsedRequestResponse,
+	request,
+	UnauthorizedRequestError,
+} from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 
 const HELP = `
@@ -61,7 +66,10 @@ export async function tokenList(): Promise<void> {
 	]);
 
 	if (!accessResponse.ok) {
-		if (accessResponse.error instanceof ForbiddenRequestError || accessResponse.error instanceof UnauthorizedRequestError) {
+		if (
+			accessResponse.error instanceof ForbiddenRequestError ||
+			accessResponse.error instanceof UnauthorizedRequestError
+		) {
 			handleUnauthenticated();
 		} else if (v.isValiError(accessResponse.error)) {
 			console.error(
@@ -76,7 +84,10 @@ export async function tokenList(): Promise<void> {
 	}
 
 	if (!writeResponse.ok) {
-		if (writeResponse.error instanceof ForbiddenRequestError || writeResponse.error instanceof UnauthorizedRequestError) {
+		if (
+			writeResponse.error instanceof ForbiddenRequestError ||
+			writeResponse.error instanceof UnauthorizedRequestError
+		) {
 			handleUnauthenticated();
 		} else if (v.isValiError(writeResponse.error)) {
 			console.error(

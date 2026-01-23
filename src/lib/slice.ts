@@ -39,7 +39,7 @@ export async function findSliceModel(sliceId: string): Promise<SliceModelResult>
 	// List all directories in slices folder
 	let entries: string[];
 	try {
-		entries = await readdir(slicesDirectory, { withFileTypes: false }) as unknown as string[];
+		entries = (await readdir(slicesDirectory, { withFileTypes: false })) as unknown as string[];
 	} catch {
 		return { ok: false, error: `No slices directory found at ${slicesDirectory.href}` };
 	}
@@ -62,7 +62,10 @@ export async function findSliceModel(sliceId: string): Promise<SliceModelResult>
 		}
 	}
 
-	return { ok: false, error: `Slice not found: ${sliceId}\n\nCreate it first with: prismic slice create ${sliceId}` };
+	return {
+		ok: false,
+		error: `Slice not found: ${sliceId}\n\nCreate it first with: prismic slice create ${sliceId}`,
+	};
 }
 
 export async function getSlicesDirectory(): Promise<URL> {

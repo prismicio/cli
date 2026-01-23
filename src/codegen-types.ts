@@ -4,39 +4,30 @@ import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { generateTypes, NON_EDITABLE_FILE_HEADER } from "prismic-ts-codegen";
 
-import { isAuthenticated } from "./lib/auth";
-import { safeGetRepositoryFromConfig } from "./lib/config";
-import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
-import { getLocales } from "./locale-list";
+import { readLocalCustomTypes, readLocalSlices } from "./lib/custom-types-api";
 
 const HELP = `
-Generate TypeScript types from models pushed to Prismic.
-
-By default, this command reads the repository from prismic.config.json at the
-project root.
+Generate TypeScript types from local custom type and slice models.
 
 USAGE
   prismic codegen types [flags]
 
 FLAGS
   -o, --output string   Output file path (default: "prismicio-types.d.ts")
-  -r, --repo string     Repository domain
   -h, --help            Show help for command
 
 EXAMPLES
   prismic codegen types
-  prismic codegen types --repo my-repo
   prismic codegen types --output custom.d.ts
 `.trim();
 
 export async function codegenTypes(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryFromConfig(), output = "prismicio-types.d.ts" },
+		values: { help, output },
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "codegen", "types"
 		options: {
 			output: { type: "string", short: "o" },
-			repo: { type: "string", short: "r" },
 			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: false,
@@ -47,50 +38,37 @@ export async function codegenTypes(): Promise<void> {
 		return;
 	}
 
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
+	try {
+		await buildTypes({ output });
+		console.info(`Generated types written to ${output ?? "prismicio-types.d.ts"}`);
+	} catch (error) {
+		console.error(error instanceof Error ? error.message : String(error));
 		process.exitCode = 1;
-		return;
 	}
+}
 
-	if (!(await isAuthenticated())) {
-		console.error("Not logged in. Run `prismic login` first.");
-		process.exitCode = 1;
-		return;
-	}
+export async function buildTypes(args?: { output?: string }): Promise<void> {
+	const output = args?.output ?? "prismicio-types.d.ts";
 
-	const [customTypesResult, slicesResult, localesResult] = await Promise.all([
-		fetchRemoteCustomTypes(repo),
-		fetchRemoteSlices(repo),
-		getLocales(repo),
+	const [customTypesResult, slicesResult] = await Promise.all([
+		readLocalCustomTypes(),
+		readLocalSlices(),
 	]);
 
 	if (!customTypesResult.ok) {
-		console.error(`Failed to fetch custom types: ${customTypesResult.error}`);
-		process.exitCode = 1;
-		return;
+		throw new Error(`failed to read local custom types: ${customTypesResult.error}`);
 	}
 
 	if (!slicesResult.ok) {
-		console.error(`Failed to fetch slices: ${slicesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!localesResult.ok) {
-		console.error(`Failed to fetch locales: ${localesResult.error}`);
-		process.exitCode = 1;
-		return;
+		throw new Error(`failed to read local slices: ${slicesResult.error}`);
 	}
 
 	const customTypes = customTypesResult.value as unknown as CustomTypeModel[];
 	const slices = slicesResult.value as unknown as SharedSliceModel[];
-	const localeIDs = localesResult.value.results.map((l) => l.id);
 
 	const types = generateTypes({
 		customTypeModels: customTypes,
 		sharedSliceModels: slices,
-		localeIDs,
 		typesProvider: "@prismicio/client",
 		clientIntegration: {
 			includeCreateClientInterface: customTypes.length > 0 || slices.length > 0,
@@ -101,5 +79,4 @@ export async function codegenTypes(): Promise<void> {
 	const content = NON_EDITABLE_FILE_HEADER + "\n\n" + types;
 
 	await writeFile(output, content);
-	console.info(`Generated types written to ${output}`);
 }

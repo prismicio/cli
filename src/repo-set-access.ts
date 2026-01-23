@@ -53,9 +53,7 @@ export async function repoSetAccess(): Promise<void> {
 	}
 
 	if (!VALID_LEVELS.includes(level as (typeof VALID_LEVELS)[number])) {
-		console.error(
-			`Invalid access level: ${level}. Must be one of: ${VALID_LEVELS.join(", ")}`,
-		);
+		console.error(`Invalid access level: ${level}. Must be one of: ${VALID_LEVELS.join(", ")}`);
 		process.exitCode = 1;
 		return;
 	}
@@ -77,9 +75,7 @@ export async function repoSetAccess(): Promise<void> {
 		if (response.error instanceof ForbiddenRequestError) {
 			handleUnauthenticated();
 		} else {
-			console.error(
-				`Failed to set repository access: ${stringify(response.value)}`,
-			);
+			console.error(`Failed to set repository access: ${stringify(response.value)}`);
 			process.exitCode = 1;
 		}
 		return;

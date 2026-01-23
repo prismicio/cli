@@ -129,12 +129,17 @@ export async function push(): Promise<void> {
 	const shouldPushSlices = !typesOnly;
 
 	// Read local and fetch remote data in parallel
-	const [localTypesResult, localSlicesResult, remoteTypesResult, remoteSlicesResult] = await Promise.all([
-		shouldPushTypes ? readLocalCustomTypes() : Promise.resolve({ ok: true, value: [] } as const),
-		shouldPushSlices ? readLocalSlices() : Promise.resolve({ ok: true, value: [] } as const),
-		shouldPushTypes ? fetchRemoteCustomTypes(repo) : Promise.resolve({ ok: true, value: [] } as const),
-		shouldPushSlices ? fetchRemoteSlices(repo) : Promise.resolve({ ok: true, value: [] } as const),
-	]);
+	const [localTypesResult, localSlicesResult, remoteTypesResult, remoteSlicesResult] =
+		await Promise.all([
+			shouldPushTypes ? readLocalCustomTypes() : Promise.resolve({ ok: true, value: [] } as const),
+			shouldPushSlices ? readLocalSlices() : Promise.resolve({ ok: true, value: [] } as const),
+			shouldPushTypes
+				? fetchRemoteCustomTypes(repo)
+				: Promise.resolve({ ok: true, value: [] } as const),
+			shouldPushSlices
+				? fetchRemoteSlices(repo)
+				: Promise.resolve({ ok: true, value: [] } as const),
+		]);
 
 	if (!localTypesResult.ok) {
 		console.error(`Failed to read local custom types: ${localTypesResult.error}`);
@@ -177,8 +182,12 @@ export async function push(): Promise<void> {
 	}
 
 	// Compute diffs
-	const typesDiff = shouldPushTypes ? computeDiff([...localTypes], [...remoteTypes]) : { toInsert: [], toUpdate: [], toDelete: [] };
-	const slicesDiff = shouldPushSlices ? computeDiff([...localSlices], [...remoteSlices]) : { toInsert: [], toUpdate: [], toDelete: [] };
+	const typesDiff = shouldPushTypes
+		? computeDiff([...localTypes], [...remoteTypes])
+		: { toInsert: [], toUpdate: [], toDelete: [] };
+	const slicesDiff = shouldPushSlices
+		? computeDiff([...localSlices], [...remoteSlices])
+		: { toInsert: [], toUpdate: [], toDelete: [] };
 
 	// If --delete is not specified, clear the toDelete arrays
 	if (!deleteRemote) {
@@ -196,7 +205,12 @@ export async function push(): Promise<void> {
 
 	if (totalChanges === 0) {
 		if (json) {
-			console.info(stringify({ customTypes: { inserted: [], updated: [], deleted: [] }, slices: { inserted: [], updated: [], deleted: [] } }));
+			console.info(
+				stringify({
+					customTypes: { inserted: [], updated: [], deleted: [] },
+					slices: { inserted: [], updated: [], deleted: [] },
+				}),
+			);
 		} else {
 			console.info("\nNo changes to push.");
 		}
@@ -275,7 +289,12 @@ export async function push(): Promise<void> {
 
 	// Push custom types
 	if (shouldPushTypes) {
-		if (!json && (typesDiff.toInsert.length > 0 || typesDiff.toUpdate.length > 0 || typesDiff.toDelete.length > 0)) {
+		if (
+			!json &&
+			(typesDiff.toInsert.length > 0 ||
+				typesDiff.toUpdate.length > 0 ||
+				typesDiff.toDelete.length > 0)
+		) {
 			console.info("\nPushing custom types:");
 		}
 
@@ -321,7 +340,12 @@ export async function push(): Promise<void> {
 
 	// Push slices
 	if (shouldPushSlices) {
-		if (!json && (slicesDiff.toInsert.length > 0 || slicesDiff.toUpdate.length > 0 || slicesDiff.toDelete.length > 0)) {
+		if (
+			!json &&
+			(slicesDiff.toInsert.length > 0 ||
+				slicesDiff.toUpdate.length > 0 ||
+				slicesDiff.toDelete.length > 0)
+		) {
 			console.info("\nPushing slices:");
 		}
 

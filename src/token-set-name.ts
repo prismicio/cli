@@ -6,7 +6,13 @@ import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request, UnauthorizedRequestError } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
-import { getAccessTokens, getWriteTokens, type OAuthApp, OAuthAppSchema, type WriteToken } from "./token-list";
+import {
+	getAccessTokens,
+	getWriteTokens,
+	type OAuthApp,
+	OAuthAppSchema,
+	type WriteToken,
+} from "./token-list";
 
 const HELP = `
 Set the name of a token in a Prismic repository.
@@ -81,10 +87,15 @@ export async function tokenSetName(): Promise<void> {
 	]);
 
 	if (!accessResponse.ok) {
-		if (accessResponse.error instanceof ForbiddenRequestError || accessResponse.error instanceof UnauthorizedRequestError) {
+		if (
+			accessResponse.error instanceof ForbiddenRequestError ||
+			accessResponse.error instanceof UnauthorizedRequestError
+		) {
 			handleUnauthenticated();
 		} else if (v.isValiError(accessResponse.error)) {
-			console.error(`Failed to list access tokens: Invalid response: ${stringify(accessResponse.error.issues)}`);
+			console.error(
+				`Failed to list access tokens: Invalid response: ${stringify(accessResponse.error.issues)}`,
+			);
 			process.exitCode = 1;
 		} else {
 			console.error(`Failed to list access tokens: ${stringify(accessResponse.value)}`);
@@ -94,10 +105,15 @@ export async function tokenSetName(): Promise<void> {
 	}
 
 	if (!writeResponse.ok) {
-		if (writeResponse.error instanceof ForbiddenRequestError || writeResponse.error instanceof UnauthorizedRequestError) {
+		if (
+			writeResponse.error instanceof ForbiddenRequestError ||
+			writeResponse.error instanceof UnauthorizedRequestError
+		) {
 			handleUnauthenticated();
 		} else if (v.isValiError(writeResponse.error)) {
-			console.error(`Failed to list write tokens: Invalid response: ${stringify(writeResponse.error.issues)}`);
+			console.error(
+				`Failed to list write tokens: Invalid response: ${stringify(writeResponse.error.issues)}`,
+			);
 			process.exitCode = 1;
 		} else {
 			console.error(`Failed to list write tokens: ${stringify(writeResponse.value)}`);
@@ -110,7 +126,11 @@ export async function tokenSetName(): Promise<void> {
 	let foundApp: OAuthApp | undefined;
 	for (const app of accessResponse.value) {
 		for (const auth of app.wroom_auths) {
-			if (auth.token === tokenValue || auth.token.startsWith(tokenValue) || auth.token.endsWith(tokenValue)) {
+			if (
+				auth.token === tokenValue ||
+				auth.token.startsWith(tokenValue) ||
+				auth.token.endsWith(tokenValue)
+			) {
 				foundApp = app;
 				break;
 			}
@@ -128,10 +148,15 @@ export async function tokenSetName(): Promise<void> {
 		});
 
 		if (!response.ok) {
-			if (response.error instanceof ForbiddenRequestError || response.error instanceof UnauthorizedRequestError) {
+			if (
+				response.error instanceof ForbiddenRequestError ||
+				response.error instanceof UnauthorizedRequestError
+			) {
 				handleUnauthenticated();
 			} else if (v.isValiError(response.error)) {
-				console.error(`Failed to rename token: Invalid response: ${stringify(response.error.issues)}`);
+				console.error(
+					`Failed to rename token: Invalid response: ${stringify(response.error.issues)}`,
+				);
 				process.exitCode = 1;
 			} else {
 				console.error(`Failed to rename token: ${stringify(response.value)}`);
@@ -146,11 +171,14 @@ export async function tokenSetName(): Promise<void> {
 
 	// Check if it's a write token
 	const foundWriteToken = writeResponse.value.tokens.find(
-		(t: WriteToken) => t.token === tokenValue || t.token.startsWith(tokenValue) || t.token.endsWith(tokenValue),
+		(t: WriteToken) =>
+			t.token === tokenValue || t.token.startsWith(tokenValue) || t.token.endsWith(tokenValue),
 	);
 
 	if (foundWriteToken) {
-		console.error("Write tokens cannot be renamed. Delete and create a new token with the desired name.");
+		console.error(
+			"Write tokens cannot be renamed. Delete and create a new token with the desired name.",
+		);
 		process.exitCode = 1;
 		return;
 	}

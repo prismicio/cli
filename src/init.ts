@@ -50,7 +50,9 @@ export async function init(): Promise<void> {
 
 	if (!result.ok) {
 		if (result.error instanceof UnknownProjectRoot) {
-			console.error("Could not find a package.json file. Run this command from a project directory.");
+			console.error(
+				"Could not find a package.json file. Run this command from a project directory.",
+			);
 		} else {
 			console.error("Failed to create config file.");
 		}

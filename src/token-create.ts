@@ -6,7 +6,15 @@ import { safeGetRepositoryFromConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request, UnauthorizedRequestError } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
-import { type AccessToken, AccessTokenSchema, getAccessTokens, type OAuthApp, OAuthAppSchema, type WriteToken, WriteTokenSchema } from "./token-list";
+import {
+	type AccessToken,
+	AccessTokenSchema,
+	getAccessTokens,
+	type OAuthApp,
+	OAuthAppSchema,
+	type WriteToken,
+	WriteTokenSchema,
+} from "./token-list";
 
 const HELP = `
 Create a new API token for a Prismic repository.
@@ -80,10 +88,15 @@ export async function tokenCreate(): Promise<void> {
 	if (write) {
 		const result = await createWriteToken(repo, name);
 		if (!result.ok) {
-			if (result.error instanceof ForbiddenRequestError || result.error instanceof UnauthorizedRequestError) {
+			if (
+				result.error instanceof ForbiddenRequestError ||
+				result.error instanceof UnauthorizedRequestError
+			) {
 				handleUnauthenticated();
 			} else if (v.isValiError(result.error)) {
-				console.error(`Failed to create write token: Invalid response: ${stringify(result.error.issues)}`);
+				console.error(
+					`Failed to create write token: Invalid response: ${stringify(result.error.issues)}`,
+				);
 				process.exitCode = 1;
 			} else {
 				console.error(`Failed to create write token: ${stringify(result.value)}`);
@@ -101,10 +114,15 @@ export async function tokenCreate(): Promise<void> {
 		const scope = allowReleases ? "master+releases" : "master";
 		const result = await createAccessToken(repo, name, scope);
 		if (!result.ok) {
-			if (result.error instanceof ForbiddenRequestError || result.error instanceof UnauthorizedRequestError) {
+			if (
+				result.error instanceof ForbiddenRequestError ||
+				result.error instanceof UnauthorizedRequestError
+			) {
 				handleUnauthenticated();
 			} else if (v.isValiError(result.error)) {
-				console.error(`Failed to create access token: Invalid response: ${stringify(result.error.issues)}`);
+				console.error(
+					`Failed to create access token: Invalid response: ${stringify(result.error.issues)}`,
+				);
 				process.exitCode = 1;
 			} else {
 				console.error(`Failed to create access token: ${stringify(result.value)}`);
