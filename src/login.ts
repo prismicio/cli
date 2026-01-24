@@ -5,6 +5,7 @@ import { parseArgs } from "node:util";
 import { saveToken } from "./lib/auth";
 
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+const PREFERRED_PORT = 5555;
 
 const HELP = `
 Log in to Prismic via browser.
@@ -104,7 +105,7 @@ export async function login(): Promise<void> {
 			reject(new Error("Login timed out. Please try again."));
 		}, LOGIN_TIMEOUT_MS);
 
-		server.listen(0, "127.0.0.1", () => {
+		const onListening = (): void => {
 			const address = server.address();
 			if (!address || typeof address === "string") {
 				clearTimeout(timeoutId);
@@ -120,12 +121,19 @@ export async function login(): Promise<void> {
 			console.info(`If the browser doesn't open, visit: ${loginUrl}`);
 
 			openBrowser(loginUrl);
+		};
+
+		server.on("error", (error: NodeJS.ErrnoException) => {
+			if (error.code === "EADDRINUSE" && server.listening === false) {
+				// Preferred port is in use, fall back to a random port.
+				server.listen(0, "127.0.0.1", onListening);
+			} else {
+				clearTimeout(timeoutId);
+				reject(error);
+			}
 		});
 
-		server.on("error", (error) => {
-			clearTimeout(timeoutId);
-			reject(error);
-		});
+		server.listen(PREFERRED_PORT, "127.0.0.1", onListening);
 	});
 }
 
