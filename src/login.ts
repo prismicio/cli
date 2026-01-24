@@ -6,6 +6,7 @@ import { saveToken } from "./lib/auth";
 
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
+const CORS_ALLOWED_ORIGIN = "https://prismic.io";
 
 const HELP = `
 Log in to Prismic via browser.
@@ -36,7 +37,7 @@ export async function login(): Promise<void> {
 			// Handle CORS preflight
 			if (req.method === "OPTIONS") {
 				res.writeHead(204, {
-					"Access-Control-Allow-Origin": "*",
+					"Access-Control-Allow-Origin": CORS_ALLOWED_ORIGIN,
 					"Access-Control-Allow-Methods": "POST, OPTIONS",
 					"Access-Control-Allow-Headers": "Content-Type",
 				});
@@ -63,7 +64,7 @@ export async function login(): Promise<void> {
 
 						if (!token) {
 							res.writeHead(400, {
-								"Access-Control-Allow-Origin": "*",
+								"Access-Control-Allow-Origin": CORS_ALLOWED_ORIGIN,
 								"Content-Type": "application/json",
 							});
 							res.end(JSON.stringify({ error: "Invalid request" }));
@@ -75,7 +76,7 @@ export async function login(): Promise<void> {
 						console.info(`Logged in to Prismic as ${email}`);
 
 						res.writeHead(200, {
-							"Access-Control-Allow-Origin": "*",
+							"Access-Control-Allow-Origin": CORS_ALLOWED_ORIGIN,
 							"Content-Type": "application/json",
 						});
 						res.end(JSON.stringify({ success: true }));
@@ -85,7 +86,7 @@ export async function login(): Promise<void> {
 						resolve();
 					} catch {
 						res.writeHead(400, {
-							"Access-Control-Allow-Origin": "*",
+							"Access-Control-Allow-Origin": CORS_ALLOWED_ORIGIN,
 							"Content-Type": "application/json",
 						});
 						res.end(JSON.stringify({ error: "Invalid request" }));
@@ -126,14 +127,14 @@ export async function login(): Promise<void> {
 		server.on("error", (error: NodeJS.ErrnoException) => {
 			if (error.code === "EADDRINUSE" && server.listening === false) {
 				// Preferred port is in use, fall back to a random port.
-				server.listen(0, "127.0.0.1", onListening);
+				server.listen(0, "0.0.0.0", onListening);
 			} else {
 				clearTimeout(timeoutId);
 				reject(error);
 			}
 		});
 
-		server.listen(PREFERRED_PORT, "127.0.0.1", onListening);
+		server.listen(PREFERRED_PORT, "0.0.0.0", onListening);
 	});
 }
 
