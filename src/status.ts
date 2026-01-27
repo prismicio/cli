@@ -66,16 +66,53 @@ type NextStep = {
 	message: string;
 };
 
-function getDocsUrl(framework: Framework | undefined): string {
+function getDocsPath(framework: Framework | undefined): string {
 	switch (framework) {
 		case "next":
-			return "https://prismic.io/docs/nextjs/with-cli";
+			return "nextjs/with-cli";
 		case "nuxt":
-			return "https://prismic.io/docs/nuxt/with-cli";
+			return "nuxt/with-cli";
 		case "sveltekit":
-			return "https://prismic.io/docs/sveltekit/with-cli";
+			return "sveltekit/with-cli";
 		default:
-			return "https://prismic.io/docs";
+			return "";
+	}
+}
+
+function getDocsRef(docsPath: string, anchor?: string): string {
+	if (!docsPath) return "";
+	const fullPath = anchor ? `${docsPath}${anchor}` : docsPath;
+	return ` (run \`prismic docs ${fullPath}\`)`;
+}
+
+function getClientSetupAnchor(framework: Framework | undefined): string {
+	switch (framework) {
+		case "nuxt":
+			return "#configure-the-modules-prismic-client";
+		default:
+			return "#set-up-a-prismic-client";
+	}
+}
+
+function getPreviewSetupAnchor(framework: Framework | undefined): string {
+	switch (framework) {
+		case "next":
+			return "#set-up-previews-in-next-js";
+		case "sveltekit":
+			return "#set-up-previews-in-sveltekit";
+		default:
+			return "";
+	}
+}
+
+function getWriteComponentsAnchor(framework: Framework | undefined): string {
+	switch (framework) {
+		case "nuxt":
+			return "#write-vue-components";
+		case "sveltekit":
+			return "#write-svelte-components";
+		default:
+			return "#write-react-components";
 	}
 }
 
@@ -86,7 +123,7 @@ function computeNextStep(
 	sliceStatuses: TypeWithStatus[],
 	slicesWithMissingComponents: string[],
 ): NextStep | undefined {
-	const docsUrl = getDocsUrl(frameworkInfo.framework);
+	const docsPath = getDocsPath(frameworkInfo.framework);
 
 	// 1. Setup - missing dependencies
 	const setupSection = sections.find((s) => s.title === "Setup");
@@ -99,7 +136,7 @@ function computeNextStep(
 	// 2. Setup - missing client file
 	const missingClientFile = setupSection?.items.find((i) => !i.done && i.hint?.includes("client"));
 	if (missingClientFile) {
-		return { message: `Create a ${missingClientFile.label} file (see ${docsUrl})` };
+		return { message: `Create a ${missingClientFile.label} file${getDocsRef(docsPath, getClientSetupAnchor(frameworkInfo.framework))}` };
 	}
 
 	// 3-7. Preview section (in order: local files, then remote config)
@@ -110,21 +147,21 @@ function computeNextStep(
 			(i) => i.label === "/slice-simulator route" && !i.done,
 		);
 		if (sliceSimRoute) {
-			return { message: `Create the /slice-simulator route (see ${docsUrl})` };
+			return { message: `Create the /slice-simulator route${getDocsRef(docsPath, "#set-up-live-previewing")}` };
 		}
 
 		const apiPreview = previewSection.items.find(
 			(i) => i.label === "/api/preview endpoint" && !i.done,
 		);
 		if (apiPreview) {
-			return { message: `Create the /api/preview route (see ${docsUrl})` };
+			return { message: `Create the /api/preview route${getDocsRef(docsPath, getPreviewSetupAnchor(frameworkInfo.framework))}` };
 		}
 
 		const exitPreview = previewSection.items.find(
 			(i) => i.label === "/api/exit-preview endpoint" && !i.done,
 		);
 		if (exitPreview) {
-			return { message: `Create the /api/exit-preview route (see ${docsUrl})` };
+			return { message: `Create the /api/exit-preview route${getDocsRef(docsPath, getPreviewSetupAnchor(frameworkInfo.framework))}` };
 		}
 
 		// Remote config
@@ -166,7 +203,7 @@ function computeNextStep(
 		const slicesDir = getSlicesDirectory(frameworkInfo);
 		const ext = getSliceComponentExtensions(frameworkInfo.framework)[0];
 		const path = `${slicesDir}${sliceName}/index${ext}`;
-		return { message: `Implement the ${sliceName} slice component at ${path} (see ${docsUrl})` };
+		return { message: `Implement the ${sliceName} slice component at ${path}${getDocsRef(docsPath, getWriteComponentsAnchor(frameworkInfo.framework))}` };
 	}
 
 	// 11-12. Deployment (Next.js only)
@@ -176,7 +213,7 @@ function computeNextStep(
 			(i) => i.label === "/api/revalidate endpoint" && !i.done,
 		);
 		if (revalidateEndpoint) {
-			return { message: `Create the /api/revalidate route for ISR (see ${docsUrl})` };
+			return { message: `Create the /api/revalidate route for ISR${getDocsRef(docsPath, "#handle-content-changes")}` };
 		}
 
 		const webhook = deploymentSection.items.find(

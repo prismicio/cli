@@ -5,6 +5,7 @@ import { parseArgs } from "node:util";
 import packageJson from "../package.json" with { type: "json" };
 import { codegen } from "./codegen";
 import { customType } from "./custom-type";
+import { docs } from "./docs";
 import { init } from "./init";
 import { locale } from "./locale";
 import { login } from "./login";
@@ -40,6 +41,7 @@ COMMANDS
   pull        Pull types and slices from Prismic
   push        Push types and slices to Prismic
   codegen     Generate code from Prismic models
+  docs        Fetch documentation from Prismic
   preview     Manage preview configurations
   token       Manage API tokens in a repository
   webhook     Manage webhooks in a repository
@@ -106,6 +108,9 @@ if (version) {
 			break;
 		case "codegen":
 			await codegen();
+			break;
+		case "docs":
+			await docs();
 			break;
 		case "preview":
 			await preview();
