@@ -194,4 +194,8 @@ export async function pageTypeAddFieldLink(): Promise<void> {
 			console.warn(`Could not generate types: ${error instanceof Error ? error.message : error}`);
 		}
 	}
+
+	console.info();
+	console.info("Next: Add more fields with `prismic page-type add-field`");
+	console.info("      Run `prismic status` when done to find next steps");
 }

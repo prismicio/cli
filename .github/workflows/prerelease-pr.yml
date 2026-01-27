@@ -34,6 +34,6 @@ jobs:
           CURRENT_VERSION=$(jq -r '.version' package.json)
           VERSION="${CURRENT_VERSION}-pr.${{ github.event.number }}.${SHORT_SHA}"
           npm version $VERSION --no-git-tag-version
-      - run: npm publish --provenance --tag pr-${{ github.event.number }}
+      - run: npm publish --tag pr-${{ github.event.number }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

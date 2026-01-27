@@ -15,6 +15,7 @@ import { pull } from "./pull";
 import { push } from "./push";
 import { repo } from "./repo";
 import { slice } from "./slice";
+import { status } from "./status";
 import { token } from "./token";
 import { webhook } from "./webhook";
 import { whoami } from "./whoami";
@@ -30,6 +31,7 @@ COMMANDS
   login       Log in to Prismic
   logout      Log out of Prismic
   whoami      Show the currently logged in user
+  status      Show the status of the current project
   repo        Manage Prismic repositories
   locale      Manage locales in a repository
   page-type   Manage page types in a repository
@@ -77,6 +79,9 @@ if (version) {
 			break;
 		case "whoami":
 			await whoami();
+			break;
+		case "status":
+			await status();
 			break;
 		case "repo":
 			await repo();

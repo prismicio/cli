@@ -19,7 +19,30 @@ export async function saveToken(token: string, options?: { host?: string }): Pro
 
 export async function isAuthenticated(): Promise<boolean> {
 	const token = await readToken();
-	return Boolean(token);
+	if (!token) return false;
+
+	// Verify token is still valid by calling the profile endpoint
+	try {
+		const host = await readHost();
+		host.hostname = `user-service.${host.hostname}`;
+		const url = new URL("profile", host);
+
+		const response = await fetch(url, {
+			headers: {
+				Accept: "application/json",
+				Cookie: `SESSION=fake_session; prismic-auth=${token}`,
+			},
+		});
+
+		if (!response.ok) {
+			await removeToken();
+			return false;
+		}
+
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 export async function readToken(): Promise<string | undefined> {

@@ -101,6 +101,9 @@ export async function customTypeCreate(): Promise<void> {
 			console.warn(`Could not generate types: ${error instanceof Error ? error.message : error}`);
 		}
 	}
+
+	console.info();
+	console.info("Next: Add fields with `prismic custom-type add-field`");
 }
 
 export function pascalCase(input: string): string {

@@ -101,6 +101,9 @@ export async function sliceCreate(): Promise<void> {
 			console.warn(`Could not generate types: ${error instanceof Error ? error.message : error}`);
 		}
 	}
+
+	console.info();
+	console.info("Next: Add fields with `prismic slice add-field`");
 }
 
 async function getSlicesDirectory(): Promise<URL> {

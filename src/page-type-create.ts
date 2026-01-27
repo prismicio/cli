@@ -102,6 +102,9 @@ export async function pageTypeCreate(): Promise<void> {
 			console.warn(`Could not generate types: ${error instanceof Error ? error.message : error}`);
 		}
 	}
+
+	console.info();
+	console.info("Next: Add fields with `prismic page-type add-field`");
 }
 
 export function pascalCase(input: string): string {
