@@ -63,8 +63,38 @@ export async function pageTypeCreate(): Promise<void> {
 		status: true,
 		format: "page",
 		json: {
-			Main: {},
-			"SEO & Metadata": {},
+			Main: single
+				? {}
+				: {
+						uid: {
+							type: "UID",
+							config: { label: "UID", placeholder: "" },
+						},
+					},
+			"SEO & Metadata": {
+				meta_title: {
+					type: "Text",
+					config: {
+						label: "Meta Title",
+						placeholder: "A title of the page used for social media and search engines",
+					},
+				},
+				meta_description: {
+					type: "Text",
+					config: {
+						label: "Meta Description",
+						placeholder: "A brief summary of the page",
+					},
+				},
+				meta_image: {
+					type: "Image",
+					config: {
+						label: "Meta Image",
+						constraint: { width: 2400, height: 1260 },
+						thumbnails: [],
+					},
+				},
+			},
 		},
 	} satisfies CustomType;
 

@@ -63,7 +63,14 @@ export async function customTypeCreate(): Promise<void> {
 		status: true,
 		format: "custom",
 		json: {
-			Main: {},
+			Main: single
+				? {}
+				: {
+						uid: {
+							type: "UID",
+							config: { label: "UID", placeholder: "" },
+						},
+					},
 		},
 	} satisfies CustomType;
 
