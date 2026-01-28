@@ -171,6 +171,7 @@ function buildTypesNextSteps(statuses: TypeWithStatus[]): NextStep[] {
 function buildSlicesNextSteps(
 	statuses: TypeWithStatus[],
 	missingComponents: string[],
+	slicesReadyToConnect: string[],
 	frameworkInfo: FrameworkInfo,
 ): NextStep[] {
 	const nextSteps: NextStep[] = [];
@@ -183,18 +184,27 @@ function buildSlicesNextSteps(
 		});
 	}
 
-	const hasToPush = statuses.some((t) => t.status === "to_push");
 	const hasToPull = statuses.some((t) => t.status === "to_pull");
-
-	if (hasToPush) {
-		nextSteps.push({
-			action: "Push local models to Prismic: Run `prismic push`",
-		});
-	}
+	const hasToPush = statuses.some((t) => t.status === "to_push");
 
 	if (hasToPull) {
 		nextSteps.push({
 			action: "Pull remote models from Prismic: Run `prismic pull`",
+		});
+	}
+
+	// Slices should be connected to page types before pushing
+	if (slicesReadyToConnect.length > 0) {
+		const sorted = [...slicesReadyToConnect].sort();
+		const sliceName = sorted[0];
+		nextSteps.push({
+			action: `Connect slice to page type: Run \`prismic page-type connect-slice <type-id> ${sliceName}\``,
+		});
+	}
+
+	if (hasToPush) {
+		nextSteps.push({
+			action: "Push local models to Prismic: Run `prismic push`",
 		});
 	}
 
@@ -356,8 +366,19 @@ export async function status(): Promise<void> {
 			section: slicesSection,
 			statuses,
 			missingComponents,
-		} = await buildSlicesSection(localSlicesResult.value, remoteSlicesResult.value, frameworkInfo);
-		slicesSection.nextSteps = buildSlicesNextSteps(statuses, missingComponents, frameworkInfo);
+			slicesReadyToConnect,
+		} = await buildSlicesSection(
+			localSlicesResult.value,
+			remoteSlicesResult.value,
+			frameworkInfo,
+			localTypesResult.ok ? localTypesResult.value : [],
+		);
+		slicesSection.nextSteps = buildSlicesNextSteps(
+			statuses,
+			missingComponents,
+			slicesReadyToConnect,
+			frameworkInfo,
+		);
 		sections.push(slicesSection);
 	}
 
@@ -634,23 +655,67 @@ function statusToHint(status: TypeStatus): string | undefined {
 }
 
 // Slices Section
+function sliceHasFields(slice: SharedSlice): boolean {
+	for (const variation of slice.variations) {
+		const primaryFields = Object.keys(variation.primary ?? {});
+		const itemFields = Object.keys(variation.items ?? {});
+		if (primaryFields.length > 0 || itemFields.length > 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function isSliceConnectedToAnyType(sliceId: string, localTypes: CustomType[]): boolean {
+	for (const type of localTypes) {
+		for (const tabFields of Object.values(type.json)) {
+			for (const field of Object.values(tabFields as Record<string, unknown>)) {
+				const typedField = field as {
+					type?: string;
+					config?: { choices?: Record<string, unknown> };
+				};
+				if (typedField.type === "Slices" && typedField.config?.choices?.[sliceId]) {
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 async function buildSlicesSection(
 	localSlices: SharedSlice[],
 	remoteSlices: SharedSlice[],
 	info: FrameworkInfo,
+	localTypes: CustomType[],
 ): Promise<{
 	section: StatusSection;
 	statuses: TypeWithStatus[];
 	missingComponents: string[];
+	slicesReadyToConnect: string[];
 }> {
 	const sliceStatuses = computeTypeStatus(localSlices, remoteSlices);
 	const items: StatusItem[] = [];
 	const missingComponents: string[] = [];
+	const slicesReadyToConnect: string[] = [];
 
 	const slicesDir = getSlicesDirectory(info);
 	const extensions = getSliceComponentExtensions(info.framework);
 
 	for (const slice of sliceStatuses) {
+		const localSlice = localSlices.find((s) => s.id === slice.id);
+
+		// Track slices that have fields but aren't connected to any type
+		// These should be connected before pushing
+		if (localSlice) {
+			const hasFields = sliceHasFields(localSlice);
+			const isConnected = isSliceConnectedToAnyType(slice.id, localTypes);
+
+			if (hasFields && !isConnected) {
+				slicesReadyToConnect.push(slice.label);
+			}
+		}
+
 		// Check if component is implemented
 		const componentExists = await checkSliceComponent(info, slicesDir, slice.id, extensions);
 
@@ -680,6 +745,7 @@ async function buildSlicesSection(
 		section: { title: "Slices", items },
 		statuses: sliceStatuses,
 		missingComponents,
+		slicesReadyToConnect,
 	};
 }
 
