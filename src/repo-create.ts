@@ -102,6 +102,23 @@ export async function repoCreate(): Promise<void> {
 		return;
 	}
 
+	// Check if domain is available
+	const available = await checkDomainAvailable(domain);
+	if (!available.ok) {
+		if (available.error instanceof ForbiddenRequestError) {
+			handleUnauthenticated();
+		} else {
+			console.error(`Failed to check domain availability: ${stringify(available.error)}`);
+			process.exitCode = 1;
+		}
+		return;
+	}
+	if (!available.value) {
+		console.error(`Repository name "${domain}" is already taken.`);
+		process.exitCode = 1;
+		return;
+	}
+
 	const response = await createRepository(domain, name);
 	if (!response.ok) {
 		if (response.error instanceof ForbiddenRequestError) {
@@ -145,6 +162,16 @@ export async function repoCreate(): Promise<void> {
 		console.info();
 		console.info(`Next: Run \`prismic docs ${docsPath}${anchor}\` for instructions on ${fileDesc}`);
 	}
+}
+
+async function checkDomainAvailable(domain: string) {
+	const url = new URL(`/app/dashboard/repositories/${domain}/exists`, await readHost());
+	const response = await request<string>(url);
+	if (!response.ok) {
+		return response;
+	}
+	// Endpoint returns "false" when repository exists, "true" when available
+	return { ok: true as const, value: response.value === "true" };
 }
 
 async function createRepository(domain: string, name = domain) {
