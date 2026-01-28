@@ -4,6 +4,7 @@ import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
+import { type Framework, detectFrameworkInfo } from "./lib/framework";
 import { stringify } from "./lib/json";
 import { findSliceModel } from "./lib/slice";
 import { humanReadable } from "./lib/string";
@@ -29,6 +30,28 @@ EXAMPLES
   prismic slice add-field geo-point store coordinates --label "Store Location"
   prismic slice add-field geo-point map marker --variation "interactive"
 `.trim();
+
+function getDocsPath(framework: Framework): string {
+	switch (framework) {
+		case "next":
+			return "nextjs/with-cli";
+		case "nuxt":
+			return "nuxt/with-cli";
+		case "sveltekit":
+			return "sveltekit/with-cli";
+	}
+}
+
+function getWriteComponentsAnchor(framework: Framework): string {
+	switch (framework) {
+		case "nuxt":
+			return "#write-vue-components";
+		case "sveltekit":
+			return "#write-svelte-components";
+		default:
+			return "#write-react-components";
+	}
+}
 
 export async function sliceAddFieldGeoPoint(): Promise<void> {
 	const {
@@ -145,5 +168,13 @@ export async function sliceAddFieldGeoPoint(): Promise<void> {
 
 	console.info();
 	console.info("Next: Add more fields with `prismic slice add-field`");
-	console.info("      Run `prismic status` when done to find next steps");
+
+	const frameworkInfo = await detectFrameworkInfo();
+	if (frameworkInfo?.framework) {
+		const docsPath = getDocsPath(frameworkInfo.framework);
+		const anchor = getWriteComponentsAnchor(frameworkInfo.framework);
+		console.info(
+			`      Run \`prismic docs ${docsPath}${anchor}\` to learn how to implement the slice's component`,
+		);
+	}
 }

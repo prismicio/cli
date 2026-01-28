@@ -30,8 +30,8 @@ import { getWebhooks } from "./webhook-view";
 const HELP = `
 Show the status of the current Prismic project.
 
-Includes a "Next:" step showing the most important action to take based on
-project state.
+Each section with incomplete items includes "Next steps:" with actionable
+instructions.
 
 By default, this command reads the repository from prismic.config.json at the
 project root.
@@ -57,13 +57,14 @@ type StatusItem = {
 	hint?: string;
 };
 
+type NextStep = {
+	action: string;
+};
+
 type StatusSection = {
 	title: string;
 	items: StatusItem[];
-};
-
-type NextStep = {
-	message: string;
+	nextSteps?: NextStep[];
 };
 
 function getDocsPath(framework: Framework | undefined): string {
@@ -82,7 +83,7 @@ function getDocsPath(framework: Framework | undefined): string {
 function getDocsRef(docsPath: string, anchor?: string): string {
 	if (!docsPath) return "";
 	const fullPath = anchor ? `${docsPath}${anchor}` : docsPath;
-	return ` (run \`prismic docs ${fullPath}\`)`;
+	return `\`prismic docs ${fullPath}\``;
 }
 
 function getClientSetupAnchor(framework: Framework | undefined): string {
@@ -116,116 +117,154 @@ function getWriteComponentsAnchor(framework: Framework | undefined): string {
 	}
 }
 
-function computeNextStep(
-	sections: StatusSection[],
+// Next-step builder functions
+
+function buildSetupNextSteps(
+	items: StatusItem[],
 	frameworkInfo: FrameworkInfo,
-	typeStatuses: TypeWithStatus[],
-	sliceStatuses: TypeWithStatus[],
-	slicesWithMissingComponents: string[],
-): NextStep | undefined {
+): NextStep[] {
+	const nextSteps: NextStep[] = [];
 	const docsPath = getDocsPath(frameworkInfo.framework);
 
-	// 1. Setup - missing dependencies
-	const setupSection = sections.find((s) => s.title === "Setup");
-	const missingDeps = setupSection?.items.filter((i) => !i.done && i.hint === "not installed");
-	if (missingDeps && missingDeps.length > 0) {
+	// Missing dependencies
+	const missingDeps = items.filter((i) => !i.done && i.hint === "not installed");
+	if (missingDeps.length > 0) {
 		const depsList = missingDeps.map((d) => d.label).join(" ");
-		return { message: `Install Prismic packages with 'npm install ${depsList}'` };
+		nextSteps.push({
+			action: `Install dependencies: Run \`npm install ${depsList}\``,
+		});
 	}
 
-	// 2. Setup - missing client file
-	const missingClientFile = setupSection?.items.find((i) => !i.done && i.hint?.includes("client"));
+	// Missing client file
+	const missingClientFile = items.find((i) => !i.done && i.hint?.includes("client"));
 	if (missingClientFile) {
-		return { message: `Create a ${missingClientFile.label} file${getDocsRef(docsPath, getClientSetupAnchor(frameworkInfo.framework))}` };
+		const docsRef = getDocsRef(docsPath, getClientSetupAnchor(frameworkInfo.framework));
+		nextSteps.push({
+			action: `Create Prismic client file: Run ${docsRef} and create the file as shown`,
+		});
 	}
 
-	// 3-7. Preview section (in order: local files, then remote config)
-	const previewSection = sections.find((s) => s.title === "Preview");
-	if (previewSection) {
-		// Local files first
-		const sliceSimRoute = previewSection.items.find(
-			(i) => i.label === "/slice-simulator route" && !i.done,
-		);
-		if (sliceSimRoute) {
-			return { message: `Create the /slice-simulator route${getDocsRef(docsPath, "#set-up-live-previewing")}` };
-		}
+	return nextSteps;
+}
 
-		const apiPreview = previewSection.items.find(
-			(i) => i.label === "/api/preview endpoint" && !i.done,
-		);
-		if (apiPreview) {
-			return { message: `Create the /api/preview route${getDocsRef(docsPath, getPreviewSetupAnchor(frameworkInfo.framework))}` };
-		}
+function buildTypesNextSteps(statuses: TypeWithStatus[]): NextStep[] {
+	const nextSteps: NextStep[] = [];
 
-		const exitPreview = previewSection.items.find(
-			(i) => i.label === "/api/exit-preview endpoint" && !i.done,
-		);
-		if (exitPreview) {
-			return { message: `Create the /api/exit-preview route${getDocsRef(docsPath, getPreviewSetupAnchor(frameworkInfo.framework))}` };
-		}
+	const hasToPush = statuses.some((t) => t.status === "to_push");
+	const hasToPull = statuses.some((t) => t.status === "to_pull");
 
-		// Remote config
-		const simulatorUrl = previewSection.items.find(
-			(i) => i.label === "Slice simulator URL" && !i.done,
-		);
-		if (simulatorUrl) {
-			return { message: `Configure the slice simulator URL with 'prismic preview set-simulator'` };
-		}
-
-		const previewEnv = previewSection.items.find(
-			(i) => i.label === "Preview environment" && !i.done,
-		);
-		if (previewEnv) {
-			return { message: `Add a preview environment with 'prismic preview add'` };
-		}
-	}
-
-	// 8. Models to pull
-	const hasToPull =
-		typeStatuses.some((t) => t.status === "to_pull") ||
-		sliceStatuses.some((s) => s.status === "to_pull");
-	if (hasToPull) {
-		return { message: `Pull remote models with 'prismic pull'` };
-	}
-
-	// 9. Models to push
-	const hasToPush =
-		typeStatuses.some((t) => t.status === "to_push") ||
-		sliceStatuses.some((s) => s.status === "to_push");
 	if (hasToPush) {
-		return { message: `Push local models with 'prismic push'` };
+		nextSteps.push({
+			action: "Push local models to Prismic: Run `prismic push`",
+		});
 	}
 
-	// 10. Slice components to implement (first alphabetically)
-	if (slicesWithMissingComponents.length > 0) {
-		const sorted = [...slicesWithMissingComponents].sort();
-		const sliceName = sorted[0];
-		const slicesDir = getSlicesDirectory(frameworkInfo);
-		const ext = getSliceComponentExtensions(frameworkInfo.framework)[0];
-		const path = `${slicesDir}${sliceName}/index${ext}`;
-		return { message: `Implement the ${sliceName} slice component at ${path}${getDocsRef(docsPath, getWriteComponentsAnchor(frameworkInfo.framework))}` };
+	if (hasToPull) {
+		nextSteps.push({
+			action: "Pull remote models from Prismic: Run `prismic pull`",
+		});
 	}
 
-	// 11-12. Deployment (Next.js only)
-	const deploymentSection = sections.find((s) => s.title === "Deployment");
-	if (deploymentSection) {
-		const revalidateEndpoint = deploymentSection.items.find(
-			(i) => i.label === "/api/revalidate endpoint" && !i.done,
-		);
-		if (revalidateEndpoint) {
-			return { message: `Create the /api/revalidate route for ISR${getDocsRef(docsPath, "#handle-content-changes")}` };
-		}
+	return nextSteps;
+}
 
-		const webhook = deploymentSection.items.find(
-			(i) => i.label === "Revalidation webhook" && !i.done,
-		);
-		if (webhook) {
-			return { message: `Create a revalidation webhook with 'prismic webhook create'` };
-		}
+function buildSlicesNextSteps(
+	statuses: TypeWithStatus[],
+	missingComponents: string[],
+	frameworkInfo: FrameworkInfo,
+): NextStep[] {
+	const nextSteps: NextStep[] = [];
+	const docsPath = getDocsPath(frameworkInfo.framework);
+
+	if (missingComponents.length > 0) {
+		const docsRef = getDocsRef(docsPath, getWriteComponentsAnchor(frameworkInfo.framework));
+		nextSteps.push({
+			action: `Implement slice components: Run ${docsRef} and create each component file`,
+		});
 	}
 
-	// All complete
-	return undefined;
+	const hasToPush = statuses.some((t) => t.status === "to_push");
+	const hasToPull = statuses.some((t) => t.status === "to_pull");
+
+	if (hasToPush) {
+		nextSteps.push({
+			action: "Push local models to Prismic: Run `prismic push`",
+		});
+	}
+
+	if (hasToPull) {
+		nextSteps.push({
+			action: "Pull remote models from Prismic: Run `prismic pull`",
+		});
+	}
+
+	return nextSteps;
+}
+
+function buildPreviewNextSteps(items: StatusItem[], frameworkInfo: FrameworkInfo): NextStep[] {
+	const nextSteps: NextStep[] = [];
+	const docsPath = getDocsPath(frameworkInfo.framework);
+
+	// Check for missing /slice-simulator route
+	const sliceSimRoute = items.find((i) => i.label === "/slice-simulator route" && !i.done);
+	if (sliceSimRoute) {
+		const docsRef = getDocsRef(docsPath, "#set-up-live-previewing");
+		nextSteps.push({
+			action: `Create /slice-simulator route: Run ${docsRef} and create the route file as shown`,
+		});
+	}
+
+	// Check for missing simulator URL config
+	const simulatorUrl = items.find((i) => i.label === "Slice simulator URL" && !i.done);
+	if (simulatorUrl) {
+		nextSteps.push({
+			action: "Configure slice simulator URL: Run `prismic preview set-simulator`",
+		});
+	}
+
+	// Check for missing preview endpoints (combine /api/preview and /api/exit-preview)
+	const apiPreview = items.find((i) => i.label === "/api/preview endpoint" && !i.done);
+	const exitPreview = items.find((i) => i.label === "/api/exit-preview endpoint" && !i.done);
+	if (apiPreview || exitPreview) {
+		const docsRef = getDocsRef(docsPath, getPreviewSetupAnchor(frameworkInfo.framework));
+		nextSteps.push({
+			action: `Create preview endpoints: Run ${docsRef} and create the endpoint files as shown`,
+		});
+	}
+
+	// Check for missing preview environment
+	const previewEnv = items.find((i) => i.label === "Preview environment" && !i.done);
+	if (previewEnv) {
+		nextSteps.push({
+			action: "Add preview environment: Run `prismic preview add`",
+		});
+	}
+
+	return nextSteps;
+}
+
+function buildDeploymentNextSteps(items: StatusItem[], frameworkInfo: FrameworkInfo): NextStep[] {
+	const nextSteps: NextStep[] = [];
+	const docsPath = getDocsPath(frameworkInfo.framework);
+
+	// Check for missing /api/revalidate endpoint
+	const revalidateEndpoint = items.find((i) => i.label === "/api/revalidate endpoint" && !i.done);
+	if (revalidateEndpoint) {
+		const docsRef = getDocsRef(docsPath, "#handle-content-changes");
+		nextSteps.push({
+			action: `Create /api/revalidate endpoint: Run ${docsRef} and create the endpoint as shown`,
+		});
+	}
+
+	// Check for missing revalidation webhook
+	const webhook = items.find((i) => i.label === "Revalidation webhook" && !i.done);
+	if (webhook) {
+		nextSteps.push({
+			action: "Create revalidation webhook: Run `prismic webhook create`",
+		});
+	}
+
+	return nextSteps;
 }
 
 export async function status(): Promise<void> {
@@ -294,24 +333,21 @@ export async function status(): Promise<void> {
 
 	const sections: StatusSection[] = [];
 
-	// Track statuses for next step computation
-	let typeStatuses: TypeWithStatus[] = [];
-	let sliceStatuses: TypeWithStatus[] = [];
-	let slicesWithMissingComponents: string[] = [];
-
 	// Setup section
 	const setupSection = await buildSetupSection(frameworkInfo, installedDeps);
+	setupSection.nextSteps = buildSetupNextSteps(setupSection.items, frameworkInfo);
 	sections.push(setupSection);
 
 	// Types sections (Page Types and Custom Types)
 	if (localTypesResult.ok && remoteTypesResult.ok) {
-		const { pageTypes, customTypes, allTypeStatuses } = buildTypeSections(
+		const { pageTypes, customTypes, pageTypeStatuses, customTypeStatuses } = buildTypeSections(
 			localTypesResult.value,
 			remoteTypesResult.value,
 		);
+		pageTypes.nextSteps = buildTypesNextSteps(pageTypeStatuses);
+		customTypes.nextSteps = buildTypesNextSteps(customTypeStatuses);
 		sections.push(pageTypes);
 		sections.push(customTypes);
-		typeStatuses = allTypeStatuses;
 	}
 
 	// Slices section
@@ -321,9 +357,8 @@ export async function status(): Promise<void> {
 			statuses,
 			missingComponents,
 		} = await buildSlicesSection(localSlicesResult.value, remoteSlicesResult.value, frameworkInfo);
+		slicesSection.nextSteps = buildSlicesNextSteps(statuses, missingComponents, frameworkInfo);
 		sections.push(slicesSection);
-		sliceStatuses = statuses;
-		slicesWithMissingComponents = missingComponents;
 	}
 
 	// Preview section
@@ -332,6 +367,7 @@ export async function status(): Promise<void> {
 		previewsResult.ok ? previewsResult.value : undefined,
 		repoInfoResult.ok ? repoInfoResult.value.simulator_url : undefined,
 	);
+	previewSection.nextSteps = buildPreviewNextSteps(previewSection.items, frameworkInfo);
 	sections.push(previewSection);
 
 	// Deployment section (Next.js only)
@@ -340,24 +376,16 @@ export async function status(): Promise<void> {
 			frameworkInfo,
 			webhooksResult.ok ? webhooksResult.value : [],
 		);
+		deploymentSection.nextSteps = buildDeploymentNextSteps(
+			deploymentSection.items,
+			frameworkInfo,
+		);
 		sections.push(deploymentSection);
 	}
 
 	// Print all sections
 	for (const section of sections) {
 		printSection(section);
-	}
-
-	// Print next step
-	const nextStep = computeNextStep(
-		sections,
-		frameworkInfo,
-		typeStatuses,
-		sliceStatuses,
-		slicesWithMissingComponents,
-	);
-	if (nextStep) {
-		console.info(`Next: ${nextStep.message}`);
 	}
 }
 
@@ -388,6 +416,15 @@ function printSection(section: StatusSection): void {
 	for (const item of incomplete) {
 		const hint = item.hint ? ` \u2014 ${item.hint}` : "";
 		console.info(`  ${CIRCLE} ${item.label}${hint}`);
+	}
+
+	// Print next steps if there are any
+	if (section.nextSteps && section.nextSteps.length > 0) {
+		console.info("");
+		console.info("  Next steps:");
+		for (const step of section.nextSteps) {
+			console.info(`  - ${step.action}`);
+		}
 	}
 
 	console.info("");
@@ -542,7 +579,12 @@ function computeTypeStatus<T extends { id: string }>(local: T[], remote: T[]): T
 function buildTypeSections(
 	localTypes: CustomType[],
 	remoteTypes: CustomType[],
-): { pageTypes: StatusSection; customTypes: StatusSection; allTypeStatuses: TypeWithStatus[] } {
+): {
+	pageTypes: StatusSection;
+	customTypes: StatusSection;
+	pageTypeStatuses: TypeWithStatus[];
+	customTypeStatuses: TypeWithStatus[];
+} {
 	const typeStatuses = computeTypeStatus(localTypes, remoteTypes);
 
 	// Separate by format
@@ -575,7 +617,8 @@ function buildTypeSections(
 	return {
 		pageTypes: { title: "Page Types", items: pageTypeItems },
 		customTypes: { title: "Custom Types", items: customTypeItems },
-		allTypeStatuses: typeStatuses,
+		pageTypeStatuses,
+		customTypeStatuses,
 	};
 }
 

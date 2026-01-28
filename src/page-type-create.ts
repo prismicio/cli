@@ -5,6 +5,7 @@ import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
 import { findUpward } from "./lib/file";
+import { type Framework, detectFrameworkInfo } from "./lib/framework";
 import { stringify } from "./lib/json";
 
 const HELP = `
@@ -25,6 +26,21 @@ FLAGS
 LEARN MORE
   Use \`prismic page-type <command> --help\` for more information about a command.
 `.trim();
+
+function getDocsPath(framework: Framework): string {
+	switch (framework) {
+		case "next":
+			return "nextjs/with-cli";
+		case "nuxt":
+			return "nuxt/with-cli";
+		case "sveltekit":
+			return "sveltekit/with-cli";
+	}
+}
+
+function getWritePageComponentsAnchor(_framework: Framework): string {
+	return "#write-page-components";
+}
 
 export async function pageTypeCreate(): Promise<void> {
 	const {
@@ -129,6 +145,15 @@ export async function pageTypeCreate(): Promise<void> {
 
 	console.info();
 	console.info("Next: Add fields with `prismic page-type add-field`");
+
+	const frameworkInfo = await detectFrameworkInfo();
+	if (frameworkInfo?.framework) {
+		const docsPath = getDocsPath(frameworkInfo.framework);
+		const anchor = getWritePageComponentsAnchor(frameworkInfo.framework);
+		console.info(
+			`      Run \`prismic docs ${docsPath}${anchor}\` to learn how to implement a page file`,
+		);
+	}
 }
 
 export function pascalCase(input: string): string {

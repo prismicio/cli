@@ -6,6 +6,7 @@ import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
 import { findUpward } from "./lib/file";
+import { type Framework, detectFrameworkInfo } from "./lib/framework";
 import { stringify } from "./lib/json";
 import { humanReadable } from "./lib/string";
 
@@ -41,6 +42,17 @@ const CustomTypeSchema = v.object({
 	format: v.string(),
 	json: v.record(v.string(), v.record(v.string(), v.unknown())),
 });
+
+function getDocsPath(framework: Framework): string {
+	switch (framework) {
+		case "next":
+			return "nextjs/with-cli";
+		case "nuxt":
+			return "nuxt/with-cli";
+		case "sveltekit":
+			return "sveltekit/with-cli";
+	}
+}
 
 export async function pageTypeAddFieldDate(): Promise<void> {
 	const {
@@ -170,5 +182,12 @@ export async function pageTypeAddFieldDate(): Promise<void> {
 
 	console.info();
 	console.info("Next: Add more fields with `prismic page-type add-field`");
-	console.info("      Run `prismic status` when done to find next steps");
+
+	const frameworkInfo = await detectFrameworkInfo();
+	if (frameworkInfo?.framework) {
+		const docsPath = getDocsPath(frameworkInfo.framework);
+		console.info(
+			`      Run \`prismic docs ${docsPath}#write-page-components\` to learn how to implement a page file`,
+		);
+	}
 }

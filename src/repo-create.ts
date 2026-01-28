@@ -2,6 +2,7 @@ import { parseArgs } from "node:util";
 
 import { isAuthenticated, readHost } from "./lib/auth";
 import { createConfig, readConfig, updateConfig } from "./lib/config";
+import { type Framework, detectFrameworkInfo, getClientFilePath } from "./lib/framework";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
@@ -30,6 +31,26 @@ LEARN MORE
 `.trim();
 
 const DOMAIN_REGEX = /^[a-zA-Z0-9][-a-zA-Z0-9]{2,}[a-zA-Z0-9]$/;
+
+function getDocsPath(framework: Framework): string {
+	switch (framework) {
+		case "next":
+			return "nextjs/with-cli";
+		case "nuxt":
+			return "nuxt/with-cli";
+		case "sveltekit":
+			return "sveltekit/with-cli";
+	}
+}
+
+function getClientSetupAnchor(framework: Framework): string {
+	switch (framework) {
+		case "nuxt":
+			return "#configure-the-modules-prismic-client";
+		default:
+			return "#set-up-a-prismic-client";
+	}
+}
 
 export async function repoCreate(): Promise<void> {
 	const {
@@ -113,6 +134,17 @@ export async function repoCreate(): Promise<void> {
 
 	console.info(`Repository created: ${domain}`);
 	console.info(`URL: ${await getRepoUrl(domain)}`);
+
+	// Print framework-specific next steps
+	const frameworkInfo = await detectFrameworkInfo();
+	if (frameworkInfo?.framework) {
+		const docsPath = getDocsPath(frameworkInfo.framework);
+		const anchor = getClientSetupAnchor(frameworkInfo.framework);
+		const clientFile = getClientFilePath(frameworkInfo);
+		const fileDesc = clientFile ? `creating ${clientFile}` : "configuring Prismic";
+		console.info();
+		console.info(`Next: Run \`prismic docs ${docsPath}${anchor}\` for instructions on ${fileDesc}`);
+	}
 }
 
 async function createRepository(domain: string, name = domain) {
