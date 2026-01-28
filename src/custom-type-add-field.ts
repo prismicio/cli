@@ -5,6 +5,7 @@ import { customTypeAddFieldColor } from "./custom-type-add-field-color";
 import { customTypeAddFieldDate } from "./custom-type-add-field-date";
 import { customTypeAddFieldEmbed } from "./custom-type-add-field-embed";
 import { customTypeAddFieldGeoPoint } from "./custom-type-add-field-geo-point";
+import { customTypeAddFieldGroup } from "./custom-type-add-field-group";
 import { customTypeAddFieldImage } from "./custom-type-add-field-image";
 import { customTypeAddFieldKeyText } from "./custom-type-add-field-key-text";
 import { customTypeAddFieldLink } from "./custom-type-add-field-link";
@@ -26,6 +27,7 @@ FIELD TYPES
   date                   Date picker
   embed                  Embed (oEmbed)
   geo-point              Geographic coordinates
+  group                  Repeatable group of fields
   image                  Image
   key-text               Single-line text
   link                   Any link type
@@ -75,6 +77,9 @@ export async function customTypeAddField(): Promise<void> {
 			break;
 		case "geo-point":
 			await customTypeAddFieldGeoPoint();
+			break;
+		case "group":
+			await customTypeAddFieldGroup();
 			break;
 		case "image":
 			await customTypeAddFieldImage();

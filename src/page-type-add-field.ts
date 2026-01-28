@@ -5,6 +5,7 @@ import { pageTypeAddFieldColor } from "./page-type-add-field-color";
 import { pageTypeAddFieldDate } from "./page-type-add-field-date";
 import { pageTypeAddFieldEmbed } from "./page-type-add-field-embed";
 import { pageTypeAddFieldGeoPoint } from "./page-type-add-field-geo-point";
+import { pageTypeAddFieldGroup } from "./page-type-add-field-group";
 import { pageTypeAddFieldImage } from "./page-type-add-field-image";
 import { pageTypeAddFieldKeyText } from "./page-type-add-field-key-text";
 import { pageTypeAddFieldLink } from "./page-type-add-field-link";
@@ -26,6 +27,7 @@ FIELD TYPES
   date                   Date picker
   embed                  Embed (oEmbed)
   geo-point              Geographic coordinates
+  group                  Repeatable group of fields
   image                  Image
   key-text               Single-line text
   link                   Any link type
@@ -75,6 +77,9 @@ export async function pageTypeAddField(): Promise<void> {
 			break;
 		case "geo-point":
 			await pageTypeAddFieldGeoPoint();
+			break;
+		case "group":
+			await pageTypeAddFieldGroup();
 			break;
 		case "image":
 			await pageTypeAddFieldImage();

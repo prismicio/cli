@@ -1,20 +1,19 @@
-import type { Image, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { Group, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { findGroupInVariation, isGroupField, parseFieldPath, validateNestedFieldPath } from "./lib/field-path";
 import { type Framework, detectFrameworkInfo } from "./lib/framework";
 import { stringify } from "./lib/json";
 import { findSliceModel } from "./lib/slice";
 import { humanReadable } from "./lib/string";
 
 const HELP = `
-Add an image field to an existing slice.
+Add a group field to an existing slice.
 
 USAGE
-  prismic slice add-field image <slice-id> <field-id> [flags]
+  prismic slice add-field group <slice-id> <field-id> [flags]
 
 ARGUMENTS
   slice-id               Slice identifier (required)
@@ -23,13 +22,14 @@ ARGUMENTS
 FLAGS
   -v, --variation string Target variation (default: first variation)
   -l, --label string     Display label for the field (inferred from field-id if omitted)
-      --types string   Output file for generated types (default: "prismicio-types.d.ts")
+      --non-repeatable   Make this a non-repeating group (default: repeatable)
+      --types string     Output file for generated types (default: "prismicio-types.d.ts")
   -h, --help             Show help for command
 
 EXAMPLES
-  prismic slice add-field image my_slice background
-  prismic slice add-field image hero banner --label "Hero Banner"
-  prismic slice add-field image gallery thumbnail --variation "grid"
+  prismic slice add-field group my_slice buttons
+  prismic slice add-field group hero ctas --non-repeatable
+  prismic slice add-field group product variants --variation "withImage"
 `.trim();
 
 function getDocsPath(framework: Framework): string {
@@ -54,15 +54,16 @@ function getWriteComponentsAnchor(framework: Framework): string {
 	}
 }
 
-export async function sliceAddFieldImage(): Promise<void> {
+export async function sliceAddFieldGroup(): Promise<void> {
 	const {
-		values: { help, variation, label, types },
+		values: { help, variation, label, "non-repeatable": nonRepeatable, types },
 		positionals: [sliceId, fieldId],
 	} = parseArgs({
-		args: process.argv.slice(5), // skip: node, script, "slice", "add-field", "image"
+		args: process.argv.slice(5), // skip: node, script, "slice", "add-field", "group"
 		options: {
 			variation: { type: "string", short: "v" },
 			label: { type: "string", short: "l" },
+			"non-repeatable": { type: "boolean" },
 			types: { type: "string" },
 			help: { type: "boolean", short: "h" },
 		},
@@ -76,23 +77,21 @@ export async function sliceAddFieldImage(): Promise<void> {
 
 	if (!sliceId) {
 		console.error("Missing required argument: slice-id\n");
-		console.error("Usage: prismic slice add-field image <slice-id> <field-id>");
+		console.error("Usage: prismic slice add-field group <slice-id> <field-id>");
 		process.exitCode = 1;
 		return;
 	}
 
 	if (!fieldId) {
 		console.error("Missing required argument: field-id\n");
-		console.error("Usage: prismic slice add-field image <slice-id> <field-id>");
+		console.error("Usage: prismic slice add-field group <slice-id> <field-id>");
 		process.exitCode = 1;
 		return;
 	}
 
-	// Parse and validate field path
-	const fieldPath = parseFieldPath(fieldId);
-	const pathValidation = validateNestedFieldPath(fieldPath);
-	if (!pathValidation.ok) {
-		console.error(pathValidation.error);
+	// Groups cannot be nested
+	if (fieldId.includes(".")) {
+		console.error("Groups cannot be nested inside other groups");
 		process.exitCode = 1;
 		return;
 	}
@@ -132,52 +131,27 @@ export async function sliceAddFieldImage(): Promise<void> {
 		targetVariation.primary = {};
 	}
 
+	// Check if field already exists in any variation
+	for (const v of model.variations) {
+		if (v.primary?.[fieldId]) {
+			console.error(`Field "${fieldId}" already exists in variation "${v.id}"`);
+			process.exitCode = 1;
+			return;
+		}
+	}
+
 	// Build field definition
-	const fieldDefinition: Image = {
-		type: "Image",
+	const fieldDefinition: Group = {
+		type: "Group",
 		config: {
-			label: label ?? humanReadable(fieldPath.type === "nested" ? fieldPath.nestedFieldId : fieldId),
+			label: label ?? humanReadable(fieldId),
+			repeat: !nonRepeatable,
+			fields: {},
 		},
 	};
 
-	// Add field to variation (with nested field support)
-	if (fieldPath.type === "nested") {
-		const groupResult = findGroupInVariation(targetVariation.primary, fieldPath.groupId, targetVariation.id);
-		if (!groupResult.ok) {
-			console.error(groupResult.error);
-			process.exitCode = 1;
-			return;
-		}
-		// Check if nested field already exists
-		if (groupResult.group.config.fields[fieldPath.nestedFieldId]) {
-			console.error(
-				`Field "${fieldPath.nestedFieldId}" already exists in group "${fieldPath.groupId}"`,
-			);
-			process.exitCode = 1;
-			return;
-		}
-		groupResult.group.config.fields[fieldPath.nestedFieldId] = fieldDefinition;
-	} else {
-		// Check if field already exists in any variation (at top level or in groups)
-		for (const v of model.variations) {
-			if (v.primary?.[fieldId]) {
-				console.error(`Field "${fieldId}" already exists in variation "${v.id}"`);
-				process.exitCode = 1;
-				return;
-			}
-			// Also check inside groups
-			for (const [groupFieldId, groupField] of Object.entries(v.primary ?? {})) {
-				if (isGroupField(groupField) && groupField.config.fields[fieldId]) {
-					console.error(
-						`Field "${fieldId}" already exists in group "${groupFieldId}" in variation "${v.id}"`,
-					);
-					process.exitCode = 1;
-					return;
-				}
-			}
-		}
-		targetVariation.primary[fieldId] = fieldDefinition;
-	}
+	// Add field to variation
+	targetVariation.primary[fieldId] = fieldDefinition;
 
 	// Write updated model
 	try {
@@ -192,15 +166,9 @@ export async function sliceAddFieldImage(): Promise<void> {
 		return;
 	}
 
-	if (fieldPath.type === "nested") {
-		console.info(
-			`Added field "${fieldPath.nestedFieldId}" (Image) to group "${fieldPath.groupId}" in ${sliceId}`,
-		);
-	} else {
-		console.info(
-			`Added field "${fieldId}" (Image) to "${targetVariation.id}" variation in ${sliceId}`,
-		);
-	}
+	console.info(
+		`Added field "${fieldId}" (Group) to "${targetVariation.id}" variation in ${sliceId}`,
+	);
 
 	try {
 		await buildTypes({ output: types });
@@ -210,7 +178,7 @@ export async function sliceAddFieldImage(): Promise<void> {
 	}
 
 	console.info();
-	console.info("Next: Add more fields with `prismic slice add-field`");
+	console.info(`Next: Add fields to the group with \`prismic slice add-field <type> ${sliceId} ${fieldId}.<field-id>\``);
 
 	const frameworkInfo = await detectFrameworkInfo();
 	if (frameworkInfo?.framework) {

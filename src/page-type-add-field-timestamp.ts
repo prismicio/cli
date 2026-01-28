@@ -6,6 +6,7 @@ import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
 import { findUpward } from "./lib/file";
+import { findGroupInTab, isGroupField, parseFieldPath, validateNestedFieldPath } from "./lib/field-path";
 import { type Framework, detectFrameworkInfo } from "./lib/framework";
 import { stringify } from "./lib/json";
 import { humanReadable } from "./lib/string";
@@ -90,6 +91,15 @@ export async function pageTypeAddFieldTimestamp(): Promise<void> {
 		return;
 	}
 
+	// Parse and validate field path
+	const fieldPath = parseFieldPath(fieldId);
+	const pathValidation = validateNestedFieldPath(fieldPath);
+	if (!pathValidation.ok) {
+		console.error(pathValidation.error);
+		process.exitCode = 1;
+		return;
+	}
+
 	// Find the page type file
 	const projectRoot = await findUpward("package.json");
 	if (!projectRoot) {
@@ -136,27 +146,47 @@ export async function pageTypeAddFieldTimestamp(): Promise<void> {
 		model.json[targetTab] = {};
 	}
 
-	// Check if field already exists in any tab
-	for (const [tabName, tabFields] of Object.entries(model.json)) {
-		if (tabFields[fieldId]) {
-			console.error(`Field "${fieldId}" already exists in tab "${tabName}"`);
-			process.exitCode = 1;
-			return;
-		}
-	}
-
 	// Build field definition
 	const fieldDefinition: Timestamp = {
 		type: "Timestamp",
 		config: {
-			label: label ?? humanReadable(fieldId),
+			label: label ?? humanReadable(fieldPath.type === "nested" ? fieldPath.nestedFieldId : fieldId),
 			...(placeholder && { placeholder }),
 			...(defaultValue && { default: defaultValue }),
 		},
 	};
 
 	// Add field to model
-	model.json[targetTab][fieldId] = fieldDefinition;
+	if (fieldPath.type === "nested") {
+		const groupResult = findGroupInTab(model.json[targetTab], fieldPath.groupId, targetTab);
+		if (!groupResult.ok) {
+			console.error(groupResult.error);
+			process.exitCode = 1;
+			return;
+		}
+		if (groupResult.group.config.fields[fieldPath.nestedFieldId]) {
+			console.error(`Field "${fieldPath.nestedFieldId}" already exists in group "${fieldPath.groupId}"`);
+			process.exitCode = 1;
+			return;
+		}
+		groupResult.group.config.fields[fieldPath.nestedFieldId] = fieldDefinition;
+	} else {
+		for (const [tabName, tabFields] of Object.entries(model.json)) {
+			if (tabFields[fieldId]) {
+				console.error(`Field "${fieldId}" already exists in tab "${tabName}"`);
+				process.exitCode = 1;
+				return;
+			}
+			for (const [groupFieldId, groupField] of Object.entries(tabFields)) {
+				if (isGroupField(groupField) && groupField.config.fields[fieldId]) {
+					console.error(`Field "${fieldId}" already exists in group "${groupFieldId}" in tab "${tabName}"`);
+					process.exitCode = 1;
+					return;
+				}
+			}
+		}
+		model.json[targetTab][fieldId] = fieldDefinition;
+	}
 
 	// Write updated model
 	try {
@@ -171,7 +201,11 @@ export async function pageTypeAddFieldTimestamp(): Promise<void> {
 		return;
 	}
 
-	console.info(`Added field "${fieldId}" (Timestamp) to "${targetTab}" tab in ${typeId}`);
+	if (fieldPath.type === "nested") {
+		console.info(`Added field "${fieldPath.nestedFieldId}" (Timestamp) to group "${fieldPath.groupId}" in ${typeId}`);
+	} else {
+		console.info(`Added field "${fieldId}" (Timestamp) to "${targetTab}" tab in ${typeId}`);
+	}
 
 	try {
 		await buildTypes({ output: types });

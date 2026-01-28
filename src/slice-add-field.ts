@@ -5,6 +5,7 @@ import { sliceAddFieldColor } from "./slice-add-field-color";
 import { sliceAddFieldDate } from "./slice-add-field-date";
 import { sliceAddFieldEmbed } from "./slice-add-field-embed";
 import { sliceAddFieldGeoPoint } from "./slice-add-field-geo-point";
+import { sliceAddFieldGroup } from "./slice-add-field-group";
 import { sliceAddFieldImage } from "./slice-add-field-image";
 import { sliceAddFieldKeyText } from "./slice-add-field-key-text";
 import { sliceAddFieldLink } from "./slice-add-field-link";
@@ -25,6 +26,7 @@ FIELD TYPES
   date                   Date picker
   embed                  Embed (oEmbed)
   geo-point              Geographic coordinates
+  group                  Repeatable group of fields
   image                  Image
   key-text               Single-line text
   link                   Any link type
@@ -73,6 +75,9 @@ export async function sliceAddField(): Promise<void> {
 			break;
 		case "geo-point":
 			await sliceAddFieldGeoPoint();
+			break;
+		case "group":
+			await sliceAddFieldGroup();
 			break;
 		case "image":
 			await sliceAddFieldImage();

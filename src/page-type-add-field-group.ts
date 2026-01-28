@@ -1,4 +1,4 @@
-import type { CustomType, Date as DateField } from "@prismicio/types-internal/lib/customtypes";
+import type { CustomType, Group } from "@prismicio/types-internal/lib/customtypes";
 
 import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
@@ -6,16 +6,15 @@ import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
 import { findUpward } from "./lib/file";
-import { findGroupInTab, isGroupField, parseFieldPath, validateNestedFieldPath } from "./lib/field-path";
 import { type Framework, detectFrameworkInfo } from "./lib/framework";
 import { stringify } from "./lib/json";
 import { humanReadable } from "./lib/string";
 
 const HELP = `
-Add a date field to an existing page type.
+Add a group field to an existing page type.
 
 USAGE
-  prismic page-type add-field date <type-id> <field-id> [flags]
+  prismic page-type add-field group <type-id> <field-id> [flags]
 
 ARGUMENTS
   type-id                Page type identifier (required)
@@ -24,15 +23,14 @@ ARGUMENTS
 FLAGS
   -t, --tab string       Target tab (default: first existing tab, or "Main")
   -l, --label string     Display label for the field (inferred from field-id if omitted)
-  -p, --placeholder string Placeholder text
-      --default string   Default date value (YYYY-MM-DD format)
-      --types string   Output file for generated types (default: "prismicio-types.d.ts")
+      --non-repeatable   Make this a non-repeating group (default: repeatable)
+      --types string     Output file for generated types (default: "prismicio-types.d.ts")
   -h, --help             Show help for command
 
 EXAMPLES
-  prismic page-type add-field date homepage publish_date
-  prismic page-type add-field date event start_date --tab "Schedule"
-  prismic page-type add-field date article date --label "Publication Date" --default "2024-01-01"
+  prismic page-type add-field group homepage buttons
+  prismic page-type add-field group article authors --non-repeatable
+  prismic page-type add-field group product variants --tab "Content"
 `.trim();
 
 const CustomTypeSchema = v.object({
@@ -55,17 +53,16 @@ function getDocsPath(framework: Framework): string {
 	}
 }
 
-export async function pageTypeAddFieldDate(): Promise<void> {
+export async function pageTypeAddFieldGroup(): Promise<void> {
 	const {
-		values: { help, tab, label, placeholder, default: defaultValue, types },
+		values: { help, tab, label, "non-repeatable": nonRepeatable, types },
 		positionals: [typeId, fieldId],
 	} = parseArgs({
-		args: process.argv.slice(5), // skip: node, script, "page-type", "add-field", "date"
+		args: process.argv.slice(5), // skip: node, script, "page-type", "add-field", "group"
 		options: {
 			tab: { type: "string", short: "t" },
 			label: { type: "string", short: "l" },
-			placeholder: { type: "string", short: "p" },
-			default: { type: "string" },
+			"non-repeatable": { type: "boolean" },
 			types: { type: "string" },
 			help: { type: "boolean", short: "h" },
 		},
@@ -79,23 +76,21 @@ export async function pageTypeAddFieldDate(): Promise<void> {
 
 	if (!typeId) {
 		console.error("Missing required argument: type-id\n");
-		console.error("Usage: prismic page-type add-field date <type-id> <field-id>");
+		console.error("Usage: prismic page-type add-field group <type-id> <field-id>");
 		process.exitCode = 1;
 		return;
 	}
 
 	if (!fieldId) {
 		console.error("Missing required argument: field-id\n");
-		console.error("Usage: prismic page-type add-field date <type-id> <field-id>");
+		console.error("Usage: prismic page-type add-field group <type-id> <field-id>");
 		process.exitCode = 1;
 		return;
 	}
 
-	// Parse and validate field path
-	const fieldPath = parseFieldPath(fieldId);
-	const pathValidation = validateNestedFieldPath(fieldPath);
-	if (!pathValidation.ok) {
-		console.error(pathValidation.error);
+	// Groups cannot be nested
+	if (fieldId.includes(".")) {
+		console.error("Groups cannot be nested inside other groups");
 		process.exitCode = 1;
 		return;
 	}
@@ -146,47 +141,27 @@ export async function pageTypeAddFieldDate(): Promise<void> {
 		model.json[targetTab] = {};
 	}
 
+	// Check if field already exists in any tab
+	for (const [tabName, tabFields] of Object.entries(model.json)) {
+		if (tabFields[fieldId]) {
+			console.error(`Field "${fieldId}" already exists in tab "${tabName}"`);
+			process.exitCode = 1;
+			return;
+		}
+	}
+
 	// Build field definition
-	const fieldDefinition: DateField = {
-		type: "Date",
+	const fieldDefinition: Group = {
+		type: "Group",
 		config: {
-			label: label ?? humanReadable(fieldPath.type === "nested" ? fieldPath.nestedFieldId : fieldId),
-			...(placeholder && { placeholder }),
-			...(defaultValue && { default: defaultValue }),
+			label: label ?? humanReadable(fieldId),
+			repeat: !nonRepeatable,
+			fields: {},
 		},
 	};
 
 	// Add field to model
-	if (fieldPath.type === "nested") {
-		const groupResult = findGroupInTab(model.json[targetTab], fieldPath.groupId, targetTab);
-		if (!groupResult.ok) {
-			console.error(groupResult.error);
-			process.exitCode = 1;
-			return;
-		}
-		if (groupResult.group.config.fields[fieldPath.nestedFieldId]) {
-			console.error(`Field "${fieldPath.nestedFieldId}" already exists in group "${fieldPath.groupId}"`);
-			process.exitCode = 1;
-			return;
-		}
-		groupResult.group.config.fields[fieldPath.nestedFieldId] = fieldDefinition;
-	} else {
-		for (const [tabName, tabFields] of Object.entries(model.json)) {
-			if (tabFields[fieldId]) {
-				console.error(`Field "${fieldId}" already exists in tab "${tabName}"`);
-				process.exitCode = 1;
-				return;
-			}
-			for (const [groupFieldId, groupField] of Object.entries(tabFields)) {
-				if (isGroupField(groupField) && groupField.config.fields[fieldId]) {
-					console.error(`Field "${fieldId}" already exists in group "${groupFieldId}" in tab "${tabName}"`);
-					process.exitCode = 1;
-					return;
-				}
-			}
-		}
-		model.json[targetTab][fieldId] = fieldDefinition;
-	}
+	model.json[targetTab][fieldId] = fieldDefinition;
 
 	// Write updated model
 	try {
@@ -201,11 +176,7 @@ export async function pageTypeAddFieldDate(): Promise<void> {
 		return;
 	}
 
-	if (fieldPath.type === "nested") {
-		console.info(`Added field "${fieldPath.nestedFieldId}" (Date) to group "${fieldPath.groupId}" in ${typeId}`);
-	} else {
-		console.info(`Added field "${fieldId}" (Date) to "${targetTab}" tab in ${typeId}`);
-	}
+	console.info(`Added field "${fieldId}" (Group) to "${targetTab}" tab in ${typeId}`);
 
 	try {
 		await buildTypes({ output: types });
@@ -215,7 +186,7 @@ export async function pageTypeAddFieldDate(): Promise<void> {
 	}
 
 	console.info();
-	console.info("Next: Add more fields with `prismic page-type add-field`");
+	console.info(`Next: Add fields to the group with \`prismic page-type add-field <type> ${typeId} ${fieldId}.<field-id>\``);
 
 	const frameworkInfo = await detectFrameworkInfo();
 	if (frameworkInfo?.framework) {

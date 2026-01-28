@@ -4,6 +4,7 @@ import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
+import { findGroupInVariation, isGroupField, parseFieldPath, validateNestedFieldPath } from "./lib/field-path";
 import { type Framework, detectFrameworkInfo } from "./lib/framework";
 import { stringify } from "./lib/json";
 import { findSliceModel } from "./lib/slice";
@@ -101,6 +102,15 @@ export async function sliceAddFieldBoolean(): Promise<void> {
 		return;
 	}
 
+	// Parse and validate field path
+	const fieldPath = parseFieldPath(fieldId);
+	const pathValidation = validateNestedFieldPath(fieldPath);
+	if (!pathValidation.ok) {
+		console.error(pathValidation.error);
+		process.exitCode = 1;
+		return;
+	}
+
 	// Find the slice model
 	const result = await findSliceModel(sliceId);
 	if (!result.ok) {
@@ -136,28 +146,55 @@ export async function sliceAddFieldBoolean(): Promise<void> {
 		targetVariation.primary = {};
 	}
 
-	// Check if field already exists in any variation
-	for (const v of model.variations) {
-		if (v.primary?.[fieldId]) {
-			console.error(`Field "${fieldId}" already exists in variation "${v.id}"`);
-			process.exitCode = 1;
-			return;
-		}
-	}
-
 	// Build field definition
 	const fieldDefinition: BooleanField = {
 		type: "Boolean",
 		config: {
-			label: label ?? humanReadable(fieldId),
+			label: label ?? humanReadable(fieldPath.type === "nested" ? fieldPath.nestedFieldId : fieldId),
 			...(defaultValue && { default_value: true }),
 			...(trueLabel && { placeholder_true: trueLabel }),
 			...(falseLabel && { placeholder_false: falseLabel }),
 		},
 	};
 
-	// Add field to variation
-	targetVariation.primary[fieldId] = fieldDefinition;
+	// Add field to variation (with nested field support)
+	if (fieldPath.type === "nested") {
+		const groupResult = findGroupInVariation(targetVariation.primary, fieldPath.groupId, targetVariation.id);
+		if (!groupResult.ok) {
+			console.error(groupResult.error);
+			process.exitCode = 1;
+			return;
+		}
+		// Check if nested field already exists
+		if (groupResult.group.config.fields[fieldPath.nestedFieldId]) {
+			console.error(
+				`Field "${fieldPath.nestedFieldId}" already exists in group "${fieldPath.groupId}"`,
+			);
+			process.exitCode = 1;
+			return;
+		}
+		groupResult.group.config.fields[fieldPath.nestedFieldId] = fieldDefinition;
+	} else {
+		// Check if field already exists in any variation (at top level or in groups)
+		for (const v of model.variations) {
+			if (v.primary?.[fieldId]) {
+				console.error(`Field "${fieldId}" already exists in variation "${v.id}"`);
+				process.exitCode = 1;
+				return;
+			}
+			// Also check inside groups
+			for (const [groupFieldId, groupField] of Object.entries(v.primary ?? {})) {
+				if (isGroupField(groupField) && groupField.config.fields[fieldId]) {
+					console.error(
+						`Field "${fieldId}" already exists in group "${groupFieldId}" in variation "${v.id}"`,
+					);
+					process.exitCode = 1;
+					return;
+				}
+			}
+		}
+		targetVariation.primary[fieldId] = fieldDefinition;
+	}
 
 	// Write updated model
 	try {
@@ -172,9 +209,15 @@ export async function sliceAddFieldBoolean(): Promise<void> {
 		return;
 	}
 
-	console.info(
-		`Added field "${fieldId}" (Boolean) to "${targetVariation.id}" variation in ${sliceId}`,
-	);
+	if (fieldPath.type === "nested") {
+		console.info(
+			`Added field "${fieldPath.nestedFieldId}" (Boolean) to group "${fieldPath.groupId}" in ${sliceId}`,
+		);
+	} else {
+		console.info(
+			`Added field "${fieldId}" (Boolean) to "${targetVariation.id}" variation in ${sliceId}`,
+		);
+	}
 
 	try {
 		await buildTypes({ output: types });

@@ -6,6 +6,7 @@ import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
 import { findUpward } from "./lib/file";
+import { parseFieldPath, validateNestedFieldPath } from "./lib/field-path";
 import { type Framework, detectFrameworkInfo } from "./lib/framework";
 import { stringify } from "./lib/json";
 import { humanReadable } from "./lib/string";
@@ -84,6 +85,22 @@ export async function pageTypeAddFieldUid(): Promise<void> {
 	if (!fieldId) {
 		console.error("Missing required argument: field-id\n");
 		console.error("Usage: prismic page-type add-field uid <type-id> <field-id>");
+		process.exitCode = 1;
+		return;
+	}
+
+	// Parse and validate field path
+	const fieldPath = parseFieldPath(fieldId);
+	const pathValidation = validateNestedFieldPath(fieldPath);
+	if (!pathValidation.ok) {
+		console.error(pathValidation.error);
+		process.exitCode = 1;
+		return;
+	}
+
+	// UID fields cannot be nested in groups
+	if (fieldPath.type === "nested") {
+		console.error("UID fields cannot be nested inside groups");
 		process.exitCode = 1;
 		return;
 	}
