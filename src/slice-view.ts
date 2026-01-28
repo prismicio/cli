@@ -73,5 +73,8 @@ export async function sliceView(): Promise<void> {
 		console.info(
 			`  - ${variation.id} (${variation.name}): ${primaryFields} primary fields, ${itemsFields} items fields`,
 		);
+		if (variation.imageUrl) {
+			console.info(`    Screenshot: ${variation.imageUrl}`);
+		}
 	}
 }

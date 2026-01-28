@@ -9,6 +9,7 @@ import { sliceRemove } from "./slice-remove";
 import { sliceRemoveField } from "./slice-remove-field";
 import { sliceRemoveVariation } from "./slice-remove-variation";
 import { sliceRename } from "./slice-rename";
+import { sliceSetScreenshot } from "./slice-set-screenshot";
 import { sliceView } from "./slice-view";
 
 const HELP = `
@@ -28,6 +29,7 @@ COMMANDS
   add-variation     Add a variation to a slice
   remove-variation  Remove a variation from a slice
   list-variations   List all variations of a slice
+  set-screenshot    Set a screenshot for a slice variation
 
 FLAGS
   -h, --help   Show help for command
@@ -78,6 +80,9 @@ export async function slice(): Promise<void> {
 			break;
 		case "list-variations":
 			await sliceListVariations();
+			break;
+		case "set-screenshot":
+			await sliceSetScreenshot();
 			break;
 		default: {
 			if (subcommand) {

@@ -119,10 +119,7 @@ function getWriteComponentsAnchor(framework: Framework | undefined): string {
 
 // Next-step builder functions
 
-function buildSetupNextSteps(
-	items: StatusItem[],
-	frameworkInfo: FrameworkInfo,
-): NextStep[] {
+function buildSetupNextSteps(items: StatusItem[], frameworkInfo: FrameworkInfo): NextStep[] {
 	const nextSteps: NextStep[] = [];
 	const docsPath = getDocsPath(frameworkInfo.framework);
 
@@ -397,10 +394,7 @@ export async function status(): Promise<void> {
 			frameworkInfo,
 			webhooksResult.ok ? webhooksResult.value : [],
 		);
-		deploymentSection.nextSteps = buildDeploymentNextSteps(
-			deploymentSection.items,
-			frameworkInfo,
-		);
+		deploymentSection.nextSteps = buildDeploymentNextSteps(deploymentSection.items, frameworkInfo);
 		sections.push(deploymentSection);
 	}
 

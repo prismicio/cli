@@ -45,15 +45,7 @@ const CustomTypeSchema = v.object({
 
 export async function customTypeAddFieldSelect(): Promise<void> {
 	const {
-		values: {
-			help,
-			tab,
-			label,
-			placeholder,
-			option,
-			default: defaultValue,
-			types,
-		},
+		values: { help, tab, label, placeholder, option, default: defaultValue, types },
 		positionals: [typeId, fieldId],
 	} = parseArgs({
 		args: process.argv.slice(5), // skip: node, script, "custom-type", "add-field", "select"

@@ -5,8 +5,11 @@ import { parseArgs } from "node:util";
 import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
+import { isAuthenticated } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { exists, findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
+import { uploadScreenshot } from "./slice-set-screenshot";
 
 const HELP = `
 Create a new slice in a Prismic project.
@@ -18,9 +21,11 @@ ARGUMENTS
   id       Slice identifier (required)
 
 FLAGS
-  -n, --name string   Display name for the slice
-      --types string   Output file for generated types (default: "prismicio-types.d.ts")
-  -h, --help          Show help for command
+  -n, --name string        Display name for the slice
+      --screenshot string  Path to screenshot image for default variation
+  -r, --repo string        Repository name (required for screenshot)
+      --types string       Output file for generated types (default: "prismicio-types.d.ts")
+  -h, --help               Show help for command
 
 LEARN MORE
   Use \`prismic slice <command> --help\` for more information about a command.
@@ -28,12 +33,14 @@ LEARN MORE
 
 export async function sliceCreate(): Promise<void> {
 	const {
-		values: { help, name, types },
+		values: { help, name, types, screenshot, repo: repoFlag },
 		positionals: [id],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "slice", "create"
 		options: {
 			name: { type: "string", short: "n" },
+			screenshot: { type: "string" },
+			repo: { type: "string", short: "r" },
 			types: { type: "string" },
 			help: { type: "boolean", short: "h" },
 		},
@@ -51,6 +58,60 @@ export async function sliceCreate(): Promise<void> {
 		return;
 	}
 
+	// Handle screenshot upload if provided
+	let screenshotUrl: string | undefined;
+	if (screenshot) {
+		// Check authentication
+		const authenticated = await isAuthenticated();
+		if (!authenticated) {
+			console.error("You must be logged in to upload a screenshot.");
+			console.error("Run `prismic login` to authenticate.");
+			process.exitCode = 1;
+			return;
+		}
+
+		// Resolve repository
+		const repo = repoFlag ?? (await safeGetRepositoryFromConfig());
+		if (!repo) {
+			console.error("Could not determine repository for screenshot upload.");
+			console.error("Use --repo flag or run from a directory with prismic.config.json");
+			process.exitCode = 1;
+			return;
+		}
+
+		// Read and upload the screenshot
+		let imageData: Buffer;
+		try {
+			imageData = await readFile(screenshot);
+		} catch (error) {
+			if (error instanceof Error) {
+				console.error(`Failed to read screenshot file: ${error.message}`);
+			} else {
+				console.error("Failed to read screenshot file");
+			}
+			process.exitCode = 1;
+			return;
+		}
+
+		try {
+			screenshotUrl = await uploadScreenshot({
+				data: imageData,
+				repo,
+				sliceId: id,
+				variationId: "default",
+				filename: screenshot,
+			});
+		} catch (error) {
+			if (error instanceof Error) {
+				console.error(`Failed to upload screenshot: ${error.message}`);
+			} else {
+				console.error("Failed to upload screenshot");
+			}
+			process.exitCode = 1;
+			return;
+		}
+	}
+
 	const model: SharedSlice = {
 		id,
 		type: "SharedSlice",
@@ -61,7 +122,7 @@ export async function sliceCreate(): Promise<void> {
 				id: "default",
 				name: "Default",
 				description: "Default",
-				imageUrl: "",
+				imageUrl: screenshotUrl ?? "",
 				docURL: "",
 				version: "initial",
 				primary: {},

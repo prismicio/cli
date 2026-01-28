@@ -58,15 +58,7 @@ function getWriteComponentsAnchor(framework: Framework): string {
 
 export async function sliceAddFieldSelect(): Promise<void> {
 	const {
-		values: {
-			help,
-			variation,
-			label,
-			placeholder,
-			option,
-			default: defaultValue,
-			types,
-		},
+		values: { help, variation, label, placeholder, option, default: defaultValue, types },
 		positionals: [sliceId, fieldId],
 	} = parseArgs({
 		args: process.argv.slice(5), // skip: node, script, "slice", "add-field", "select"
