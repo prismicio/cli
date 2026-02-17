@@ -16,6 +16,7 @@ import { pull } from "./pull";
 import { push } from "./push";
 import { repo } from "./repo";
 import { slice } from "./slice";
+import { skill } from "./skill";
 import { status } from "./status";
 import { token } from "./token";
 import { webhook } from "./webhook";
@@ -42,6 +43,7 @@ COMMANDS
   push        Push types and slices to Prismic
   codegen     Generate code from Prismic models
   docs        Fetch and list documentation from Prismic
+  skill       Install Prismic AI skills
   preview     Manage preview configurations
   token       Manage API tokens in a repository
   webhook     Manage webhooks in a repository
@@ -111,6 +113,9 @@ if (version) {
 			break;
 		case "docs":
 			await docs();
+			break;
+		case "skill":
+			await skill();
 			break;
 		case "preview":
 			await preview();
