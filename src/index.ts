@@ -43,7 +43,7 @@ COMMANDS
   push        Push types and slices to Prismic
   codegen     Generate code from Prismic models
   docs        Fetch and list documentation from Prismic
-  skill       Install Prismic AI skills
+  skill       Manage Prismic AI skills
   preview     Manage preview configurations
   token       Manage API tokens in a repository
   webhook     Manage webhooks in a repository

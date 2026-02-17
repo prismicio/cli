@@ -1,15 +1,17 @@
 import { parseArgs } from "node:util";
 
 import { skillInstall } from "./skill-install";
+import { skillUninstall } from "./skill-uninstall";
 
 const HELP = `
-Install Prismic skills into supported AI tool directories.
+Manage Prismic skills in supported AI tool directories.
 
 USAGE
   prismic skill <command> [flags]
 
 COMMANDS
   install    Install the Prismic skill into detected global skill directories
+  uninstall  Uninstall the Prismic skill from detected global skill directories
 
 FLAGS
   -h, --help   Show help for command
@@ -33,6 +35,9 @@ export async function skill(): Promise<void> {
 	switch (subcommand) {
 		case "install":
 			await skillInstall();
+			break;
+		case "uninstall":
+			await skillUninstall();
 			break;
 		default: {
 			if (subcommand) {

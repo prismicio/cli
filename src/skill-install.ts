@@ -1,6 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 
@@ -51,12 +50,9 @@ export type SkillInstallTarget = {
 
 export async function findGlobalSkillInstallTargets(config?: {
 	homeDir?: string;
-	codexHome?: string;
 }): Promise<SkillInstallTarget[]> {
 	const homeURL = appendTrailingSlash(pathToFileURL(config?.homeDir ?? homedir()));
-	const codexBaseURL = config?.codexHome
-		? appendTrailingSlash(pathToFileURL(resolve(config.codexHome)))
-		: new URL(".codex/", homeURL);
+	const codexBaseURL = new URL(".codex/", homeURL);
 
 	const candidates: SkillInstallTarget[] = [
 		createTarget("Claude", new URL(".claude/", homeURL), new URL(".claude/skills/", homeURL)),
@@ -97,9 +93,7 @@ export async function skillInstall(): Promise<void> {
 		return;
 	}
 
-	const targets = await findGlobalSkillInstallTargets({
-		codexHome: process.env.CODEX_HOME,
-	});
+	const targets = await findGlobalSkillInstallTargets();
 
 	if (targets.length === 0) {
 		console.error(
