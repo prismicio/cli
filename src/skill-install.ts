@@ -79,7 +79,7 @@ export async function findGlobalSkillInstallTargets(config?: {
 
 export async function skillInstall(): Promise<void> {
 	const {
-		values: { dryRun, help },
+		values: { "dry-run": dryRun, help },
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "skill", "install"
 		options: {
