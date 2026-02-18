@@ -14,6 +14,7 @@ USAGE
 
 FLAGS
   -h, --help   Show help for command
+  -n, --dry-run   Preview actions without writing files
 
 LEARN MORE
   This command currently installs to global/user tool directories only.
@@ -78,11 +79,12 @@ export async function findGlobalSkillInstallTargets(config?: {
 
 export async function skillInstall(): Promise<void> {
 	const {
-		values: { help },
+		values: { dryRun, help },
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "skill", "install"
 		options: {
 			help: { type: "boolean", short: "h" },
+			"dry-run": { type: "boolean", short: "n" },
 		},
 		allowPositionals: true,
 		strict: false,
@@ -113,6 +115,14 @@ export async function skillInstall(): Promise<void> {
 		}
 		console.error("Nothing was installed. Remove existing files and retry.");
 		process.exitCode = 1;
+		return;
+	}
+
+	if (dryRun) {
+		for (const target of targets) {
+			console.info(`Installed: ${fileURLToPath(target.skillFile)}`);
+		}
+		console.info(`Installed ${targets.length} Prismic skill file(s).`);
 		return;
 	}
 

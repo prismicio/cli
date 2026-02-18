@@ -13,6 +13,7 @@ USAGE
 
 FLAGS
   -h, --help   Show help for command
+  -n, --dry-run   Preview actions without removing files
 
 LEARN MORE
   This command currently uninstalls from global/user tool directories only.
@@ -20,11 +21,12 @@ LEARN MORE
 
 export async function skillUninstall(): Promise<void> {
 	const {
-		values: { help },
+		values: { dryRun, help },
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "skill", "uninstall"
 		options: {
 			help: { type: "boolean", short: "h" },
+			"dry-run": { type: "boolean", short: "n" },
 		},
 		allowPositionals: true,
 		strict: false,
@@ -44,9 +46,13 @@ export async function skillUninstall(): Promise<void> {
 			continue;
 		}
 
+		removedSkillFiles.push(fileURLToPath(target.skillFile));
+		if (dryRun) {
+			continue;
+		}
+
 		try {
 			await rm(target.skillFile);
-			removedSkillFiles.push(fileURLToPath(target.skillFile));
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			console.error(`Failed to remove skill for ${target.tool}: ${message}`);
