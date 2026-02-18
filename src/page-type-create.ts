@@ -151,7 +151,7 @@ export async function pageTypeCreate(): Promise<void> {
 		const docsPath = getDocsPath(frameworkInfo.framework);
 		const anchor = getWritePageComponentsAnchor(frameworkInfo.framework);
 		console.info(
-			`      Run \`prismic docs ${docsPath}${anchor}\` to learn how to implement a page file`,
+			`      Run \`prismic docs fetch ${docsPath}${anchor}\` to learn how to implement a page file`,
 		);
 	}
 }

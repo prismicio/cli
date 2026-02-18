@@ -41,7 +41,7 @@ COMMANDS
   pull        Pull types and slices from Prismic
   push        Push types and slices to Prismic
   codegen     Generate code from Prismic models
-  docs        Fetch documentation from Prismic
+  docs        Fetch and list documentation from Prismic
   preview     Manage preview configurations
   token       Manage API tokens in a repository
   webhook     Manage webhooks in a repository

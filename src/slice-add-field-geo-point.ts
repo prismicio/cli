@@ -217,7 +217,7 @@ export async function sliceAddFieldGeoPoint(): Promise<void> {
 		const docsPath = getDocsPath(frameworkInfo.framework);
 		const anchor = getWriteComponentsAnchor(frameworkInfo.framework);
 		console.info(
-			`      Run \`prismic docs ${docsPath}${anchor}\` to learn how to implement the slice's component`,
+			`      Run \`prismic docs fetch ${docsPath}${anchor}\` to learn how to implement the slice's component`,
 		);
 	}
 }

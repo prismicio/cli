@@ -160,7 +160,7 @@ export async function repoCreate(): Promise<void> {
 		const clientFile = getClientFilePath(frameworkInfo);
 		const fileDesc = clientFile ? `creating ${clientFile}` : "configuring Prismic";
 		console.info();
-		console.info(`Next: Run \`prismic docs ${docsPath}${anchor}\` for instructions on ${fileDesc}`);
+		console.info(`Next: Run \`prismic docs fetch ${docsPath}${anchor}\` for instructions on ${fileDesc}`);
 	}
 }
 

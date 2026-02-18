@@ -83,7 +83,7 @@ function getDocsPath(framework: Framework | undefined): string {
 function getDocsRef(docsPath: string, anchor?: string): string {
 	if (!docsPath) return "";
 	const fullPath = anchor ? `${docsPath}${anchor}` : docsPath;
-	return `\`prismic docs ${fullPath}\``;
+	return `\`prismic docs fetch ${fullPath}\``;
 }
 
 function getClientSetupAnchor(framework: Framework | undefined): string {

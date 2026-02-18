@@ -250,7 +250,7 @@ export async function pageTypeAddFieldNumber(): Promise<void> {
 	if (frameworkInfo?.framework) {
 		const docsPath = getDocsPath(frameworkInfo.framework);
 		console.info(
-			`      Run \`prismic docs ${docsPath}#write-page-components\` to learn how to implement a page file`,
+			`      Run \`prismic docs fetch ${docsPath}#write-page-components\` to learn how to implement a page file`,
 		);
 	}
 }
