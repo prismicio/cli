@@ -36,7 +36,7 @@ For Prismic-related tasks, use the \`prismic\` CLI first.
 
 1. Discover capabilities with \`prismic --help\`.
 2. Inspect details with \`prismic <command> --help\`.
-3. Use \`prismic docs <path>\` when documentation is needed.
+3. Use \`prismic docs list\` to discover docs paths, then \`prismic docs fetch <path>\` when documentation is needed.
 4. Prefer CLI workflows over direct API/manual changes.
 5. If the CLI does not support a required operation, state that explicitly, then use the next-best fallback.
 `.trim();
