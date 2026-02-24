@@ -1,40 +1,17 @@
-<!--
-
-TODO: Go through all "TODO" comments in the project
-
-TODO: Replace all on all files (README.md, CONTRIBUTING.md, bug_report.md, package.json):
-- prismic-cli-poc
-- A proof-of-concept developer CLI for Prismic.
-- prismicio-community
-- prismic-cli-poc
-
--->
-
-# prismic-cli-poc
+# Prismic CLI
 
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 
-<!-- TODO: Replacing link to Prismic with [Prismic][prismic] is useful here -->
-
-A proof-of-concept developer CLI for Prismic..
-
-<!--
-
-TODO: Create a small list of package features:
-
-- 🤔 &nbsp;A useful feature;
-- 🥴 &nbsp;Another useful feature;
-- 🙃 &nbsp;A final useful feature.
-
-Non-breaking space: &nbsp; are here on purpose to fix emoji rendering on certain systems.
-
--->
+Prismic's official command line tool.
 
 ## Install
 
-```bash
-npm install prismic-cli-poc
+```sh
+npm install --global prismic
+
+# Install the skill to let AI agents use the CLI
+npx skills add --global prismicio/skills
 ```
 
 ## Documentation
@@ -76,23 +53,17 @@ limitations under the License.
 <!-- Links -->
 
 [prismic]: https://prismic.io
-
-<!-- TODO: Replace link with a more useful one if available -->
-
 [prismic-docs]: https://prismic.io/docs
 [changelog]: ./CHANGELOG.md
 [contributing]: ./CONTRIBUTING.md
-
-<!-- TODO: Replace link with a more useful one if available -->
-
 [forum-question]: https://community.prismic.io
-[repo-bug-report]: https://github.com/prismicio-community/prismic-cli-poc/issues/new?assignees=&labels=bug&template=bug_report.md&title=
-[repo-feature-request]: https://github.com/prismicio-community/prismic-cli-poc/issues/new?assignees=&labels=enhancement&template=feature_request.md&title=
-[repo-pull-requests]: https://github.com/prismicio-community/prismic-cli-poc/pulls
+[repo-bug-report]: https://github.com/prismicio/cli/issues/new?assignees=&labels=bug&template=bug_report.md&title=
+[repo-feature-request]: https://github.com/prismicio/cli/issues/new?assignees=&labels=enhancement&template=feature_request.md&title=
+[repo-pull-requests]: https://github.com/prismicio/cli/pulls
 
 <!-- Badges -->
 
-[npm-version-src]: https://img.shields.io/npm/v/prismic-cli-poc/latest.svg
-[npm-version-href]: https://npmjs.com/package/prismic-cli-poc
-[npm-downloads-src]: https://img.shields.io/npm/dm/prismic-cli-poc.svg
-[npm-downloads-href]: https://npmjs.com/package/prismic-cli-poc
+[npm-version-src]: https://img.shields.io/npm/v/prismic/latest.svg
+[npm-version-href]: https://npmjs.com/package/prismic
+[npm-downloads-src]: https://img.shields.io/npm/dm/prismic.svg
+[npm-downloads-href]: https://npmjs.com/package/prismic

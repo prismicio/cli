@@ -1,7 +1,7 @@
 {
-	"name": "@angeloashmore/prismic-cli-poc",
+	"name": "prismic",
 	"version": "0.0.0",
-	"description": "A proof-of-concept developer CLI for Prismic.",
+	"description": "Prismic's official command line tool",
 	"keywords": [
 		"prismic",
 		"typescript"
@@ -10,7 +10,7 @@
 	"author": "Prismic <contact@prismic.io> (https://prismic.io)",
 	"repository": {
 		"type": "git",
-		"url": "ssh://git@github.com/prismicio-community/prismic-cli-poc.git"
+		"url": "ssh://git@github.com/prismicio/cli.git"
 	},
 	"bin": {
 		"prismic": "./dist/index.mjs"
