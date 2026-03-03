@@ -1,0 +1,10 @@
+ignores:
+  [
+    "prettier-plugin-jsdoc",
+    "@trivago/prettier-plugin-sort-imports",
+    "prettier-plugin-svelte",
+    "svelte",
+    "typescript",
+    "@sveltejs/kit",
+  ]
+skip - missing: true

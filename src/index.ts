@@ -6,7 +6,7 @@ import packageJson from "../package.json" with { type: "json" };
 import { codegen } from "./codegen";
 import { customType } from "./custom-type";
 import { docs } from "./docs";
-import { init } from "./init";
+import { run as devtoolsRun } from "./devtools/cli";
 import { locale } from "./locale";
 import { login } from "./login";
 import { logout } from "./logout";
@@ -29,6 +29,7 @@ USAGE
 
 COMMANDS
   init        Initialize a Prismic project
+  sync        Sync types and slices from Prismic
   login       Log in to Prismic
   logout      Log out of Prismic
   whoami      Show the currently logged in user
@@ -71,7 +72,8 @@ if (version) {
 } else {
 	switch (positionals[0]) {
 		case "init":
-			await init();
+		case "sync":
+			await devtoolsRun();
 			break;
 		case "login":
 			await login();

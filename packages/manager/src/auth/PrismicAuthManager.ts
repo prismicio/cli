@@ -1,0 +1,346 @@
+import * as fs from "node:fs/promises";
+import * as http from "node:http";
+import * as os from "node:os";
+import * as path from "node:path";
+
+import cors from "cors";
+import getPort from "get-port";
+import * as h3 from "h3";
+import fetch from "node-fetch";
+import * as z from "zod";
+
+import { API_ENDPOINTS } from "../constants/API_ENDPOINTS";
+import { PRISMIC_CLI_USER_AGENT } from "../constants/PRISMIC_CLI_USER_AGENT";
+import {
+	InternalError,
+	UnauthenticatedError,
+	UnexpectedDataError,
+} from "../errors";
+import { decode } from "../lib/decode";
+
+import { createPrismicAuthManagerMiddleware } from "./createPrismicAuthManagerMiddleware";
+
+const PERSISTED_AUTH_STATE_FILE_NAME = ".prismic";
+const DEFAULT_PERSISTED_AUTH_STATE: PrismicAuthState = {
+	base: "https://prismic.io",
+};
+
+const PrismicAuthStateSchema = z.object({
+	base: z.string(),
+	token: z.string().optional(),
+});
+export type PrismicAuthState = z.infer<typeof PrismicAuthStateSchema>;
+
+const PrismicUserProfileSchema = z.object({
+	userId: z.string(),
+	shortId: z.string(),
+	intercomHash: z.string(),
+	email: z.string(),
+	firstName: z.string(),
+	lastName: z.string(),
+});
+export type PrismicUserProfile = z.infer<typeof PrismicUserProfileSchema>;
+
+type PrismicAuthManagerConstructorArgs = {
+	scopedDirectory?: string;
+};
+
+type PrismicAuthManagerLoginArgs = {
+	email: string;
+	token: string;
+};
+
+type PrismicAuthManagerGetLoginSessionInfoReturnType = {
+	port: number;
+	url: string;
+};
+
+type PrismicAuthManagerNodeLoginSessionArgs = {
+	port: number;
+	onListenCallback?: () => void;
+};
+
+type GetProfileForAuthenticationTokenArgs = {
+	authenticationToken: string;
+};
+
+const checkHasAuthenticationToken = (
+	authState: PrismicAuthState,
+): authState is PrismicAuthState & {
+	token: string;
+} => {
+	return Boolean(authState.token);
+};
+
+export class PrismicAuthManager {
+	scopedDirectory: string;
+
+	constructor({
+		scopedDirectory = os.homedir(),
+	}: PrismicAuthManagerConstructorArgs = {}) {
+		this.scopedDirectory = scopedDirectory;
+	}
+
+	async login(args: PrismicAuthManagerLoginArgs): Promise<void> {
+		const authState = await this._readPersistedAuthState();
+
+		// Set the auth's URL base to the current base at runtime.
+		authState.base = API_ENDPOINTS.PrismicWroom;
+		authState.token = args.token;
+
+		await this._writePersistedAuthState(authState);
+	}
+
+	async getLoginSessionInfo(): Promise<PrismicAuthManagerGetLoginSessionInfoReturnType> {
+		// Pick a random port, with a preference for historic `5555`
+		const port = await getPort({ port: 5555 });
+
+		const url = new URL(
+			`./dashboard/cli/login?source=prismic-cli&port=${port}`,
+			API_ENDPOINTS.PrismicWroom,
+		).toString();
+
+		return {
+			port,
+			url,
+		};
+	}
+
+	async nodeLoginSession(
+		args: PrismicAuthManagerNodeLoginSessionArgs,
+	): Promise<void> {
+		return new Promise<void>((resolve, reject) => {
+			// Timeout attempt after 3 minutes
+			const timeout = setTimeout(() => {
+				server.close();
+				reject(
+					new Error(
+						"Login timeout, server did not receive a response within a 3-minute delay",
+					),
+				);
+			}, 180_000);
+
+			const app = h3.createApp();
+			app.use(h3.fromNodeMiddleware(cors()));
+			app.use(
+				h3.fromNodeMiddleware(
+					createPrismicAuthManagerMiddleware({
+						prismicAuthManager: this,
+						onLoginCallback() {
+							// Cleanup process and resolve
+							clearTimeout(timeout);
+							server.close();
+							resolve();
+						},
+					}),
+				),
+			);
+
+			// Start server
+			const server = http.createServer(h3.toNodeListener(app));
+			server.once("listening", () => {
+				if (args.onListenCallback) {
+					args.onListenCallback();
+				}
+			});
+			server.listen(args.port, "127.0.0.1");
+		});
+	}
+
+	async logout(): Promise<void> {
+		const authState = await this._readPersistedAuthState();
+
+		authState.token = undefined;
+
+		await this._writePersistedAuthState(authState);
+	}
+
+	async checkIsLoggedIn(): Promise<boolean> {
+		const authState = await this._readPersistedAuthState();
+
+		if (checkHasAuthenticationToken(authState)) {
+			const url = new URL(
+				"./validate",
+				API_ENDPOINTS.PrismicLegacyAuthenticationApi,
+			);
+			url.searchParams.set("token", authState.token);
+
+			let res;
+			try {
+				res = await fetch(url.toString(), {
+					headers: {
+						"User-Agent": PRISMIC_CLI_USER_AGENT,
+					},
+				});
+			} catch {
+				// Noop, we return if `res` is not defined.
+			}
+
+			if (!res || !res.ok) {
+				await this.logout();
+
+				return false;
+			}
+
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	async getAuthenticationToken(): Promise<string> {
+		// If already logged in with a valid token, return it
+		let isLoggedIn = await this.checkIsLoggedIn();
+
+		if (isLoggedIn) {
+			const authState = await this._readPersistedAuthState();
+
+			if (authState.token) {
+				return authState.token;
+			}
+		}
+
+		// Not logged in - attempt silent token refresh
+		// Note: checkIsLoggedIn() logs out on invalid tokens, so refresh
+		// will only work if there was no token (edge case) or network failed
+		try {
+			await this.refreshAuthenticationToken();
+
+			// Verify the refreshed token is valid
+			isLoggedIn = await this.checkIsLoggedIn();
+			if (isLoggedIn) {
+				const authState = await this._readPersistedAuthState();
+				if (authState.token) {
+					return authState.token;
+				}
+			}
+		} catch {
+			// Refresh failed - fall through to throw UnauthenticatedError
+		}
+
+		throw new UnauthenticatedError();
+	}
+
+	async refreshAuthenticationToken(): Promise<void> {
+		const authState = await this._readPersistedAuthState();
+
+		if (checkHasAuthenticationToken(authState)) {
+			const url = new URL(
+				"./refreshtoken",
+				API_ENDPOINTS.PrismicLegacyAuthenticationApi,
+			);
+			url.searchParams.set("token", authState.token);
+
+			const res = await fetch(url.toString(), {
+				headers: {
+					"User-Agent": PRISMIC_CLI_USER_AGENT,
+				},
+			});
+			const text = await res.text();
+
+			if (res.ok) {
+				authState.token = text;
+
+				await this._writePersistedAuthState(authState);
+			} else {
+				throw new InternalError("Failed to refresh authentication token.", {
+					cause: text,
+				});
+			}
+		} else {
+			throw new UnauthenticatedError();
+		}
+	}
+
+	async getProfile(): Promise<PrismicUserProfile> {
+		const authenticationToken = await this.getAuthenticationToken();
+
+		return await this._getProfileForAuthenticationToken({
+			authenticationToken,
+		});
+	}
+
+	private async _getProfileForAuthenticationToken(
+		args: GetProfileForAuthenticationTokenArgs,
+	): Promise<PrismicUserProfile> {
+		const url = new URL("./profile", API_ENDPOINTS.PrismicLegacyUserApi);
+		const res = await fetch(url.toString(), {
+			headers: {
+				Authorization: `Bearer ${args.authenticationToken}`,
+				"User-Agent": PRISMIC_CLI_USER_AGENT,
+			},
+		});
+
+		if (res.ok) {
+			const json = await res.json();
+			const { value: profile, error } = decode(PrismicUserProfileSchema, json);
+
+			if (error) {
+				throw new UnexpectedDataError(
+					"Received invalid data from the Prismic user service.",
+				);
+			}
+
+			return profile;
+		} else {
+			const text = await res.text();
+			throw new InternalError(
+				"Failed to retrieve profile from the Prismic user service.",
+				{
+					cause: text,
+				},
+			);
+		}
+	}
+
+	private async _readPersistedAuthState(): Promise<PrismicAuthState> {
+		const authStateFilePath = this._getPersistedAuthStateFilePath();
+
+		let authStateFileContents: string = JSON.stringify({});
+		let rawAuthState: Record<string, unknown> = {};
+
+		try {
+			authStateFileContents = await fs.readFile(authStateFilePath, "utf8");
+			rawAuthState = JSON.parse(authStateFileContents);
+		} catch {
+			// Write a default persisted state if it doesn't already exist.
+			rawAuthState = DEFAULT_PERSISTED_AUTH_STATE;
+			authStateFileContents = JSON.stringify(rawAuthState, null, "\t");
+
+			await fs.mkdir(path.dirname(authStateFilePath), { recursive: true });
+			await fs.writeFile(authStateFilePath, authStateFileContents);
+		}
+
+		const { value: authState, error } = decode(
+			PrismicAuthStateSchema,
+			rawAuthState,
+		);
+
+		if (error) {
+			throw new UnexpectedDataError("Prismic authentication state is invalid.");
+		}
+
+		return authState;
+	}
+
+	private async _writePersistedAuthState(
+		authState: PrismicAuthState,
+	): Promise<void> {
+		const authStateFilePath = this._getPersistedAuthStateFilePath();
+
+		try {
+			await fs.writeFile(authStateFilePath, JSON.stringify(authState, null, 2));
+		} catch (error) {
+			throw new InternalError(
+				"Failed to write Prismic authentication state to the file system.",
+				{
+					cause: error,
+				},
+			);
+		}
+	}
+
+	private _getPersistedAuthStateFilePath(): string {
+		return path.resolve(this.scopedDirectory, PERSISTED_AUTH_STATE_FILE_NAME);
+	}
+}

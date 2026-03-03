@@ -2,6 +2,13 @@
 	"name": "prismic",
 	"version": "0.0.0",
 	"description": "Prismic's official command line tool",
+	"workspaces": [
+		"packages/plugin-kit",
+		"packages/manager",
+		"packages/adapter-next",
+		"packages/adapter-nuxt",
+		"packages/adapter-sveltekit"
+	],
 	"keywords": [
 		"prismic",
 		"typescript"
@@ -24,7 +31,8 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "tsdown",
+		"build:packages": "npm run --workspace=@prismicio/plugin-kit build && npm run --workspace=@prismicio/manager build && npm run --workspace=@prismicio/adapter-next build && npm run --workspace=@prismicio/adapter-nuxt build && npm run --workspace=@prismicio/adapter-sveltekit build",
+		"build": "npm run build:packages && tsdown",
 		"dev": "tsdown --watch",
 		"format": "oxfmt",
 		"prepare": "npm run build",
@@ -45,7 +53,14 @@
 		"tsdown": "0.19.0",
 		"typescript": "5.9.3",
 		"valibot": "^1.2.0",
-		"vitest": "4.0.17"
+		"vitest": "4.0.17",
+		"@sentry/node": "10.36.0",
+		"chalk": "5.6.2",
+		"listr2": "10.0.0",
+		"open": "11.0.0",
+		"semver": "7.7.3",
+		"@types/semver": "7.7.1",
+		"zod": "4.3.6"
 	},
 	"engines": {
 		"node": ">=24"

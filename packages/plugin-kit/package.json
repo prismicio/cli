@@ -1,0 +1,91 @@
+{
+	"name": "@prismicio/plugin-kit",
+	"version": "0.0.2",
+	"description": "A set of helpers to develop and run Prismic plugins",
+	"keywords": [
+		"typescript",
+		"helpers",
+		"utils",
+		"toolbox",
+		"prismic"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/prismicio/devtools.git"
+	},
+	"license": "Apache-2.0",
+	"author": "Prismic <contact@prismic.io> (https://prismic.io)",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./fs": {
+			"types": "./dist/fs/index.d.ts",
+			"import": "./dist/fs/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"main": "dist/index.js",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"typesVersions": {
+		"*": {
+			"*": [
+				"dist/index.d.ts"
+			],
+			"fs": [
+				"dist/fs/index.d.ts"
+			]
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"engines": {
+		"node": ">=20.19.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite build --watch",
+		"types": "tsc --noEmit",
+		"format": "prettier --write .",
+		"lint": "eslint --max-warnings 0 .",
+		"prepack": "$npm_execpath run build",
+		"depcheck": "depcheck --config=.depcheckrc",
+		"audit": "yarn npm audit --environment production --severity high"
+	},
+	"dependencies": {
+		"@prismicio/client": "7.21.3",
+		"change-case": "5.4.4",
+		"common-tags": "1.8.2",
+		"defu": "6.1.4",
+		"fs-extra": "11.3.3",
+		"p-limit": "7.2.0",
+		"prettier": "3.8.1",
+		"prismic-ts-codegen": "0.1.28",
+		"zod": "4.3.6"
+	},
+	"devDependencies": {
+		"@eslint/js": "9.39.2",
+		"@prismicio/types-internal": "3.16.1",
+		"@trivago/prettier-plugin-sort-imports": "6.0.2",
+		"@types/common-tags": "1.8.4",
+		"@types/fs-extra": "11.0.4",
+		"depcheck": "1.4.7",
+		"eslint": "9.39.2",
+		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-tsdoc": "0.5.0",
+		"prettier-plugin-jsdoc": "1.8.0",
+		"typescript": "5.9.3",
+		"typescript-eslint": "8.53.1",
+		"vite": "7.3.1",
+		"vite-plugin-sdk": "0.1.5"
+	}
+}
