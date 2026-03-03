@@ -15,7 +15,15 @@
 		"forceConsistentCasingInFileNames": true,
 		"jsx": "preserve",
 		"lib": ["esnext", "dom", "dom.iterable"],
-		"types": ["node"]
+		"types": ["node"],
+		"paths": {
+			"@prismicio/plugin-kit": ["./packages/plugin-kit/src/index.ts"],
+			"@prismicio/plugin-kit/fs": ["./packages/plugin-kit/src/fs/index.ts"],
+			"@prismicio/manager": ["./packages/manager/src/index.ts"],
+			"@prismicio/adapter-next": ["./packages/adapter-next/src/index.ts"],
+			"@prismicio/adapter-nuxt": ["./packages/adapter-nuxt/src/index.ts"],
+			"@prismicio/adapter-sveltekit": ["./packages/adapter-sveltekit/src/index.ts"]
+		}
 	},
 	"exclude": ["node_modules", "dist", "examples", "src/devtools", "packages"]
 }
