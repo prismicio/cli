@@ -1,4 +1,4 @@
-import { PrismicUserProfile } from "@prismicio/manager";
+import type { PrismicUserProfile } from "@prismicio/manager";
 import * as Sentry from "@sentry/node";
 
 import * as pkg from "../package.json";
@@ -29,11 +29,11 @@ export async function trackSentryError(error: unknown): Promise<void> {
 			return;
 		}
 
-		Sentry.captureException(error, {
-			...(error instanceof Error
+		Sentry.captureException(error,
+			error instanceof Error
 				? { extra: { cause: error.cause, fullCommand: process.argv.join(" ") } }
-				: {}),
-		});
+				: {},
+		);
 
 		// Flush Sentry events before process exit
 		await Sentry.flush();
