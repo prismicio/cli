@@ -1,9 +1,10 @@
 # custom
 *.tgz
 dist
+packages/*/dist
 examples/**/package-lock.json
-slices
-customtypes
+/slices
+/customtypes
 prismic.config.json
 TODO.md
 prismicio-types.d.ts

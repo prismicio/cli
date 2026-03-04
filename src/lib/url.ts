@@ -18,6 +18,12 @@ export async function getUserServiceUrl(): Promise<URL> {
 	return appendTrailingSlash(host);
 }
 
+export async function getAuthUrl(): Promise<URL> {
+	const host = await readHost();
+	host.hostname = `auth.${host.hostname}`;
+	return appendTrailingSlash(host);
+}
+
 export function appendTrailingSlash(url: string | URL): URL {
 	const newURL = new URL(url);
 	if (!newURL.pathname.endsWith("/")) newURL.pathname += "/";

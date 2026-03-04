@@ -1,0 +1,81 @@
+{
+	"name": "@prismicio/adapter-sveltekit",
+	"version": "0.0.2",
+	"description": "Prismic adapter for SvelteKit.",
+	"keywords": [
+		"typescript",
+		"prismic"
+	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/prismicio/devtools.git"
+	},
+	"license": "Apache-2.0",
+	"author": "Prismic <contact@prismic.io> (https://prismic.io)",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"main": "dist/index.js",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"typesVersions": {
+		"*": {
+			"*": [
+				"dist/index.d.ts"
+			]
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"engines": {
+		"node": ">=20.19.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite build --watch",
+		"types": "tsc --noEmit",
+		"format": "prettier --write .",
+		"lint": "eslint --max-warnings 0 .",
+		"prepack": "$npm_execpath run build",
+		"depcheck": "depcheck --config=.depcheckrc",
+		"audit": "yarn npm audit --environment production --severity high"
+	},
+	"dependencies": {
+		"@prismicio/plugin-kit": "*",
+		"@prismicio/types-internal": "3.16.1",
+		"change-case": "5.4.4",
+		"common-tags": "1.8.2",
+		"magicast": "0.5.1",
+		"prettier-plugin-svelte": "3.4.1"
+	},
+	"devDependencies": {
+		"@eslint/js": "9.39.2",
+		"@sveltejs/kit": "2.50.1",
+		"@sveltejs/vite-plugin-svelte": "6.2.4",
+		"@trivago/prettier-plugin-sort-imports": "6.0.2",
+		"@types/common-tags": "1.8.4",
+		"depcheck": "1.4.7",
+		"eslint": "9.39.2",
+		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-svelte": "3.14.0",
+		"eslint-plugin-tsdoc": "0.5.0",
+		"prettier": "3.8.1",
+		"prettier-plugin-jsdoc": "1.8.0",
+		"svelte": "5.48.0",
+		"typescript": "5.9.3",
+		"typescript-eslint": "8.53.1",
+		"vite": "7.3.1",
+		"vite-plugin-sdk": "0.1.5"
+	}
+}

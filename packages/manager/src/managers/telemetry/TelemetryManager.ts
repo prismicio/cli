@@ -1,0 +1,227 @@
+import { randomUUID } from "node:crypto";
+
+import {
+	Experiment,
+	RemoteEvaluationClient,
+	Variant,
+} from "@amplitude/experiment-node-server";
+import { Analytics, TrackParams } from "@segment/analytics-node";
+
+import type { PrismicUserProfile } from "../../../../../src/lib/profile";
+import { API_TOKENS } from "../../constants/API_TOKENS";
+import { readPrismicrc } from "../../lib/prismicrc";
+import { BaseManager } from "../BaseManager";
+
+import {
+	HumanSegmentEventType,
+	HumanSegmentEventTypes,
+	SegmentEvents,
+} from "./types";
+
+type TelemetryManagerInitTelemetryArgs = {
+	appName: string;
+	appVersion: string;
+};
+
+type TelemetryManagerTrackArgs = SegmentEvents;
+
+type TelemetryManagerContext = {
+	app: {
+		name: string;
+		version: string;
+	};
+};
+
+function assertTelemetryInitialized(
+	segmentClient: (() => Analytics) | undefined,
+): asserts segmentClient is NonNullable<typeof segmentClient> {
+	if (segmentClient === undefined) {
+		throw new Error(
+			"Telemetry has not been initialized. Run `PrismicManager.telemetry.prototype.initTelemetry()` before re-calling this method.",
+		);
+	}
+}
+
+export class TelemetryManager extends BaseManager {
+	private _segmentClient: (() => Analytics) | undefined = undefined;
+	private _anonymousID: string | undefined = undefined;
+	private _userID: string | undefined = undefined;
+	private _context: TelemetryManagerContext | undefined = undefined;
+	private _experiment: RemoteEvaluationClient | undefined = undefined;
+
+	async initTelemetry(args: TelemetryManagerInitTelemetryArgs): Promise<void> {
+		const isTelemetryEnabled = await this.checkIsTelemetryEnabled();
+
+		this._segmentClient = () => {
+			const analytics = new Analytics({
+				writeKey: API_TOKENS.SegmentKey,
+				// Since it's a local app, we do not benefit from event batching the way a server would normally do, all tracking event will be awaited.
+				maxEventsInBatch: 1,
+				disable: !isTelemetryEnabled,
+			});
+
+			analytics.on("error", (error) => {
+				// noop - We don't care if the tracking event
+				// failed. Some users or networks intentionally
+				// block Segment, so we can't block the app if
+				// a tracking event is unsuccessful.
+				if (import.meta.env.DEV) {
+					console.error(`An error occurred with Segment`, error);
+				}
+			});
+
+			return analytics;
+		};
+
+		if (isTelemetryEnabled) {
+			this.initExperiment();
+		}
+
+		this._anonymousID = randomUUID();
+		this._context = { app: { name: args.appName, version: args.appVersion } };
+	}
+
+	async track(args: TelemetryManagerTrackArgs): Promise<void> {
+		const { event, repository, ...properties } = args;
+		let repositoryName = repository;
+
+		if (repositoryName === undefined) {
+			try {
+				repositoryName = await this.project.getRepositoryName();
+			} catch {
+				// noop, happen only when the user is not in a project
+			}
+		}
+
+		const payload: {
+			event: HumanSegmentEventTypes;
+			userId?: string;
+			anonymousId?: string;
+			properties?: Record<string, unknown>;
+			context?: Partial<TelemetryManagerContext> & {
+				groupId?: {
+					Repository?: string;
+				};
+			};
+		} = {
+			event: HumanSegmentEventType[event],
+			properties: {
+				nodeVersion: process.versions.node,
+				...properties,
+			},
+			context: { ...this._context },
+		};
+
+		// Always keep an anonymous ID to keep track of the user before and after identification
+		payload.anonymousId = this._anonymousID;
+
+		if (this._userID) {
+			payload.userId = this._userID;
+		}
+
+		if (repositoryName) {
+			payload.context ||= {};
+			payload.context.groupId ||= {};
+			payload.context.groupId.Repository = repositoryName;
+		}
+
+		return new Promise((resolve) => {
+			assertTelemetryInitialized(this._segmentClient);
+
+			this._segmentClient().track(
+				payload as TrackParams,
+				(maybeError?: unknown) => {
+					if (maybeError && import.meta.env.DEV) {
+						console.warn(
+							`An error occurred during Segment tracking`,
+							maybeError,
+						);
+					}
+
+					resolve();
+				},
+			);
+		});
+	}
+
+	async identify(userProfile: PrismicUserProfile): Promise<void> {
+		const payload = {
+			userId: userProfile.shortId,
+			anonymousId: this._anonymousID,
+			integrations: {
+				Intercom: {
+					user_hash: userProfile.intercomHash,
+				},
+			},
+			context: { ...this._context },
+		};
+
+		this._userID = userProfile.shortId;
+
+		return new Promise((resolve) => {
+			assertTelemetryInitialized(this._segmentClient);
+
+			this._segmentClient().identify(payload, (maybeError?: unknown) => {
+				if (maybeError && import.meta.env.DEV) {
+					console.warn(`An error occurred during Segment identify`, maybeError);
+				}
+
+				resolve();
+			});
+		});
+	}
+
+	async checkIsTelemetryEnabled(): Promise<boolean> {
+		let root: string;
+		try {
+			root = await this.project
+				.getRoot()
+				.catch(() => this.project.suggestRoot());
+
+			return readPrismicrc(root).telemetry !== false;
+		} catch {
+			return true;
+		}
+	}
+
+	private initExperiment(): void {
+		try {
+			this._experiment = Experiment.initializeRemote(API_TOKENS.AmplitudeKey);
+		} catch (error) {
+			if (import.meta.env.DEV) {
+				console.error("Error initializing experiment", error);
+			}
+		}
+	}
+
+	async getExperimentVariant(variantKey: string): Promise<Variant | undefined> {
+		if (this._experiment) {
+			try {
+				const repositoryName = await this.project.getRepositoryName();
+				const variants = await this._experiment.fetchV2({
+					user_id: this._userID,
+					user_properties: {
+						Repository: repositoryName,
+					},
+				});
+
+				const variantValue = variants[variantKey].value;
+				if (variantValue) {
+					await this.track({
+						event: "experiment:exposure",
+						flag_key: variantKey,
+						variant: variantValue,
+					});
+				}
+
+				return variants[variantKey];
+			} catch (error) {
+				if (import.meta.env.DEV) {
+					console.error("Error fetching experiment variant", error);
+				}
+			}
+		}
+
+		return undefined;
+	}
+}

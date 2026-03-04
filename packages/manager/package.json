@@ -1,0 +1,88 @@
+{
+	"name": "@prismicio/manager",
+	"version": "0.0.2",
+	"description": "Manage all aspects of a Prismic project.",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/prismicio/devtools.git"
+	},
+	"license": "Apache-2.0",
+	"author": "Prismic <contact@prismic.io> (https://prismic.io)",
+	"sideEffects": false,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"main": "dist/index.js",
+	"module": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"typesVersions": {
+		"*": {
+			"*": [
+				"dist/index.d.ts"
+			]
+		}
+	},
+	"files": [
+		"dist",
+		"src",
+		"README.md"
+	],
+	"engines": {
+		"node": ">=20.19.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "vite build",
+		"dev": "vite build --watch --mode development",
+		"types": "tsc --noEmit",
+		"format": "prettier --write .",
+		"lint": "eslint --max-warnings 0 .",
+		"prepack": "$npm_execpath run build",
+		"depcheck": "depcheck --config=.depcheckrc",
+		"audit": "yarn npm audit --environment production --severity high"
+	},
+	"dependencies": {
+		"@antfu/ni": "28.2.0",
+		"@prismicio/client": "7.21.3",
+		"@prismicio/custom-types-client": "2.1.0",
+		"@prismicio/plugin-kit": "*",
+		"@prismicio/types-internal": "3.16.1",
+		"@segment/analytics-node": "2.3.0",
+		"cookie": "1.1.1",
+		"cors": "2.8.6",
+		"fp-ts": "2.16.11",
+		"get-port": "7.1.0",
+		"h3": "1.15.5",
+		"io-ts": "2.2.22",
+		"io-ts-types": "0.5.19",
+		"node-fetch": "3.3.2",
+		"prettier": "3.8.1",
+		"rc9": "2.1.2",
+		"semver": "7.7.3",
+		"zod": "4.3.6"
+	},
+	"devDependencies": {
+		"@amplitude/experiment-node-server": "1.13.2",
+		"@eslint/js": "9.39.2",
+		"@trivago/prettier-plugin-sort-imports": "6.0.2",
+		"@types/cors": "2.8.19",
+		"@types/semver": "7.7.1",
+		"depcheck": "1.4.7",
+		"eslint": "9.39.2",
+		"eslint-config-prettier": "10.1.8",
+		"eslint-plugin-tsdoc": "0.5.0",
+		"prettier": "3.8.1",
+		"prettier-plugin-jsdoc": "1.8.0",
+		"typescript": "5.9.3",
+		"typescript-eslint": "8.53.1",
+		"vite": "7.3.1",
+		"vite-plugin-sdk": "0.1.5"
+	}
+}

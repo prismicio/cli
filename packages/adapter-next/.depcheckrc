@@ -1,0 +1,9 @@
+ignores:
+  [
+    "prettier-plugin-jsdoc",
+    "@trivago/prettier-plugin-sort-imports",
+    "typescript",
+    "next",
+    "react",
+  ]
+skip - missing: true
