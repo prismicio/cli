@@ -6,6 +6,7 @@ import * as z from "zod";
 import { name as pkgName, version as pkgVersion } from "./package.json";
 
 import { init } from "./commands/init";
+import { sync } from "./commands/sync";
 import { FRAMEWORK_PLUGINS } from "./core/framework";
 import { handleSilentError } from "./utils/error";
 import { displayError, displayHeader } from "./utils/output";
@@ -21,9 +22,12 @@ VERSION
 
 USAGE
   $ prismic init --repository <repository-id>
+  $ prismic sync
+  $ prismic sync --watch
 
 OPTIONS
   --repository, -r        Specify a Prismic repository
+  --watch, -w             Watch for changes (polls every 5s)
   --help, -h              Display CLI help
   --version, -v           Display CLI version
 `.trim();
@@ -32,6 +36,7 @@ const { values, positionals } = parseArgs({
 	args: process.argv.slice(2),
 	options: {
 		repository: { type: "string", short: "r" },
+		watch: { type: "boolean", short: "w", default: false },
 		help: { type: "boolean", short: "h", default: false },
 		version: { type: "boolean", short: "v", default: false },
 	},
@@ -39,14 +44,22 @@ const { values, positionals } = parseArgs({
 	strict: true,
 });
 
-export const CLIArgs = z.object({
-	commandType: z.literal("init"),
-	help: z.boolean().optional(),
-	version: z.boolean().optional(),
-	repository: z
-		.string()
-		.min(1, "Repository name is required to initialize a project"),
-});
+export const CLIArgs = z.discriminatedUnion("commandType", [
+	z.object({
+		commandType: z.literal("init"),
+		help: z.boolean().optional(),
+		version: z.boolean().optional(),
+		repository: z
+			.string()
+			.min(1, "Repository name is required to initialize a project"),
+	}),
+	z.object({
+		commandType: z.literal("sync"),
+		help: z.boolean().optional(),
+		version: z.boolean().optional(),
+		watch: z.boolean().optional(),
+	}),
+]);
 
 export async function run(): Promise<void> {
 	// Display header immediately so user sees something is happening
@@ -83,7 +96,7 @@ export async function run(): Promise<void> {
 
 	// Too many arguments - track with Sentry
 	if (positionals.length > 1) {
-		const error = new Error("Too many arguments. Expected 'init'.");
+		const error = new Error("Too many arguments. Expected 'init' or 'sync'.");
 		displayError(error);
 		await trackSentryError(error);
 		process.exit(1);
@@ -104,7 +117,8 @@ export async function run(): Promise<void> {
 	}
 
 	const commandType = cliArgs.data.commandType;
-	const repositoryName = cliArgs.data.repository;
+	const repositoryName =
+		commandType === "init" ? cliArgs.data.repository : undefined;
 
 	// Initialize telemetry as early as possible (after manager creation)
 	// Track initialization failures with Sentry
@@ -123,11 +137,20 @@ export async function run(): Promise<void> {
 
 	// Execute command - all errors here will be tracked
 	try {
-		await init({
-			manager,
-			repositoryName: cliArgs.data.repository,
-		});
-		process.exit(0);
+		if (commandType === "init") {
+			await init({
+				manager,
+				repositoryName: cliArgs.data.repository,
+			});
+			process.exit(0);
+		}
+
+		if (commandType === "sync") {
+			await sync({ manager, watch: cliArgs.data.watch });
+			process.exit(0);
+		}
+
+		throw new Error("Unknown command type.");
 	} catch (error) {
 		displayError(error);
 
