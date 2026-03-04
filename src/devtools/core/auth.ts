@@ -3,6 +3,7 @@ import chalk from "chalk";
 import open from "open";
 
 import { createLoginSession, isAuthenticated } from "../../lib/auth";
+import { getProfile } from "../../lib/profile";
 import { listr, listrRun } from "../utils/listr";
 import { updateSentryContext } from "../utils/sentry";
 
@@ -39,7 +40,7 @@ export async function login(manager: PrismicManager): Promise<void> {
 						{
 							title: "Fetching user profile...",
 							task: async (_, task) => {
-								const userProfile = await manager.user.getProfile();
+								const userProfile = await getProfile();
 
 								// Identify the user for Amplitude
 								await manager.telemetry.identify(userProfile);

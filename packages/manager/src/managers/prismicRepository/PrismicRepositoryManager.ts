@@ -3,6 +3,8 @@ import * as z from "zod";
 
 import { API_ENDPOINTS } from "../../constants/API_ENDPOINTS";
 import { PRISMIC_CLI_USER_AGENT } from "../../constants/PRISMIC_CLI_USER_AGENT";
+import { UnauthenticatedError } from "../../errors";
+import { readToken } from "../../../../../src/lib/auth";
 import { decode } from "../../lib/decode";
 import { BaseManager } from "../BaseManager";
 
@@ -84,13 +86,9 @@ export class PrismicRepositoryManager extends BaseManager {
 		repository?: string;
 		skipAuthentication?: boolean;
 	}): Promise<Response> {
-		let token;
-		try {
-			token = await this.user.getAuthenticationToken();
-		} catch (e) {
-			if (!args.skipAuthentication) {
-				throw e;
-			}
+		const token = await readToken();
+		if (!token && !args.skipAuthentication) {
+			throw new UnauthenticatedError();
 		}
 
 		const extraHeaders: Record<string, string> = {};
