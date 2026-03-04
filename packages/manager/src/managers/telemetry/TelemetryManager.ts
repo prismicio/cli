@@ -7,7 +7,7 @@ import {
 } from "@amplitude/experiment-node-server";
 import { Analytics, TrackParams } from "@segment/analytics-node";
 
-import { PrismicUserProfile } from "../../auth/PrismicAuthManager";
+import type { PrismicUserProfile } from "../../../../../src/lib/profile";
 import { API_TOKENS } from "../../constants/API_TOKENS";
 import { readPrismicrc } from "../../lib/prismicrc";
 import { BaseManager } from "../BaseManager";

@@ -16,6 +16,8 @@ import * as z from "zod";
 
 import { API_ENDPOINTS } from "../../constants/API_ENDPOINTS";
 import { PRISMIC_CLI_USER_AGENT } from "../../constants/PRISMIC_CLI_USER_AGENT";
+import { UnauthenticatedError } from "../../errors";
+import { readToken } from "../../../../../src/lib/auth";
 import { DecodeError } from "../../lib/DecodeError";
 import { assertPluginsInitialized } from "../../lib/assertPluginsInitialized";
 import { decodeHookResult } from "../../lib/decodeHookResult";
@@ -288,7 +290,8 @@ export class SlicesManager extends BaseManager {
 	}
 
 	async fetchRemoteSlices(): Promise<TypesInternal.SharedSlice[]> {
-		const authenticationToken = await this.user.getAuthenticationToken();
+		const authenticationToken = await readToken();
+		if (!authenticationToken) throw new UnauthenticatedError();
 		const repositoryName = await this.project.getRepositoryName();
 
 		const client = prismicCustomTypesClient.createClient({

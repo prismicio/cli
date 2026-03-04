@@ -1,7 +1,5 @@
 import { PluginSystemRunner } from "@prismicio/plugin-kit";
 
-import { PrismicAuthManager } from "../auth/PrismicAuthManager";
-
 import { PrismicManager } from "./PrismicManager";
 import { CustomTypesManager } from "./customTypes/CustomTypesManager";
 import { PluginsManager } from "./plugins/PluginsManager";
@@ -9,7 +7,6 @@ import { PrismicRepositoryManager } from "./prismicRepository/PrismicRepositoryM
 import { ProjectManager } from "./project/ProjectManager";
 import { SlicesManager } from "./slices/SlicesManager";
 import { TelemetryManager } from "./telemetry/TelemetryManager";
-import { UserManager } from "./user/UserManager";
 import { VersionsManager } from "./versions/VersionsManager";
 
 export abstract class BaseManager {
@@ -17,10 +14,6 @@ export abstract class BaseManager {
 
 	constructor(prismicManager: PrismicManager) {
 		this._prismicManager = prismicManager;
-	}
-
-	protected get prismicAuthManager(): PrismicAuthManager {
-		return this._prismicManager.getPrismicAuthManager();
 	}
 
 	protected get pluginSystemRunner(): PluginSystemRunner | undefined {
@@ -41,11 +34,6 @@ export abstract class BaseManager {
 		return this._prismicManager.cwd;
 	}
 
-	// Protected instance prevents circular intellisense
-	// e.g. prismicManager.user.user.user
-	protected get user(): UserManager {
-		return this._prismicManager.user;
-	}
 	protected get prismicRepository(): PrismicRepositoryManager {
 		return this._prismicManager.prismicRepository;
 	}

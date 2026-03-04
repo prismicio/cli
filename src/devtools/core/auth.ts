@@ -2,6 +2,8 @@ import type { PrismicManager } from "@prismicio/manager";
 import chalk from "chalk";
 import open from "open";
 
+import { createLoginSession, isAuthenticated } from "../../lib/auth";
+import { getProfile } from "../../lib/profile";
 import { listr, listrRun } from "../utils/listr";
 import { updateSentryContext } from "../utils/sentry";
 
@@ -10,21 +12,24 @@ export async function login(manager: PrismicManager): Promise<void> {
 		{
 			title: "Logging in to Prismic...",
 			task: async (_, parentTask) => {
-				const isLoggedIn = await manager.user.checkIsLoggedIn();
+				const loggedIn = await isAuthenticated();
 
-				if (!isLoggedIn) {
+				if (!loggedIn) {
 					parentTask.title = getLoggingInTitle(
 						chalk.cyan("Press any key to open the browser to login..."),
 					);
 					await pressKeyToLogin();
-					await waitingForLogin(manager, ({ url }) => {
-						parentTask.title = getLoggingInTitle(
-							chalk.cyan("Opening browser, waiting for you to login..."),
-							chalk.yellow(
-								"If your browser did not open automatically, please use the url below:",
-							),
-							url,
-						);
+					await createLoginSession({
+						onReady: (url) => {
+							open(url.toString());
+							parentTask.title = getLoggingInTitle(
+								chalk.cyan("Opening browser, waiting for you to login..."),
+								chalk.yellow(
+									"If your browser did not open automatically, please use the url below:",
+								),
+								url.toString(),
+							);
+						},
 					});
 				}
 
@@ -35,7 +40,7 @@ export async function login(manager: PrismicManager): Promise<void> {
 						{
 							title: "Fetching user profile...",
 							task: async (_, task) => {
-								const userProfile = await manager.user.getProfile();
+								const userProfile = await getProfile();
 
 								// Identify the user for Amplitude
 								await manager.telemetry.identify(userProfile);
@@ -59,7 +64,7 @@ export async function login(manager: PrismicManager): Promise<void> {
 
 function getLoggingInTitle(subtitle?: string, ...extra: string[]): string {
 	return `Logging in to Prismic...
-    
+
 ███████████████████████████████████████████████████████████████████████████
 
 ${subtitle ? `* * ${subtitle}` : ""}
@@ -78,21 +83,5 @@ async function pressKeyToLogin(): Promise<void> {
 			process.stdin.pause();
 			resolve(data.toString("utf-8"));
 		});
-	});
-}
-
-async function waitingForLogin(
-	manager: PrismicManager,
-	onListenCallback?: (
-		sessionInfo: Awaited<ReturnType<typeof manager.user.getLoginSessionInfo>>,
-	) => void,
-): Promise<void> {
-	const sessionInfo = await manager.user.getLoginSessionInfo();
-	await manager.user.nodeLoginSession({
-		port: sessionInfo.port,
-		onListenCallback() {
-			open(sessionInfo.url);
-			onListenCallback?.(sessionInfo);
-		},
 	});
 }
