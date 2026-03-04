@@ -7,21 +7,21 @@ import { handleSilentError } from "./error";
 import { getPackageInfo } from "./package";
 
 const SENTRY_DSN =
-	import.meta.env.VITE_SENTRY_DSN ||
+	import.meta.env.PRISMIC_SENTRY_DSN ||
 	"https://e1886b1775bd397cd1afc60bfd2ebfc8@o146123.ingest.us.sentry.io/4510445143588864";
 
 /**
  * Checks whether or not Sentry is enabled.
  *
  * Sentry is enabled automatically in production but can be disabled by setting
- * `VITE_ENABLE_SENTRY` to `false`.
+ * `PRISMIC_SENTRY_ENABLED` to `false`.
  *
  * @returns Whether or not Sentry is enabled.
  */
 const checkIsSentryEnabled = (): boolean =>
-	import.meta.env.VITE_ENABLE_SENTRY === undefined
+	import.meta.env.PRISMIC_SENTRY_ENABLED === undefined
 		? import.meta.env.PROD
-		: import.meta.env.VITE_ENABLE_SENTRY === "true";
+		: import.meta.env.PRISMIC_SENTRY_ENABLED === "true";
 
 export async function trackSentryError(error: unknown): Promise<void> {
 	try {

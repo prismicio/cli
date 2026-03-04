@@ -1,16 +1,22 @@
+import { existsSync } from "node:fs";
 import { defineConfig } from "tsdown";
+
+const MODE = process.env.MODE || "production";
 
 export default defineConfig({
 	entry: "./src/index.ts",
 	format: "esm",
 	platform: "node",
 	minify: true,
+	envFile: existsSync(".env.local") ? ".env.local" : undefined,
+	envPrefix: "PRISMIC_",
 	define: {
-		"import.meta.env.MODE": JSON.stringify("production"),
-		"import.meta.env.DEV": "false",
-		"import.meta.env.PROD": "true",
-		"import.meta.env.VITE_SENTRY_DSN": "undefined",
-		"import.meta.env.VITE_ENABLE_SENTRY": "undefined",
+		"import.meta.env.MODE": JSON.stringify(MODE),
+		"import.meta.env.DEV": JSON.stringify(MODE !== "production"),
+		"import.meta.env.PROD": JSON.stringify(MODE === "production"),
+		"import.meta.env.PRISMIC_SENTRY_DSN": "undefined",
+		"import.meta.env.PRISMIC_SENTRY_ENVIRONMENT": "undefined",
+		"import.meta.env.PRISMIC_SENTRY_ENABLED": "undefined",
 	},
 	alias: {
 		"@prismicio/plugin-kit/fs": "./packages/plugin-kit/src/fs/index.ts",

@@ -7,6 +7,8 @@ import { codegen } from "./codegen";
 import { customType } from "./custom-type";
 import { docs } from "./docs";
 import { run as devtoolsRun } from "./devtools/cli";
+import { captureError, setupSentry } from "./lib/sentry";
+import { initSegment, trackEnd, trackStart } from "./lib/segment";
 import { locale } from "./locale";
 import { login } from "./login";
 import { logout } from "./logout";
@@ -17,6 +19,7 @@ import { push } from "./push";
 import { repo } from "./repo";
 import { slice } from "./slice";
 import { status } from "./status";
+import { sync } from "./sync";
 import { token } from "./token";
 import { webhook } from "./webhook";
 import { whoami } from "./whoami";
@@ -67,68 +70,86 @@ const {
 	strict: false,
 });
 
+setupSentry();
+await initSegment();
+
 if (version) {
 	console.info(packageJson.version);
 } else {
-	switch (positionals[0]) {
-		case "init":
-		case "sync":
-			await devtoolsRun();
-			break;
-		case "login":
-			await login();
-			break;
-		case "logout":
-			await logout();
-			break;
-		case "whoami":
-			await whoami();
-			break;
-		case "status":
-			await status();
-			break;
-		case "repo":
-			await repo();
-			break;
-		case "locale":
-			await locale();
-			break;
-		case "page-type":
-			await pageType();
-			break;
-		case "custom-type":
-			await customType();
-			break;
-		case "slice":
-			await slice();
-			break;
-		case "pull":
-			await pull();
-			break;
-		case "push":
-			await push();
-			break;
-		case "codegen":
-			await codegen();
-			break;
-		case "docs":
-			await docs();
-			break;
-		case "preview":
-			await preview();
-			break;
-		case "token":
-			await token();
-			break;
-		case "webhook":
-			await webhook();
-			break;
-		default: {
-			if (positionals[0]) {
-				console.error(`Unknown command: ${positionals[0]}`);
-				process.exitCode = 1;
+	const command = positionals[0];
+
+	trackStart(command);
+
+	try {
+		switch (command) {
+			case "init":
+				await devtoolsRun();
+				break;
+			case "sync":
+				await sync();
+				break;
+			case "login":
+				await login();
+				break;
+			case "logout":
+				await logout();
+				break;
+			case "whoami":
+				await whoami();
+				break;
+			case "status":
+				await status();
+				break;
+			case "repo":
+				await repo();
+				break;
+			case "locale":
+				await locale();
+				break;
+			case "page-type":
+				await pageType();
+				break;
+			case "custom-type":
+				await customType();
+				break;
+			case "slice":
+				await slice();
+				break;
+			case "pull":
+				await pull();
+				break;
+			case "push":
+				await push();
+				break;
+			case "codegen":
+				await codegen();
+				break;
+			case "docs":
+				await docs();
+				break;
+			case "preview":
+				await preview();
+				break;
+			case "token":
+				await token();
+				break;
+			case "webhook":
+				await webhook();
+				break;
+			default: {
+				if (command) {
+					console.error(`Unknown command: ${command}`);
+					process.exitCode = 1;
+				}
+				console.info(HELP);
 			}
-			console.info(HELP);
 		}
+
+		await trackEnd(command, process.exitCode !== 1);
+	} catch (error) {
+		await captureError(error);
+		await trackEnd(command, false, error);
+		process.exitCode = 1;
+		throw error;
 	}
 }
