@@ -1,20 +1,17 @@
 import { createHash } from "node:crypto";
-import { mkdir, rm, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
-import { buildTypes } from "./codegen-types";
+import type { PluginSystemRunner } from "@prismicio/plugin-kit";
+
 import { isAuthenticated } from "./lib/auth";
-import { safeGetRepositoryFromConfig } from "./lib/config";
-import { trackEnd } from "./lib/segment";
+import { readConfig, safeGetRepositoryFromConfig } from "./lib/config";
 import {
 	fetchRemoteCustomTypes,
 	fetchRemoteSlices,
-	readLocalCustomTypes,
-	readLocalSlices,
 } from "./lib/custom-types-api";
 import { findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
-import { findSliceModel, getSlicesDirectory, pascalCase } from "./lib/slice";
+import { initPluginSystem } from "./lib/plugin-system";
+import { trackEnd } from "./lib/segment";
 
 const HELP = `
 Sync custom types and slices from Prismic to local files.
@@ -75,21 +72,49 @@ export async function sync(): Promise<void> {
 		return;
 	}
 
+	// Find project root
+	const packageJsonPath = await findUpward("package.json");
+	if (!packageJsonPath) {
+		console.error("Could not find project root (no package.json found)");
+		process.exitCode = 1;
+		return;
+	}
+	const projectRoot = new URL(".", packageJsonPath);
+
+	// Read config for adapter and libraries
+	const configResult = await readConfig();
+	const adapter = configResult.ok ? configResult.config.adapter : undefined;
+	const libraries = configResult.ok ? configResult.config.libraries : undefined;
+
+	// Initialize plugin system
+	let runner: PluginSystemRunner;
+	try {
+		runner = await initPluginSystem({
+			projectRoot,
+			repositoryName: repo,
+			adapter,
+			libraries,
+		});
+	} catch (error) {
+		console.error(
+			`Failed to initialize plugin system: ${error instanceof Error ? error.message : error}`,
+		);
+		process.exitCode = 1;
+		return;
+	}
+
+	// Determine libraryID for slice hooks
+	const project = await runner.rawHelpers.getProject();
+	const libraryID = project.config.libraries?.[0] ?? "./slices";
+
 	console.info(`Syncing from repository: ${repo}`);
 
 	if (watch) {
-		await watchForChanges(repo);
+		await watchForChanges(repo, runner, libraryID);
 	} else {
-		const result = await syncModels(repo);
+		const result = await syncModels(repo, runner, libraryID);
 		if (!result) {
 			return;
-		}
-
-		try {
-			await buildTypes();
-			console.info("Updated types in prismicio-types.d.ts");
-		} catch (error) {
-			console.warn(`Could not generate types: ${error instanceof Error ? error.message : error}`);
 		}
 
 		const total =
@@ -106,15 +131,16 @@ export async function sync(): Promise<void> {
 	}
 }
 
-async function syncModels(repo: string): Promise<SyncResult | undefined> {
-	// Fetch remote and local data in parallel
-	const [remoteTypesResult, remoteSlicesResult, localTypesResult, localSlicesResult] =
-		await Promise.all([
-			fetchRemoteCustomTypes(repo),
-			fetchRemoteSlices(repo),
-			readLocalCustomTypes(),
-			readLocalSlices(),
-		]);
+async function syncModels(
+	repo: string,
+	runner: PluginSystemRunner,
+	libraryID: string,
+): Promise<SyncResult | undefined> {
+	// Fetch remote models
+	const [remoteTypesResult, remoteSlicesResult] = await Promise.all([
+		fetchRemoteCustomTypes(repo),
+		fetchRemoteSlices(repo),
+	]);
 
 	if (!remoteTypesResult.ok) {
 		console.error(`Failed to fetch remote custom types: ${remoteTypesResult.error}`);
@@ -128,37 +154,19 @@ async function syncModels(repo: string): Promise<SyncResult | undefined> {
 		return;
 	}
 
-	if (!localTypesResult.ok) {
-		console.error(`Failed to read local custom types: ${localTypesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!localSlicesResult.ok) {
-		console.error(`Failed to read local slices: ${localSlicesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
+	// Read local models via plugin system
+	const [localTypes, localSlices] = await Promise.all([
+		runner.rawActions.readAllCustomTypeModels(),
+		runner.rawActions.readAllSliceModels(),
+	]);
 
 	const remoteTypes = remoteTypesResult.value;
 	const remoteSlices = remoteSlicesResult.value;
-	const localTypes = localTypesResult.value;
-	const localSlices = localSlicesResult.value;
-
-	// Find project root for custom types path
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
-	const projectDir = new URL(".", projectRoot);
-	const customTypesDir = new URL("customtypes/", projectDir);
 
 	const remoteTypesById = new Map(remoteTypes.map((t) => [t.id, t]));
-	const localTypesById = new Map(localTypes.map((t) => [t.id, t]));
+	const localTypesById = new Map(localTypes.map((t) => [t.model.id, t]));
 	const remoteSlicesById = new Map(remoteSlices.map((s) => [s.id, s]));
-	const localSlicesById = new Map(localSlices.map((s) => [s.id, s]));
+	const localSlicesById = new Map(localSlices.map((s) => [s.model.id, s]));
 
 	let typesUpdated = 0;
 	let typesDeleted = 0;
@@ -167,19 +175,19 @@ async function syncModels(repo: string): Promise<SyncResult | undefined> {
 	// Update existing custom types
 	for (const remoteType of remoteTypes) {
 		if (localTypesById.has(remoteType.id)) {
-			const typeDir = new URL(`${remoteType.id}/`, customTypesDir);
-			const modelPath = new URL("index.json", typeDir);
-			await mkdir(typeDir, { recursive: true });
-			await writeFile(modelPath, stringify(remoteType));
+			await runner.callHook("custom-type:update", {
+				model: remoteType,
+			});
 			typesUpdated++;
 		}
 	}
 
 	// Delete local custom types not in remote
 	for (const localType of localTypes) {
-		if (!remoteTypesById.has(localType.id)) {
-			const typeDir = new URL(`${localType.id}/`, customTypesDir);
-			await rm(typeDir, { recursive: true, force: true });
+		if (!remoteTypesById.has(localType.model.id)) {
+			await runner.callHook("custom-type:delete", {
+				model: localType.model,
+			});
 			typesDeleted++;
 		}
 	}
@@ -187,10 +195,9 @@ async function syncModels(repo: string): Promise<SyncResult | undefined> {
 	// Create new custom types from remote
 	for (const remoteType of remoteTypes) {
 		if (!localTypesById.has(remoteType.id)) {
-			const typeDir = new URL(`${remoteType.id}/`, customTypesDir);
-			const modelPath = new URL("index.json", typeDir);
-			await mkdir(typeDir, { recursive: true });
-			await writeFile(modelPath, stringify(remoteType));
+			await runner.callHook("custom-type:create", {
+				model: remoteType,
+			});
 			typesCreated++;
 		}
 	}
@@ -202,34 +209,32 @@ async function syncModels(repo: string): Promise<SyncResult | undefined> {
 	// Update existing slices
 	for (const remoteSlice of remoteSlices) {
 		if (localSlicesById.has(remoteSlice.id)) {
-			const found = await findSliceModel(remoteSlice.id);
-			if (found.ok) {
-				await writeFile(found.modelPath, stringify(remoteSlice));
-				slicesUpdated++;
-			}
+			await runner.callHook("slice:update", {
+				libraryID,
+				model: remoteSlice,
+			});
+			slicesUpdated++;
 		}
 	}
 
 	// Delete local slices not in remote
 	for (const localSlice of localSlices) {
-		if (!remoteSlicesById.has(localSlice.id)) {
-			const found = await findSliceModel(localSlice.id);
-			if (found.ok) {
-				const sliceDir = new URL(".", found.modelPath);
-				await rm(sliceDir, { recursive: true, force: true });
-				slicesDeleted++;
-			}
+		if (!remoteSlicesById.has(localSlice.model.id)) {
+			await runner.callHook("slice:delete", {
+				libraryID: localSlice.libraryID,
+				model: localSlice.model,
+			});
+			slicesDeleted++;
 		}
 	}
 
 	// Create new slices from remote
-	const slicesDir = await getSlicesDirectory();
 	for (const remoteSlice of remoteSlices) {
 		if (!localSlicesById.has(remoteSlice.id)) {
-			const sliceDir = new URL(`${pascalCase(remoteSlice.name)}/`, slicesDir);
-			const modelPath = new URL("model.json", sliceDir);
-			await mkdir(sliceDir, { recursive: true });
-			await writeFile(modelPath, stringify(remoteSlice));
+			await runner.callHook("slice:create", {
+				libraryID,
+				model: remoteSlice,
+			});
 			slicesCreated++;
 		}
 	}
@@ -237,18 +242,15 @@ async function syncModels(repo: string): Promise<SyncResult | undefined> {
 	return { typesCreated, typesUpdated, typesDeleted, slicesCreated, slicesUpdated, slicesDeleted };
 }
 
-async function watchForChanges(repo: string): Promise<void> {
+async function watchForChanges(
+	repo: string,
+	runner: PluginSystemRunner,
+	libraryID: string,
+): Promise<void> {
 	// Initial sync
-	const result = await syncModels(repo);
+	const result = await syncModels(repo, runner, libraryID);
 	if (!result) {
 		return;
-	}
-
-	try {
-		await buildTypes();
-		console.info("Updated types in prismicio-types.d.ts");
-	} catch (error) {
-		console.warn(`Could not generate types: ${error instanceof Error ? error.message : error}`);
 	}
 
 	// Capture initial hashes
@@ -322,16 +324,7 @@ async function watchForChanges(repo: string): Promise<void> {
 
 				console.info(`[${timestamp}] Changes detected in ${changes}`);
 
-				await syncModels(repo);
-
-				try {
-					await buildTypes();
-					console.info("Updated types in prismicio-types.d.ts");
-				} catch (error) {
-					console.warn(
-						`Could not generate types: ${error instanceof Error ? error.message : error}`,
-					);
-				}
+				await syncModels(repo, runner, libraryID);
 
 				lastTypesHash = typesHash;
 				lastSlicesHash = slicesHash;

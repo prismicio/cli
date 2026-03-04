@@ -1,4 +1,10 @@
 import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+import adapterNextPlugin from "@prismicio/adapter-next";
+import adapterNuxtPlugin from "@prismicio/adapter-nuxt";
+import adapterSveltekitPlugin from "@prismicio/adapter-sveltekit";
+import semver from "semver";
 import * as v from "valibot";
 
 import { exists, findUpward } from "./file";
@@ -98,6 +104,97 @@ export function getSliceComponentExtensions(framework: Framework | undefined): s
 			return [".tsx", ".ts", ".jsx", ".js"];
 	}
 }
+
+export type AdapterFramework = {
+	name: string;
+	telemetryID: "next" | "nuxt" | "sveltekit-1" | "sveltekit-2";
+	adapterName: string;
+	compatibility: Record<string, string>;
+};
+
+export const FRAMEWORKS: Record<string, AdapterFramework> = {
+	nuxt: {
+		name: "Nuxt",
+		telemetryID: "nuxt",
+		adapterName: "@prismicio/adapter-nuxt",
+		compatibility: {
+			nuxt: "^3.0.0 || ^4.0.0",
+		},
+	},
+	next: {
+		name: "Next.js",
+		telemetryID: "next",
+		adapterName: "@prismicio/adapter-next",
+		compatibility: {
+			next: "^11 || ^12 || ^13 || ^14 || ^15 || ^16.0.0-beta.0",
+		},
+	},
+	"sveltekit-1": {
+		name: "SvelteKit",
+		telemetryID: "sveltekit-1",
+		adapterName: "@prismicio/adapter-sveltekit",
+		compatibility: {
+			"@sveltejs/kit": "^1.0.0",
+		},
+	},
+	"sveltekit-2": {
+		name: "SvelteKit",
+		telemetryID: "sveltekit-2",
+		adapterName: "@prismicio/adapter-sveltekit",
+		compatibility: {
+			"@sveltejs/kit": "^2.0.0",
+		},
+	},
+} as const;
+
+export const detectAdapterFramework = async (
+	cwd: string,
+): Promise<AdapterFramework> => {
+	const path = join(cwd, "package.json");
+
+	let allDependencies: Record<string, string>;
+	try {
+		const pkg = JSON.parse(await readFile(path, "utf-8"));
+
+		allDependencies = {
+			...pkg.dependencies,
+			...pkg.devDependencies,
+		};
+	} catch (error) {
+		throw new Error(
+			`Failed to read project's \`package.json\` at \`${path}\``,
+			{ cause: error },
+		);
+	}
+
+	const framework = Object.values(FRAMEWORKS).find((framework) => {
+		return Object.entries(framework.compatibility).every(([pkg, range]) => {
+			if (pkg in allDependencies) {
+				try {
+					const minimumVersion = semver.minVersion(allDependencies[pkg]);
+
+					return semver.satisfies(minimumVersion!, range);
+				} catch {
+					return true;
+				}
+			}
+
+			return false;
+		});
+	});
+
+	if (!framework) {
+		throw new Error("No framework compatible with Prismic was found.");
+	}
+
+	return framework;
+};
+
+export const FRAMEWORK_PLUGINS = {
+	"@prismicio/adapter-next": adapterNextPlugin,
+	"@prismicio/adapter-nuxt": adapterNuxtPlugin,
+	"@prismicio/adapter-sveltekit": adapterSveltekitPlugin,
+};
 
 export function getRoutePath(
 	info: FrameworkInfo,
