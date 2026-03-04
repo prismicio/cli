@@ -1,11 +1,12 @@
-// Type declaration for import.meta.env (used by devtools code ported from Vite)
 interface ImportMetaEnv {
-	MODE: string;
-	DEV: boolean;
-	PROD: boolean;
-	[key: string]: string | undefined;
+	readonly MODE: string;
+	readonly DEV: boolean;
+	readonly PROD: boolean;
+	readonly PRISMIC_SENTRY_DSN: string | undefined;
+	readonly PRISMIC_SENTRY_ENVIRONMENT: string | undefined;
+	readonly PRISMIC_SENTRY_ENABLED: string | undefined;
 }
 
 interface ImportMeta {
-	env: ImportMetaEnv;
+	readonly env: ImportMetaEnv;
 }
