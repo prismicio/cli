@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 
-import { appendTrailingSlash, getAuthUrl } from "./url";
+import { appendTrailingSlash } from "./url";
 
 const AUTH_FILE_PATH = new URL(
 	".prismic",
@@ -27,29 +27,25 @@ export async function saveToken(
 }
 
 export async function isAuthenticated(): Promise<boolean> {
-	const auth = await readAuthFile();
-	const token = auth?.token;
+	const token = await readToken();
 	if (!token) return false;
 
+	// Verify token is still valid by calling the profile endpoint
 	try {
-		const authUrl = await getAuthUrl();
-		const url = new URL("authentication/refreshAuthToken", authUrl);
+		const host = await readHost();
+		host.hostname = `user-service.${host.hostname}`;
+		const url = new URL("profile", host);
 
 		const response = await fetch(url, {
-			method: "POST",
 			headers: {
-				Cookie: `prismic-auth=${token}`,
+				Accept: "application/json",
+				Cookie: `SESSION=fake_session; prismic-auth=${token}`,
 			},
 		});
 
 		if (!response.ok) {
 			await removeToken();
 			return false;
-		}
-
-		const newToken = parsePrismicAuthCookie(response);
-		if (newToken && newToken !== token) {
-			await saveToken(newToken, { base: auth.base });
 		}
 
 		return true;
@@ -73,9 +69,9 @@ export async function readHost(): Promise<URL> {
 	}
 }
 
-export async function createLoginSession(
-	options?: { onReady?: (url: URL) => void },
-): Promise<{ email: string }> {
+export async function createLoginSession(options?: {
+	onReady?: (url: URL) => void;
+}): Promise<{ email: string }> {
 	const host = await readHost();
 	const corsOrigin = host.origin;
 
@@ -102,12 +98,10 @@ export async function createLoginSession(
 					try {
 						const { cookies, email } = JSON.parse(body);
 
-						const cookie: string | undefined = cookies.find(
-							(c: string) => c.startsWith("prismic-auth="),
+						const cookie: string | undefined = cookies.find((c: string) =>
+							c.startsWith("prismic-auth="),
 						);
-						const token = cookie
-							?.split(";")[0]
-							?.replace(/^prismic-auth=/, "");
+						const token = cookie?.split(";")[0]?.replace(/^prismic-auth=/, "");
 
 						if (!token) {
 							res.writeHead(400, {
@@ -203,14 +197,4 @@ export async function removeToken(): Promise<boolean> {
 	if (!auth) return false;
 	await rm(AUTH_FILE_PATH);
 	return true;
-}
-
-function parsePrismicAuthCookie(response: Response): string | undefined {
-	const setCookies = response.headers.getSetCookie();
-	for (const cookie of setCookies) {
-		if (cookie.startsWith("prismic-auth=")) {
-			return cookie.split("=", 2)[1]?.split(";")[0];
-		}
-	}
-	return undefined;
 }
