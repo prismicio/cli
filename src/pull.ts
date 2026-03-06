@@ -5,7 +5,7 @@ import { buildTypes } from "./codegen-types";
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
 import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 import { stringify } from "./lib/json";
 
 const HELP = `

@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 
 const HELP = `
 View details of a specific slice.

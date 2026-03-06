@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
 import { findGroupInTab, isGroupField, parseFieldPath, validateNestedFieldPath } from "./lib/field-path";
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 import { humanReadable } from "./lib/string";
 
 const HELP = `

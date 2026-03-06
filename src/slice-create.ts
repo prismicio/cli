@@ -6,7 +6,7 @@ import { parseArgs } from "node:util";
 import { buildTypes } from "./codegen-types";
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 import { uploadScreenshot } from "./slice-set-screenshot";
 
 const HELP = `

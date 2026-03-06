@@ -3,7 +3,7 @@ import type { CustomType, DynamicSlices } from "@prismicio/types-internal/lib/cu
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 
 const HELP = `
 Disconnect a shared slice from a custom type's slice zone.

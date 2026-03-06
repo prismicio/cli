@@ -1,11 +1,12 @@
-import type { Framework } from "./framework-adapter";
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 
-import { exists } from "./file";
-import { FrameworkAdapter } from "./framework-adapter";
+import type { Framework } from ".";
+
+import { FrameworkAdapter } from ".";
+import { exists } from "../lib/file";
 import {
 	exitPreviewRouteTemplate,
 	previewRouteTemplate,
@@ -13,8 +14,8 @@ import {
 	revalidateRouteTemplate,
 	sliceSimulatorPageTemplate,
 	sliceTemplate,
-} from "./framework-nextjs.templates";
-import { getNpmPackageVersion } from "./packageJson";
+} from "./nextjs.templates";
+import { getNpmPackageVersion } from "../lib/packageJson";
 
 export class NextJsFramework extends FrameworkAdapter {
 	readonly id: Framework = "next";
@@ -76,9 +77,7 @@ export class NextJsFramework extends FrameworkAdapter {
 		return [".tsx", ".ts", ".jsx", ".js"];
 	}
 
-	async getRoutePath(
-		route: string,
-	): Promise<{ path: string; extensions: string[] } | null> {
+	async getRoutePath(route: string): Promise<{ path: string; extensions: string[] } | null> {
 		const hasSrcDirectory = await this.#checkHasSrcDirectory();
 		const base = hasSrcDirectory ? "src/app" : "app";
 		switch (route) {

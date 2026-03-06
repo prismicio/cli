@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 
 const HELP = `
 List all slices in a Prismic project.

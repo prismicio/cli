@@ -5,7 +5,7 @@ import { parseArgs } from "node:util";
 import { pascalCase } from "change-case";
 
 import { buildTypes } from "./codegen-types";
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 
 const HELP = `
 Add a new variation to a slice.

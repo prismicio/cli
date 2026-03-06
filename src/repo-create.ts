@@ -2,7 +2,7 @@ import { parseArgs } from "node:util";
 
 import { isAuthenticated, readHost } from "./lib/auth";
 import { createConfig, readConfig, updateConfig } from "./lib/config";
-import { getClientSetupAnchor, getDocsPath, getFramework } from "./lib/framework-adapter";
+import { getClientSetupAnchor, getDocsPath, getFramework } from "./framework";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";

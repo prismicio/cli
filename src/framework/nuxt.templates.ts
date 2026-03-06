@@ -1,6 +1,6 @@
 import { pascalCase } from "change-case";
 
-import { dedent } from "./string";
+import { dedent } from "../lib/string";
 
 export function sliceTemplate(args: { name: string; typescript: boolean }): string {
 	const { name, typescript } = args;

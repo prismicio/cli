@@ -3,7 +3,7 @@ import type { Group, SharedSlice } from "@prismicio/types-internal/lib/customtyp
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { getDocsPath, getWriteComponentsAnchor, requireFramework } from "./lib/framework-adapter";
+import { getDocsPath, getWriteComponentsAnchor, requireFramework } from "./framework";
 import { humanReadable } from "./lib/string";
 
 const HELP = `

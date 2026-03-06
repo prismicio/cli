@@ -1,4 +1,3 @@
-import type { Framework } from "./framework-adapter";
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { builders, loadFile, writeFile as magicastWriteFile } from "magicast";
@@ -6,15 +5,14 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readConfig, updateConfig } from "./config";
-import { exists } from "./file";
-import { FrameworkAdapter } from "./framework-adapter";
-import {
-	sliceSimulatorPageTemplate,
-	sliceTemplate,
-} from "./framework-nuxt.templates";
-import { getNpmPackageVersion } from "./packageJson";
-import { dedent } from "./string";
+import type { Framework } from ".";
+
+import { FrameworkAdapter } from ".";
+import { readConfig, updateConfig } from "../lib/config";
+import { exists } from "../lib/file";
+import { sliceSimulatorPageTemplate, sliceTemplate } from "./nuxt.templates";
+import { getNpmPackageVersion } from "../lib/packageJson";
+import { dedent } from "../lib/string";
 
 const NUXT_PRISMIC = "@nuxtjs/prismic";
 
@@ -76,9 +74,7 @@ export class NuxtFramework extends FrameworkAdapter {
 		return [".vue"];
 	}
 
-	async getRoutePath(
-		route: string,
-	): Promise<{ path: string; extensions: string[] } | null> {
+	async getRoutePath(route: string): Promise<{ path: string; extensions: string[] } | null> {
 		if (route === "/slice-simulator") {
 			return { path: "pages/slice-simulator", extensions: [".vue"] };
 		}
@@ -238,10 +234,7 @@ export class NuxtFramework extends FrameworkAdapter {
 		if (!configResult.ok) return;
 
 		const libraries = configResult.config.libraries;
-		if (
-			!libraries ||
-			JSON.stringify(libraries) !== JSON.stringify(["./slices"])
-		) {
+		if (!libraries || JSON.stringify(libraries) !== JSON.stringify(["./slices"])) {
 			return;
 		}
 

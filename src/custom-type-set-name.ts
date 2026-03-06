@@ -3,7 +3,7 @@ import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 
 const HELP = `
 Change a custom type's display name (label).

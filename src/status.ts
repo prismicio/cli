@@ -15,7 +15,7 @@ import {
 	getPreviewSetupAnchor,
 	getWriteComponentsAnchor,
 	requireFramework,
-} from "./lib/framework-adapter";
+} from "./framework";
 import { request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 import { getWebhooks } from "./webhook-view";

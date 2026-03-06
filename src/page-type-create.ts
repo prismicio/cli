@@ -4,7 +4,7 @@ import { pascalCase } from "change-case";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { getDocsPath, requireFramework } from "./lib/framework-adapter";
+import { getDocsPath, requireFramework } from "./framework";
 
 const HELP = `
 Create a new page type in a Prismic repository.

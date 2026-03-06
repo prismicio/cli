@@ -14,7 +14,7 @@ import {
 	updateCustomType,
 	updateSlice,
 } from "./lib/custom-types-api";
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 import { stringify } from "./lib/json";
 
 const HELP = `

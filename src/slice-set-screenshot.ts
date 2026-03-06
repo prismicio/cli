@@ -8,7 +8,7 @@ import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 import { request } from "./lib/request";
 
 const HELP = `

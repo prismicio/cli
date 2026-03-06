@@ -1,6 +1,6 @@
 import { pascalCase } from "change-case";
 
-import { dedent } from "./string";
+import { dedent } from "../lib/string";
 
 const SLICE_MARKUP = dedent`
 return (

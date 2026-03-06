@@ -3,7 +3,7 @@ import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 
 const HELP = `
 Remove a variation from a slice.

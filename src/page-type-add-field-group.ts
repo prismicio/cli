@@ -3,7 +3,7 @@ import type { CustomType, Group } from "@prismicio/types-internal/lib/customtype
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { getDocsPath, requireFramework } from "./lib/framework-adapter";
+import { getDocsPath, requireFramework } from "./framework";
 import { humanReadable } from "./lib/string";
 
 const HELP = `

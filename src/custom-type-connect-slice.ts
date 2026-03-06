@@ -7,7 +7,7 @@ import type {
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 
 const HELP = `
 Connect a shared slice to a custom type's slice zone.

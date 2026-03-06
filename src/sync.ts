@@ -5,7 +5,7 @@ import { parseArgs } from "node:util";
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
 import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
-import { type FrameworkAdapter, getFramework } from "./lib/framework-adapter";
+import { type FrameworkAdapter, getFramework } from "./framework";
 import { trackEnd } from "./lib/segment";
 import { dedent } from "./lib/string";
 

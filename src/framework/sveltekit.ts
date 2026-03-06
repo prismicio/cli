@@ -1,21 +1,22 @@
-import type { Framework } from "./framework-adapter";
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { loadFile } from "magicast";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 
-import { exists } from "./file";
-import { FrameworkAdapter } from "./framework-adapter";
+import type { Framework } from ".";
+
+import { FrameworkAdapter } from ".";
+import { exists } from "../lib/file";
+import { getNpmPackageVersion } from "../lib/packageJson";
+import { dedent } from "../lib/string";
 import {
 	previewAPIRouteTemplate,
 	prismicIOFileTemplate,
 	rootLayoutTemplate,
 	sliceSimulatorPageTemplate,
 	sliceTemplate,
-} from "./framework-sveltekit.templates";
-import { getNpmPackageVersion } from "./packageJson";
-import { dedent } from "./string";
+} from "./sveltekit.templates";
 
 export class SvelteKitFramework extends FrameworkAdapter {
 	readonly id: Framework = "sveltekit";
@@ -74,9 +75,7 @@ export class SvelteKitFramework extends FrameworkAdapter {
 		return [".svelte"];
 	}
 
-	async getRoutePath(
-		route: string,
-	): Promise<{ path: string; extensions: string[] } | null> {
+	async getRoutePath(route: string): Promise<{ path: string; extensions: string[] } | null> {
 		switch (route) {
 			case "/slice-simulator":
 				return { path: "src/routes/slice-simulator/+page", extensions: [".svelte"] };

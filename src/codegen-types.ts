@@ -2,9 +2,9 @@ import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { generateTypes, NON_EDITABLE_FILE_HEADER } from "prismic-ts-codegen";
 
-import type { FrameworkAdapter } from "./lib/framework-adapter";
+import type { FrameworkAdapter } from "./framework";
 
-import { requireFramework } from "./lib/framework-adapter";
+import { requireFramework } from "./framework";
 
 const HELP = `
 Generate TypeScript types from local custom type and slice models.

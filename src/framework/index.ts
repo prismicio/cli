@@ -7,12 +7,12 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { glob } from "tinyglobby";
 import * as v from "valibot";
 
-import { readConfig } from "./config";
-import { exists, findUpward } from "./file";
-import { stringify } from "./json";
-import { addDependencies } from "./packageJson";
-import { dedent } from "./string";
-import { appendTrailingSlash } from "./url";
+import { readConfig } from "../lib/config";
+import { exists, findUpward } from "../lib/file";
+import { stringify } from "../lib/json";
+import { addDependencies } from "../lib/packageJson";
+import { dedent } from "../lib/string";
+import { appendTrailingSlash } from "../lib/url";
 
 export abstract class FrameworkAdapter {
 	abstract readonly id: Framework;
@@ -361,15 +361,15 @@ export async function getFramework(): Promise<FrameworkAdapter | undefined> {
 	const id = await detectFramework();
 	switch (id) {
 		case "next": {
-			const { NextJsFramework } = await import("./framework-nextjs");
+			const { NextJsFramework } = await import("./nextjs");
 			return new NextJsFramework();
 		}
 		case "nuxt": {
-			const { NuxtFramework } = await import("./framework-nuxt");
+			const { NuxtFramework } = await import("./nuxt");
 			return new NuxtFramework();
 		}
 		case "sveltekit": {
-			const { SvelteKitFramework } = await import("./framework-sveltekit");
+			const { SvelteKitFramework } = await import("./sveltekit");
 			return new SvelteKitFramework();
 		}
 		default:
