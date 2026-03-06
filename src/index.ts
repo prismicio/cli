@@ -5,10 +5,10 @@ import { parseArgs } from "node:util";
 import packageJson from "../package.json" with { type: "json" };
 import { codegen } from "./codegen";
 import { customType } from "./custom-type";
-import { run as devtoolsRun } from "./devtools/cli";
 import { docs } from "./docs";
 import { initSegment, trackEnd, trackStart } from "./lib/segment";
 import { captureError, setupSentry } from "./lib/sentry";
+import { init } from "./init";
 import { locale } from "./locale";
 import { login } from "./login";
 import { logout } from "./logout";
@@ -83,7 +83,7 @@ if (version) {
 	try {
 		switch (command) {
 			case "init":
-				await devtoolsRun();
+				await init();
 				break;
 			case "sync":
 				await sync();

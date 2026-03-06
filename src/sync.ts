@@ -166,7 +166,7 @@ async function watchForChanges(repo: string, framework: FrameworkAdapter) {
 	}
 }
 
-async function syncSlices(repo: string, framework: FrameworkAdapter) {
+export async function syncSlices(repo: string, framework: FrameworkAdapter): Promise<void> {
 	const remoteSlicesResult = await fetchRemoteSlices(repo);
 	if (!remoteSlicesResult.ok) {
 		console.error(`Failed to fetch remote slices: ${remoteSlicesResult.error}`);
@@ -202,7 +202,7 @@ async function syncSlices(repo: string, framework: FrameworkAdapter) {
 	}
 }
 
-async function syncCustomTypes(repo: string, framework: FrameworkAdapter) {
+export async function syncCustomTypes(repo: string, framework: FrameworkAdapter): Promise<void> {
 	const remoteCustomTypesResult = await fetchRemoteCustomTypes(repo);
 	if (!remoteCustomTypesResult.ok) {
 		console.error(`Failed to fetch remote custom types: ${remoteCustomTypesResult.error}`);
