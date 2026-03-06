@@ -4,8 +4,7 @@ import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
 import { findGroupInTab, isGroupField, parseFieldPath, validateNestedFieldPath } from "./lib/field-path";
-import { type Framework, detectFrameworkInfo } from "./lib/framework";
-import { requireFramework } from "./lib/framework-adapter";
+import { getDocsPath, requireFramework } from "./lib/framework-adapter";
 import { humanReadable } from "./lib/string";
 
 const HELP = `
@@ -33,16 +32,6 @@ EXAMPLES
   prismic page-type add-field boolean product available --true-label "In Stock" --false-label "Out of Stock"
 `.trim();
 
-function getDocsPath(framework: Framework): string {
-	switch (framework) {
-		case "next":
-			return "nextjs/with-cli";
-		case "nuxt":
-			return "nuxt/with-cli";
-		case "sveltekit":
-			return "sveltekit/with-cli";
-	}
-}
 
 export async function pageTypeAddFieldBoolean(): Promise<void> {
 	const {
@@ -181,9 +170,8 @@ export async function pageTypeAddFieldBoolean(): Promise<void> {
 	console.info();
 	console.info("Next: Add more fields with `prismic page-type add-field`");
 
-	const frameworkInfo = await detectFrameworkInfo();
-	if (frameworkInfo?.framework) {
-		const docsPath = getDocsPath(frameworkInfo.framework);
+	if (framework) {
+		const docsPath = getDocsPath(framework.id);
 		console.info(
 			`      Run \`prismic docs fetch ${docsPath}#write-page-components\` to learn how to implement a page file`,
 		);

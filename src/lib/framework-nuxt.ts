@@ -1,3 +1,4 @@
+import type { Framework } from "./framework-adapter";
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { builders, loadFile, writeFile as magicastWriteFile } from "magicast";
@@ -18,6 +19,8 @@ import { dedent } from "./string";
 const NUXT_PRISMIC = "@nuxtjs/prismic";
 
 export class NuxtFramework extends FrameworkAdapter {
+	readonly id: Framework = "nuxt";
+
 	async getDependencies(): Promise<Record<string, string>> {
 		return {
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
@@ -54,6 +57,32 @@ export class NuxtFramework extends FrameworkAdapter {
 	async getDefaultSliceLibraryPath(_projectRoot: URL): Promise<URL> {
 		const srcDir = await this.#getSrcDir();
 		return new URL("slices/", srcDir);
+	}
+
+	async getClientFilePath(): Promise<string | null> {
+		return null;
+	}
+
+	async getSlicesDirectoryPath(): Promise<string> {
+		const projectRoot = await this.getProjectRoot();
+		const appDir = new URL("app/", projectRoot);
+		if (await exists(appDir)) return "app/slices/";
+		const srcDir = new URL("src/", projectRoot);
+		if (await exists(srcDir)) return "src/slices/";
+		return "slices/";
+	}
+
+	getSliceComponentExtensions(): string[] {
+		return [".vue"];
+	}
+
+	async getRoutePath(
+		route: string,
+	): Promise<{ path: string; extensions: string[] } | null> {
+		if (route === "/slice-simulator") {
+			return { path: "pages/slice-simulator", extensions: [".vue"] };
+		}
+		return null;
 	}
 
 	protected override async generateSliceLibraryIndexContents(

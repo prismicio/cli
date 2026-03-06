@@ -3,8 +3,7 @@ import type { CustomType, Group } from "@prismicio/types-internal/lib/customtype
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { type Framework, detectFrameworkInfo } from "./lib/framework";
-import { requireFramework } from "./lib/framework-adapter";
+import { getDocsPath, requireFramework } from "./lib/framework-adapter";
 import { humanReadable } from "./lib/string";
 
 const HELP = `
@@ -30,16 +29,6 @@ EXAMPLES
   prismic page-type add-field group product variants --tab "Content"
 `.trim();
 
-function getDocsPath(framework: Framework): string {
-	switch (framework) {
-		case "next":
-			return "nextjs/with-cli";
-		case "nuxt":
-			return "nuxt/with-cli";
-		case "sveltekit":
-			return "sveltekit/with-cli";
-	}
-}
 
 export async function pageTypeAddFieldGroup(): Promise<void> {
 	const {
@@ -141,9 +130,8 @@ export async function pageTypeAddFieldGroup(): Promise<void> {
 	console.info();
 	console.info(`Next: Add fields to the group with \`prismic page-type add-field <type> ${typeId} ${fieldId}.<field-id>\``);
 
-	const frameworkInfo = await detectFrameworkInfo();
-	if (frameworkInfo?.framework) {
-		const docsPath = getDocsPath(frameworkInfo.framework);
+	if (framework) {
+		const docsPath = getDocsPath(framework.id);
 		console.info(
 			`      Run \`prismic docs fetch ${docsPath}#write-page-components\` to learn how to implement a page file`,
 		);

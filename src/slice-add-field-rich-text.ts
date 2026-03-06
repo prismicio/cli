@@ -4,8 +4,7 @@ import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
 import { findGroupInVariation, isGroupField, parseFieldPath, validateNestedFieldPath } from "./lib/field-path";
-import { type Framework, detectFrameworkInfo } from "./lib/framework";
-import { requireFramework } from "./lib/framework-adapter";
+import { getDocsPath, getWriteComponentsAnchor, requireFramework } from "./lib/framework-adapter";
 import { humanReadable } from "./lib/string";
 
 const HELP = `
@@ -40,27 +39,7 @@ EXAMPLES
   prismic slice add-field rich-text blog post --multi "paragraph,strong,em,hyperlink" --allow-target-blank
 `.trim();
 
-function getDocsPath(framework: Framework): string {
-	switch (framework) {
-		case "next":
-			return "nextjs/with-cli";
-		case "nuxt":
-			return "nuxt/with-cli";
-		case "sveltekit":
-			return "sveltekit/with-cli";
-	}
-}
 
-function getWriteComponentsAnchor(framework: Framework): string {
-	switch (framework) {
-		case "nuxt":
-			return "#write-vue-components";
-		case "sveltekit":
-			return "#write-svelte-components";
-		default:
-			return "#write-react-components";
-	}
-}
 
 export async function sliceAddFieldRichText(): Promise<void> {
 	const {
@@ -240,10 +219,9 @@ export async function sliceAddFieldRichText(): Promise<void> {
 	console.info();
 	console.info("Next: Add more fields with `prismic slice add-field`");
 
-	const frameworkInfo = await detectFrameworkInfo();
-	if (frameworkInfo?.framework) {
-		const docsPath = getDocsPath(frameworkInfo.framework);
-		const anchor = getWriteComponentsAnchor(frameworkInfo.framework);
+	if (framework) {
+		const docsPath = getDocsPath(framework.id);
+		const anchor = getWriteComponentsAnchor(framework.id);
 		console.info(
 			`      Run \`prismic docs fetch ${docsPath}${anchor}\` to learn how to implement the slice's component`,
 		);

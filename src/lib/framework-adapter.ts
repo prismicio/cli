@@ -15,7 +15,17 @@ import { dedent } from "./string";
 import { appendTrailingSlash } from "./url";
 
 export abstract class FrameworkAdapter {
+	abstract readonly id: Framework;
+
 	abstract getDependencies(): Promise<Record<string, string>>;
+
+	abstract getClientFilePath(): Promise<string | null>;
+
+	abstract getSlicesDirectoryPath(): Promise<string>;
+
+	abstract getSliceComponentExtensions(): string[];
+
+	abstract getRoutePath(route: string): Promise<{ path: string; extensions: string[] } | null>;
 
 	abstract createSliceComponent(
 		model: SharedSlice,
@@ -74,9 +84,7 @@ export abstract class FrameworkAdapter {
 		return { sliceDirectory: slice.directory, indexPath };
 	}
 
-	async getSlices(
-		library?: URL,
-	): Promise<{ library: URL; directory: URL; model: SharedSlice }[]> {
+	async getSlices(library?: URL): Promise<{ library: URL; directory: URL; model: SharedSlice }[]> {
 		const libraryDirs = library ? [library] : await this.#getSliceLibraries();
 		const allSlices: {
 			library: URL;
@@ -164,7 +172,7 @@ export abstract class FrameworkAdapter {
 		return customTypes;
 	}
 
-	protected async getProjectRoot(): Promise<URL> {
+	async getProjectRoot(): Promise<URL> {
 		const packageJsonPath = await findUpward("package.json");
 		if (!packageJsonPath) {
 			throw new Error("No package.json found");
@@ -186,9 +194,7 @@ export abstract class FrameworkAdapter {
 		return jsFileExtension;
 	}
 
-	async #findSlice(
-		sliceId: string,
-	): Promise<{ library: URL; directory: URL; model: SharedSlice }> {
+	async #findSlice(sliceId: string): Promise<{ library: URL; directory: URL; model: SharedSlice }> {
 		const slices = await this.getSlices();
 		const slice = slices.find((slice) => slice.model.id === sliceId);
 		if (!slice) throw new Error(`No slice found with ID: ${sliceId}`);
@@ -291,14 +297,87 @@ export abstract class FrameworkAdapter {
 	}
 }
 
+export function getDocsPath(framework: Framework): string {
+	switch (framework) {
+		case "next":
+			return "nextjs/with-cli";
+		case "nuxt":
+			return "nuxt/with-cli";
+		case "sveltekit":
+			return "sveltekit/with-cli";
+	}
+}
+
+export function getWriteComponentsAnchor(framework: Framework): string {
+	switch (framework) {
+		case "nuxt":
+			return "#write-vue-components";
+		case "sveltekit":
+			return "#write-svelte-components";
+		default:
+			return "#write-react-components";
+	}
+}
+
+export function getClientSetupAnchor(framework: Framework): string {
+	switch (framework) {
+		case "nuxt":
+			return "#configure-the-modules-prismic-client";
+		default:
+			return "#set-up-a-prismic-client";
+	}
+}
+
+export function getPreviewSetupAnchor(framework: Framework): string {
+	switch (framework) {
+		case "next":
+			return "#set-up-previews-in-next-js";
+		case "sveltekit":
+			return "#set-up-previews-in-sveltekit";
+		default:
+			return "";
+	}
+}
+
 const PackageJsonSchema = v.object({
 	dependencies: v.optional(v.record(v.string(), v.string())),
 	devDependencies: v.optional(v.record(v.string(), v.string())),
 });
 
-type FrameworkId = "next" | "nuxt" | "sveltekit";
+export type Framework = "next" | "nuxt" | "sveltekit";
 
-async function detectFrameworkId(): Promise<FrameworkId | undefined> {
+export async function requireFramework(): Promise<FrameworkAdapter | undefined> {
+	const framework = await getFramework();
+	if (!framework) {
+		console.error("No supported framework found (Next.js, Nuxt, or SvelteKit required)");
+		console.error("Ensure your project has the framework listed as a dependency in package.json");
+		process.exitCode = 1;
+		return undefined;
+	}
+	return framework;
+}
+
+export async function getFramework(): Promise<FrameworkAdapter | undefined> {
+	const id = await detectFramework();
+	switch (id) {
+		case "next": {
+			const { NextJsFramework } = await import("./framework-nextjs");
+			return new NextJsFramework();
+		}
+		case "nuxt": {
+			const { NuxtFramework } = await import("./framework-nuxt");
+			return new NuxtFramework();
+		}
+		case "sveltekit": {
+			const { SvelteKitFramework } = await import("./framework-sveltekit");
+			return new SvelteKitFramework();
+		}
+		default:
+			return undefined;
+	}
+}
+
+async function detectFramework(): Promise<Framework | undefined> {
 	const packageJsonPath = await findUpward("package.json");
 	if (!packageJsonPath) return undefined;
 
@@ -317,35 +396,4 @@ async function detectFrameworkId(): Promise<FrameworkId | undefined> {
 	}
 
 	return undefined;
-}
-
-export async function requireFramework(): Promise<FrameworkAdapter | undefined> {
-	const framework = await getFramework();
-	if (!framework) {
-		console.error("No supported framework found (Next.js, Nuxt, or SvelteKit required)");
-		console.error("Ensure your project has the framework listed as a dependency in package.json");
-		process.exitCode = 1;
-		return undefined;
-	}
-	return framework;
-}
-
-export async function getFramework(): Promise<FrameworkAdapter | undefined> {
-	const id = await detectFrameworkId();
-	switch (id) {
-		case "next": {
-			const { NextJsFramework } = await import("./framework-nextjs");
-			return new NextJsFramework();
-		}
-		case "nuxt": {
-			const { NuxtFramework } = await import("./framework-nuxt");
-			return new NuxtFramework();
-		}
-		case "sveltekit": {
-			const { SvelteKitFramework } = await import("./framework-sveltekit");
-			return new SvelteKitFramework();
-		}
-		default:
-			return undefined;
-	}
 }

@@ -1,3 +1,4 @@
+import type { Framework } from "./framework-adapter";
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { loadFile } from "magicast";
@@ -17,6 +18,8 @@ import { getNpmPackageVersion } from "./packageJson";
 import { dedent } from "./string";
 
 export class SvelteKitFramework extends FrameworkAdapter {
+	readonly id: Framework = "sveltekit";
+
 	async getDependencies(): Promise<Record<string, string>> {
 		return {
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
@@ -57,6 +60,31 @@ export class SvelteKitFramework extends FrameworkAdapter {
 
 	async getDefaultSliceLibraryPath(projectRoot: URL): Promise<URL> {
 		return new URL("src/lib/slices/", projectRoot);
+	}
+
+	async getClientFilePath(): Promise<string | null> {
+		return "src/lib/prismicio.ts";
+	}
+
+	async getSlicesDirectoryPath(): Promise<string> {
+		return "src/lib/slices/";
+	}
+
+	getSliceComponentExtensions(): string[] {
+		return [".svelte"];
+	}
+
+	async getRoutePath(
+		route: string,
+	): Promise<{ path: string; extensions: string[] } | null> {
+		switch (route) {
+			case "/slice-simulator":
+				return { path: "src/routes/slice-simulator/+page", extensions: [".svelte"] };
+			case "/api/preview":
+				return { path: "src/routes/api/preview/+server", extensions: [".ts", ".js"] };
+			default:
+				return null;
+		}
 	}
 
 	async #createPrismicIOFile(): Promise<void> {

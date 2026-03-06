@@ -1,3 +1,4 @@
+import type { Framework } from "./framework-adapter";
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { mkdir, writeFile } from "node:fs/promises";
@@ -16,6 +17,8 @@ import {
 import { getNpmPackageVersion } from "./packageJson";
 
 export class NextJsFramework extends FrameworkAdapter {
+	readonly id: Framework = "next";
+
 	async getDependencies(): Promise<Record<string, string>> {
 		return {
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
@@ -57,6 +60,39 @@ export class NextJsFramework extends FrameworkAdapter {
 		const hasSrcDirectory = await exists(srcDirectory);
 		const sourceFilesRoot = hasSrcDirectory ? srcDirectory : projectRoot;
 		return new URL("slices/", sourceFilesRoot);
+	}
+
+	async getClientFilePath(): Promise<string | null> {
+		const hasSrcDirectory = await this.#checkHasSrcDirectory();
+		return hasSrcDirectory ? "src/prismicio.ts" : "prismicio.ts";
+	}
+
+	async getSlicesDirectoryPath(): Promise<string> {
+		const hasSrcDirectory = await this.#checkHasSrcDirectory();
+		return hasSrcDirectory ? "src/slices/" : "slices/";
+	}
+
+	getSliceComponentExtensions(): string[] {
+		return [".tsx", ".ts", ".jsx", ".js"];
+	}
+
+	async getRoutePath(
+		route: string,
+	): Promise<{ path: string; extensions: string[] } | null> {
+		const hasSrcDirectory = await this.#checkHasSrcDirectory();
+		const base = hasSrcDirectory ? "src/app" : "app";
+		switch (route) {
+			case "/slice-simulator":
+				return { path: `${base}/slice-simulator/page`, extensions: [".tsx", ".ts", ".jsx", ".js"] };
+			case "/api/preview":
+				return { path: `${base}/api/preview/route`, extensions: [".ts", ".js"] };
+			case "/api/exit-preview":
+				return { path: `${base}/api/exit-preview/route`, extensions: [".ts", ".js"] };
+			case "/api/revalidate":
+				return { path: `${base}/api/revalidate/route`, extensions: [".ts", ".js"] };
+			default:
+				return null;
+		}
 	}
 
 	async #checkHasAppRouter(): Promise<boolean> {
