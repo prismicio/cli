@@ -1,11 +1,9 @@
-import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { SharedSliceModel } from "@prismicio/client";
 
-import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { stringify } from "./lib/json";
-import { findSliceModel } from "./lib/slice";
+import { requireFramework } from "./lib/framework-adapter";
 
 const HELP = `
 Remove a variation from a slice.
@@ -57,14 +55,17 @@ export async function sliceRemoveVariation(): Promise<void> {
 		return;
 	}
 
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const framework = await requireFramework();
+	if (!framework) return;
+
+	let model;
+	try {
+		model = await framework.readSlice(sliceId);
+	} catch {
+		console.error(`Slice not found: ${sliceId}\n\nCreate it first with: prismic slice create ${sliceId}`);
 		process.exitCode = 1;
 		return;
 	}
-
-	const { model, modelPath } = result;
 
 	// Check if variation exists
 	const variationExists = model.variations.some((v) => v.id === variationId);
@@ -90,7 +91,7 @@ export async function sliceRemoveVariation(): Promise<void> {
 
 	// Write updated model
 	try {
-		await writeFile(modelPath, stringify(updatedModel as SharedSlice));
+		await framework.updateSlice(updatedModel as unknown as SharedSliceModel);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update slice: ${error.message}`);

@@ -1,9 +1,9 @@
-import { rename, writeFile } from "node:fs/promises";
+import type { SharedSliceModel } from "@prismicio/client";
+
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { stringify } from "./lib/json";
-import { findSliceModel, getSlicesDirectory, pascalCase } from "./lib/slice";
+import { requireFramework } from "./lib/framework-adapter";
 
 const HELP = `
 Rename a slice (updates name field, optionally id and directory).
@@ -58,14 +58,17 @@ export async function sliceRename(): Promise<void> {
 		return;
 	}
 
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const framework = await requireFramework();
+	if (!framework) return;
+
+	let model;
+	try {
+		model = await framework.readSlice(sliceId);
+	} catch {
+		console.error(`Slice not found: ${sliceId}\n\nCreate it first with: prismic slice create ${sliceId}`);
 		process.exitCode = 1;
 		return;
 	}
-
-	const { model, modelPath } = result;
 
 	// Update the model
 	model.name = newName;
@@ -73,9 +76,15 @@ export async function sliceRename(): Promise<void> {
 		model.id = newId;
 	}
 
-	// Write updated model
+	// Write updated model (renameSlice handles directory rename)
 	try {
-		await writeFile(modelPath, stringify(model));
+		if (newId) {
+			await framework.renameSlice(model as unknown as SharedSliceModel);
+			console.info(`Renamed slice "${sliceId}" to "${newId}" (${newName})`);
+		} else {
+			await framework.updateSlice(model as unknown as SharedSliceModel);
+			console.info(`Renamed slice "${sliceId}" to "${newName}"`);
+		}
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update slice: ${error.message}`);
@@ -86,35 +95,8 @@ export async function sliceRename(): Promise<void> {
 		return;
 	}
 
-	// If changing ID, also rename the directory
-	if (newId) {
-		const slicesDirectory = await getSlicesDirectory();
-		const currentDir = new URL(".", modelPath);
-		const newDir = new URL(pascalCase(newName) + "/", slicesDirectory);
-
-		if (currentDir.href !== newDir.href) {
-			try {
-				await rename(currentDir, newDir);
-				console.info(`Renamed slice "${sliceId}" to "${newId}" (${newName})`);
-				console.info(`Moved directory to ${newDir.href}`);
-			} catch (error) {
-				if (error instanceof Error) {
-					console.error(`Failed to rename directory: ${error.message}`);
-				} else {
-					console.error("Failed to rename directory");
-				}
-				process.exitCode = 1;
-				return;
-			}
-		} else {
-			console.info(`Renamed slice "${sliceId}" to "${newId}" (${newName})`);
-		}
-	} else {
-		console.info(`Renamed slice "${sliceId}" to "${newName}"`);
-	}
-
 	try {
-		await buildTypes({ output: types });
+		await buildTypes({ output: types, framework });
 		console.info(`Updated types in ${types ?? "prismicio-types.d.ts"}`);
 	} catch (error) {
 		console.warn(`Could not generate types: ${error instanceof Error ? error.message : error}`);

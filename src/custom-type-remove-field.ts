@@ -1,12 +1,9 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+import type { CustomTypeModel } from "@prismicio/client";
 
-import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
-import { findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
+import { requireFramework } from "./lib/framework-adapter";
 
 const HELP = `
 Remove a field from a custom type.
@@ -27,15 +24,6 @@ EXAMPLES
   prismic custom-type remove-field settings title
   prismic custom-type remove-field settings description --tab "Content"
 `.trim();
-
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.optional(v.string()),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
 
 export async function customTypeRemoveField(): Promise<void> {
 	const {
@@ -70,38 +58,14 @@ export async function customTypeRemoveField(): Promise<void> {
 		return;
 	}
 
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
+	const framework = await requireFramework();
+	if (!framework) return;
 
-	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
-
-	// Read and parse the model
-	let model: CustomType;
+	let model;
 	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid custom type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			console.error(`Custom type not found: ${typeId}\n`);
-			console.error(`Create it first with: prismic custom-type create ${typeId}`);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read custom type: ${error.message}`);
-		} else {
-			console.error("Failed to read custom type");
-		}
+		model = await framework.readCustomType(typeId);
+	} catch {
+		console.error(`Custom type not found: ${typeId}\n\nCreate it first with: prismic custom-type create ${typeId}`);
 		process.exitCode = 1;
 		return;
 	}
@@ -149,7 +113,7 @@ export async function customTypeRemoveField(): Promise<void> {
 
 	// Write updated model
 	try {
-		await writeFile(modelPath, stringify(model));
+		await framework.updateCustomType(model as unknown as CustomTypeModel);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update custom type: ${error.message}`);

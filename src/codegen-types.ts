@@ -4,7 +4,8 @@ import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { generateTypes, NON_EDITABLE_FILE_HEADER } from "prismic-ts-codegen";
 
-import { readLocalCustomTypes, readLocalSlices } from "./lib/custom-types-api";
+import type { FrameworkAdapter } from "./lib/framework-adapter";
+import { requireFramework } from "./lib/framework-adapter";
 
 const HELP = `
 Generate TypeScript types from local custom type and slice models.
@@ -47,24 +48,24 @@ export async function codegenTypes(): Promise<void> {
 	}
 }
 
-export async function buildTypes(args?: { output?: string }): Promise<void> {
+export async function buildTypes(args?: {
+	output?: string;
+	framework?: FrameworkAdapter;
+}): Promise<void> {
 	const output = args?.output ?? "prismicio-types.d.ts";
 
-	const [customTypesResult, slicesResult] = await Promise.all([
-		readLocalCustomTypes(),
-		readLocalSlices(),
+	const framework = args?.framework ?? (await requireFramework());
+	if (!framework) {
+		throw new Error("No supported framework found");
+	}
+
+	const [customTypeResults, sliceResults] = await Promise.all([
+		framework.getCustomTypes(),
+		framework.getSlices(),
 	]);
 
-	if (!customTypesResult.ok) {
-		throw new Error(`failed to read local custom types: ${customTypesResult.error}`);
-	}
-
-	if (!slicesResult.ok) {
-		throw new Error(`failed to read local slices: ${slicesResult.error}`);
-	}
-
-	const customTypes = customTypesResult.value as unknown as CustomTypeModel[];
-	const slices = slicesResult.value as unknown as SharedSliceModel[];
+	const customTypes = customTypeResults.map((ct) => ct.model as unknown as CustomTypeModel);
+	const slices = sliceResults.map((s) => s.model as unknown as SharedSliceModel);
 
 	const types = generateTypes({
 		customTypeModels: customTypes,

@@ -1,12 +1,11 @@
 import type { Group, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { SharedSliceModel } from "@prismicio/client";
 
-import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
 import { type Framework, detectFrameworkInfo } from "./lib/framework";
-import { stringify } from "./lib/json";
-import { findSliceModel } from "./lib/slice";
+import { requireFramework } from "./lib/framework-adapter";
 import { humanReadable } from "./lib/string";
 
 const HELP = `
@@ -97,14 +96,17 @@ export async function sliceAddFieldGroup(): Promise<void> {
 	}
 
 	// Find the slice model
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const framework = await requireFramework();
+	if (!framework) return;
+
+	let model;
+	try {
+		model = await framework.readSlice(sliceId);
+	} catch {
+		console.error(`Slice not found: ${sliceId}\n\nCreate it first with: prismic slice create ${sliceId}`);
 		process.exitCode = 1;
 		return;
 	}
-
-	const { model, modelPath } = result;
 
 	// Check for variations
 	if (model.variations.length === 0) {
@@ -155,7 +157,7 @@ export async function sliceAddFieldGroup(): Promise<void> {
 
 	// Write updated model
 	try {
-		await writeFile(modelPath, stringify(model as SharedSlice));
+		await framework.updateSlice(model as unknown as SharedSliceModel);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update slice: ${error.message}`);

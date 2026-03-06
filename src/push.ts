@@ -11,11 +11,10 @@ import {
 	fetchRemoteSlices,
 	insertCustomType,
 	insertSlice,
-	readLocalCustomTypes,
-	readLocalSlices,
 	updateCustomType,
 	updateSlice,
 } from "./lib/custom-types-api";
+import { requireFramework } from "./lib/framework-adapter";
 import { stringify } from "./lib/json";
 
 const HELP = `
@@ -128,30 +127,37 @@ export async function push(): Promise<void> {
 	const shouldPushTypes = !slicesOnly;
 	const shouldPushSlices = !typesOnly;
 
-	// Read local and fetch remote data in parallel
-	const [localTypesResult, localSlicesResult, remoteTypesResult, remoteSlicesResult] =
-		await Promise.all([
-			shouldPushTypes ? readLocalCustomTypes() : Promise.resolve({ ok: true, value: [] } as const),
-			shouldPushSlices ? readLocalSlices() : Promise.resolve({ ok: true, value: [] } as const),
-			shouldPushTypes
-				? fetchRemoteCustomTypes(repo)
-				: Promise.resolve({ ok: true, value: [] } as const),
-			shouldPushSlices
-				? fetchRemoteSlices(repo)
-				: Promise.resolve({ ok: true, value: [] } as const),
+	// Get framework adapter for reading local models
+	const framework = await requireFramework();
+	if (!framework) return;
+
+	// Read local models via framework adapter
+	let localTypes: CustomType[];
+	let localSlices: SharedSlice[];
+	try {
+		const [localCustomTypeResults, localSliceResults] = await Promise.all([
+			shouldPushTypes ? framework.getCustomTypes() : Promise.resolve([]),
+			shouldPushSlices ? framework.getSlices() : Promise.resolve([]),
 		]);
-
-	if (!localTypesResult.ok) {
-		console.error(`Failed to read local custom types: ${localTypesResult.error}`);
+		localTypes = localCustomTypeResults.map((ct) => ct.model as unknown as CustomType);
+		localSlices = localSliceResults.map((s) => s.model as unknown as SharedSlice);
+	} catch (error) {
+		console.error(
+			`Failed to read local models: ${error instanceof Error ? error.message : error}`,
+		);
 		process.exitCode = 1;
 		return;
 	}
 
-	if (!localSlicesResult.ok) {
-		console.error(`Failed to read local slices: ${localSlicesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
+	// Fetch remote data in parallel
+	const [remoteTypesResult, remoteSlicesResult] = await Promise.all([
+		shouldPushTypes
+			? fetchRemoteCustomTypes(repo)
+			: Promise.resolve({ ok: true, value: [] } as const),
+		shouldPushSlices
+			? fetchRemoteSlices(repo)
+			: Promise.resolve({ ok: true, value: [] } as const),
+	]);
 
 	if (!remoteTypesResult.ok) {
 		console.error(`Failed to fetch remote custom types: ${remoteTypesResult.error}`);
@@ -165,8 +171,6 @@ export async function push(): Promise<void> {
 		return;
 	}
 
-	const localTypes = localTypesResult.value;
-	const localSlices = localSlicesResult.value;
 	const remoteTypes = remoteTypesResult.value;
 	const remoteSlices = remoteSlicesResult.value;
 

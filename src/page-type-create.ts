@@ -1,12 +1,11 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+import type { CustomTypeModel } from "@prismicio/client";
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { pascalCase } from "change-case";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { findUpward } from "./lib/file";
 import { type Framework, detectFrameworkInfo } from "./lib/framework";
-import { stringify } from "./lib/json";
+import { requireFramework } from "./lib/framework-adapter";
 
 const HELP = `
 Create a new page type in a Prismic repository.
@@ -68,6 +67,9 @@ export async function pageTypeCreate(): Promise<void> {
 		return;
 	}
 
+	const framework = await requireFramework();
+	if (!framework) return;
+
 	const model = {
 		id,
 		label: name ?? pascalCase(id),
@@ -108,22 +110,11 @@ export async function pageTypeCreate(): Promise<void> {
 				},
 			},
 		},
-	} satisfies CustomType;
-
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
-
-	const customTypesDirectory = new URL("customtypes/", projectRoot);
-	const typeDirectory = new URL(id + "/", customTypesDirectory);
-	const modelPath = new URL("index.json", typeDirectory);
+	};
 
 	try {
-		await mkdir(new URL(".", modelPath), { recursive: true });
-		await writeFile(modelPath, stringify(model));
+		const { modelPath } = await framework.createCustomType(model as unknown as CustomTypeModel);
+		console.info(`Created page type at ${modelPath.href}`);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to create page type: ${error.message}`);
@@ -133,8 +124,6 @@ export async function pageTypeCreate(): Promise<void> {
 		process.exitCode = 1;
 		return;
 	}
-
-	console.info(`Created page type at ${modelPath.href}`);
 
 	try {
 		await buildTypes({ output: types });
@@ -154,8 +143,4 @@ export async function pageTypeCreate(): Promise<void> {
 			`      Run \`prismic docs fetch ${docsPath}${anchor}\` to learn how to implement a page file`,
 		);
 	}
-}
-
-export function pascalCase(input: string): string {
-	return input.toLowerCase().replace(/(^|[-_\s]+)(.)?/g, (_, __, c) => c?.toUpperCase() ?? "");
 }

@@ -1,14 +1,15 @@
+import type { SharedSliceModel } from "@prismicio/client";
+
 import { createHash } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { parseArgs } from "node:util";
 import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { stringify } from "./lib/json";
+import { requireFramework } from "./lib/framework-adapter";
 import { request } from "./lib/request";
-import { findSliceModel } from "./lib/slice";
 
 const HELP = `
 Set a screenshot for a slice variation.
@@ -162,14 +163,17 @@ export async function sliceSetScreenshot(): Promise<void> {
 	}
 
 	// Find the slice model
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const framework = await requireFramework();
+	if (!framework) return;
+
+	let model;
+	try {
+		model = await framework.readSlice(sliceId);
+	} catch {
+		console.error(`Slice not found: ${sliceId}\n\nCreate it first with: prismic slice create ${sliceId}`);
 		process.exitCode = 1;
 		return;
 	}
-
-	const { model, modelPath } = result;
 
 	// Find the variation
 	const variationIndex = model.variations.findIndex((v) => v.id === variation);
@@ -219,7 +223,7 @@ export async function sliceSetScreenshot(): Promise<void> {
 
 	// Write updated model
 	try {
-		await writeFile(modelPath, stringify(model));
+		await framework.updateSlice(model as unknown as SharedSliceModel);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update slice model: ${error.message}`);

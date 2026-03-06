@@ -1,14 +1,13 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { SharedSliceModel } from "@prismicio/client";
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { exists, findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
+import { requireFramework } from "./lib/framework-adapter";
 import { uploadScreenshot } from "./slice-set-screenshot";
 
 const HELP = `
@@ -57,6 +56,9 @@ export async function sliceCreate(): Promise<void> {
 		process.exitCode = 1;
 		return;
 	}
+
+	const framework = await requireFramework();
+	if (!framework) return;
 
 	// Handle screenshot upload if provided
 	let screenshotUrl: string | undefined;
@@ -112,6 +114,8 @@ export async function sliceCreate(): Promise<void> {
 		}
 	}
 
+	const { pascalCase } = await import("change-case");
+
 	const model: SharedSlice = {
 		id,
 		type: "SharedSlice",
@@ -131,13 +135,14 @@ export async function sliceCreate(): Promise<void> {
 		],
 	};
 
-	const slicesDirectory = await getSlicesDirectory();
-	const sliceDirectory = new URL(pascalCase(model.name) + "/", slicesDirectory);
-	const modelPath = new URL("model.json", sliceDirectory);
+	const library = await framework.getDefaultSliceLibrary();
 
 	try {
-		await mkdir(new URL(".", modelPath), { recursive: true });
-		await writeFile(modelPath, stringify(model));
+		const { modelPath } = await framework.createSlice(
+			model as unknown as SharedSliceModel,
+			library,
+		);
+		console.info(`Created slice at ${modelPath.href}`);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to create slice: ${error.message}`);
@@ -148,10 +153,8 @@ export async function sliceCreate(): Promise<void> {
 		return;
 	}
 
-	console.info(`Created slice at ${modelPath.href}`);
-
 	try {
-		await buildTypes({ output: types });
+		await buildTypes({ output: types, framework });
 		console.info(`Updated types in ${types ?? "prismicio-types.d.ts"}`);
 	} catch (error) {
 		console.warn(`Could not generate types: ${error instanceof Error ? error.message : error}`);
@@ -159,45 +162,4 @@ export async function sliceCreate(): Promise<void> {
 
 	console.info();
 	console.info("Next: Add fields with `prismic slice add-field`");
-}
-
-async function getSlicesDirectory(): Promise<URL> {
-	const framework = await detectFramework();
-	const projectRoot = await findUpward("package.json");
-	switch (framework) {
-		case "next": {
-			const hasSrcDir = await exists(new URL("src", projectRoot));
-			if (hasSrcDir) return new URL("src/slices/", projectRoot);
-		}
-		case "nuxt": {
-			const hasAppDir = await exists(new URL("app", projectRoot));
-			if (hasAppDir) return new URL("app/slices/", projectRoot);
-		}
-		case "sveltekit": {
-			return new URL("src/slices/", projectRoot);
-		}
-	}
-	return new URL("slices/", projectRoot);
-}
-
-const PackageJsonSchema = v.object({
-	dependencies: v.optional(v.record(v.string(), v.string())),
-});
-
-type Framework = "next" | "nuxt" | "sveltekit";
-
-async function detectFramework(): Promise<Framework | undefined> {
-	const packageJsonPath = await findUpward("package.json");
-	if (!packageJsonPath) return;
-	try {
-		const contents = await readFile(packageJsonPath, "utf8");
-		const { dependencies = {} } = v.parse(PackageJsonSchema, JSON.parse(contents));
-		if ("next" in dependencies) return "next";
-		if ("nuxt" in dependencies) return "nuxt";
-		if ("@sveltejs/kit" in dependencies) return "sveltekit";
-	} catch {}
-}
-
-function pascalCase(input: string): string {
-	return input.toLowerCase().replace(/(^|[-_\s]+)(.)?/g, (_, __, c) => c?.toUpperCase() ?? "");
 }

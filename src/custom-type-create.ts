@@ -1,11 +1,10 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+import type { CustomTypeModel } from "@prismicio/client";
 
-import { mkdir, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
+import { pascalCase } from "change-case";
 
 import { buildTypes } from "./codegen-types";
-import { findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
+import { requireFramework } from "./lib/framework-adapter";
 
 const HELP = `
 Create a new custom type in a Prismic repository.
@@ -52,6 +51,9 @@ export async function customTypeCreate(): Promise<void> {
 		return;
 	}
 
+	const framework = await requireFramework();
+	if (!framework) return;
+
 	const model = {
 		id,
 		label: name ?? pascalCase(id),
@@ -68,22 +70,10 @@ export async function customTypeCreate(): Promise<void> {
 						},
 					},
 		},
-	} satisfies CustomType;
-
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
-
-	const customTypesDirectory = new URL("customtypes/", projectRoot);
-	const typeDirectory = new URL(id + "/", customTypesDirectory);
-	const modelPath = new URL("index.json", typeDirectory);
+	};
 
 	try {
-		await mkdir(new URL(".", modelPath), { recursive: true });
-		await writeFile(modelPath, stringify(model));
+		await framework.createCustomType(model as unknown as CustomTypeModel);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to create custom type: ${error.message}`);
@@ -94,7 +84,7 @@ export async function customTypeCreate(): Promise<void> {
 		return;
 	}
 
-	console.info(`Created custom type at ${modelPath.href}`);
+	console.info(`Created custom type "${id}"`);
 
 	try {
 		await buildTypes({ output: types });
@@ -105,8 +95,4 @@ export async function customTypeCreate(): Promise<void> {
 
 	console.info();
 	console.info("Next: Add fields with `prismic custom-type add-field`");
-}
-
-export function pascalCase(input: string): string {
-	return input.toLowerCase().replace(/(^|[-_\s]+)(.)?/g, (_, __, c) => c?.toUpperCase() ?? "");
 }

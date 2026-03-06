@@ -319,6 +319,17 @@ async function detectFrameworkId(): Promise<FrameworkId | undefined> {
 	return undefined;
 }
 
+export async function requireFramework(): Promise<FrameworkAdapter | undefined> {
+	const framework = await getFramework();
+	if (!framework) {
+		console.error("No supported framework found (Next.js, Nuxt, or SvelteKit required)");
+		console.error("Ensure your project has the framework listed as a dependency in package.json");
+		process.exitCode = 1;
+		return undefined;
+	}
+	return framework;
+}
+
 export async function getFramework(): Promise<FrameworkAdapter | undefined> {
 	const id = await detectFrameworkId();
 	switch (id) {

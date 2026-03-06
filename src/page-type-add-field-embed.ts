@@ -1,14 +1,12 @@
+import type { CustomTypeModel } from "@prismicio/client";
 import type { CustomType, Embed } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
-import { findUpward } from "./lib/file";
 import { findGroupInTab, isGroupField, parseFieldPath, validateNestedFieldPath } from "./lib/field-path";
 import { type Framework, detectFrameworkInfo } from "./lib/framework";
-import { stringify } from "./lib/json";
+import { requireFramework } from "./lib/framework-adapter";
 import { humanReadable } from "./lib/string";
 
 const HELP = `
@@ -33,15 +31,6 @@ EXAMPLES
   prismic page-type add-field embed homepage youtube --tab "Media"
   prismic page-type add-field embed homepage media --label "Media Embed"
 `.trim();
-
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.string(),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
 
 function getDocsPath(framework: Framework): string {
 	switch (framework) {
@@ -98,39 +87,14 @@ export async function pageTypeAddFieldEmbed(): Promise<void> {
 		return;
 	}
 
-	// Find the page type file
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
+	const framework = await requireFramework();
+	if (!framework) return;
 
-	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
-
-	// Read and parse the model
-	let model: CustomType;
+	let model;
 	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid page type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			console.error(`Page type not found: ${typeId}\n`);
-			console.error(`Create it first with: prismic page-type create ${typeId}`);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read page type: ${error.message}`);
-		} else {
-			console.error("Failed to read page type");
-		}
+		model = await framework.readCustomType(typeId) as unknown as CustomType;
+	} catch {
+		console.error(`Page type not found: ${typeId}\n\nCreate it first with: prismic page-type create ${typeId}`);
 		process.exitCode = 1;
 		return;
 	}
@@ -186,17 +150,7 @@ export async function pageTypeAddFieldEmbed(): Promise<void> {
 	}
 
 	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(model));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update page type: ${error.message}`);
-		} else {
-			console.error("Failed to update page type");
-		}
-		process.exitCode = 1;
-		return;
-	}
+	await framework.updateCustomType(model as unknown as CustomTypeModel);
 
 	if (fieldPath.type === "nested") {
 		console.info(`Added field "${fieldPath.nestedFieldId}" (Embed) to group "${fieldPath.groupId}" in ${typeId}`);

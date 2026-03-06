@@ -6,12 +6,7 @@ import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import {
-	fetchRemoteCustomTypes,
-	fetchRemoteSlices,
-	readLocalCustomTypes,
-	readLocalSlices,
-} from "./lib/custom-types-api";
+import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
 import { exists } from "./lib/file";
 import {
 	type Framework,
@@ -23,6 +18,7 @@ import {
 	getSliceComponentExtensions,
 	getSlicesDirectory,
 } from "./lib/framework";
+import { requireFramework } from "./lib/framework-adapter";
 import { request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 import { getWebhooks } from "./webhook-view";
@@ -311,26 +307,39 @@ export async function status(): Promise<void> {
 		return;
 	}
 
+	// Get framework adapter for reading local models
+	const framework = await requireFramework();
+	if (!framework) return;
+
 	// Gather all status data in parallel
 	const [
 		repoInfoResult,
 		previewsResult,
 		webhooksResult,
-		localTypesResult,
+		localCustomTypeResults,
 		remoteTypesResult,
-		localSlicesResult,
+		localSliceResults,
 		remoteSlicesResult,
 		installedDeps,
 	] = await Promise.all([
 		fetchRepositoryInfo(repo),
 		fetchPreviews(repo),
 		getWebhooks(repo),
-		readLocalCustomTypes(),
+		framework.getCustomTypes(),
 		fetchRemoteCustomTypes(repo),
-		readLocalSlices(),
+		framework.getSlices(),
 		fetchRemoteSlices(repo),
 		getInstalledDependencies(frameworkInfo),
 	]);
+
+	const localTypesResult = {
+		ok: true as const,
+		value: localCustomTypeResults.map((ct) => ct.model as unknown as CustomType),
+	};
+	const localSlicesResult = {
+		ok: true as const,
+		value: localSliceResults.map((s) => s.model as unknown as SharedSlice),
+	};
 
 	// Print repository header
 	const repoUrl = await getRepoUrl(repo);

@@ -1,8 +1,6 @@
-import { readdir, readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { getSlicesDirectory, SharedSliceSchema } from "./lib/slice";
+import { requireFramework } from "./lib/framework-adapter";
 
 const HELP = `
 List all slices in a Prismic project.
@@ -36,37 +34,11 @@ export async function sliceList(): Promise<void> {
 		return;
 	}
 
-	const slicesDirectory = await getSlicesDirectory();
+	const framework = await requireFramework();
+	if (!framework) return;
 
-	let entries: string[];
-	try {
-		entries = (await readdir(slicesDirectory, {
-			withFileTypes: false,
-		})) as unknown as string[];
-	} catch {
-		if (json) {
-			console.info(JSON.stringify([]));
-		} else {
-			console.info("No slices found.");
-		}
-		return;
-	}
-
-	const slices: { id: string; name: string }[] = [];
-
-	for (const entry of entries) {
-		const modelPath = new URL(`${entry}/model.json`, slicesDirectory);
-		try {
-			const contents = await readFile(modelPath, "utf8");
-			const parsed = JSON.parse(contents);
-			const result = v.safeParse(SharedSliceSchema, parsed);
-			if (result.success) {
-				slices.push({ id: result.output.id, name: result.output.name });
-			}
-		} catch {
-			// Skip directories without valid model.json
-		}
-	}
+	const sliceResults = await framework.getSlices();
+	const slices = sliceResults.map((s) => ({ id: s.model.id, name: s.model.name }));
 
 	if (slices.length === 0) {
 		if (json) {
