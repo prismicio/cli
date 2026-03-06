@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/node";
+import * as Sentry from "@sentry/node-core/light";
 
 import packageJson from "../../package.json" with { type: "json" };
 
@@ -56,3 +56,8 @@ export async function captureError(error: unknown): Promise<void> {
 		// Silent failure — never breaks the CLI
 	}
 }
+
+// Re-exports for future devtools-parity integration points
+export const setUser = Sentry.setUser;
+export const setTag = Sentry.setTag;
+export const setContext = Sentry.setContext;
