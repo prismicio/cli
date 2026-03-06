@@ -1,20 +1,16 @@
 import { createHash } from "node:crypto";
+import { setTimeout } from "node:timers/promises";
 import { parseArgs } from "node:util";
 
-import type { PluginSystemRunner } from "@prismicio/plugin-kit";
-
 import { isAuthenticated } from "./lib/auth";
-import { readConfig, safeGetRepositoryFromConfig } from "./lib/config";
-import {
-	fetchRemoteCustomTypes,
-	fetchRemoteSlices,
-} from "./lib/custom-types-api";
-import { findUpward } from "./lib/file";
-import { initPluginSystem } from "./lib/plugin-system";
+import { safeGetRepositoryFromConfig } from "./lib/config";
+import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
+import { type FrameworkAdapter, getFramework } from "./lib/framework-adapter";
 import { trackEnd } from "./lib/segment";
+import { dedent } from "./lib/string";
 
 const HELP = `
-Sync custom types and slices from Prismic to local files.
+Sync slices, page types, and custom types from Prismic to local files.
 
 Remote models are the source of truth. Local files are created, updated,
 or deleted to match.
@@ -28,19 +24,11 @@ FLAGS
   -h, --help          Show help for command
 `.trim();
 
+// 5 seconds balances responsiveness with API load
 const POLL_INTERVAL_MS = 5000;
-const MAX_BACKOFF_MS = 60000;
+const MAX_BACKOFF_MS = 60000; // Cap backoff at 1 minute
 const MAX_CONSECUTIVE_ERRORS = 10;
-const SHUTDOWN_TIMEOUT_MS = 3000;
-
-type SyncResult = {
-	typesCreated: number;
-	typesUpdated: number;
-	typesDeleted: number;
-	slicesCreated: number;
-	slicesUpdated: number;
-	slicesDeleted: number;
-};
+const SHUTDOWN_TIMEOUT_MS = 3000; // Max time to wait for telemetry on shutdown
 
 export async function sync(): Promise<void> {
 	const {
@@ -72,287 +60,204 @@ export async function sync(): Promise<void> {
 		return;
 	}
 
-	// Find project root
-	const packageJsonPath = await findUpward("package.json");
-	if (!packageJsonPath) {
-		console.error("Could not find project root (no package.json found)");
+	const framework = await getFramework();
+	if (!framework) {
+		console.error("Could not detect a supported framework (Next.js, Nuxt, or SvelteKit).");
 		process.exitCode = 1;
 		return;
 	}
-	const projectRoot = new URL(".", packageJsonPath);
-
-	// Read config for adapter and libraries
-	const configResult = await readConfig();
-	const adapter = configResult.ok ? configResult.config.adapter : undefined;
-	const libraries = configResult.ok ? configResult.config.libraries : undefined;
-
-	// Initialize plugin system
-	let runner: PluginSystemRunner;
-	try {
-		runner = await initPluginSystem({
-			projectRoot,
-			repositoryName: repo,
-			adapter,
-			libraries,
-		});
-	} catch (error) {
-		console.error(
-			`Failed to initialize plugin system: ${error instanceof Error ? error.message : error}`,
-		);
-		process.exitCode = 1;
-		return;
-	}
-
-	// Determine libraryID for slice hooks
-	const project = await runner.rawHelpers.getProject();
-	const libraryID = project.config.libraries?.[0] ?? "./slices";
 
 	console.info(`Syncing from repository: ${repo}`);
 
 	if (watch) {
-		await watchForChanges(repo, runner, libraryID);
+		await watchForChanges(repo, framework);
 	} else {
-		const result = await syncModels(repo, runner, libraryID);
-		if (!result) {
-			return;
-		}
+		await syncSlices(repo, framework);
+		await syncCustomTypes(repo, framework);
 
-		const total =
-			result.typesCreated +
-			result.typesUpdated +
-			result.typesDeleted +
-			result.slicesCreated +
-			result.slicesUpdated +
-			result.slicesDeleted;
-
-		console.info(
-			`\nSync complete: ${total} changes (${result.typesCreated + result.slicesCreated} created, ${result.typesUpdated + result.slicesUpdated} updated, ${result.typesDeleted + result.slicesDeleted} deleted)`,
-		);
+		console.info("Sync complete");
 	}
 }
 
-async function syncModels(
-	repo: string,
-	runner: PluginSystemRunner,
-	libraryID: string,
-): Promise<SyncResult | undefined> {
-	// Fetch remote models
-	const [remoteTypesResult, remoteSlicesResult] = await Promise.all([
-		fetchRemoteCustomTypes(repo),
-		fetchRemoteSlices(repo),
-	]);
-
-	if (!remoteTypesResult.ok) {
-		console.error(`Failed to fetch remote custom types: ${remoteTypesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
-
+async function watchForChanges(repo: string, framework: FrameworkAdapter) {
+	const remoteSlicesResult = await fetchRemoteSlices(repo);
 	if (!remoteSlicesResult.ok) {
 		console.error(`Failed to fetch remote slices: ${remoteSlicesResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
+	const initialRemoteSlices = remoteSlicesResult.value;
 
-	// Read local models via plugin system
-	const [localTypes, localSlices] = await Promise.all([
-		runner.rawActions.readAllCustomTypeModels(),
-		runner.rawActions.readAllSliceModels(),
-	]);
-
-	const remoteTypes = remoteTypesResult.value;
-	const remoteSlices = remoteSlicesResult.value;
-
-	const remoteTypesById = new Map(remoteTypes.map((t) => [t.id, t]));
-	const localTypesById = new Map(localTypes.map((t) => [t.model.id, t]));
-	const remoteSlicesById = new Map(remoteSlices.map((s) => [s.id, s]));
-	const localSlicesById = new Map(localSlices.map((s) => [s.model.id, s]));
-
-	let typesUpdated = 0;
-	let typesDeleted = 0;
-	let typesCreated = 0;
-
-	// Update existing custom types
-	for (const remoteType of remoteTypes) {
-		if (localTypesById.has(remoteType.id)) {
-			await runner.callHook("custom-type:update", {
-				model: remoteType,
-			});
-			typesUpdated++;
-		}
-	}
-
-	// Delete local custom types not in remote
-	for (const localType of localTypes) {
-		if (!remoteTypesById.has(localType.model.id)) {
-			await runner.callHook("custom-type:delete", {
-				model: localType.model,
-			});
-			typesDeleted++;
-		}
-	}
-
-	// Create new custom types from remote
-	for (const remoteType of remoteTypes) {
-		if (!localTypesById.has(remoteType.id)) {
-			await runner.callHook("custom-type:create", {
-				model: remoteType,
-			});
-			typesCreated++;
-		}
-	}
-
-	let slicesUpdated = 0;
-	let slicesDeleted = 0;
-	let slicesCreated = 0;
-
-	// Update existing slices
-	for (const remoteSlice of remoteSlices) {
-		if (localSlicesById.has(remoteSlice.id)) {
-			await runner.callHook("slice:update", {
-				libraryID,
-				model: remoteSlice,
-			});
-			slicesUpdated++;
-		}
-	}
-
-	// Delete local slices not in remote
-	for (const localSlice of localSlices) {
-		if (!remoteSlicesById.has(localSlice.model.id)) {
-			await runner.callHook("slice:delete", {
-				libraryID: localSlice.libraryID,
-				model: localSlice.model,
-			});
-			slicesDeleted++;
-		}
-	}
-
-	// Create new slices from remote
-	for (const remoteSlice of remoteSlices) {
-		if (!localSlicesById.has(remoteSlice.id)) {
-			await runner.callHook("slice:create", {
-				libraryID,
-				model: remoteSlice,
-			});
-			slicesCreated++;
-		}
-	}
-
-	return { typesCreated, typesUpdated, typesDeleted, slicesCreated, slicesUpdated, slicesDeleted };
-}
-
-async function watchForChanges(
-	repo: string,
-	runner: PluginSystemRunner,
-	libraryID: string,
-): Promise<void> {
-	// Initial sync
-	const result = await syncModels(repo, runner, libraryID);
-	if (!result) {
+	const remoteCustomTypesResult = await fetchRemoteCustomTypes(repo);
+	if (!remoteCustomTypesResult.ok) {
+		console.error(`Failed to fetch remote custom types: ${remoteCustomTypesResult.error}`);
+		process.exitCode = 1;
 		return;
 	}
+	const initialRemoteCustomTypes = remoteCustomTypesResult.value;
 
-	// Capture initial hashes
-	const [initialTypes, initialSlices] = await Promise.all([
-		fetchRemoteCustomTypes(repo),
-		fetchRemoteSlices(repo),
-	]);
+	await syncSlices(repo, framework);
+	await syncCustomTypes(repo, framework);
 
-	let lastTypesHash = initialTypes.ok ? computeHash(initialTypes.value) : "";
-	let lastSlicesHash = initialSlices.ok ? computeHash(initialSlices.value) : "";
+	console.info(dedent`
+		Initial sync completed!
 
-	console.info("\nInitial sync completed! Now watching for changes...");
-	console.info(`Watching for changes (polling every ${POLL_INTERVAL_MS / 1000}s)...`);
-	console.info("Press Ctrl+C to stop\n");
+		Watching for changes (polling every ${POLL_INTERVAL_MS / 1000}s),
+		Press Ctrl+C to stop
+	`);
 
-	// Graceful shutdown — best-effort telemetry flush before exit
-	const shutdown = async (): Promise<void> => {
-		console.info("\nWatch stopped. Goodbye!");
-
-		await Promise.race([
-			trackEnd("sync", true),
-			new Promise<void>((resolve) => setTimeout(resolve, SHUTDOWN_TIMEOUT_MS)),
-		]);
-
-		process.exit(0);
-	};
-
-	process.on("SIGINT", shutdown);
-	process.on("SIGTERM", shutdown);
-	process.on("SIGHUP", shutdown);
-	process.on("SIGQUIT", shutdown);
-	if (process.platform === "win32") {
-		process.on("SIGBREAK", shutdown);
-	}
+	let lastRemoteSlicesHash = hash(initialRemoteSlices);
+	let lastRemoteCustomTypesHash = hash(initialRemoteCustomTypes);
 
 	let consecutiveErrors = 0;
 
+	// Handle all common termination signals
+	process.on("SIGINT", shutdown); // Ctrl+C
+	process.on("SIGTERM", shutdown); // kill command
+	process.on("SIGHUP", shutdown); // terminal closed
+	process.on("SIGQUIT", shutdown); // Ctrl+\
+	if (process.platform === "win32") {
+		process.on("SIGBREAK", shutdown); // Windows Ctrl+Break
+	}
+
 	while (true) {
-		// Sleep with exponential backoff on errors
-		const delay =
-			consecutiveErrors === 0
-				? POLL_INTERVAL_MS
-				: Math.min(POLL_INTERVAL_MS * Math.pow(2, consecutiveErrors - 1), MAX_BACKOFF_MS);
-		await new Promise<void>((resolve) => setTimeout(resolve, delay));
+		await setTimeout(exponentialMs(consecutiveErrors));
 
 		try {
-			const [remoteTypes, remoteSlices] = await Promise.all([
-				fetchRemoteCustomTypes(repo),
-				fetchRemoteSlices(repo),
-			]);
+			const remoteSlicesResult = await fetchRemoteSlices(repo);
+			if (!remoteSlicesResult.ok) continue;
+			const remoteSlicesHash = hash(remoteSlicesResult.value);
+			const slicesChanged = remoteSlicesHash !== lastRemoteSlicesHash;
 
-			if (!remoteTypes.ok) {
-				throw new Error(`Custom types: ${remoteTypes.error}`);
+			const remoteCustomTypesResult = await fetchRemoteCustomTypes(repo);
+			if (!remoteCustomTypesResult.ok) continue;
+			const remoteCustomTypesHash = hash(remoteCustomTypesResult.value);
+			const customTypesChanged = remoteCustomTypesHash !== lastRemoteCustomTypesHash;
+
+			if (slicesChanged || customTypesChanged) {
+				if (slicesChanged) {
+					await syncSlices(repo, framework);
+					lastRemoteSlicesHash = remoteSlicesHash;
+				}
+				if (customTypesChanged) {
+					await syncCustomTypes(repo, framework);
+					lastRemoteCustomTypesHash = remoteCustomTypesHash;
+				}
 			}
 
-			if (!remoteSlices.ok) {
-				throw new Error(`Slices: ${remoteSlices.error}`);
-			}
-
-			const typesHash = computeHash(remoteTypes.value);
-			const slicesHash = computeHash(remoteSlices.value);
-
-			const typesChanged = typesHash !== lastTypesHash;
-			const slicesChanged = slicesHash !== lastSlicesHash;
-
-			if (typesChanged || slicesChanged) {
-				const timestamp = new Date().toLocaleTimeString();
-				const changes = [typesChanged && "custom types", slicesChanged && "slices"]
-					.filter(Boolean)
-					.join(" and ");
-
-				console.info(`[${timestamp}] Changes detected in ${changes}`);
-
-				await syncModels(repo, runner, libraryID);
-
-				lastTypesHash = typesHash;
-				lastSlicesHash = slicesHash;
-
-				console.info("Changes synced successfully\n");
-			}
-
+			// Reset error count on success
 			consecutiveErrors = 0;
 		} catch (error) {
 			consecutiveErrors++;
 
 			const message = error instanceof Error ? error.message : "Unknown error";
+
 			const nextDelay = Math.min(
 				POLL_INTERVAL_MS * Math.pow(2, consecutiveErrors - 1),
 				MAX_BACKOFF_MS,
 			);
 
-			console.warn(`Error checking for changes: ${message}. Retrying in ${nextDelay / 1000}s...`);
+			console.error(`Error checking for changes: ${message}. Retrying in ${nextDelay / 1000}s...`);
 
 			if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-				throw new Error(
-					`Too many consecutive errors (${MAX_CONSECUTIVE_ERRORS}), stopping watch.`,
-				);
+				throw new Error(`Too many consecutive errors (${MAX_CONSECUTIVE_ERRORS}), stopping watch.`);
 			}
 		}
 	}
 }
 
-function computeHash(data: unknown): string {
+async function syncSlices(repo: string, framework: FrameworkAdapter) {
+	const remoteSlicesResult = await fetchRemoteSlices(repo);
+	if (!remoteSlicesResult.ok) {
+		console.error(`Failed to fetch remote slices: ${remoteSlicesResult.error}`);
+		process.exitCode = 1;
+		return;
+	}
+	const remoteSlices = remoteSlicesResult.value;
+	const localSlices = await framework.getSlices();
+
+	// Handle slices update
+	for (const remoteSlice of remoteSlices) {
+		const localSlice = localSlices.find((slice) => slice.model.id === remoteSlice.id);
+		if (localSlice) {
+			await framework.updateSlice(remoteSlice);
+		}
+	}
+
+	// Handle slices deletion
+	for (const localSlice of localSlices) {
+		const existsRemotely = remoteSlices.some((slice) => slice.id === localSlice.model.id);
+		if (!existsRemotely) {
+			await framework.deleteSlice(localSlice.model.id);
+		}
+	}
+
+	// Handle slices creation
+	const defaultLibrary = await framework.getDefaultSliceLibrary();
+	for (const remoteSlice of remoteSlices) {
+		const existsLocally = localSlices.some((slice) => slice.model.id === remoteSlice.id);
+		if (!existsLocally) {
+			await framework.createSlice(remoteSlice, defaultLibrary);
+		}
+	}
+}
+
+async function syncCustomTypes(repo: string, framework: FrameworkAdapter) {
+	const remoteCustomTypesResult = await fetchRemoteCustomTypes(repo);
+	if (!remoteCustomTypesResult.ok) {
+		console.error(`Failed to fetch remote custom types: ${remoteCustomTypesResult.error}`);
+		process.exitCode = 1;
+		return;
+	}
+	const remoteCustomTypes = remoteCustomTypesResult.value;
+	const localCustomTypes = await framework.getCustomTypes();
+
+	// Handle custom types update
+	for (const remoteCustomType of remoteCustomTypes) {
+		const localCustomType = localCustomTypes.find(
+			(customType) => customType.model.id === remoteCustomType.id,
+		);
+		if (localCustomType) {
+			await framework.updateCustomType(remoteCustomType);
+		}
+	}
+
+	// Handle custom types deletion
+	for (const localCustomType of localCustomTypes) {
+		const existsRemotely = remoteCustomTypes.some(
+			(customType) => customType.id === localCustomType.model.id,
+		);
+		if (!existsRemotely) {
+			await framework.deleteCustomType(localCustomType.model.id);
+		}
+	}
+
+	// Handle custom types creation
+	for (const remoteCustomType of remoteCustomTypes) {
+		const existsLocally = localCustomTypes.some(
+			(customType) => customType.model.id === remoteCustomType.id,
+		);
+		if (!existsLocally) {
+			await framework.createCustomType(remoteCustomType);
+		}
+	}
+}
+
+async function shutdown() {
+	console.info("Watch stopped. Goodbye!");
+
+	// Best-effort telemetry with timeout (don't hang forever if telemetry fails)
+	await Promise.race([trackEnd("sync", true), setTimeout(SHUTDOWN_TIMEOUT_MS)]);
+
+	process.exit(0);
+}
+
+// Exponential backoff: 5s, 10s, 20s, 40s, 60s (capped)
+function exponentialMs(base: number): number {
+	if (base === 0) return POLL_INTERVAL_MS;
+	return Math.min(POLL_INTERVAL_MS * Math.pow(2, base - 1), MAX_BACKOFF_MS);
+}
+
+function hash(data: unknown): string {
 	return createHash("sha256").update(JSON.stringify(data)).digest("hex");
 }
