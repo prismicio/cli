@@ -4,21 +4,8 @@ import { parseArgs } from "node:util";
 
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import {
-	fetchRemoteCustomTypes,
-	fetchRemoteSlices,
-} from "./lib/custom-types-api";
-import {
-	createCustomType,
-	createSlice,
-	deleteCustomType,
-	deleteSlice,
-	getCustomTypes,
-	getDefaultSliceLibrary,
-	getSlices,
-	updateCustomType,
-	updateSlice,
-} from "./lib/nextjs";
+import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
+import { type FrameworkAdapter, getFramework } from "./lib/framework-adapter";
 import { trackEnd } from "./lib/segment";
 import { dedent } from "./lib/string";
 
@@ -73,19 +60,26 @@ export async function sync(): Promise<void> {
 		return;
 	}
 
+	const framework = await getFramework();
+	if (!framework) {
+		console.error("Could not detect a supported framework (Next.js, Nuxt, or SvelteKit).");
+		process.exitCode = 1;
+		return;
+	}
+
 	console.info(`Syncing from repository: ${repo}`);
 
 	if (watch) {
-		await watchForChanges(repo);
+		await watchForChanges(repo, framework);
 	} else {
-		await syncSlices(repo);
-		await syncCustomTypes(repo);
+		await syncSlices(repo, framework);
+		await syncCustomTypes(repo, framework);
 
 		console.info("Sync complete");
 	}
 }
 
-async function watchForChanges(repo: string) {
+async function watchForChanges(repo: string, framework: FrameworkAdapter) {
 	const remoteSlicesResult = await fetchRemoteSlices(repo);
 	if (!remoteSlicesResult.ok) {
 		console.error(`Failed to fetch remote slices: ${remoteSlicesResult.error}`);
@@ -96,16 +90,14 @@ async function watchForChanges(repo: string) {
 
 	const remoteCustomTypesResult = await fetchRemoteCustomTypes(repo);
 	if (!remoteCustomTypesResult.ok) {
-		console.error(
-			`Failed to fetch remote custom types: ${remoteCustomTypesResult.error}`,
-		);
+		console.error(`Failed to fetch remote custom types: ${remoteCustomTypesResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
 	const initialRemoteCustomTypes = remoteCustomTypesResult.value;
 
-	await syncSlices(repo);
-	await syncCustomTypes(repo);
+	await syncSlices(repo, framework);
+	await syncCustomTypes(repo, framework);
 
 	console.info(dedent`
 		Initial sync completed!
@@ -140,16 +132,15 @@ async function watchForChanges(repo: string) {
 			const remoteCustomTypesResult = await fetchRemoteCustomTypes(repo);
 			if (!remoteCustomTypesResult.ok) continue;
 			const remoteCustomTypesHash = hash(remoteCustomTypesResult.value);
-			const customTypesChanged =
-				remoteCustomTypesHash !== lastRemoteCustomTypesHash;
+			const customTypesChanged = remoteCustomTypesHash !== lastRemoteCustomTypesHash;
 
 			if (slicesChanged || customTypesChanged) {
 				if (slicesChanged) {
-					await syncSlices(repo);
+					await syncSlices(repo, framework);
 					lastRemoteSlicesHash = remoteSlicesHash;
 				}
 				if (customTypesChanged) {
-					await syncCustomTypes(repo);
+					await syncCustomTypes(repo, framework);
 					lastRemoteCustomTypesHash = remoteCustomTypesHash;
 				}
 			}
@@ -166,20 +157,16 @@ async function watchForChanges(repo: string) {
 				MAX_BACKOFF_MS,
 			);
 
-			console.error(
-				`Error checking for changes: ${message}. Retrying in ${nextDelay / 1000}s...`,
-			);
+			console.error(`Error checking for changes: ${message}. Retrying in ${nextDelay / 1000}s...`);
 
 			if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-				throw new Error(
-					`Too many consecutive errors (${MAX_CONSECUTIVE_ERRORS}), stopping watch.`,
-				);
+				throw new Error(`Too many consecutive errors (${MAX_CONSECUTIVE_ERRORS}), stopping watch.`);
 			}
 		}
 	}
 }
 
-async function syncSlices(repo: string) {
+async function syncSlices(repo: string, framework: FrameworkAdapter) {
 	const remoteSlicesResult = await fetchRemoteSlices(repo);
 	if (!remoteSlicesResult.ok) {
 		console.error(`Failed to fetch remote slices: ${remoteSlicesResult.error}`);
@@ -187,51 +174,43 @@ async function syncSlices(repo: string) {
 		return;
 	}
 	const remoteSlices = remoteSlicesResult.value;
-	const localSlices = await getSlices();
+	const localSlices = await framework.getSlices();
 
 	// Handle slices update
 	for (const remoteSlice of remoteSlices) {
-		const localSlice = localSlices.find(
-			(slice) => slice.model.id === remoteSlice.id,
-		);
+		const localSlice = localSlices.find((slice) => slice.model.id === remoteSlice.id);
 		if (localSlice) {
-			await updateSlice(remoteSlice);
+			await framework.updateSlice(remoteSlice);
 		}
 	}
 
 	// Handle slices deletion
 	for (const localSlice of localSlices) {
-		const existsRemotely = remoteSlices.some(
-			(slice) => slice.id === localSlice.model.id,
-		);
+		const existsRemotely = remoteSlices.some((slice) => slice.id === localSlice.model.id);
 		if (!existsRemotely) {
-			await deleteSlice(localSlice.model.id);
+			await framework.deleteSlice(localSlice.model.id);
 		}
 	}
 
 	// Handle slices creation
-	const defaultLibrary = await getDefaultSliceLibrary();
+	const defaultLibrary = await framework.getDefaultSliceLibrary();
 	for (const remoteSlice of remoteSlices) {
-		const existsLocally = localSlices.some(
-			(slice) => slice.model.id === remoteSlice.id,
-		);
+		const existsLocally = localSlices.some((slice) => slice.model.id === remoteSlice.id);
 		if (!existsLocally) {
-			await createSlice(remoteSlice, defaultLibrary);
+			await framework.createSlice(remoteSlice, defaultLibrary);
 		}
 	}
 }
 
-async function syncCustomTypes(repo: string) {
+async function syncCustomTypes(repo: string, framework: FrameworkAdapter) {
 	const remoteCustomTypesResult = await fetchRemoteCustomTypes(repo);
 	if (!remoteCustomTypesResult.ok) {
-		console.error(
-			`Failed to fetch remote custom types: ${remoteCustomTypesResult.error}`,
-		);
+		console.error(`Failed to fetch remote custom types: ${remoteCustomTypesResult.error}`);
 		process.exitCode = 1;
 		return;
 	}
 	const remoteCustomTypes = remoteCustomTypesResult.value;
-	const localCustomTypes = await getCustomTypes();
+	const localCustomTypes = await framework.getCustomTypes();
 
 	// Handle custom types update
 	for (const remoteCustomType of remoteCustomTypes) {
@@ -239,7 +218,7 @@ async function syncCustomTypes(repo: string) {
 			(customType) => customType.model.id === remoteCustomType.id,
 		);
 		if (localCustomType) {
-			await updateCustomType(remoteCustomType);
+			await framework.updateCustomType(remoteCustomType);
 		}
 	}
 
@@ -249,7 +228,7 @@ async function syncCustomTypes(repo: string) {
 			(customType) => customType.id === localCustomType.model.id,
 		);
 		if (!existsRemotely) {
-			await deleteCustomType(localCustomType.model.id);
+			await framework.deleteCustomType(localCustomType.model.id);
 		}
 	}
 
@@ -259,7 +238,7 @@ async function syncCustomTypes(repo: string) {
 			(customType) => customType.model.id === remoteCustomType.id,
 		);
 		if (!existsLocally) {
-			await createCustomType(remoteCustomType);
+			await framework.createCustomType(remoteCustomType);
 		}
 	}
 }
