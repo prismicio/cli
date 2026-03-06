@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -10,80 +11,51 @@ const SEGMENT_WRITE_KEY =
 		? "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG"
 		: "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
 const SEGMENT_TRACK_URL = "https://api.segment.io/v1/track";
-const FLUSH_TIMEOUT_MS = 3000;
 
-type SegmentClient = {
-	track: (event: string, properties: Record<string, unknown>) => void;
-	trackAndFlush: (
-		event: string,
-		properties: Record<string, unknown>,
-	) => Promise<void>;
-};
-
-let segment: SegmentClient | undefined;
+let enabled = false;
+let anonymousId = "";
+let authorization = "";
+const appContext = { app: { name: packageJson.name, version: packageJson.version } };
+const eventQueue: Array<{ event: string; properties: Record<string, unknown> }> = [];
 
 export async function initSegment(): Promise<void> {
 	try {
-		const enabled = await isTelemetryEnabled();
+		enabled = await isTelemetryEnabled();
 		if (!enabled) {
-			segment = { track: noop, trackAndFlush: asyncNoop };
 			return;
 		}
 
-		const anonymousId = randomUUID();
-		const authorization = `Basic ${btoa(SEGMENT_WRITE_KEY + ":")}`;
-
-		const send = (
-			event: string,
-			properties: Record<string, unknown>,
-		): Promise<void> => {
-			return fetch(SEGMENT_TRACK_URL, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: authorization,
-				},
-				body: JSON.stringify({
-					anonymousId,
-					event,
-					properties: { nodeVersion: process.versions.node, ...properties },
-					context: {
-						app: { name: packageJson.name, version: packageJson.version },
-					},
-					timestamp: new Date().toISOString(),
-				}),
-			}).then(noop, noop);
-		};
-
-		segment = {
-			track(event, properties) {
-				// Fire-and-forget
-				send(event, properties);
-			},
-			async trackAndFlush(event, properties) {
-				await Promise.race([
-					send(event, properties),
-					new Promise<void>((resolve) => setTimeout(resolve, FLUSH_TIMEOUT_MS)),
-				]);
-			},
-		};
+		anonymousId = randomUUID();
+		authorization = `Basic ${btoa(SEGMENT_WRITE_KEY + ":")}`;
+		process.on("exit", flushTelemetry);
 	} catch {
-		segment = { track: noop, trackAndFlush: asyncNoop };
+		enabled = false;
 	}
 }
 
 export function trackStart(command: string): void {
-	segment?.track("Prismic CLI Start", {
-		commandType: command,
-		fullCommand: process.argv.join(" "),
+	if (!enabled) {
+		return;
+	}
+
+	eventQueue.push({
+		event: "Prismic CLI Start",
+		properties: {
+			commandType: command,
+			fullCommand: process.argv.join(" "),
+		},
 	});
 }
 
-export async function trackEnd(
+export function trackEnd(
 	command: string,
 	success: boolean,
 	error?: unknown,
-): Promise<void> {
+): void {
+	if (!enabled) {
+		return;
+	}
+
 	const properties: Record<string, unknown> = {
 		commandType: command,
 		fullCommand: process.argv.join(" "),
@@ -95,8 +67,51 @@ export async function trackEnd(
 		properties.error = message.slice(0, 512);
 	}
 
-	await segment?.trackAndFlush("Prismic CLI End", properties);
+	eventQueue.push({ event: "Prismic CLI End", properties });
 }
+
+/**
+ * Spawns a detached subprocess to send queued telemetry events.
+ * The main process exits immediately; the subprocess handles HTTP delivery.
+ */
+function flushTelemetry(): void {
+	if (eventQueue.length === 0) {
+		return;
+	}
+
+	try {
+		const payload = Buffer.from(
+			JSON.stringify({
+				url: SEGMENT_TRACK_URL,
+				authorization,
+				events: eventQueue.map((e) => ({
+					anonymousId,
+					event: e.event,
+					properties: { nodeVersion: process.versions.node, ...e.properties },
+					context: appContext,
+					timestamp: new Date().toISOString(),
+				})),
+			}),
+		).toString("base64");
+
+		const child = spawn(
+			process.execPath,
+			["--input-type=module", "-e", FLUSH_SCRIPT, payload],
+			{ detached: true, stdio: "ignore" },
+		);
+		child.unref();
+	} catch {
+		// Silent failure — never breaks the CLI
+	}
+
+	eventQueue.length = 0;
+}
+
+const FLUSH_SCRIPT = `
+const {url, authorization, events} = JSON.parse(Buffer.from(process.argv[1], "base64"));
+const h = {"Content-Type": "application/json", Authorization: authorization};
+await Promise.allSettled(events.map(e => fetch(url, {method: "POST", headers: h, body: JSON.stringify(e)}).catch(() => {})));
+`;
 
 async function isTelemetryEnabled(): Promise<boolean> {
 	try {
@@ -128,6 +143,3 @@ async function readJsonFile(
 		return undefined;
 	}
 }
-
-function noop(): void {}
-async function asyncNoop(): Promise<void> {}
