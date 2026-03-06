@@ -1,5 +1,3 @@
-import type { CustomTypeModel, SharedSliceModel } from "@prismicio/client";
-
 import { pascalCase } from "change-case";
 import { parseArgs } from "node:util";
 
@@ -164,7 +162,7 @@ export async function pull(): Promise<void> {
 
 		for (const ct of customTypes) {
 			try {
-				await framework.updateCustomType(ct as unknown as CustomTypeModel);
+				await framework.updateCustomType(ct);
 				const relativePath = `customtypes/${ct.id}/index.json`;
 				writtenTypes.push(relativePath);
 				if (!json) {
@@ -189,11 +187,10 @@ export async function pull(): Promise<void> {
 
 		for (const slice of slices) {
 			try {
-				const model = slice as unknown as SharedSliceModel;
 				if (existingSliceIds.has(slice.id)) {
-					await framework.updateSlice(model);
+					await framework.updateSlice(slice);
 				} else {
-					await framework.createSlice(model, defaultLibrary);
+					await framework.createSlice(slice, defaultLibrary);
 				}
 				const relativePath = `${getRelativePath(slicesDir)}${pascalCase(slice.name)}/model.json`;
 				writtenSlices.push(relativePath);

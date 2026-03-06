@@ -1,4 +1,3 @@
-import type { CustomTypeModel } from "@prismicio/client";
 import type { CustomType, GeoPoint } from "@prismicio/types-internal/lib/customtypes";
 
 import { parseArgs } from "node:util";
@@ -76,9 +75,9 @@ export async function customTypeAddFieldGeoPoint(): Promise<void> {
 	const framework = await requireFramework();
 	if (!framework) return;
 
-	let model;
+	let model: CustomType;
 	try {
-		model = await framework.readCustomType(typeId) as unknown as CustomType;
+		model = await framework.readCustomType(typeId);
 	} catch {
 		console.error(`Custom type not found: ${typeId}\n\nCreate it first with: prismic custom-type create ${typeId}`);
 		process.exitCode = 1;
@@ -136,7 +135,7 @@ export async function customTypeAddFieldGeoPoint(): Promise<void> {
 
 	// Write updated model
 	try {
-		await framework.updateCustomType(model as unknown as CustomTypeModel);
+		await framework.updateCustomType(model);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update custom type: ${error.message}`);

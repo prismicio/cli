@@ -1,5 +1,4 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-import type { SharedSliceModel } from "@prismicio/client";
 
 import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
@@ -139,7 +138,7 @@ export async function sliceCreate(): Promise<void> {
 
 	try {
 		const { modelPath } = await framework.createSlice(
-			model as unknown as SharedSliceModel,
+			model,
 			library,
 		);
 		console.info(`Created slice at ${modelPath.href}`);

@@ -1,4 +1,4 @@
-import type { CustomTypeModel, SharedSliceModel } from "@prismicio/client";
+import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -32,7 +32,7 @@ export async function initProject(): Promise<void> {
 }
 
 export async function createSlice(
-	model: SharedSliceModel,
+	model: SharedSlice,
 	library: URL,
 ): Promise<{ modelPath: URL; componentPath: URL; indexPath: URL }> {
 	const { modelPath } = await writeSliceModel(model, library);
@@ -42,7 +42,7 @@ export async function createSlice(
 }
 
 async function createSliceComponent(
-	model: SharedSliceModel,
+	model: SharedSlice,
 	library: URL,
 ): Promise<{ componentPath: URL }> {
 	const sliceDirectory = await getSliceDirectory(model.name, library);
@@ -116,13 +116,13 @@ async function checkIsTypeScriptProject() {
 	return isTypeScriptProject;
 }
 
-export async function readSlice(sliceId: string): Promise<SharedSliceModel> {
+export async function readSlice(sliceId: string): Promise<SharedSlice> {
 	const slice = await findSlice(sliceId);
 	return slice.model;
 }
 
 export async function updateSlice(
-	model: SharedSliceModel,
+	model: SharedSlice,
 ): Promise<{ modelPath: URL; indexPath: URL }> {
 	const existingSlice = await findSlice(model.id);
 	const { modelPath } = await writeSliceModel(model, existingSlice.library);
@@ -133,7 +133,7 @@ export async function updateSlice(
 }
 
 export async function renameSlice(
-	model: SharedSliceModel,
+	model: SharedSlice,
 ): Promise<{ modelPath: URL; indexPath: URL }> {
 	const existingSlice = await findSlice(model.id);
 	const newSliceDirectory = await getSliceDirectory(
@@ -191,7 +191,7 @@ async function updateSliceLibraryIndexFile(
 
 async function findSlice(
 	sliceId: string,
-): Promise<{ library: URL; directory: URL; model: SharedSliceModel }> {
+): Promise<{ library: URL; directory: URL; model: SharedSlice }> {
 	const slices = await getSlices();
 	const slice = slices.find((slice) => slice.model.id === sliceId);
 	if (!slice) throw new Error(`No slice found with ID: ${sliceId}`);
@@ -200,12 +200,12 @@ async function findSlice(
 
 export async function getSlices(
 	library?: URL,
-): Promise<{ library: URL; directory: URL; model: SharedSliceModel }[]> {
+): Promise<{ library: URL; directory: URL; model: SharedSlice }[]> {
 	const libraryDirs = library ? [library] : await getSliceLibraries();
 	const allSlices: {
 		library: URL;
 		directory: URL;
-		model: SharedSliceModel;
+		model: SharedSlice;
 	}[] = [];
 
 	for (const libraryDir of libraryDirs) {
@@ -232,7 +232,7 @@ export async function getSlices(
 }
 
 async function writeSliceModel(
-	model: SharedSliceModel,
+	model: SharedSlice,
 	library: URL,
 ): Promise<{ modelPath: URL }> {
 	const sliceDirectory = await getSliceDirectory(model.name, library);
@@ -279,15 +279,15 @@ export async function getDefaultSliceLibrary(): Promise<URL> {
 }
 
 export async function createCustomType(
-	model: CustomTypeModel,
+	model: CustomType,
 ): Promise<{ modelPath: URL }> {
-	const { modelPath } = await writeCustomTypeModel(model);
+	const { modelPath } = await writeCustomType(model);
 	return { modelPath };
 }
 
 export async function readCustomType(
 	customTypeId: string,
-): Promise<CustomTypeModel> {
+): Promise<CustomType> {
 	const customTypeDirectory = await getCustomTypeDirectory(customTypeId);
 	const modelPath = new URL("index.json", customTypeDirectory);
 	const model = await readFile(modelPath, "utf8");
@@ -296,19 +296,19 @@ export async function readCustomType(
 }
 
 export async function updateCustomType(
-	model: CustomTypeModel,
+	model: CustomType,
 ): Promise<{ modelPath: URL }> {
-	const { modelPath } = await writeCustomTypeModel(model);
+	const { modelPath } = await writeCustomType(model);
 	return { modelPath };
 }
 
 export async function renameCustomType(
-	model: CustomTypeModel,
+	model: CustomType,
 ): Promise<{ modelPath: URL }> {
 	const existingCustomTypeDirectory = await getCustomTypeDirectory(model.id);
 	const newCustomTypeDirectory = await getCustomTypeDirectory(model.id);
 	await rename(existingCustomTypeDirectory, newCustomTypeDirectory);
-	const { modelPath } = await writeCustomTypeModel(model);
+	const { modelPath } = await writeCustomType(model);
 	return { modelPath };
 }
 
@@ -321,7 +321,7 @@ export async function deleteCustomType(
 }
 
 export async function getCustomTypes(): Promise<
-	{ directory: URL; model: CustomTypeModel }[]
+	{ directory: URL; model: CustomType }[]
 > {
 	const customTypesDirectory = await getCustomTypesDirectory();
 	const modelGlob = new URL("*/index.json", customTypesDirectory);
@@ -342,8 +342,8 @@ export async function getCustomTypes(): Promise<
 	return customTypes;
 }
 
-async function writeCustomTypeModel(
-	model: CustomTypeModel,
+async function writeCustomType(
+	model: CustomType,
 ): Promise<{ modelPath: URL }> {
 	const customTypeDirectory = await getCustomTypeDirectory(model.id);
 	await mkdir(customTypeDirectory, { recursive: true });
@@ -368,7 +368,7 @@ async function getCustomTypesDirectory() {
 	return customTypesDirectory;
 }
 
-function formatModel(model: CustomTypeModel | SharedSliceModel): string {
+function formatModel(model: CustomType | SharedSlice): string {
 	const formattedModel = stringify(model);
 	return formattedModel;
 }

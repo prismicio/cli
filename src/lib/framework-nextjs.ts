@@ -1,4 +1,4 @@
-import type { SharedSliceModel } from "@prismicio/client";
+import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -35,7 +35,7 @@ export class NextJsFramework extends FrameworkAdapter {
 	}
 
 	async createSliceComponent(
-		model: SharedSliceModel,
+		model: SharedSlice,
 		sliceDirectory: URL,
 	): Promise<{ componentPath: URL }> {
 		const extension = await this.getJsFileExtension();

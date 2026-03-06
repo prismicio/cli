@@ -1,4 +1,4 @@
-import type { CustomTypeModel } from "@prismicio/client";
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
 import { parseArgs } from "node:util";
 
@@ -67,7 +67,7 @@ export async function pageTypeSetRepeatable(): Promise<void> {
 	const framework = await requireFramework();
 	if (!framework) return;
 
-	let model: CustomTypeModel;
+	let model: CustomType;
 	try {
 		model = await framework.readCustomType(typeId);
 	} catch {
@@ -88,7 +88,7 @@ export async function pageTypeSetRepeatable(): Promise<void> {
 
 	// Write updated model
 	try {
-		await framework.updateCustomType(model as unknown as CustomTypeModel);
+		await framework.updateCustomType(model);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update page type: ${error.message}`);

@@ -1,10 +1,9 @@
-import type { CustomTypeModel, SharedSliceModel } from "@prismicio/client";
-
 import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { generateTypes, NON_EDITABLE_FILE_HEADER } from "prismic-ts-codegen";
 
 import type { FrameworkAdapter } from "./lib/framework-adapter";
+
 import { requireFramework } from "./lib/framework-adapter";
 
 const HELP = `
@@ -64,8 +63,8 @@ export async function buildTypes(args?: {
 		framework.getSlices(),
 	]);
 
-	const customTypes = customTypeResults.map((ct) => ct.model as unknown as CustomTypeModel);
-	const slices = sliceResults.map((s) => s.model as unknown as SharedSliceModel);
+	const customTypes = customTypeResults.map((ct) => ct.model);
+	const slices = sliceResults.map((s) => s.model);
 
 	const types = generateTypes({
 		customTypeModels: customTypes,

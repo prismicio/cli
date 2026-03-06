@@ -1,5 +1,4 @@
 import type { Group, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-import type { SharedSliceModel } from "@prismicio/client";
 
 import { parseArgs } from "node:util";
 
@@ -99,7 +98,7 @@ export async function sliceAddFieldGroup(): Promise<void> {
 	const framework = await requireFramework();
 	if (!framework) return;
 
-	let model;
+	let model: SharedSlice;
 	try {
 		model = await framework.readSlice(sliceId);
 	} catch {
@@ -157,7 +156,7 @@ export async function sliceAddFieldGroup(): Promise<void> {
 
 	// Write updated model
 	try {
-		await framework.updateSlice(model as unknown as SharedSliceModel);
+		await framework.updateSlice(model);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update slice: ${error.message}`);

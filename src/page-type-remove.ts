@@ -1,4 +1,4 @@
-import type { CustomTypeModel } from "@prismicio/client";
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
 import { parseArgs } from "node:util";
 
@@ -53,7 +53,7 @@ export async function pageTypeRemove(): Promise<void> {
 	const framework = await requireFramework();
 	if (!framework) return;
 
-	let model: CustomTypeModel;
+	let model: CustomType;
 	try {
 		model = await framework.readCustomType(typeId);
 	} catch {

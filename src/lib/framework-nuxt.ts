@@ -1,4 +1,4 @@
-import type { SharedSliceModel } from "@prismicio/client";
+import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { builders, loadFile, writeFile as magicastWriteFile } from "magicast";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -35,7 +35,7 @@ export class NuxtFramework extends FrameworkAdapter {
 	}
 
 	async createSliceComponent(
-		model: SharedSliceModel,
+		model: SharedSlice,
 		sliceDirectory: URL,
 	): Promise<{ componentPath: URL }> {
 		const componentPath = new URL("index.vue", sliceDirectory);
@@ -57,7 +57,7 @@ export class NuxtFramework extends FrameworkAdapter {
 	}
 
 	protected override async generateSliceLibraryIndexContents(
-		slices: { library: URL; directory: URL; model: SharedSliceModel }[],
+		slices: { library: URL; directory: URL; model: SharedSlice }[],
 	): Promise<string> {
 		const componentLines = await Promise.all(
 			slices.map(async (slice) => {

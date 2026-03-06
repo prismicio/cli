@@ -1,4 +1,4 @@
-import type { SharedSliceModel } from "@prismicio/client";
+import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { parseArgs } from "node:util";
 
@@ -66,7 +66,7 @@ export async function sliceAddVariation(): Promise<void> {
 	const framework = await requireFramework();
 	if (!framework) return;
 
-	let model;
+	let model: SharedSlice;
 	try {
 		model = await framework.readSlice(sliceId);
 	} catch {
@@ -83,7 +83,7 @@ export async function sliceAddVariation(): Promise<void> {
 	}
 
 	// Build new variation
-	let newVariation: SharedSliceModel["variations"][number];
+	let newVariation: SharedSlice["variations"][number];
 
 	if (copyFrom) {
 		const sourceVariation = model.variations.find((v) => v.id === copyFrom);
@@ -120,7 +120,7 @@ export async function sliceAddVariation(): Promise<void> {
 
 	// Write updated model
 	try {
-		await framework.updateSlice(updatedModel as unknown as SharedSliceModel);
+		await framework.updateSlice(updatedModel);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update slice: ${error.message}`);

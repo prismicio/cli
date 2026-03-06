@@ -1,4 +1,4 @@
-import type { SharedSliceModel } from "@prismicio/client";
+import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { parseArgs } from "node:util";
 
@@ -61,7 +61,7 @@ export async function sliceRename(): Promise<void> {
 	const framework = await requireFramework();
 	if (!framework) return;
 
-	let model;
+	let model: SharedSlice;
 	try {
 		model = await framework.readSlice(sliceId);
 	} catch {
@@ -79,10 +79,10 @@ export async function sliceRename(): Promise<void> {
 	// Write updated model (renameSlice handles directory rename)
 	try {
 		if (newId) {
-			await framework.renameSlice(model as unknown as SharedSliceModel);
+			await framework.renameSlice(model);
 			console.info(`Renamed slice "${sliceId}" to "${newId}" (${newName})`);
 		} else {
-			await framework.updateSlice(model as unknown as SharedSliceModel);
+			await framework.updateSlice(model);
 			console.info(`Renamed slice "${sliceId}" to "${newName}"`);
 		}
 	} catch (error) {

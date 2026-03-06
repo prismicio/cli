@@ -1,5 +1,4 @@
-import type { SharedSliceModel } from "@prismicio/client";
-import type { Select } from "@prismicio/types-internal/lib/customtypes";
+import type { Select, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { parseArgs } from "node:util";
 
@@ -106,7 +105,7 @@ export async function sliceAddFieldSelect(): Promise<void> {
 	const framework = await requireFramework();
 	if (!framework) return;
 
-	let model;
+	let model: SharedSlice;
 	try {
 		model = await framework.readSlice(sliceId);
 	} catch {
@@ -192,7 +191,7 @@ export async function sliceAddFieldSelect(): Promise<void> {
 
 	// Write updated model
 	try {
-		await framework.updateSlice(model as unknown as SharedSliceModel);
+		await framework.updateSlice(model);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update slice: ${error.message}`);

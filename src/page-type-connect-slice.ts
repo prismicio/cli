@@ -1,5 +1,5 @@
-import type { CustomTypeModel } from "@prismicio/client";
 import type {
+	CustomType,
 	DynamicSlices,
 	SharedSliceRef,
 } from "@prismicio/types-internal/lib/customtypes";
@@ -76,7 +76,7 @@ export async function pageTypeConnectSlice(): Promise<void> {
 	}
 
 	// Read the page type model
-	let model: CustomTypeModel;
+	let model: CustomType;
 	try {
 		model = await framework.readCustomType(typeId);
 	} catch {
@@ -156,7 +156,7 @@ export async function pageTypeConnectSlice(): Promise<void> {
 
 	// Write updated model
 	try {
-		await framework.updateCustomType(model as unknown as CustomTypeModel);
+		await framework.updateCustomType(model);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update page type: ${error.message}`);

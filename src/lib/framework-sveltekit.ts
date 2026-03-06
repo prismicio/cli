@@ -1,4 +1,4 @@
-import type { SharedSliceModel } from "@prismicio/client";
+import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { loadFile } from "magicast";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -38,7 +38,7 @@ export class SvelteKitFramework extends FrameworkAdapter {
 	}
 
 	async createSliceComponent(
-		model: SharedSliceModel,
+		model: SharedSlice,
 		sliceDirectory: URL,
 	): Promise<{ componentPath: URL }> {
 		const componentPath = new URL("index.svelte", sliceDirectory);

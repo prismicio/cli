@@ -1,5 +1,4 @@
 import type { GeoPoint, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-import type { SharedSliceModel } from "@prismicio/client";
 
 import { parseArgs } from "node:util";
 
@@ -100,7 +99,7 @@ export async function sliceAddFieldGeoPoint(): Promise<void> {
 	const framework = await requireFramework();
 	if (!framework) return;
 
-	let model;
+	let model: SharedSlice;
 	try {
 		model = await framework.readSlice(sliceId);
 	} catch {
@@ -183,7 +182,7 @@ export async function sliceAddFieldGeoPoint(): Promise<void> {
 
 	// Write updated model
 	try {
-		await framework.updateSlice(model as unknown as SharedSliceModel);
+		await framework.updateSlice(model);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update slice: ${error.message}`);

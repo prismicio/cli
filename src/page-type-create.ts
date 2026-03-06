@@ -1,4 +1,4 @@
-import type { CustomTypeModel } from "@prismicio/client";
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
 import { parseArgs } from "node:util";
@@ -113,7 +113,7 @@ export async function pageTypeCreate(): Promise<void> {
 	};
 
 	try {
-		const { modelPath } = await framework.createCustomType(model as unknown as CustomTypeModel);
+		const { modelPath } = await framework.createCustomType(model as CustomType);
 		console.info(`Created page type at ${modelPath.href}`);
 	} catch (error) {
 		if (error instanceof Error) {

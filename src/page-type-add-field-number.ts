@@ -1,4 +1,3 @@
-import type { CustomTypeModel } from "@prismicio/client";
 import type { CustomType, Number as NumberField } from "@prismicio/types-internal/lib/customtypes";
 
 import { parseArgs } from "node:util";
@@ -119,9 +118,9 @@ export async function pageTypeAddFieldNumber(): Promise<void> {
 	const framework = await requireFramework();
 	if (!framework) return;
 
-	let model;
+	let model: CustomType;
 	try {
-		model = await framework.readCustomType(typeId) as unknown as CustomType;
+		model = await framework.readCustomType(typeId);
 	} catch {
 		console.error(`Page type not found: ${typeId}\n\nCreate it first with: prismic page-type create ${typeId}`);
 		process.exitCode = 1;
@@ -182,7 +181,7 @@ export async function pageTypeAddFieldNumber(): Promise<void> {
 	}
 
 	// Write updated model
-	await framework.updateCustomType(model as unknown as CustomTypeModel);
+	await framework.updateCustomType(model);
 
 	if (fieldPath.type === "nested") {
 		console.info(`Added field "${fieldPath.nestedFieldId}" (Number) to group "${fieldPath.groupId}" in ${typeId}`);

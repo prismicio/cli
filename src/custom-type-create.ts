@@ -1,4 +1,4 @@
-import type { CustomTypeModel } from "@prismicio/client";
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
 import { parseArgs } from "node:util";
 import { pascalCase } from "change-case";
@@ -73,7 +73,7 @@ export async function customTypeCreate(): Promise<void> {
 	};
 
 	try {
-		await framework.createCustomType(model as unknown as CustomTypeModel);
+		await framework.createCustomType(model as CustomType);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to create custom type: ${error.message}`);

@@ -1,4 +1,4 @@
-import type { CustomTypeModel, SharedSliceModel } from "@prismicio/client";
+import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -18,7 +18,7 @@ export abstract class FrameworkAdapter {
 	abstract getDependencies(): Promise<Record<string, string>>;
 
 	abstract createSliceComponent(
-		model: SharedSliceModel,
+		model: SharedSlice,
 		sliceDirectory: URL,
 	): Promise<{ componentPath: URL }>;
 
@@ -36,7 +36,7 @@ export abstract class FrameworkAdapter {
 	}
 
 	async createSlice(
-		model: SharedSliceModel,
+		model: SharedSlice,
 		library: URL,
 	): Promise<{ modelPath: URL; componentPath: URL; indexPath: URL }> {
 		const { modelPath } = await this.#writeSliceModel(model, library);
@@ -46,19 +46,19 @@ export abstract class FrameworkAdapter {
 		return { modelPath, componentPath, indexPath };
 	}
 
-	async readSlice(sliceId: string): Promise<SharedSliceModel> {
+	async readSlice(sliceId: string): Promise<SharedSlice> {
 		const slice = await this.#findSlice(sliceId);
 		return slice.model;
 	}
 
-	async updateSlice(model: SharedSliceModel): Promise<{ modelPath: URL; indexPath: URL }> {
+	async updateSlice(model: SharedSlice): Promise<{ modelPath: URL; indexPath: URL }> {
 		const existingSlice = await this.#findSlice(model.id);
 		const { modelPath } = await this.#writeSliceModel(model, existingSlice.library);
 		const { indexPath } = await this.#updateSliceLibraryIndexFile(existingSlice.library);
 		return { modelPath, indexPath };
 	}
 
-	async renameSlice(model: SharedSliceModel): Promise<{ modelPath: URL; indexPath: URL }> {
+	async renameSlice(model: SharedSlice): Promise<{ modelPath: URL; indexPath: URL }> {
 		const existingSlice = await this.#findSlice(model.id);
 		const newSliceDirectory = await this.#getSliceDirectory(model.name, existingSlice.library);
 		await rename(existingSlice.directory, newSliceDirectory);
@@ -76,12 +76,12 @@ export abstract class FrameworkAdapter {
 
 	async getSlices(
 		library?: URL,
-	): Promise<{ library: URL; directory: URL; model: SharedSliceModel }[]> {
+	): Promise<{ library: URL; directory: URL; model: SharedSlice }[]> {
 		const libraryDirs = library ? [library] : await this.#getSliceLibraries();
 		const allSlices: {
 			library: URL;
 			directory: URL;
-			model: SharedSliceModel;
+			model: SharedSlice;
 		}[] = [];
 
 		for (const libraryDir of libraryDirs) {
@@ -112,12 +112,12 @@ export abstract class FrameworkAdapter {
 		return dirs[0];
 	}
 
-	async createCustomType(model: CustomTypeModel): Promise<{ modelPath: URL }> {
-		const { modelPath } = await this.#writeCustomTypeModel(model);
+	async createCustomType(model: CustomType): Promise<{ modelPath: URL }> {
+		const { modelPath } = await this.#writeCustomType(model);
 		return { modelPath };
 	}
 
-	async readCustomType(customTypeId: string): Promise<CustomTypeModel> {
+	async readCustomType(customTypeId: string): Promise<CustomType> {
 		const customTypeDirectory = await this.#getCustomTypeDirectory(customTypeId);
 		const modelPath = new URL("index.json", customTypeDirectory);
 		const model = await readFile(modelPath, "utf8");
@@ -125,16 +125,16 @@ export abstract class FrameworkAdapter {
 		return json;
 	}
 
-	async updateCustomType(model: CustomTypeModel): Promise<{ modelPath: URL }> {
-		const { modelPath } = await this.#writeCustomTypeModel(model);
+	async updateCustomType(model: CustomType): Promise<{ modelPath: URL }> {
+		const { modelPath } = await this.#writeCustomType(model);
 		return { modelPath };
 	}
 
-	async renameCustomType(model: CustomTypeModel): Promise<{ modelPath: URL }> {
+	async renameCustomType(model: CustomType): Promise<{ modelPath: URL }> {
 		const existingCustomTypeDirectory = await this.#getCustomTypeDirectory(model.id);
 		const newCustomTypeDirectory = await this.#getCustomTypeDirectory(model.id);
 		await rename(existingCustomTypeDirectory, newCustomTypeDirectory);
-		const { modelPath } = await this.#writeCustomTypeModel(model);
+		const { modelPath } = await this.#writeCustomType(model);
 		return { modelPath };
 	}
 
@@ -144,7 +144,7 @@ export abstract class FrameworkAdapter {
 		return { customTypeDirectory };
 	}
 
-	async getCustomTypes(): Promise<{ directory: URL; model: CustomTypeModel }[]> {
+	async getCustomTypes(): Promise<{ directory: URL; model: CustomType }[]> {
 		const customTypesDirectory = await this.#getCustomTypesDirectory();
 		const modelGlob = new URL("*/index.json", customTypesDirectory);
 		const customTypeModelPaths = Array.from(
@@ -188,14 +188,14 @@ export abstract class FrameworkAdapter {
 
 	async #findSlice(
 		sliceId: string,
-	): Promise<{ library: URL; directory: URL; model: SharedSliceModel }> {
+	): Promise<{ library: URL; directory: URL; model: SharedSlice }> {
 		const slices = await this.getSlices();
 		const slice = slices.find((slice) => slice.model.id === sliceId);
 		if (!slice) throw new Error(`No slice found with ID: ${sliceId}`);
 		return slice;
 	}
 
-	async #writeSliceModel(model: SharedSliceModel, library: URL): Promise<{ modelPath: URL }> {
+	async #writeSliceModel(model: SharedSlice, library: URL): Promise<{ modelPath: URL }> {
 		const sliceDirectory = await this.#getSliceDirectory(model.name, library);
 		await mkdir(sliceDirectory, { recursive: true });
 		const modelPath = new URL("model.json", sliceDirectory);
@@ -236,7 +236,7 @@ export abstract class FrameworkAdapter {
 	}
 
 	protected async generateSliceLibraryIndexContents(
-		slices: { library: URL; directory: URL; model: SharedSliceModel }[],
+		slices: { library: URL; directory: URL; model: SharedSlice }[],
 	): Promise<string> {
 		const imports = slices.map((slice) => {
 			const componentName = pascalCase(slice.model.name);
@@ -261,7 +261,7 @@ export abstract class FrameworkAdapter {
 		`;
 	}
 
-	async #writeCustomTypeModel(model: CustomTypeModel): Promise<{ modelPath: URL }> {
+	async #writeCustomType(model: CustomType): Promise<{ modelPath: URL }> {
 		const customTypeDirectory = await this.#getCustomTypeDirectory(model.id);
 		await mkdir(customTypeDirectory, { recursive: true });
 		const modelPath = new URL("index.json", customTypeDirectory);
@@ -285,7 +285,7 @@ export abstract class FrameworkAdapter {
 		return customTypesDirectory;
 	}
 
-	#formatModel(model: CustomTypeModel | SharedSliceModel): string {
+	#formatModel(model: CustomType | SharedSlice): string {
 		const formattedModel = stringify(model);
 		return formattedModel;
 	}

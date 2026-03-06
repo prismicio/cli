@@ -1,3 +1,5 @@
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
@@ -51,7 +53,7 @@ export async function customTypeRemove(): Promise<void> {
 	const framework = await requireFramework();
 	if (!framework) return;
 
-	let model;
+	let model: CustomType;
 	try {
 		model = await framework.readCustomType(typeId);
 	} catch {
