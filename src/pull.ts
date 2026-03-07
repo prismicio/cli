@@ -1,13 +1,12 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { pascalCase } from "change-case";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
 import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
-import { findUpward } from "./lib/file";
+import { requireFramework } from "./framework";
 import { stringify } from "./lib/json";
-import { getSlicesDirectory, pascalCase } from "./lib/slice";
 
 const HELP = `
 Pull custom types and slices from Prismic to local files.
@@ -116,6 +115,10 @@ export async function pull(): Promise<void> {
 		}
 	}
 
+	// Get framework adapter
+	const framework = await requireFramework();
+	if (!framework) return;
+
 	// Dry run - just show what would be pulled
 	if (dryRun) {
 		if (json) {
@@ -129,7 +132,7 @@ export async function pull(): Promise<void> {
 				}
 			}
 			if (shouldFetchSlices && slices.length > 0) {
-				const slicesDir = await getSlicesDirectory();
+				const slicesDir = await framework.getDefaultSliceLibrary();
 				const relativeSlicesDir = getRelativePath(slicesDir);
 				console.info("Would write slices:");
 				for (const slice of slices) {
@@ -143,14 +146,10 @@ export async function pull(): Promise<void> {
 		return;
 	}
 
-	// Find project root
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
-	const projectDir = new URL(".", projectRoot);
+	// Get existing local slices to determine create vs update
+	const existingSlices = await framework.getSlices();
+	const existingSliceIds = new Set(existingSlices.map((s) => s.model.id));
+	const defaultLibrary = await framework.getDefaultSliceLibrary();
 
 	const writtenTypes: string[] = [];
 	const writtenSlices: string[] = [];
@@ -160,15 +159,10 @@ export async function pull(): Promise<void> {
 		if (!json) {
 			console.info("\nWriting custom types:");
 		}
-		const customTypesDir = new URL("customtypes/", projectDir);
 
 		for (const ct of customTypes) {
-			const typeDir = new URL(`${ct.id}/`, customTypesDir);
-			const modelPath = new URL("index.json", typeDir);
-
 			try {
-				await mkdir(typeDir, { recursive: true });
-				await writeFile(modelPath, stringify(ct));
+				await framework.updateCustomType(ct);
 				const relativePath = `customtypes/${ct.id}/index.json`;
 				writtenTypes.push(relativePath);
 				if (!json) {
@@ -189,15 +183,15 @@ export async function pull(): Promise<void> {
 		if (!json) {
 			console.info("\nWriting slices:");
 		}
-		const slicesDir = await getSlicesDirectory();
+		const slicesDir = await framework.getDefaultSliceLibrary();
 
 		for (const slice of slices) {
-			const sliceDir = new URL(`${pascalCase(slice.name)}/`, slicesDir);
-			const modelPath = new URL("model.json", sliceDir);
-
 			try {
-				await mkdir(sliceDir, { recursive: true });
-				await writeFile(modelPath, stringify(slice));
+				if (existingSliceIds.has(slice.id)) {
+					await framework.updateSlice(slice);
+				} else {
+					await framework.createSlice(slice, defaultLibrary);
+				}
 				const relativePath = `${getRelativePath(slicesDir)}${pascalCase(slice.name)}/model.json`;
 				writtenSlices.push(relativePath);
 				if (!json) {
@@ -224,7 +218,7 @@ export async function pull(): Promise<void> {
 
 	if (!json) {
 		try {
-			await buildTypes({ output: types });
+			await buildTypes({ output: types, framework });
 			console.info(`Updated types in ${types ?? "prismicio-types.d.ts"}`);
 		} catch (error) {
 			console.warn(`Could not generate types: ${error instanceof Error ? error.message : error}`);

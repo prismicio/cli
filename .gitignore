@@ -1,7 +1,6 @@
 # custom
 *.tgz
 dist
-packages/*/dist
 examples/**/package-lock.json
 prismic.config.json
 TODO.md

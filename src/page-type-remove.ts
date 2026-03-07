@@ -1,11 +1,9 @@
 import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile, rm } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
-import { findUpward } from "./lib/file";
+import { requireFramework } from "./framework";
 
 const HELP = `
 Remove a page type from the project.
@@ -25,15 +23,6 @@ EXAMPLES
   prismic page-type remove homepage
   prismic page-type remove homepage -y
 `.trim();
-
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.optional(v.string()),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
 
 export async function pageTypeRemove(): Promise<void> {
 	const {
@@ -61,38 +50,14 @@ export async function pageTypeRemove(): Promise<void> {
 		return;
 	}
 
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
+	const framework = await requireFramework();
+	if (!framework) return;
 
-	const typeDirectory = new URL(`customtypes/${typeId}/`, projectRoot);
-	const modelPath = new URL("index.json", typeDirectory);
-
-	// Verify the page type exists and is actually a page type
 	let model: CustomType;
 	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid page type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			console.error(`Page type not found: ${typeId}`);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read page type: ${error.message}`);
-		} else {
-			console.error("Failed to read page type");
-		}
+		model = await framework.readCustomType(typeId);
+	} catch {
+		console.error(`Page type not found: ${typeId}\n\nCreate it first with: prismic page-type create ${typeId}`);
 		process.exitCode = 1;
 		return;
 	}
@@ -116,7 +81,7 @@ export async function pageTypeRemove(): Promise<void> {
 
 	// Delete the page type directory
 	try {
-		await rm(typeDirectory, { recursive: true });
+		await framework.deleteCustomType(typeId);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to remove page type: ${error.message}`);

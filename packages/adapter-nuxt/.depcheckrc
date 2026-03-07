@@ -1,8 +1,0 @@
-ignores:
-  [
-    "prettier-plugin-jsdoc",
-    "@trivago/prettier-plugin-sort-imports",
-    "typescript",
-    "nuxt",
-  ]
-skip - missing: true

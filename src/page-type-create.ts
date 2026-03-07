@@ -1,12 +1,10 @@
 import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { pascalCase } from "change-case";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { findUpward } from "./lib/file";
-import { type Framework, detectFrameworkInfo } from "./lib/framework";
-import { stringify } from "./lib/json";
+import { getDocsPath, requireFramework } from "./framework";
 
 const HELP = `
 Create a new page type in a Prismic repository.
@@ -26,21 +24,6 @@ FLAGS
 LEARN MORE
   Use \`prismic page-type <command> --help\` for more information about a command.
 `.trim();
-
-function getDocsPath(framework: Framework): string {
-	switch (framework) {
-		case "next":
-			return "nextjs/with-cli";
-		case "nuxt":
-			return "nuxt/with-cli";
-		case "sveltekit":
-			return "sveltekit/with-cli";
-	}
-}
-
-function getWritePageComponentsAnchor(_framework: Framework): string {
-	return "#write-page-components";
-}
 
 export async function pageTypeCreate(): Promise<void> {
 	const {
@@ -67,6 +50,9 @@ export async function pageTypeCreate(): Promise<void> {
 		process.exitCode = 1;
 		return;
 	}
+
+	const framework = await requireFramework();
+	if (!framework) return;
 
 	const model = {
 		id,
@@ -108,22 +94,11 @@ export async function pageTypeCreate(): Promise<void> {
 				},
 			},
 		},
-	} satisfies CustomType;
-
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
-
-	const customTypesDirectory = new URL("customtypes/", projectRoot);
-	const typeDirectory = new URL(id + "/", customTypesDirectory);
-	const modelPath = new URL("index.json", typeDirectory);
+	};
 
 	try {
-		await mkdir(new URL(".", modelPath), { recursive: true });
-		await writeFile(modelPath, stringify(model));
+		const { modelPath } = await framework.createCustomType(model as CustomType);
+		console.info(`Created page type at ${modelPath.href}`);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to create page type: ${error.message}`);
@@ -133,8 +108,6 @@ export async function pageTypeCreate(): Promise<void> {
 		process.exitCode = 1;
 		return;
 	}
-
-	console.info(`Created page type at ${modelPath.href}`);
 
 	try {
 		await buildTypes({ output: types });
@@ -146,16 +119,10 @@ export async function pageTypeCreate(): Promise<void> {
 	console.info();
 	console.info("Next: Add fields with `prismic page-type add-field`");
 
-	const frameworkInfo = await detectFrameworkInfo();
-	if (frameworkInfo?.framework) {
-		const docsPath = getDocsPath(frameworkInfo.framework);
-		const anchor = getWritePageComponentsAnchor(frameworkInfo.framework);
+	if (framework) {
+		const docsPath = getDocsPath(framework.id);
 		console.info(
-			`      Run \`prismic docs fetch ${docsPath}${anchor}\` to learn how to implement a page file`,
+			`      Run \`prismic docs fetch ${docsPath}#write-page-components\` to learn how to implement a page file`,
 		);
 	}
-}
-
-export function pascalCase(input: string): string {
-	return input.toLowerCase().replace(/(^|[-_\s]+)(.)?/g, (_, __, c) => c?.toUpperCase() ?? "");
 }

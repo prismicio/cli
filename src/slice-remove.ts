@@ -1,8 +1,7 @@
-import { rm } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { findSliceModel } from "./lib/slice";
+import { requireFramework } from "./framework";
 
 const HELP = `
 Remove a slice from the project.
@@ -49,15 +48,17 @@ export async function sliceRemove(): Promise<void> {
 		return;
 	}
 
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const framework = await requireFramework();
+	if (!framework) return;
+
+	// Verify the slice exists
+	try {
+		await framework.readSlice(sliceId);
+	} catch {
+		console.error(`Slice not found: ${sliceId}\n\nCreate it first with: prismic slice create ${sliceId}`);
 		process.exitCode = 1;
 		return;
 	}
-
-	const { modelPath } = result;
-	const sliceDirectory = new URL(".", modelPath);
 
 	// Require -y flag to confirm deletion
 	if (!y) {
@@ -69,7 +70,7 @@ export async function sliceRemove(): Promise<void> {
 
 	// Delete the slice directory
 	try {
-		await rm(sliceDirectory, { recursive: true });
+		await framework.deleteSlice(sliceId);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to remove slice: ${error.message}`);
@@ -83,7 +84,7 @@ export async function sliceRemove(): Promise<void> {
 	console.info(`Removed slice "${sliceId}"`);
 
 	try {
-		await buildTypes({ output: types });
+		await buildTypes({ output: types, framework });
 		console.info(`Updated types in ${types ?? "prismicio-types.d.ts"}`);
 	} catch (error) {
 		console.warn(`Could not generate types: ${error instanceof Error ? error.message : error}`);

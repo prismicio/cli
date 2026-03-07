@@ -6,23 +6,16 @@ import * as v from "valibot";
 
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import {
-	fetchRemoteCustomTypes,
-	fetchRemoteSlices,
-	readLocalCustomTypes,
-	readLocalSlices,
-} from "./lib/custom-types-api";
+import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
 import { exists } from "./lib/file";
 import {
-	type Framework,
-	type FrameworkInfo,
-	detectFrameworkInfo,
-	getClientFilePath,
-	getRequiredDependencies,
-	getRoutePath,
-	getSliceComponentExtensions,
-	getSlicesDirectory,
-} from "./lib/framework";
+	type FrameworkAdapter,
+	getClientSetupAnchor,
+	getDocsPath,
+	getPreviewSetupAnchor,
+	getWriteComponentsAnchor,
+	requireFramework,
+} from "./framework";
 import { request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
 import { getWebhooks } from "./webhook-view";
@@ -67,61 +60,17 @@ type StatusSection = {
 	nextSteps?: NextStep[];
 };
 
-function getDocsPath(framework: Framework | undefined): string {
-	switch (framework) {
-		case "next":
-			return "nextjs/with-cli";
-		case "nuxt":
-			return "nuxt/with-cli";
-		case "sveltekit":
-			return "sveltekit/with-cli";
-		default:
-			return "";
-	}
-}
-
 function getDocsRef(docsPath: string, anchor?: string): string {
 	if (!docsPath) return "";
 	const fullPath = anchor ? `${docsPath}${anchor}` : docsPath;
 	return `\`prismic docs fetch ${fullPath}\``;
 }
 
-function getClientSetupAnchor(framework: Framework | undefined): string {
-	switch (framework) {
-		case "nuxt":
-			return "#configure-the-modules-prismic-client";
-		default:
-			return "#set-up-a-prismic-client";
-	}
-}
-
-function getPreviewSetupAnchor(framework: Framework | undefined): string {
-	switch (framework) {
-		case "next":
-			return "#set-up-previews-in-next-js";
-		case "sveltekit":
-			return "#set-up-previews-in-sveltekit";
-		default:
-			return "";
-	}
-}
-
-function getWriteComponentsAnchor(framework: Framework | undefined): string {
-	switch (framework) {
-		case "nuxt":
-			return "#write-vue-components";
-		case "sveltekit":
-			return "#write-svelte-components";
-		default:
-			return "#write-react-components";
-	}
-}
-
 // Next-step builder functions
 
-function buildSetupNextSteps(items: StatusItem[], frameworkInfo: FrameworkInfo): NextStep[] {
+function buildSetupNextSteps(items: StatusItem[], framework: FrameworkAdapter): NextStep[] {
 	const nextSteps: NextStep[] = [];
-	const docsPath = getDocsPath(frameworkInfo.framework);
+	const docsPath = getDocsPath(framework.id);
 
 	// Missing dependencies
 	const missingDeps = items.filter((i) => !i.done && i.hint === "not installed");
@@ -135,7 +84,7 @@ function buildSetupNextSteps(items: StatusItem[], frameworkInfo: FrameworkInfo):
 	// Missing client file
 	const missingClientFile = items.find((i) => !i.done && i.hint?.includes("client"));
 	if (missingClientFile) {
-		const docsRef = getDocsRef(docsPath, getClientSetupAnchor(frameworkInfo.framework));
+		const docsRef = getDocsRef(docsPath, getClientSetupAnchor(framework.id));
 		nextSteps.push({
 			action: `Create Prismic client file: Run ${docsRef} and create the file as shown`,
 		});
@@ -169,13 +118,13 @@ function buildSlicesNextSteps(
 	statuses: TypeWithStatus[],
 	missingComponents: string[],
 	slicesReadyToConnect: string[],
-	frameworkInfo: FrameworkInfo,
+	framework: FrameworkAdapter,
 ): NextStep[] {
 	const nextSteps: NextStep[] = [];
-	const docsPath = getDocsPath(frameworkInfo.framework);
+	const docsPath = getDocsPath(framework.id);
 
 	if (missingComponents.length > 0) {
-		const docsRef = getDocsRef(docsPath, getWriteComponentsAnchor(frameworkInfo.framework));
+		const docsRef = getDocsRef(docsPath, getWriteComponentsAnchor(framework.id));
 		nextSteps.push({
 			action: `Implement slice components: Run ${docsRef} and create each component file`,
 		});
@@ -208,9 +157,9 @@ function buildSlicesNextSteps(
 	return nextSteps;
 }
 
-function buildPreviewNextSteps(items: StatusItem[], frameworkInfo: FrameworkInfo): NextStep[] {
+function buildPreviewNextSteps(items: StatusItem[], framework: FrameworkAdapter): NextStep[] {
 	const nextSteps: NextStep[] = [];
-	const docsPath = getDocsPath(frameworkInfo.framework);
+	const docsPath = getDocsPath(framework.id);
 
 	// Check for missing /slice-simulator route
 	const sliceSimRoute = items.find((i) => i.label === "/slice-simulator route" && !i.done);
@@ -233,7 +182,7 @@ function buildPreviewNextSteps(items: StatusItem[], frameworkInfo: FrameworkInfo
 	const apiPreview = items.find((i) => i.label === "/api/preview endpoint" && !i.done);
 	const exitPreview = items.find((i) => i.label === "/api/exit-preview endpoint" && !i.done);
 	if (apiPreview || exitPreview) {
-		const docsRef = getDocsRef(docsPath, getPreviewSetupAnchor(frameworkInfo.framework));
+		const docsRef = getDocsRef(docsPath, getPreviewSetupAnchor(framework.id));
 		nextSteps.push({
 			action: `Create preview endpoints: Run ${docsRef} and create the endpoint files as shown`,
 		});
@@ -250,9 +199,9 @@ function buildPreviewNextSteps(items: StatusItem[], frameworkInfo: FrameworkInfo
 	return nextSteps;
 }
 
-function buildDeploymentNextSteps(items: StatusItem[], frameworkInfo: FrameworkInfo): NextStep[] {
+function buildDeploymentNextSteps(items: StatusItem[], framework: FrameworkAdapter): NextStep[] {
 	const nextSteps: NextStep[] = [];
-	const docsPath = getDocsPath(frameworkInfo.framework);
+	const docsPath = getDocsPath(framework.id);
 
 	// Check for missing /api/revalidate endpoint
 	const revalidateEndpoint = items.find((i) => i.label === "/api/revalidate endpoint" && !i.done);
@@ -304,33 +253,41 @@ export async function status(): Promise<void> {
 		return;
 	}
 
-	const frameworkInfo = await detectFrameworkInfo();
-	if (!frameworkInfo) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
+	// Get framework adapter for reading local models
+	const framework = await requireFramework();
+	if (!framework) return;
+
+	const projectRoot = await framework.getProjectRoot();
 
 	// Gather all status data in parallel
 	const [
 		repoInfoResult,
 		previewsResult,
 		webhooksResult,
-		localTypesResult,
+		localCustomTypeResults,
 		remoteTypesResult,
-		localSlicesResult,
+		localSliceResults,
 		remoteSlicesResult,
 		installedDeps,
 	] = await Promise.all([
 		fetchRepositoryInfo(repo),
 		fetchPreviews(repo),
 		getWebhooks(repo),
-		readLocalCustomTypes(),
+		framework.getCustomTypes(),
 		fetchRemoteCustomTypes(repo),
-		readLocalSlices(),
+		framework.getSlices(),
 		fetchRemoteSlices(repo),
-		getInstalledDependencies(frameworkInfo),
+		getInstalledDependencies(projectRoot),
 	]);
+
+	const localTypesResult = {
+		ok: true as const,
+		value: localCustomTypeResults.map((ct) => ct.model as unknown as CustomType),
+	};
+	const localSlicesResult = {
+		ok: true as const,
+		value: localSliceResults.map((s) => s.model as unknown as SharedSlice),
+	};
 
 	// Print repository header
 	const repoUrl = await getRepoUrl(repo);
@@ -341,8 +298,8 @@ export async function status(): Promise<void> {
 	const sections: StatusSection[] = [];
 
 	// Setup section
-	const setupSection = await buildSetupSection(frameworkInfo, installedDeps);
-	setupSection.nextSteps = buildSetupNextSteps(setupSection.items, frameworkInfo);
+	const setupSection = await buildSetupSection(framework, installedDeps);
+	setupSection.nextSteps = buildSetupNextSteps(setupSection.items, framework);
 	sections.push(setupSection);
 
 	// Types sections (Page Types and Custom Types)
@@ -367,34 +324,34 @@ export async function status(): Promise<void> {
 		} = await buildSlicesSection(
 			localSlicesResult.value,
 			remoteSlicesResult.value,
-			frameworkInfo,
+			framework,
 			localTypesResult.ok ? localTypesResult.value : [],
 		);
 		slicesSection.nextSteps = buildSlicesNextSteps(
 			statuses,
 			missingComponents,
 			slicesReadyToConnect,
-			frameworkInfo,
+			framework,
 		);
 		sections.push(slicesSection);
 	}
 
 	// Preview section
 	const previewSection = await buildPreviewSection(
-		frameworkInfo,
+		framework,
 		previewsResult.ok ? previewsResult.value : undefined,
 		repoInfoResult.ok ? repoInfoResult.value.simulator_url : undefined,
 	);
-	previewSection.nextSteps = buildPreviewNextSteps(previewSection.items, frameworkInfo);
+	previewSection.nextSteps = buildPreviewNextSteps(previewSection.items, framework);
 	sections.push(previewSection);
 
 	// Deployment section (Next.js only)
-	if (frameworkInfo.framework === "next") {
+	if (framework.id === "next") {
 		const deploymentSection = await buildDeploymentSection(
-			frameworkInfo,
+			framework,
 			webhooksResult.ok ? webhooksResult.value : [],
 		);
-		deploymentSection.nextSteps = buildDeploymentNextSteps(deploymentSection.items, frameworkInfo);
+		deploymentSection.nextSteps = buildDeploymentNextSteps(deploymentSection.items, framework);
 		sections.push(deploymentSection);
 	}
 
@@ -490,8 +447,8 @@ const PackageJsonSchema = v.object({
 	devDependencies: v.optional(v.record(v.string(), v.string())),
 });
 
-async function getInstalledDependencies(info: FrameworkInfo): Promise<Set<string>> {
-	const packageJsonPath = new URL("package.json", info.projectRoot);
+async function getInstalledDependencies(projectRoot: URL): Promise<Set<string>> {
+	const packageJsonPath = new URL("package.json", projectRoot);
 	try {
 		const contents = await readFile(packageJsonPath, "utf8");
 		const { dependencies = {}, devDependencies = {} } = v.parse(
@@ -506,13 +463,13 @@ async function getInstalledDependencies(info: FrameworkInfo): Promise<Set<string
 
 // Setup Section
 async function buildSetupSection(
-	info: FrameworkInfo,
+	framework: FrameworkAdapter,
 	installedDeps: Set<string>,
 ): Promise<StatusSection> {
 	const items: StatusItem[] = [];
 
 	// Check required dependencies
-	const requiredDeps = getRequiredDependencies(info.framework);
+	const requiredDeps = Object.keys(await framework.getDependencies());
 	for (const dep of requiredDeps) {
 		items.push({
 			done: installedDeps.has(dep),
@@ -522,17 +479,18 @@ async function buildSetupSection(
 	}
 
 	// Check client file
-	const clientFilePath = getClientFilePath(info);
+	const projectRoot = await framework.getProjectRoot();
+	const clientFilePath = await framework.getClientFilePath();
 	if (clientFilePath) {
-		const clientFileExists = await exists(new URL(clientFilePath, info.projectRoot));
+		const clientFileExists = await exists(new URL(clientFilePath, projectRoot));
 		items.push({
 			done: clientFileExists,
 			label: clientFilePath,
 			hint: clientFileExists ? undefined : "create Prismic client file",
 		});
-	} else if (info.framework === "nuxt") {
+	} else if (framework.id === "nuxt") {
 		// Check nuxt.config.ts for prismic config
-		const nuxtConfigExists = await checkNuxtPrismicConfig(info);
+		const nuxtConfigExists = await checkNuxtPrismicConfig(projectRoot);
 		items.push({
 			done: nuxtConfigExists,
 			label: "nuxt.config.ts",
@@ -543,8 +501,8 @@ async function buildSetupSection(
 	return { title: "Setup", items };
 }
 
-async function checkNuxtPrismicConfig(info: FrameworkInfo): Promise<boolean> {
-	const configPath = new URL("nuxt.config.ts", info.projectRoot);
+async function checkNuxtPrismicConfig(projectRoot: URL): Promise<boolean> {
+	const configPath = new URL("nuxt.config.ts", projectRoot);
 	try {
 		const contents = await readFile(configPath, "utf8");
 		return contents.includes("@nuxtjs/prismic") || contents.includes("prismic:");
@@ -680,7 +638,7 @@ function isSliceConnectedToAnyType(sliceId: string, localTypes: CustomType[]): b
 async function buildSlicesSection(
 	localSlices: SharedSlice[],
 	remoteSlices: SharedSlice[],
-	info: FrameworkInfo,
+	framework: FrameworkAdapter,
 	localTypes: CustomType[],
 ): Promise<{
 	section: StatusSection;
@@ -693,8 +651,9 @@ async function buildSlicesSection(
 	const missingComponents: string[] = [];
 	const slicesReadyToConnect: string[] = [];
 
-	const slicesDir = getSlicesDirectory(info);
-	const extensions = getSliceComponentExtensions(info.framework);
+	const projectRoot = await framework.getProjectRoot();
+	const slicesDir = await framework.getSlicesDirectoryPath();
+	const extensions = framework.getSliceComponentExtensions();
 
 	for (const slice of sliceStatuses) {
 		const localSlice = localSlices.find((s) => s.id === slice.id);
@@ -711,7 +670,7 @@ async function buildSlicesSection(
 		}
 
 		// Check if component is implemented
-		const componentExists = await checkSliceComponent(info, slicesDir, slice.id, extensions);
+		const componentExists = await checkSliceComponent(projectRoot, slicesDir, slice.id, extensions);
 
 		if (slice.status === "in_sync" && componentExists) {
 			items.push({
@@ -744,7 +703,7 @@ async function buildSlicesSection(
 }
 
 async function checkSliceComponent(
-	info: FrameworkInfo,
+	projectRoot: URL,
 	slicesDir: string,
 	sliceId: string,
 	extensions: string[],
@@ -753,7 +712,7 @@ async function checkSliceComponent(
 	const sliceName = pascalCase(sliceId);
 
 	for (const ext of extensions) {
-		const componentPath = new URL(`${slicesDir}${sliceName}/index${ext}`, info.projectRoot);
+		const componentPath = new URL(`${slicesDir}${sliceName}/index${ext}`, projectRoot);
 		if (await exists(componentPath)) {
 			return true;
 		}
@@ -767,11 +726,12 @@ function pascalCase(input: string): string {
 
 // Preview Section
 async function buildPreviewSection(
-	info: FrameworkInfo,
+	framework: FrameworkAdapter,
 	previews: Preview[] | undefined,
 	simulatorUrl: string | undefined,
 ): Promise<StatusSection> {
 	const items: StatusItem[] = [];
+	const projectRoot = await framework.getProjectRoot();
 
 	// Check simulator URL configured
 	items.push({
@@ -781,9 +741,9 @@ async function buildPreviewSection(
 	});
 
 	// Check slice-simulator route
-	const sliceSimRoute = getRoutePath(info, "/slice-simulator");
+	const sliceSimRoute = await framework.getRoutePath("/slice-simulator");
 	if (sliceSimRoute) {
-		const routeExists = await checkRouteExists(info, sliceSimRoute);
+		const routeExists = await checkRouteExists(projectRoot, sliceSimRoute);
 		items.push({
 			done: routeExists,
 			label: "/slice-simulator route",
@@ -800,10 +760,10 @@ async function buildPreviewSection(
 	});
 
 	// Check /api/preview endpoint (skip for Nuxt - built-in)
-	if (info.framework !== "nuxt") {
-		const previewRoute = getRoutePath(info, "/api/preview");
+	if (framework.id !== "nuxt") {
+		const previewRoute = await framework.getRoutePath("/api/preview");
 		if (previewRoute) {
-			const routeExists = await checkRouteExists(info, previewRoute);
+			const routeExists = await checkRouteExists(projectRoot, previewRoute);
 			items.push({
 				done: routeExists,
 				label: "/api/preview endpoint",
@@ -813,10 +773,10 @@ async function buildPreviewSection(
 	}
 
 	// Check /api/exit-preview endpoint (Next.js only)
-	if (info.framework === "next") {
-		const exitPreviewRoute = getRoutePath(info, "/api/exit-preview");
+	if (framework.id === "next") {
+		const exitPreviewRoute = await framework.getRoutePath("/api/exit-preview");
 		if (exitPreviewRoute) {
-			const routeExists = await checkRouteExists(info, exitPreviewRoute);
+			const routeExists = await checkRouteExists(projectRoot, exitPreviewRoute);
 			items.push({
 				done: routeExists,
 				label: "/api/exit-preview endpoint",
@@ -829,11 +789,11 @@ async function buildPreviewSection(
 }
 
 async function checkRouteExists(
-	info: FrameworkInfo,
+	projectRoot: URL,
 	route: { path: string; extensions: string[] },
 ): Promise<boolean> {
 	for (const ext of route.extensions) {
-		const fullPath = new URL(`${route.path}${ext}`, info.projectRoot);
+		const fullPath = new URL(`${route.path}${ext}`, projectRoot);
 		if (await exists(fullPath)) {
 			return true;
 		}
@@ -843,15 +803,16 @@ async function checkRouteExists(
 
 // Deployment Section (Next.js only)
 async function buildDeploymentSection(
-	info: FrameworkInfo,
+	framework: FrameworkAdapter,
 	webhooks: Array<{ config: { url: string; active: boolean } }>,
 ): Promise<StatusSection> {
 	const items: StatusItem[] = [];
+	const projectRoot = await framework.getProjectRoot();
 
 	// Check /api/revalidate endpoint
-	const revalidateRoute = getRoutePath(info, "/api/revalidate");
+	const revalidateRoute = await framework.getRoutePath("/api/revalidate");
 	if (revalidateRoute) {
-		const routeExists = await checkRouteExists(info, revalidateRoute);
+		const routeExists = await checkRouteExists(projectRoot, revalidateRoute);
 		items.push({
 			done: routeExists,
 			label: "/api/revalidate endpoint",

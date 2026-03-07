@@ -145,10 +145,10 @@ if (version) {
 			}
 		}
 
-		await trackEnd(command, process.exitCode !== 1);
+		trackEnd(command, process.exitCode !== 1);
 	} catch (error) {
 		await captureError(error);
-		await trackEnd(command, false, error);
+		trackEnd(command, false, error);
 		process.exitCode = 1;
 		throw error;
 	}

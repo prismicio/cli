@@ -1,14 +1,10 @@
 import type { Color, CustomType } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
-import { findUpward } from "./lib/file";
 import { findGroupInTab, isGroupField, parseFieldPath, validateNestedFieldPath } from "./lib/field-path";
-import { type Framework, detectFrameworkInfo } from "./lib/framework";
-import { stringify } from "./lib/json";
+import { getDocsPath, requireFramework } from "./framework";
 import { humanReadable } from "./lib/string";
 
 const HELP = `
@@ -34,25 +30,6 @@ EXAMPLES
   prismic page-type add-field color homepage text_color --label "Text Color"
 `.trim();
 
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.string(),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
-
-function getDocsPath(framework: Framework): string {
-	switch (framework) {
-		case "next":
-			return "nextjs/with-cli";
-		case "nuxt":
-			return "nuxt/with-cli";
-		case "sveltekit":
-			return "sveltekit/with-cli";
-	}
-}
 
 export async function pageTypeAddFieldColor(): Promise<void> {
 	const {
@@ -98,39 +75,14 @@ export async function pageTypeAddFieldColor(): Promise<void> {
 		return;
 	}
 
-	// Find the page type file
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
+	const framework = await requireFramework();
+	if (!framework) return;
 
-	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
-
-	// Read and parse the model
 	let model: CustomType;
 	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid page type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			console.error(`Page type not found: ${typeId}\n`);
-			console.error(`Create it first with: prismic page-type create ${typeId}`);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read page type: ${error.message}`);
-		} else {
-			console.error("Failed to read page type");
-		}
+		model = await framework.readCustomType(typeId);
+	} catch {
+		console.error(`Page type not found: ${typeId}\n\nCreate it first with: prismic page-type create ${typeId}`);
 		process.exitCode = 1;
 		return;
 	}
@@ -186,17 +138,7 @@ export async function pageTypeAddFieldColor(): Promise<void> {
 	}
 
 	// Write updated model
-	try {
-		await writeFile(modelPath, stringify(model));
-	} catch (error) {
-		if (error instanceof Error) {
-			console.error(`Failed to update page type: ${error.message}`);
-		} else {
-			console.error("Failed to update page type");
-		}
-		process.exitCode = 1;
-		return;
-	}
+	await framework.updateCustomType(model);
 
 	if (fieldPath.type === "nested") {
 		console.info(`Added field "${fieldPath.nestedFieldId}" (Color) to group "${fieldPath.groupId}" in ${typeId}`);
@@ -214,9 +156,8 @@ export async function pageTypeAddFieldColor(): Promise<void> {
 	console.info();
 	console.info("Next: Add more fields with `prismic page-type add-field`");
 
-	const frameworkInfo = await detectFrameworkInfo();
-	if (frameworkInfo?.framework) {
-		const docsPath = getDocsPath(frameworkInfo.framework);
+	if (framework) {
+		const docsPath = getDocsPath(framework.id);
 		console.info(
 			`      Run \`prismic docs fetch ${docsPath}#write-page-components\` to learn how to implement a page file`,
 		);

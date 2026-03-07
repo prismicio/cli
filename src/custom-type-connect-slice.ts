@@ -4,14 +4,10 @@ import type {
 	SharedSliceRef,
 } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
 import { buildTypes } from "./codegen-types";
-import { findUpward } from "./lib/file";
-import { stringify } from "./lib/json";
-import { findSliceModel } from "./lib/slice";
+import { requireFramework } from "./framework";
 
 const HELP = `
 Connect a shared slice to a custom type's slice zone.
@@ -33,15 +29,6 @@ EXAMPLES
   prismic custom-type connect-slice homepage CallToAction --slice-zone slices
   prismic custom-type connect-slice article HeroSection -z body
 `.trim();
-
-const CustomTypeSchema = v.object({
-	id: v.string(),
-	label: v.string(),
-	repeatable: v.boolean(),
-	status: v.boolean(),
-	format: v.string(),
-	json: v.record(v.string(), v.record(v.string(), v.unknown())),
-});
 
 export async function customTypeConnectSlice(): Promise<void> {
 	const {
@@ -76,47 +63,24 @@ export async function customTypeConnectSlice(): Promise<void> {
 		return;
 	}
 
+	const framework = await requireFramework();
+	if (!framework) return;
+
 	// Verify the slice exists
-	const sliceResult = await findSliceModel(sliceId);
-	if (!sliceResult.ok) {
-		console.error(sliceResult.error);
+	try {
+		await framework.readSlice(sliceId);
+	} catch {
+		console.error(`Slice not found: ${sliceId}`);
 		process.exitCode = 1;
 		return;
 	}
 
-	// Find the custom type file
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		console.error("Could not find project root (no package.json found)");
-		process.exitCode = 1;
-		return;
-	}
-
-	const modelPath = new URL(`customtypes/${typeId}/index.json`, projectRoot);
-
-	// Read and parse the model
+	// Read the custom type model
 	let model: CustomType;
 	try {
-		const contents = await readFile(modelPath, "utf8");
-		const result = v.safeParse(CustomTypeSchema, JSON.parse(contents));
-		if (!result.success) {
-			console.error(`Invalid custom type model: ${modelPath.href}`);
-			process.exitCode = 1;
-			return;
-		}
-		model = result.output as CustomType;
-	} catch (error) {
-		if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-			console.error(`Custom type not found: ${typeId}\n`);
-			console.error(`Create it first with: prismic custom-type create ${typeId}`);
-			process.exitCode = 1;
-			return;
-		}
-		if (error instanceof Error) {
-			console.error(`Failed to read custom type: ${error.message}`);
-		} else {
-			console.error("Failed to read custom type");
-		}
+		model = await framework.readCustomType(typeId);
+	} catch {
+		console.error(`Custom type not found: ${typeId}\n\nCreate it first with: prismic custom-type create ${typeId}`);
 		process.exitCode = 1;
 		return;
 	}
@@ -192,7 +156,7 @@ export async function customTypeConnectSlice(): Promise<void> {
 
 	// Write updated model
 	try {
-		await writeFile(modelPath, stringify(model));
+		await framework.updateCustomType(model);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update custom type: ${error.message}`);

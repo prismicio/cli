@@ -5,7 +5,7 @@ import { parseArgs } from "node:util";
 import { isAuthenticated } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
 import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
-import { type FrameworkAdapter, getFramework } from "./lib/framework-adapter";
+import { type FrameworkAdapter, getFramework } from "./framework";
 import { trackEnd } from "./lib/segment";
 import { dedent } from "./lib/string";
 
@@ -28,7 +28,6 @@ FLAGS
 const POLL_INTERVAL_MS = 5000;
 const MAX_BACKOFF_MS = 60000; // Cap backoff at 1 minute
 const MAX_CONSECUTIVE_ERRORS = 10;
-const SHUTDOWN_TIMEOUT_MS = 3000; // Max time to wait for telemetry on shutdown
 
 export async function sync(): Promise<void> {
 	const {
@@ -243,12 +242,9 @@ export async function syncCustomTypes(repo: string, framework: FrameworkAdapter)
 	}
 }
 
-async function shutdown() {
+function shutdown(): void {
 	console.info("Watch stopped. Goodbye!");
-
-	// Best-effort telemetry with timeout (don't hang forever if telemetry fails)
-	await Promise.race([trackEnd("sync", true), setTimeout(SHUTDOWN_TIMEOUT_MS)]);
-
+	trackEnd("sync", true);
 	process.exit(0);
 }
 

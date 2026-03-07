@@ -6,7 +6,7 @@ import { createLoginSession, isAuthenticated } from "./lib/auth";
 import { openBrowser } from "./lib/browser";
 import { createConfig, readConfig, UnknownProjectRoot } from "./lib/config";
 import { findUpward } from "./lib/file";
-import { getFramework } from "./lib/framework-adapter";
+import { getFramework } from "./framework";
 import { request } from "./lib/request";
 import { getUserServiceUrl } from "./lib/url";
 import { syncCustomTypes, syncSlices } from "./sync";

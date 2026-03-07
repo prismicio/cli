@@ -1,11 +1,11 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
+import { pascalCase } from "change-case";
+
 import { buildTypes } from "./codegen-types";
-import { stringify } from "./lib/json";
-import { findSliceModel, pascalCase } from "./lib/slice";
+import { requireFramework } from "./framework";
 
 const HELP = `
 Add a new variation to a slice.
@@ -63,14 +63,17 @@ export async function sliceAddVariation(): Promise<void> {
 		return;
 	}
 
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const framework = await requireFramework();
+	if (!framework) return;
+
+	let model: SharedSlice;
+	try {
+		model = await framework.readSlice(sliceId);
+	} catch {
+		console.error(`Slice not found: ${sliceId}\n\nCreate it first with: prismic slice create ${sliceId}`);
 		process.exitCode = 1;
 		return;
 	}
-
-	const { model, modelPath } = result;
 
 	// Check if variation already exists
 	if (model.variations.some((v) => v.id === variationId)) {
@@ -117,7 +120,7 @@ export async function sliceAddVariation(): Promise<void> {
 
 	// Write updated model
 	try {
-		await writeFile(modelPath, stringify(updatedModel as SharedSlice));
+		await framework.updateSlice(updatedModel);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update slice: ${error.message}`);

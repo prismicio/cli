@@ -1,11 +1,27 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { readdir, readFile } from "node:fs/promises";
 import * as v from "valibot";
 
 import { readHost, readToken } from "./auth";
-import { findUpward } from "./file";
-import { getSlicesDirectory, SharedSliceSchema } from "./slice";
+
+const SharedSliceSchema = v.object({
+	id: v.string(),
+	type: v.literal("SharedSlice"),
+	name: v.string(),
+	description: v.optional(v.string()),
+	variations: v.array(
+		v.object({
+			id: v.string(),
+			name: v.string(),
+			description: v.optional(v.string()),
+			docURL: v.optional(v.string()),
+			version: v.optional(v.string()),
+			imageUrl: v.optional(v.string()),
+			primary: v.optional(v.record(v.string(), v.unknown())),
+			items: v.optional(v.record(v.string(), v.unknown())),
+		}),
+	),
+});
 
 export const CustomTypeSchema = v.object({
 	id: v.string(),
@@ -112,75 +128,6 @@ export async function fetchRemoteSlices(repo: string): Promise<FetchResult<Share
 	} catch (error) {
 		return { ok: false, error: `Network error: ${error instanceof Error ? error.message : error}` };
 	}
-}
-
-export async function readLocalCustomTypes(): Promise<FetchResult<CustomType[]>> {
-	const projectRoot = await findUpward("package.json");
-	if (!projectRoot) {
-		return { ok: false, error: "Could not find project root (no package.json found)" };
-	}
-
-	const projectDir = new URL(".", projectRoot);
-	const customTypesDir = new URL("customtypes/", projectDir);
-
-	let entries: string[];
-	try {
-		entries = (await readdir(customTypesDir, { withFileTypes: false })) as unknown as string[];
-	} catch {
-		// No customtypes directory means no local custom types
-		return { ok: true, value: [] };
-	}
-
-	const customTypes: CustomType[] = [];
-	for (const entry of entries) {
-		const modelPath = new URL(`${entry}/index.json`, customTypesDir);
-		try {
-			const contents = await readFile(modelPath, "utf8");
-			const parsed = JSON.parse(contents);
-			const result = v.safeParse(CustomTypeSchema, parsed);
-			if (result.success) {
-				customTypes.push(result.output as CustomType);
-			}
-		} catch {
-			// Skip directories without valid index.json
-		}
-	}
-
-	return { ok: true, value: customTypes };
-}
-
-export async function readLocalSlices(): Promise<FetchResult<SharedSlice[]>> {
-	let slicesDir: URL;
-	try {
-		slicesDir = await getSlicesDirectory();
-	} catch {
-		return { ok: false, error: "Could not find project root (no package.json found)" };
-	}
-
-	let entries: string[];
-	try {
-		entries = (await readdir(slicesDir, { withFileTypes: false })) as unknown as string[];
-	} catch {
-		// No slices directory means no local slices
-		return { ok: true, value: [] };
-	}
-
-	const slices: SharedSlice[] = [];
-	for (const entry of entries) {
-		const modelPath = new URL(`${entry}/model.json`, slicesDir);
-		try {
-			const contents = await readFile(modelPath, "utf8");
-			const parsed = JSON.parse(contents);
-			const result = v.safeParse(SharedSliceSchema, parsed);
-			if (result.success) {
-				slices.push(result.output as SharedSlice);
-			}
-		} catch {
-			// Skip directories without valid model.json
-		}
-	}
-
-	return { ok: true, value: slices };
 }
 
 export async function insertCustomType(

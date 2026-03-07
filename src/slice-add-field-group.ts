@@ -1,12 +1,9 @@
 import type { Group, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 import { buildTypes } from "./codegen-types";
-import { type Framework, detectFrameworkInfo } from "./lib/framework";
-import { stringify } from "./lib/json";
-import { findSliceModel } from "./lib/slice";
+import { getDocsPath, getWriteComponentsAnchor, requireFramework } from "./framework";
 import { humanReadable } from "./lib/string";
 
 const HELP = `
@@ -32,27 +29,7 @@ EXAMPLES
   prismic slice add-field group product variants --variation "withImage"
 `.trim();
 
-function getDocsPath(framework: Framework): string {
-	switch (framework) {
-		case "next":
-			return "nextjs/with-cli";
-		case "nuxt":
-			return "nuxt/with-cli";
-		case "sveltekit":
-			return "sveltekit/with-cli";
-	}
-}
 
-function getWriteComponentsAnchor(framework: Framework): string {
-	switch (framework) {
-		case "nuxt":
-			return "#write-vue-components";
-		case "sveltekit":
-			return "#write-svelte-components";
-		default:
-			return "#write-react-components";
-	}
-}
 
 export async function sliceAddFieldGroup(): Promise<void> {
 	const {
@@ -97,14 +74,17 @@ export async function sliceAddFieldGroup(): Promise<void> {
 	}
 
 	// Find the slice model
-	const result = await findSliceModel(sliceId);
-	if (!result.ok) {
-		console.error(result.error);
+	const framework = await requireFramework();
+	if (!framework) return;
+
+	let model: SharedSlice;
+	try {
+		model = await framework.readSlice(sliceId);
+	} catch {
+		console.error(`Slice not found: ${sliceId}\n\nCreate it first with: prismic slice create ${sliceId}`);
 		process.exitCode = 1;
 		return;
 	}
-
-	const { model, modelPath } = result;
 
 	// Check for variations
 	if (model.variations.length === 0) {
@@ -155,7 +135,7 @@ export async function sliceAddFieldGroup(): Promise<void> {
 
 	// Write updated model
 	try {
-		await writeFile(modelPath, stringify(model as SharedSlice));
+		await framework.updateSlice(model);
 	} catch (error) {
 		if (error instanceof Error) {
 			console.error(`Failed to update slice: ${error.message}`);
@@ -180,10 +160,9 @@ export async function sliceAddFieldGroup(): Promise<void> {
 	console.info();
 	console.info(`Next: Add fields to the group with \`prismic slice add-field <type> ${sliceId} ${fieldId}.<field-id>\``);
 
-	const frameworkInfo = await detectFrameworkInfo();
-	if (frameworkInfo?.framework) {
-		const docsPath = getDocsPath(frameworkInfo.framework);
-		const anchor = getWriteComponentsAnchor(frameworkInfo.framework);
+	if (framework) {
+		const docsPath = getDocsPath(framework.id);
+		const anchor = getWriteComponentsAnchor(framework.id);
 		console.info(
 			`      Run \`prismic docs fetch ${docsPath}${anchor}\` to learn how to implement the slice's component`,
 		);
