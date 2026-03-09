@@ -9,7 +9,7 @@ on:
 
 jobs:
   publish:
-    if: github.repository_owner == 'prismicio-community'
+    if: github.repository_owner == 'prismicio'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
