@@ -1,4 +1,4 @@
-import * as v from "valibot";
+import * as z from "zod/mini";
 
 const USER_AGENT = "prismic-cli";
 
@@ -9,7 +9,7 @@ type CustomRequestInit = Omit<RequestInit, "body" | "credentials"> & {
 
 export async function request<T>(
 	input: RequestInfo | URL,
-	init: CustomRequestInit & { schema?: v.GenericSchema<T> } = {},
+	init: CustomRequestInit & { schema?: z.ZodMiniType<T> } = {},
 ): Promise<T> {
 	const { credentials, ...otherInit } = init;
 
@@ -48,7 +48,7 @@ export async function request<T>(
 
 	if (response.ok) {
 		if (init.schema) {
-			return v.parse(init.schema, value);
+			return z.parse(init.schema, value);
 		}
 
 		return value;

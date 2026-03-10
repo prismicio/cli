@@ -2,7 +2,7 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
-import * as v from "valibot";
+import * as z from "zod/mini";
 
 import { refreshToken as baseRefreshToken } from "../clients/auth";
 import { env } from "../env";
@@ -15,11 +15,11 @@ const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
 const LOGIN_SOURCE = "prismic-cli";
 
-const AuthFileSchema = v.object({
-	token: v.optional(v.pipe(v.string(), v.nonEmpty())),
-	host: v.optional(v.pipe(v.string(), v.nonEmpty())),
+const AuthFileSchema = z.object({
+	token: z.optional(z.string().check(z.minLength(1))),
+	host: z.optional(z.string().check(z.minLength(1))),
 });
-type AuthFile = v.InferOutput<typeof AuthFileSchema>;
+type AuthFile = z.infer<typeof AuthFileSchema>;
 
 export async function getToken(): Promise<string | undefined> {
 	const auth = await readAuthFile();
@@ -57,7 +57,7 @@ async function readAuthFile(): Promise<AuthFile | undefined> {
 	try {
 		const contents = await readFile(AUTH_FILE_PATH, "utf-8");
 		const json = JSON.parse(contents);
-		return v.parse(AuthFileSchema, json);
+		return z.parse(AuthFileSchema, json);
 	} catch {
 		return undefined;
 	}

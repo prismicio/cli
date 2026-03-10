@@ -1,26 +1,26 @@
 import { writeFile } from "node:fs/promises";
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
-import * as v from "valibot";
+import * as z from "zod/mini";
 
 import { findUpward } from "./file";
 import { stringify } from "./json";
 
 const CONFIG_FILENAME = "prismic.config.json";
 
-const ConfigSchema = v.object({
-	repositoryName: v.string(),
-	apiEndpoint: v.optional(v.pipe(v.string(), v.url())),
-	localSliceMachineSimulatorURL: v.optional(v.pipe(v.string(), v.url())),
-	libraries: v.optional(v.array(v.string())),
-	adapter: v.optional(v.string()),
-	labs: v.optional(
-		v.object({
-			legacySliceUpgrader: v.optional(v.boolean()),
+const ConfigSchema = z.object({
+	repositoryName: z.string(),
+	apiEndpoint: z.optional(z.url()),
+	localSliceMachineSimulatorURL: z.optional(z.url()),
+	libraries: z.optional(z.array(z.string())),
+	adapter: z.optional(z.string()),
+	labs: z.optional(
+		z.object({
+			legacySliceUpgrader: z.optional(z.boolean()),
 		}),
 	),
 });
-export type Config = v.InferOutput<typeof ConfigSchema>;
+export type Config = z.infer<typeof ConfigSchema>;
 
 export type ConfigResult = SuccessfulConfigResult | FailedConfigResult;
 export type SuccessfulConfigResult = { ok: true; config: Config };
@@ -56,20 +56,20 @@ export async function readConfig(cwd = pathToFileURL(process.cwd())): Promise<Co
 
 	try {
 		const contents = await readFile(findResult.path, "utf8");
-		const result = v.safeParse(ConfigSchema, JSON.parse(contents));
+		const result = z.safeParse(ConfigSchema, JSON.parse(contents));
 		if (!result.success) {
-			return { ok: false, error: new InvalidPrismicConfig(result.issues) };
+			return { ok: false, error: new InvalidPrismicConfig(result.error.issues) };
 		}
-		return { ok: true, config: result.output };
+		return { ok: true, config: result.data };
 	} catch {
 		return { ok: false, error: new InvalidPrismicConfig() };
 	}
 }
 
 export class InvalidPrismicConfig extends Error {
-	issues: v.InferIssue<typeof ConfigSchema>[];
+	issues: z.core.$ZodIssue[];
 
-	constructor(issues: v.InferIssue<typeof ConfigSchema>[] = []) {
+	constructor(issues: z.core.$ZodIssue[] = []) {
 		super("prismic.config.json is invalid.");
 		this.issues = issues;
 	}
