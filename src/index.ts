@@ -37,7 +37,7 @@ LEARN MORE
   Use \`prismic <command> --help\` for more information about a command.
 `.trim();
 
-const UNTRACKED_COMMANDS = new Set(["login", "logout", "whoami"]);
+const UNTRACKED_COMMANDS = new Set(["login", "logout", "whoami", "sync"]);
 const SKIP_REFRESH_COMMANDS = new Set(["login", "logout"]);
 
 const {
@@ -60,43 +60,27 @@ if (version) {
 } else {
 	const command = positionals[0];
 
-	// Resolve repository from config for analytics context
-	let repository: string | undefined;
-	try {
-		repository = await safeGetRepositoryFromConfig();
-	} catch {
-		// Best-effort — silent failure
-	}
-
+	const repository = await safeGetRepositoryFromConfig();
 	if (repository) {
 		setRepository(repository);
 		setTag("repository", repository);
 		setContext("Repository Data", { name: repository });
 	}
 
-	// Detect framework for Sentry context
-	try {
-		const framework = await getFramework();
-		if (framework) {
-			setTag("framework", framework.id);
-		}
-	} catch {
-		// Best-effort — silent failure
+	const framework = await getFramework();
+	if (framework) {
+		setTag("framework", framework.id);
 	}
 
-	// Refresh token and identify user for analytics
 	if (!SKIP_REFRESH_COMMANDS.has(command)) {
-		try {
-			const newToken = await refreshToken();
-			if (newToken) {
-				const host = await getHost();
-				const profile = await getProfile({ token: newToken, host });
-				identify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
-				setUser({ id: profile.shortId });
-			}
-		} catch {
-			// Best-effort — silent failure
-		}
+		// Refreesh the token and identify the user in the background.
+		refreshToken().then(async (token) => {
+			if (!token) return;
+			const host = await getHost();
+			const profile = await getProfile({ token, host });
+			identify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
+			setUser({ id: profile.shortId });
+		});
 	}
 
 	if (!UNTRACKED_COMMANDS.has(command)) {

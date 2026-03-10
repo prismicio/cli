@@ -65,7 +65,6 @@ export async function captureError(error: unknown): Promise<void> {
 	}
 }
 
-// Re-exports for future devtools-parity integration points
 export const setUser = Sentry.setUser;
 export const setTag = Sentry.setTag;
 export const setContext = Sentry.setContext;

@@ -6,7 +6,7 @@ import { getCustomTypes, getSlices } from "./clients/custom-types";
 import { type FrameworkAdapter, NoSupportedFrameworkError, requireFramework } from "./framework";
 import { getHost, getToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { setRepository, trackEnd } from "./lib/segment";
+import { setRepository, trackEnd, trackStart } from "./lib/segment";
 import { setContext, setTag } from "./lib/sentry";
 import { dedent } from "./lib/string";
 
@@ -72,6 +72,8 @@ export async function sync(): Promise<void> {
 	}
 
 	console.info(`Syncing from repository: ${repo}`);
+
+	trackStart("sync", { repository: repo });
 
 	if (watch) {
 		await watchForChanges(repo, framework);
