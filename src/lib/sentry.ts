@@ -3,10 +3,6 @@ import * as Sentry from "@sentry/node-core/light";
 import packageJson from "../../package.json" with { type: "json" };
 import { env } from "../env";
 
-const SENTRY_DSN =
-	env.PRISMIC_SENTRY_DSN ||
-	"https://e1886b1775bd397cd1afc60bfd2ebfc8@o146123.ingest.us.sentry.io/4510445143588864";
-
 function isSentryEnabled(): boolean {
 	return env.PRISMIC_SENTRY_ENABLED ?? env.PROD;
 }
@@ -26,7 +22,7 @@ export function setupSentry(): void {
 		}
 
 		Sentry.init({
-			dsn: SENTRY_DSN,
+			dsn: env.PRISMIC_SENTRY_DSN,
 			release: packageJson.version,
 			environment: detectEnvironment(),
 			defaultIntegrations: false,

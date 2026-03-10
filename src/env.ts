@@ -1,21 +1,20 @@
-import * as v from "valibot";
+import * as z from "zod/mini";
 
-const Env = v.object({
-	MODE: v.string(),
-	DEV: v.boolean(),
-	PROD: v.boolean(),
-	PRISMIC_SENTRY_DSN: v.optional(v.string()),
-	PRISMIC_SENTRY_ENVIRONMENT: v.optional(v.string()),
-	PRISMIC_SENTRY_ENABLED: v.optional(
-		v.pipe(
-			v.picklist(["true", "false"]),
-			v.transform((input) => input === "true"),
-		),
-	),
-	PRISMIC_HOST: v.optional(v.string(), "prismic.io"),
+const DEFAULT_PRISMIC_SENTRY_DSN =
+	"https://e1886b1775bd397cd1afc60bfd2ebfc8@o146123.ingest.us.sentry.io/4510445143588864";
+const DEFAULT_PRISMIC_HOST = "prismic.io";
+
+const Env = z.object({
+	MODE: z.string(),
+	DEV: z.stringbool(),
+	PROD: z.stringbool(),
+	PRISMIC_SENTRY_DSN: z._default(z.httpUrl(), DEFAULT_PRISMIC_SENTRY_DSN),
+	PRISMIC_SENTRY_ENVIRONMENT: z.optional(z.string()),
+	PRISMIC_SENTRY_ENABLED: z.optional(z.stringbool()),
+	PRISMIC_HOST: z._default(z.string(), DEFAULT_PRISMIC_HOST),
 });
 
-export const env = v.parse(Env, {
+export const env = z.parse(Env, {
 	MODE: process.env.MODE,
 	DEV: process.env.MODE !== "production",
 	PROD: process.env.MODE === "production",

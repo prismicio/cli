@@ -1,4 +1,4 @@
-import * as v from "valibot";
+import * as z from "zod/mini";
 
 import { env } from "../env";
 import { request } from "../lib/request";
@@ -27,7 +27,7 @@ export async function refreshToken(
 	const authServiceUrl = getAuthServiceUrl(host);
 	const url = new URL("refreshtoken", authServiceUrl);
 	url.searchParams.set("token", token);
-	const refreshedToken = await request(url, { schema: v.string() });
+	const refreshedToken = await request(url, { schema: z.string() });
 	return refreshedToken;
 }
 
