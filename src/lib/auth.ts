@@ -53,42 +53,6 @@ export async function logout(): Promise<boolean> {
 	}
 }
 
-// async function isAuthenticated(): Promise<boolean> {
-// 	const auth = await readAuthFile();
-// 	const token = auth?.token;
-// 	if (!token) return false;
-// 	return await validateToken(token, { host: auth.host });
-// }
-
-// async function refreshToken(): Promise<string | undefined> {
-// 	const auth = await readAuthFile();
-// 	const token = auth?.token;
-// 	if (!token) return;
-//
-// 	const newToken = baseRefreshToken(token, {});
-//
-// 	// const authUrl = await getAuthUrl();
-// 	// const url = new URL("refreshtoken", authUrl);
-// 	// url.searchParams.set("token", token);
-// 	//
-// 	// const response = await fetch(url, {
-// 	// 	headers: {
-// 	// 		Accept: "application/json",
-// 	// 		"User-Agent": USER_AGENT,
-// 	// 	},
-// 	// });
-// 	//
-// 	// if (!response.ok) {
-// 	// 	return undefined;
-// 	// }
-// 	//
-// 	// const newToken = await response.text();
-// 	const base = auth.host;
-// 	await saveAuthFile({ token: newToken, host: base });
-//
-// 	return newToken;
-// }
-
 async function readAuthFile(): Promise<AuthFile | undefined> {
 	try {
 		const contents = await readFile(AUTH_FILE_PATH, "utf-8");
@@ -102,18 +66,6 @@ async function readAuthFile(): Promise<AuthFile | undefined> {
 async function saveAuthFile(auth: AuthFile): Promise<void> {
 	await writeFile(AUTH_FILE_PATH, stringify(auth));
 }
-
-// async function rmAuthFile(): Promise<boolean> {
-// 	const authFileExists = await exists(AUTH_FILE_PATH);
-// 	if (!authFileExists) return true;
-//
-// 	try {
-// 		await rm(AUTH_FILE_PATH);
-// 		return true;
-// 	} catch {
-// 		return false;
-// 	}
-// }
 
 export async function createLoginSession(options?: {
 	onReady?: (url: URL) => void;
