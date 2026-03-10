@@ -3,11 +3,26 @@
 import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
+import { getProfile } from "./clients/user";
+import { getFramework } from "./framework";
 import { init } from "./init";
-import { refreshToken } from "./lib/auth";
+import { getHost, refreshToken } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
-import { initSegment, trackEnd, trackStart } from "./lib/segment";
-import { captureError, setupSentry } from "./lib/sentry";
+import {
+	initSegment,
+	segmentIdentify,
+	segmentSetRepository,
+	segmentTrackEnd,
+	segmentTrackStart,
+} from "./lib/segment";
+import {
+	sentryCaptureError,
+	sentrySetContext,
+	sentrySetTag,
+	sentrySetUser,
+	setupSentry,
+} from "./lib/sentry";
 import { login } from "./login";
 import { logout } from "./logout";
 import { sync } from "./sync";
@@ -34,6 +49,9 @@ LEARN MORE
   Use \`prismic <command> --help\` for more information about a command.
 `.trim();
 
+const UNTRACKED_COMMANDS = new Set(["login", "logout", "whoami", "sync"]);
+const SKIP_REFRESH_COMMANDS = new Set(["login", "logout"]);
+
 const {
 	positionals,
 	values: { version },
@@ -54,8 +72,34 @@ if (version) {
 } else {
 	const command = positionals[0];
 
-	trackStart(command);
-	if (command !== "login" && command !== "logout") refreshToken();
+	const repository = await safeGetRepositoryFromConfig();
+	if (repository) {
+		segmentSetRepository(repository);
+		sentrySetTag("repository", repository);
+		sentrySetContext("Repository Data", { name: repository });
+	}
+
+	const framework = await getFramework();
+	if (framework) {
+		sentrySetTag("framework", framework.id);
+	}
+
+	if (!SKIP_REFRESH_COMMANDS.has(command)) {
+		// Refreesh the token and identify the user in the background.
+		refreshToken()
+			.then(async (token) => {
+				if (!token) return;
+				const host = await getHost();
+				const profile = await getProfile({ token, host });
+				segmentIdentify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
+				sentrySetUser({ id: profile.shortId });
+			})
+			.catch(() => {});
+	}
+
+	if (!UNTRACKED_COMMANDS.has(command)) {
+		segmentTrackStart(command, { repository });
+	}
 
 	try {
 		switch (command) {
@@ -83,15 +127,19 @@ if (version) {
 			}
 		}
 
-		trackEnd(command, process.exitCode !== 1);
+		if (!UNTRACKED_COMMANDS.has(command)) {
+			segmentTrackEnd(command, process.exitCode !== 1);
+		}
 	} catch (error) {
-		trackEnd(command, false, error);
+		if (!UNTRACKED_COMMANDS.has(command)) {
+			segmentTrackEnd(command, false, error);
+		}
 		process.exitCode = 1;
 
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			console.error("Not logged in. Run `prismic login` first.");
 		} else {
-			await captureError(error);
+			await sentryCaptureError(error);
 			throw error;
 		}
 	}
