@@ -46,7 +46,7 @@ export function setupSentry(): void {
 	}
 }
 
-export async function captureError(error: unknown): Promise<void> {
+export async function sentryCaptureError(error: unknown): Promise<void> {
 	try {
 		if (!isSentryEnabled()) {
 			return;
@@ -65,6 +65,6 @@ export async function captureError(error: unknown): Promise<void> {
 	}
 }
 
-export const setUser = Sentry.setUser;
-export const setTag = Sentry.setTag;
-export const setContext = Sentry.setContext;
+export const sentrySetUser = Sentry.setUser;
+export const sentrySetTag = Sentry.setTag;
+export const sentrySetContext = Sentry.setContext;

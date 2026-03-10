@@ -9,8 +9,8 @@ import { init } from "./init";
 import { getHost, refreshToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
-import { identify, initSegment, setRepository, trackEnd, trackStart } from "./lib/segment";
-import { captureError, setContext, setTag, setUser, setupSentry } from "./lib/sentry";
+import { initSegment, segmentIdentify, segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "./lib/segment";
+import { sentryCaptureError, sentrySetContext, sentrySetTag, sentrySetUser, setupSentry } from "./lib/sentry";
 import { login } from "./login";
 import { logout } from "./logout";
 import { sync } from "./sync";
@@ -62,14 +62,14 @@ if (version) {
 
 	const repository = await safeGetRepositoryFromConfig();
 	if (repository) {
-		setRepository(repository);
-		setTag("repository", repository);
-		setContext("Repository Data", { name: repository });
+		segmentSetRepository(repository);
+		sentrySetTag("repository", repository);
+		sentrySetContext("Repository Data", { name: repository });
 	}
 
 	const framework = await getFramework();
 	if (framework) {
-		setTag("framework", framework.id);
+		sentrySetTag("framework", framework.id);
 	}
 
 	if (!SKIP_REFRESH_COMMANDS.has(command)) {
@@ -78,13 +78,13 @@ if (version) {
 			if (!token) return;
 			const host = await getHost();
 			const profile = await getProfile({ token, host });
-			identify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
-			setUser({ id: profile.shortId });
+			segmentIdentify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
+			sentrySetUser({ id: profile.shortId });
 		});
 	}
 
 	if (!UNTRACKED_COMMANDS.has(command)) {
-		trackStart(command, { repository });
+		segmentTrackStart(command, { repository });
 	}
 
 	try {
@@ -114,18 +114,18 @@ if (version) {
 		}
 
 		if (!UNTRACKED_COMMANDS.has(command)) {
-			trackEnd(command, process.exitCode !== 1);
+			segmentTrackEnd(command, process.exitCode !== 1);
 		}
 	} catch (error) {
 		if (!UNTRACKED_COMMANDS.has(command)) {
-			trackEnd(command, false, error);
+			segmentTrackEnd(command, false, error);
 		}
 		process.exitCode = 1;
 
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			console.error("Not logged in. Run `prismic login` first.");
 		} else {
-			await captureError(error);
+			await sentryCaptureError(error);
 			throw error;
 		}
 	}

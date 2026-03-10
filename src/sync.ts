@@ -6,8 +6,8 @@ import { getCustomTypes, getSlices } from "./clients/custom-types";
 import { type FrameworkAdapter, NoSupportedFrameworkError, requireFramework } from "./framework";
 import { getHost, getToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { setRepository, trackEnd, trackStart } from "./lib/segment";
-import { setContext, setTag } from "./lib/sentry";
+import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "./lib/segment";
+import { sentrySetContext, sentrySetTag } from "./lib/sentry";
 import { dedent } from "./lib/string";
 
 const HELP = `
@@ -55,9 +55,9 @@ export async function sync(): Promise<void> {
 	}
 
 	// Override analytics repository context with the resolved repo
-	setRepository(repo);
-	setTag("repository", repo);
-	setContext("Repository Data", { name: repo });
+	segmentSetRepository(repo);
+	sentrySetTag("repository", repo);
+	sentrySetContext("Repository Data", { name: repo });
 
 	let framework: FrameworkAdapter;
 	try {
@@ -73,14 +73,14 @@ export async function sync(): Promise<void> {
 
 	console.info(`Syncing from repository: ${repo}`);
 
-	trackStart("sync", { repository: repo });
+	segmentTrackStart("sync", { repository: repo });
 
 	if (watch) {
 		await watchForChanges(repo, framework);
 	} else {
 		await syncSlices(repo, framework);
 		await syncCustomTypes(repo, framework);
-		trackEnd("sync", true, undefined, { watch: false });
+		segmentTrackEnd("sync", true, undefined, { watch: false });
 
 		console.info("Sync complete");
 	}
@@ -241,7 +241,7 @@ export async function syncCustomTypes(repo: string, framework: FrameworkAdapter)
 
 function shutdown(): void {
 	console.info("Watch stopped. Goodbye!");
-	trackEnd("sync", true, undefined, { watch: true });
+	segmentTrackEnd("sync", true, undefined, { watch: true });
 	process.exit(0);
 }
 

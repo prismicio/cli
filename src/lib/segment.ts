@@ -39,7 +39,7 @@ export async function initSegment(): Promise<void> {
 
 export type TrackContext = { repository?: string; watch?: boolean };
 
-export function trackStart(command: string, ctx?: TrackContext): void {
+export function segmentTrackStart(command: string, ctx?: TrackContext): void {
 	if (!enabled) {
 		return;
 	}
@@ -56,7 +56,7 @@ export function trackStart(command: string, ctx?: TrackContext): void {
 	trackQueue.push({ event: "Prismic CLI Start", properties, context: buildContext(repo) });
 }
 
-export function trackEnd(
+export function segmentTrackEnd(
 	command: string,
 	success: boolean,
 	error?: unknown,
@@ -87,7 +87,7 @@ export function trackEnd(
 	trackQueue.push({ event: "Prismic CLI End", properties, context: buildContext(repo) });
 }
 
-export function identify(profile: { shortId: string; intercomHash: string }): void {
+export function segmentIdentify(profile: { shortId: string; intercomHash: string }): void {
 	if (!enabled) {
 		return;
 	}
@@ -103,7 +103,7 @@ export function identify(profile: { shortId: string; intercomHash: string }): vo
 	});
 }
 
-export function setRepository(repo: string): void {
+export function segmentSetRepository(repo: string): void {
 	repository = repo;
 }
 
