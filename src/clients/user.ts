@@ -5,6 +5,8 @@ import { request } from "../lib/request";
 
 const ProfileSchema = v.object({
 	email: v.string(),
+	shortId: v.string(),
+	intercomHash: v.string(),
 	repositories: v.array(
 		v.object({
 			domain: v.string(),

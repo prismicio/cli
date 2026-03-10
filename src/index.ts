@@ -3,11 +3,14 @@
 import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
+import { getProfile } from "./clients/user";
+import { getFramework } from "./framework";
 import { init } from "./init";
-import { refreshToken } from "./lib/auth";
+import { getHost, refreshToken } from "./lib/auth";
+import { safeGetRepositoryFromConfig } from "./lib/config";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
-import { initSegment, trackEnd, trackStart } from "./lib/segment";
-import { captureError, setupSentry } from "./lib/sentry";
+import { identify, initSegment, setRepository, trackEnd, trackStart } from "./lib/segment";
+import { captureError, setContext, setTag, setUser, setupSentry } from "./lib/sentry";
 import { login } from "./login";
 import { logout } from "./logout";
 import { sync } from "./sync";
@@ -34,6 +37,9 @@ LEARN MORE
   Use \`prismic <command> --help\` for more information about a command.
 `.trim();
 
+const UNTRACKED_COMMANDS = new Set(["login", "logout", "whoami"]);
+const SKIP_REFRESH_COMMANDS = new Set(["login", "logout"]);
+
 const {
 	positionals,
 	values: { version },
@@ -54,8 +60,48 @@ if (version) {
 } else {
 	const command = positionals[0];
 
-	trackStart(command);
-	if (command !== "login" && command !== "logout") refreshToken();
+	// Resolve repository from config for analytics context
+	let repository: string | undefined;
+	try {
+		repository = await safeGetRepositoryFromConfig();
+	} catch {
+		// Best-effort — silent failure
+	}
+
+	if (repository) {
+		setRepository(repository);
+		setTag("repository", repository);
+		setContext("Repository Data", { name: repository });
+	}
+
+	// Detect framework for Sentry context
+	try {
+		const framework = await getFramework();
+		if (framework) {
+			setTag("framework", framework.id);
+		}
+	} catch {
+		// Best-effort — silent failure
+	}
+
+	// Refresh token and identify user for analytics
+	if (!SKIP_REFRESH_COMMANDS.has(command)) {
+		try {
+			const newToken = await refreshToken();
+			if (newToken) {
+				const host = await getHost();
+				const profile = await getProfile({ token: newToken, host });
+				identify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
+				setUser({ id: profile.shortId });
+			}
+		} catch {
+			// Best-effort — silent failure
+		}
+	}
+
+	if (!UNTRACKED_COMMANDS.has(command)) {
+		trackStart(command, { repository });
+	}
 
 	try {
 		switch (command) {
@@ -83,9 +129,13 @@ if (version) {
 			}
 		}
 
-		trackEnd(command, process.exitCode !== 1);
+		if (!UNTRACKED_COMMANDS.has(command)) {
+			trackEnd(command, process.exitCode !== 1);
+		}
 	} catch (error) {
-		trackEnd(command, false, error);
+		if (!UNTRACKED_COMMANDS.has(command)) {
+			trackEnd(command, false, error);
+		}
 		process.exitCode = 1;
 
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {

@@ -14,6 +14,14 @@ function isSentryEnabled(): boolean {
 	return import.meta.env.PRISMIC_SENTRY_ENABLED === "true";
 }
 
+function detectEnvironment(): string {
+	if (import.meta.env.PRISMIC_SENTRY_ENVIRONMENT) {
+		return import.meta.env.PRISMIC_SENTRY_ENVIRONMENT;
+	}
+	const prereleaseMatch = packageJson.version.match(/-(.+?)\./);
+	return prereleaseMatch ? prereleaseMatch[1] : "production";
+}
+
 export function setupSentry(): void {
 	try {
 		if (!isSentryEnabled()) {
@@ -23,7 +31,7 @@ export function setupSentry(): void {
 		Sentry.init({
 			dsn: SENTRY_DSN,
 			release: packageJson.version,
-			environment: import.meta.env.PRISMIC_SENTRY_ENVIRONMENT ?? "production",
+			environment: detectEnvironment(),
 			defaultIntegrations: false,
 			integrations: [],
 			maxValueLength: 2_500,
