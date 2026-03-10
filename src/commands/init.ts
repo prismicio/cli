@@ -1,17 +1,17 @@
 import { readFile, rm } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
-import type { Profile } from "./clients/user";
-import type { FrameworkAdapter } from "./framework";
-import type { Config } from "./lib/config";
+import type { Profile } from "../clients/user";
+import type { FrameworkAdapter } from "../frameworks";
+import type { Config } from "../lib/config";
 
-import { getProfile } from "./clients/user";
-import { NoSupportedFrameworkError, requireFramework } from "./framework";
-import { createLoginSession, getHost, getToken } from "./lib/auth";
-import { openBrowser } from "./lib/browser";
-import { createConfig, readConfig, UnknownProjectRoot } from "./lib/config";
-import { findUpward } from "./lib/file";
-import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
+import { getProfile } from "../clients/user";
+import { NoSupportedFrameworkError, requireFramework } from "../frameworks";
+import { createLoginSession, getHost, getToken } from "../lib/auth";
+import { openBrowser } from "../lib/browser";
+import { createConfig, readConfig, UnknownProjectRoot } from "../lib/config";
+import { findUpward } from "../lib/file";
+import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { syncCustomTypes, syncSlices } from "./sync";
 
 const HELP = `
