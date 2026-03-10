@@ -7,10 +7,15 @@ Prismic's official command line tool.
 
 ## Install
 
-```sh
-npm install --global prismic
+Use `npx` to run `prismic` anywhere:
 
-# Install the skill to let AI agents use the CLI
+```sh
+npx prismic@latest
+```
+
+Install the skill to teach AI agents to use the CLI:
+
+```sh
 npx skills add --global prismicio/skills
 ```
 
