@@ -6,12 +6,7 @@ const Env = z.object({
 	PROD: z.boolean(),
 	PRISMIC_SENTRY_DSN: z.optional(z.string()),
 	PRISMIC_SENTRY_ENVIRONMENT: z.optional(z.string()),
-	PRISMIC_SENTRY_ENABLED: z.optional(
-		z.pipe(
-			z.enum(["true", "false"]),
-			z.transform((input) => input === "true"),
-		),
-	),
+	PRISMIC_SENTRY_ENABLED: z.optional(z.stringbool()),
 	PRISMIC_HOST: z._default(z.optional(z.string()), "prismic.io"),
 });
 
