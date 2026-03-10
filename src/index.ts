@@ -4,6 +4,8 @@ import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
 import { init } from "./init";
+import { refreshToken } from "./lib/auth";
+import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import { initSegment, trackEnd, trackStart } from "./lib/segment";
 import { captureError, setupSentry } from "./lib/sentry";
 import { login } from "./login";
@@ -53,6 +55,7 @@ if (version) {
 	const command = positionals[0];
 
 	trackStart(command);
+	if (command !== "login" && command !== "logout") refreshToken();
 
 	try {
 		switch (command) {
@@ -82,9 +85,14 @@ if (version) {
 
 		trackEnd(command, process.exitCode !== 1);
 	} catch (error) {
-		await captureError(error);
 		trackEnd(command, false, error);
 		process.exitCode = 1;
-		throw error;
+
+		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
+			console.error("Not logged in. Run `prismic login` first.");
+		} else {
+			await captureError(error);
+			throw error;
+		}
 	}
 }

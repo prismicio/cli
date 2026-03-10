@@ -20,7 +20,7 @@ const ConfigSchema = v.object({
 		}),
 	),
 });
-type Config = v.InferOutput<typeof ConfigSchema>;
+export type Config = v.InferOutput<typeof ConfigSchema>;
 
 export type ConfigResult = SuccessfulConfigResult | FailedConfigResult;
 export type SuccessfulConfigResult = { ok: true; config: Config };
