@@ -9,8 +9,20 @@ import { init } from "./init";
 import { getHost, refreshToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
-import { initSegment, segmentIdentify, segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "./lib/segment";
-import { sentryCaptureError, sentrySetContext, sentrySetTag, sentrySetUser, setupSentry } from "./lib/sentry";
+import {
+	initSegment,
+	segmentIdentify,
+	segmentSetRepository,
+	segmentTrackEnd,
+	segmentTrackStart,
+} from "./lib/segment";
+import {
+	sentryCaptureError,
+	sentrySetContext,
+	sentrySetTag,
+	sentrySetUser,
+	setupSentry,
+} from "./lib/sentry";
 import { login } from "./login";
 import { logout } from "./logout";
 import { sync } from "./sync";
@@ -74,13 +86,15 @@ if (version) {
 
 	if (!SKIP_REFRESH_COMMANDS.has(command)) {
 		// Refreesh the token and identify the user in the background.
-		refreshToken().then(async (token) => {
-			if (!token) return;
-			const host = await getHost();
-			const profile = await getProfile({ token, host });
-			segmentIdentify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
-			sentrySetUser({ id: profile.shortId });
-		});
+		refreshToken()
+			.then(async (token) => {
+				if (!token) return;
+				const host = await getHost();
+				const profile = await getProfile({ token, host });
+				segmentIdentify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
+				sentrySetUser({ id: profile.shortId });
+			})
+			.catch(() => {});
 	}
 
 	if (!UNTRACKED_COMMANDS.has(command)) {
