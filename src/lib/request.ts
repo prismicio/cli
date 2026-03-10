@@ -56,7 +56,7 @@ export async function request<T>(
 		if (response.status === 401) throw new UnauthorizedRequestError(response);
 		if (response.status === 403) throw new ForbiddenRequestError(response);
 		if (response.status === 404) throw new NotFoundRequestError(response);
-		throw new RequestError(response);
+		throw new UnknownRequestError(response);
 	}
 }
 
@@ -86,6 +86,9 @@ export class RequestError extends Error {
 	}
 }
 
+export class UnknownRequestError extends RequestError {
+	name = "UnknownRequestError";
+}
 export class NotFoundRequestError extends RequestError {
 	name = "NotFoundRequestError";
 }
