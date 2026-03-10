@@ -28,6 +28,7 @@ import {
 	setupSentry,
 } from "./lib/sentry";
 import { safeGetRepositoryName } from "./project";
+import { webhook } from "./webhook";
 
 const HELP = `
 Prismic CLI for managing repositories and configurations.
@@ -38,6 +39,7 @@ USAGE
 COMMANDS
   init        Initialize a Prismic project
   sync        Sync types and slices from Prismic
+  webhook     Manage webhooks
   login       Log in to Prismic
   logout      Log out of Prismic
   whoami      Show the currently logged in user
@@ -117,6 +119,9 @@ if (version) {
 				break;
 			case "logout":
 				await logout();
+				break;
+			case "webhook":
+				await webhook();
 				break;
 			case "whoami":
 				await whoami();
