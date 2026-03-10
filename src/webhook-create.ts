@@ -1,11 +1,10 @@
 import { parseArgs } from "node:util";
 
-import { isAuthenticated } from "./lib/auth";
+import { createWebhook } from "./clients/wroom";
+import { getHost, getToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { stringify } from "./lib/json";
-import { ForbiddenRequestError, request } from "./lib/request";
-import { getRepoUrl } from "./lib/url";
-import { TRIGGER_DISPLAY, type Webhook } from "./webhook-view";
+import { UnknownRequestError } from "./lib/request";
+import { TRIGGER_DISPLAY } from "./webhook-view";
 
 const HELP = `
 Create a new webhook in a Prismic repository.
@@ -85,12 +84,6 @@ export async function webhookCreate(): Promise<void> {
 		}
 	}
 
-	const authenticated = await isAuthenticated();
-	if (!authenticated) {
-		handleUnauthenticated();
-		return;
-	}
-
 	// Build trigger settings
 	const defaultValue = trigger.length > 0 ? false : true;
 	const triggers: Record<keyof typeof TRIGGER_DISPLAY, boolean> = {
@@ -107,46 +100,28 @@ export async function webhookCreate(): Promise<void> {
 		triggers[apiField as keyof typeof TRIGGER_DISPLAY] = true;
 	}
 
-	const response = await createWebhook(repo, {
-		url: webhookUrl,
-		name: name ?? null,
-		secret: secret ?? null,
-		...triggers,
-	});
-	if (!response.ok) {
-		if (response.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to create webhook: ${stringify(response.value)}`);
+	const token = await getToken();
+	const host = await getHost();
+
+	try {
+		await createWebhook(
+			{
+				url: webhookUrl,
+				name: name ?? null,
+				secret: secret ?? null,
+				...triggers,
+			},
+			{ repo, token, host },
+		);
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			console.error(`Failed to create webhook: ${message}`);
 			process.exitCode = 1;
+			return;
 		}
-		return;
+		throw error;
 	}
 
 	console.info(`Webhook created: ${webhookUrl}`);
-}
-
-async function createWebhook(
-	repo: string,
-	config: Omit<Webhook["config"], "_id" | "active" | "headers">,
-) {
-	const url = new URL("/app/settings/webhooks/create", await getRepoUrl(repo));
-	const body = new FormData();
-	body.set("url", config.url);
-	body.set("name", config.name ?? "");
-	body.set("secret", config.secret ?? "");
-	body.set("headers", JSON.stringify({}));
-	body.set("active", "on");
-	body.set("documentsPublished", config.documentsUnpublished.toString());
-	body.set("documentsUnpublished", config.documentsUnpublished.toString());
-	body.set("releasesCreated", config.documentsUnpublished.toString());
-	body.set("releasesUpdated", config.documentsUnpublished.toString());
-	body.set("tagsCreated", config.documentsUnpublished.toString());
-	body.set("documentsPublished", config.documentsUnpublished.toString());
-	return await request(url, { method: "POST", body });
-}
-
-function handleUnauthenticated() {
-	console.error("Not logged in. Run `prismic login` first.");
-	process.exitCode = 1;
 }

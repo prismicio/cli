@@ -1,11 +1,10 @@
 import { parseArgs } from "node:util";
 
-import { isAuthenticated } from "./lib/auth";
+import { getWebhooks, updateWebhook } from "./clients/wroom";
+import { getHost, getToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { stringify } from "./lib/json";
-import { ForbiddenRequestError } from "./lib/request";
-import { updateWebhook } from "./webhook-enable";
-import { getWebhooks, TRIGGER_DISPLAY } from "./webhook-view";
+import { UnknownRequestError } from "./lib/request";
+import { TRIGGER_DISPLAY } from "./webhook-view";
 
 const HELP = `
 Update which events trigger a webhook.
@@ -85,29 +84,17 @@ export async function webhookSetTriggers(): Promise<void> {
 		}
 	}
 
-	const authenticated = await isAuthenticated();
-	if (!authenticated) {
-		handleUnauthenticated();
-		return;
-	}
-
-	const webhooksResponse = await getWebhooks(repo);
-	if (!webhooksResponse.ok) {
-		if (webhooksResponse.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to update webhook triggers: ${stringify(webhooksResponse.value)}`);
-			process.exitCode = 1;
-		}
-		return;
-	}
-
-	const webhook = webhooksResponse.value.find((w) => w.config.url === webhookUrl);
+	const token = await getToken();
+	const host = await getHost();
+	const webhooks = await getWebhooks({ repo, token, host });
+	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
 		console.error(`Webhook not found: ${webhookUrl}`);
 		process.exitCode = 1;
 		return;
 	}
+
+	const id = webhook.config._id;
 
 	// Build trigger settings: all false, then enable specified ones
 	const defaultValue = trigger.length > 0 ? false : true;
@@ -125,24 +112,17 @@ export async function webhookSetTriggers(): Promise<void> {
 		triggers[apiField as keyof typeof TRIGGER_DISPLAY] = true;
 	}
 
-	const response = await updateWebhook(repo, webhook.config._id, {
-		...webhook.config,
-		...triggers,
-	});
-	if (!response.ok) {
-		if (response.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to update webhook triggers: ${stringify(response.value)}`);
+	try {
+		await updateWebhook(id, { ...webhook.config, ...triggers }, { repo, token, host });
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			console.error(`Failed to update webhook triggers: ${message}`);
 			process.exitCode = 1;
+			return;
 		}
-		return;
+		throw error;
 	}
 
 	console.info(`Webhook triggers updated: ${trigger.join(", ")}`);
-}
-
-function handleUnauthenticated() {
-	console.error("Not logged in. Run `prismic login` first.");
-	process.exitCode = 1;
 }

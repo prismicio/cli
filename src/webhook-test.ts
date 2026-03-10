@@ -1,11 +1,9 @@
 import { parseArgs } from "node:util";
 
-import { isAuthenticated } from "./lib/auth";
+import { getWebhooks, triggerWebhook } from "./clients/wroom";
+import { getHost, getToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { stringify } from "./lib/json";
-import { ForbiddenRequestError, request } from "./lib/request";
-import { getRepoUrl } from "./lib/url";
-import { getWebhooks } from "./webhook-view";
+import { UnknownRequestError } from "./lib/request";
 
 const HELP = `
 Trigger a test webhook in a Prismic repository.
@@ -57,50 +55,29 @@ export async function webhookTest(): Promise<void> {
 		return;
 	}
 
-	const authenticated = await isAuthenticated();
-	if (!authenticated) {
-		handleUnauthenticated();
-		return;
-	}
-
-	const webhooksResponse = await getWebhooks(repo);
-	if (!webhooksResponse.ok) {
-		if (webhooksResponse.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to test webhook: ${stringify(webhooksResponse.value)}`);
-			process.exitCode = 1;
-		}
-		return;
-	}
-
-	const webhook = webhooksResponse.value.find((w) => w.config.url === webhookUrl);
+	const token = await getToken();
+	const host = await getHost();
+	const webhooks = await getWebhooks({ repo, token, host });
+	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
 		console.error(`Webhook not found: ${webhookUrl}`);
 		process.exitCode = 1;
 		return;
 	}
 
-	const response = await triggerWebhook(repo, webhook.config._id);
-	if (!response.ok) {
-		if (response.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to test webhook: ${stringify(response.value)}`);
+	const id = webhook.config._id;
+
+	try {
+		await triggerWebhook(id, { repo, token, host });
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			console.error(`Failed to test webhook: ${message}`);
 			process.exitCode = 1;
+			return;
 		}
-		return;
+		throw error;
 	}
 
 	console.info(`Test webhook triggered: ${webhookUrl}`);
-}
-
-async function triggerWebhook(repo: string, webhookId: string) {
-	const url = new URL(`/app/settings/webhooks/${webhookId}/trigger`, await getRepoUrl(repo));
-	return await request(url, { method: "POST" });
-}
-
-function handleUnauthenticated() {
-	console.error("Not logged in. Run `prismic login` first.");
-	process.exitCode = 1;
 }

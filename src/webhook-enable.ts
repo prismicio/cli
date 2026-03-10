@@ -1,13 +1,9 @@
 import { parseArgs } from "node:util";
 
-import type { RequestResponse } from "./lib/request";
-
-import { isAuthenticated } from "./lib/auth";
+import { getWebhooks, updateWebhook } from "./clients/wroom";
+import { getHost, getToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { stringify } from "./lib/json";
-import { ForbiddenRequestError, request } from "./lib/request";
-import { getRepoUrl } from "./lib/url";
-import { getWebhooks, type Webhook } from "./webhook-view";
+import { UnknownRequestError } from "./lib/request";
 
 const HELP = `
 Enable a webhook in a Prismic repository.
@@ -59,24 +55,10 @@ export async function webhookEnable(): Promise<void> {
 		return;
 	}
 
-	const authenticated = await isAuthenticated();
-	if (!authenticated) {
-		handleUnauthenticated();
-		return;
-	}
-
-	const webhooksResponse = await getWebhooks(repo);
-	if (!webhooksResponse.ok) {
-		if (webhooksResponse.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to enable webhook: ${stringify(webhooksResponse.value)}`);
-			process.exitCode = 1;
-		}
-		return;
-	}
-
-	const webhook = webhooksResponse.value.find((w) => w.config.url === webhookUrl);
+	const token = await getToken();
+	const host = await getHost();
+	const webhooks = await getWebhooks({ repo, token, host });
+	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
 		console.error(`Webhook not found: ${webhookUrl}`);
 		process.exitCode = 1;
@@ -88,45 +70,22 @@ export async function webhookEnable(): Promise<void> {
 		return;
 	}
 
+	const id = webhook.config._id;
+
 	const updatedConfig = structuredClone(webhook.config);
 	updatedConfig.active = true;
 
-	const response = await updateWebhook(repo, webhook.config._id, updatedConfig);
-	if (!response.ok) {
-		if (response.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to enable webhook: ${stringify(response.value)}`);
+	try {
+		await updateWebhook(id, updatedConfig, { repo, token, host });
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			console.error(`Failed to enable webhook: ${message}`);
 			process.exitCode = 1;
+			return;
 		}
-		return;
+		throw error;
 	}
 
 	console.info(`Webhook enabled: ${webhookUrl}`);
-}
-
-export async function updateWebhook(
-	repo: string,
-	webhookId: string,
-	config: Omit<Webhook["config"], "_id">,
-): Promise<RequestResponse<unknown>> {
-	const url = new URL(`/app/settings/webhooks/${webhookId}`, await getRepoUrl(repo));
-	const body = new FormData();
-	body.set("url", config.url);
-	body.set("name", config.name ?? "");
-	body.set("secret", config.secret ?? "");
-	body.set("headers", JSON.stringify(config.headers ?? {}));
-	body.set("active", config.active ? "on" : "off");
-	body.set("documentsPublished", config.documentsUnpublished.toString());
-	body.set("documentsUnpublished", config.documentsUnpublished.toString());
-	body.set("releasesCreated", config.documentsUnpublished.toString());
-	body.set("releasesUpdated", config.documentsUnpublished.toString());
-	body.set("tagsCreated", config.documentsUnpublished.toString());
-	body.set("documentsPublished", config.documentsUnpublished.toString());
-	return await request(url, { method: "POST", body });
-}
-
-function handleUnauthenticated() {
-	console.error("Not logged in. Run `prismic login` first.");
-	process.exitCode = 1;
 }

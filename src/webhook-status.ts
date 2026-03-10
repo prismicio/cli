@@ -1,10 +1,8 @@
 import { parseArgs } from "node:util";
 
-import { isAuthenticated } from "./lib/auth";
+import { getWebhooks } from "./clients/wroom";
+import { getHost, getToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { stringify } from "./lib/json";
-import { ForbiddenRequestError } from "./lib/request";
-import { getWebhooks } from "./webhook-view";
 
 const HELP = `
 Show the enabled/disabled status of a webhook.
@@ -56,24 +54,10 @@ export async function webhookStatus(): Promise<void> {
 		return;
 	}
 
-	const authenticated = await isAuthenticated();
-	if (!authenticated) {
-		handleUnauthenticated();
-		return;
-	}
-
-	const response = await getWebhooks(repo);
-	if (!response.ok) {
-		if (response.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to get webhook status: ${stringify(response.value)}`);
-			process.exitCode = 1;
-		}
-		return;
-	}
-
-	const webhook = response.value.find((w) => w.config.url === webhookUrl);
+	const token = await getToken();
+	const host = await getHost();
+	const webhooks = await getWebhooks({ repo, token, host });
+	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
 		console.error(`Webhook not found: ${webhookUrl}`);
 		process.exitCode = 1;
@@ -82,9 +66,4 @@ export async function webhookStatus(): Promise<void> {
 
 	const status = webhook.config.active ? "enabled" : "disabled";
 	console.info(status);
-}
-
-function handleUnauthenticated() {
-	console.error("Not logged in. Run `prismic login` first.");
-	process.exitCode = 1;
 }

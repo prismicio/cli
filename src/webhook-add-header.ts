@@ -1,11 +1,9 @@
 import { parseArgs } from "node:util";
 
-import { isAuthenticated } from "./lib/auth";
+import { getWebhooks, updateWebhook } from "./clients/wroom";
+import { getHost, getToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { stringify } from "./lib/json";
-import { ForbiddenRequestError } from "./lib/request";
-import { updateWebhook } from "./webhook-enable";
-import { getWebhooks } from "./webhook-view";
+import { UnknownRequestError } from "./lib/request";
 
 const HELP = `
 Add a custom HTTP header to a webhook.
@@ -71,48 +69,32 @@ export async function webhookAddHeader(): Promise<void> {
 		return;
 	}
 
-	const authenticated = await isAuthenticated();
-	if (!authenticated) {
-		handleUnauthenticated();
-		return;
-	}
-
-	const webhooksResponse = await getWebhooks(repo);
-	if (!webhooksResponse.ok) {
-		if (webhooksResponse.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to add header: ${stringify(webhooksResponse.value)}`);
-			process.exitCode = 1;
-		}
-		return;
-	}
-
-	const webhook = webhooksResponse.value.find((w) => w.config.url === webhookUrl);
+	const token = await getToken();
+	const host = await getHost();
+	const webhooks = await getWebhooks({ repo, token, host });
+	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
 		console.error(`Webhook not found: ${webhookUrl}`);
 		process.exitCode = 1;
 		return;
 	}
 
+	const id = webhook.config._id;
+
 	const updatedConfig = structuredClone(webhook.config);
 	updatedConfig.headers[headerKey] = headerValue;
 
-	const response = await updateWebhook(repo, webhook.config._id, updatedConfig);
-	if (!response.ok) {
-		if (response.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to add header: ${stringify(response.value)}`);
+	try {
+		await updateWebhook(id, updatedConfig, { repo, token, host });
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			console.error(`Failed to add header: ${message}`);
 			process.exitCode = 1;
+			return;
 		}
-		return;
+		throw error;
 	}
 
 	console.info(`Header added: ${headerKey}`);
-}
-
-function handleUnauthenticated() {
-	console.error("Not logged in. Run `prismic login` first.");
-	process.exitCode = 1;
 }

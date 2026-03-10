@@ -1,11 +1,8 @@
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { isAuthenticated } from "./lib/auth";
+import { getWebhooks } from "./clients/wroom";
+import { getHost, getToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { stringify } from "./lib/json";
-import { ForbiddenRequestError, type ParsedRequestResponse, request } from "./lib/request";
-import { getRepoUrl } from "./lib/url";
 
 const HELP = `
 View details of a webhook in a Prismic repository.
@@ -66,24 +63,11 @@ export async function webhookView(): Promise<void> {
 		return;
 	}
 
-	const authenticated = await isAuthenticated();
-	if (!authenticated) {
-		handleUnauthenticated();
-		return;
-	}
+	const token = await getToken();
+	const host = await getHost();
+	const webhooks = await getWebhooks({ repo, token, host });
 
-	const response = await getWebhooks(repo);
-	if (!response.ok) {
-		if (response.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error(`Failed to view webhook: ${stringify(response.value)}`);
-			process.exitCode = 1;
-		}
-		return;
-	}
-
-	const webhook = response.value.find((w) => w.config.url === webhookUrl);
+	const webhook = webhooks.find((webhook) => webhook.config.url === webhookUrl);
 	if (!webhook) {
 		console.error(`Webhook not found: ${webhookUrl}`);
 		process.exitCode = 1;
@@ -116,32 +100,4 @@ export async function webhookView(): Promise<void> {
 	} else {
 		console.info("Headers: (none)");
 	}
-}
-
-function handleUnauthenticated() {
-	console.error("Not logged in. Run `prismic login` first.");
-	process.exitCode = 1;
-}
-
-const WebhookSchema = v.object({
-	config: v.object({
-		_id: v.string(),
-		url: v.string(),
-		active: v.boolean(),
-		name: v.nullable(v.string()),
-		secret: v.nullable(v.string()),
-		headers: v.record(v.string(), v.string()),
-		documentsPublished: v.boolean(),
-		documentsUnpublished: v.boolean(),
-		releasesCreated: v.boolean(),
-		releasesUpdated: v.boolean(),
-		tagsCreated: v.boolean(),
-		tagsDeleted: v.boolean(),
-	}),
-});
-export type Webhook = v.InferOutput<typeof WebhookSchema>;
-
-export async function getWebhooks(repo: string): Promise<ParsedRequestResponse<Webhook[]>> {
-	const url = new URL("/app/settings/webhooks", await getRepoUrl(repo));
-	return await request(url, { schema: v.array(WebhookSchema) });
 }
