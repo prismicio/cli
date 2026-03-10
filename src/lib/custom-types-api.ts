@@ -2,7 +2,7 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 
 import * as v from "valibot";
 
-import { readHost, readToken } from "./auth";
+import { getHost, getToken } from "./auth";
 
 const SharedSliceSchema = v.object({
 	id: v.string(),
@@ -35,13 +35,13 @@ export const CustomTypeSchema = v.object({
 export type FetchResult<T> = { ok: true; value: T } | { ok: false; error: string };
 
 export async function getCustomTypesApiUrl(): Promise<URL> {
-	const host = await readHost();
+	const host = await getHost();
 	host.hostname = `customtypes.${host.hostname}`;
 	return host;
 }
 
 export async function fetchRemoteCustomTypes(repo: string): Promise<FetchResult<CustomType[]>> {
-	const token = await readToken();
+	const token = await getToken();
 	if (!token) {
 		return { ok: false, error: "Not authenticated" };
 	}
@@ -86,7 +86,7 @@ export async function fetchRemoteCustomTypes(repo: string): Promise<FetchResult<
 }
 
 export async function fetchRemoteSlices(repo: string): Promise<FetchResult<SharedSlice[]>> {
-	const token = await readToken();
+	const token = await getToken();
 	if (!token) {
 		return { ok: false, error: "Not authenticated" };
 	}
@@ -134,7 +134,7 @@ export async function insertCustomType(
 	repo: string,
 	model: CustomType,
 ): Promise<FetchResult<void>> {
-	const token = await readToken();
+	const token = await getToken();
 	if (!token) {
 		return { ok: false, error: "Not authenticated" };
 	}
@@ -179,7 +179,7 @@ export async function updateCustomType(
 	repo: string,
 	model: CustomType,
 ): Promise<FetchResult<void>> {
-	const token = await readToken();
+	const token = await getToken();
 	if (!token) {
 		return { ok: false, error: "Not authenticated" };
 	}
@@ -221,7 +221,7 @@ export async function updateCustomType(
 }
 
 export async function deleteCustomType(repo: string, id: string): Promise<FetchResult<void>> {
-	const token = await readToken();
+	const token = await getToken();
 	if (!token) {
 		return { ok: false, error: "Not authenticated" };
 	}
@@ -261,7 +261,7 @@ export async function deleteCustomType(repo: string, id: string): Promise<FetchR
 }
 
 export async function insertSlice(repo: string, model: SharedSlice): Promise<FetchResult<void>> {
-	const token = await readToken();
+	const token = await getToken();
 	if (!token) {
 		return { ok: false, error: "Not authenticated" };
 	}
@@ -303,7 +303,7 @@ export async function insertSlice(repo: string, model: SharedSlice): Promise<Fet
 }
 
 export async function updateSlice(repo: string, model: SharedSlice): Promise<FetchResult<void>> {
-	const token = await readToken();
+	const token = await getToken();
 	if (!token) {
 		return { ok: false, error: "Not authenticated" };
 	}
@@ -345,7 +345,7 @@ export async function updateSlice(repo: string, model: SharedSlice): Promise<Fet
 }
 
 export async function deleteSlice(repo: string, id: string): Promise<FetchResult<void>> {
-	const token = await readToken();
+	const token = await getToken();
 	if (!token) {
 		return { ok: false, error: "Not authenticated" };
 	}

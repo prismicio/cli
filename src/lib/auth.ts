@@ -1,79 +1,125 @@
-import { access, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
+import * as v from "valibot";
 
+import { refreshToken as baseRefreshToken } from "../clients/auth";
+import { env } from "./env";
+import { exists } from "./file";
+import { stringify } from "./json";
 import { appendTrailingSlash } from "./url";
 
-const AUTH_FILE_PATH = new URL(
-	".prismic",
-	appendTrailingSlash(pathToFileURL(homedir())),
-);
-const DEFAULT_HOST = "https://prismic.io";
+const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
+const LOGIN_SOURCE = "prismic-cli";
 
-type AuthContents = {
-	token?: string;
-	base?: string;
-};
+const AuthFileSchema = v.object({
+	token: v.optional(v.pipe(v.string(), v.nonEmpty())),
+	host: v.optional(v.pipe(v.string(), v.nonEmpty())),
+});
+type AuthFile = v.InferOutput<typeof AuthFileSchema>;
 
-export async function saveToken(
-	token: string,
-	options?: { base?: string },
-): Promise<void> {
-	const contents: AuthContents = { token, base: options?.base };
-	await writeFile(AUTH_FILE_PATH, JSON.stringify(contents, null, 2));
+export async function getToken(): Promise<string | undefined> {
+	const auth = await readAuthFile();
+	return auth?.token;
 }
 
-export async function isAuthenticated(): Promise<boolean> {
-	const token = await readToken();
-	if (!token) return false;
+export async function getHost(): Promise<string | undefined> {
+	const auth = await readAuthFile();
+	return auth?.host;
+}
 
-	// Verify token is still valid by calling the profile endpoint
+export async function refreshToken(): Promise<string | undefined> {
+	const auth = await readAuthFile();
+	const token = auth?.token;
+	const host = auth?.host;
+	if (!token) return;
+	const newToken = await baseRefreshToken(token, { host });
+	await saveAuthFile({ token: newToken, host });
+	return newToken;
+}
+
+export async function logout(): Promise<boolean> {
+	const authFileExists = await exists(AUTH_FILE_PATH);
+	if (!authFileExists) return true;
+
 	try {
-		const host = await readHost();
-		host.hostname = `user-service.${host.hostname}`;
-		const url = new URL("profile", host);
-
-		const response = await fetch(url, {
-			headers: {
-				Accept: "application/json",
-				Cookie: `SESSION=fake_session; prismic-auth=${token}`,
-			},
-		});
-
-		if (!response.ok) {
-			await removeToken();
-			return false;
-		}
-
+		await rm(AUTH_FILE_PATH, { force: true });
 		return true;
 	} catch {
 		return false;
 	}
 }
 
-export async function readToken(): Promise<string | undefined> {
-	const auth = await readAuthFile();
-	return auth?.token;
-}
+// async function isAuthenticated(): Promise<boolean> {
+// 	const auth = await readAuthFile();
+// 	const token = auth?.token;
+// 	if (!token) return false;
+// 	return await validateToken(token, { host: auth.host });
+// }
 
-export async function readHost(): Promise<URL> {
+// async function refreshToken(): Promise<string | undefined> {
+// 	const auth = await readAuthFile();
+// 	const token = auth?.token;
+// 	if (!token) return;
+//
+// 	const newToken = baseRefreshToken(token, {});
+//
+// 	// const authUrl = await getAuthUrl();
+// 	// const url = new URL("refreshtoken", authUrl);
+// 	// url.searchParams.set("token", token);
+// 	//
+// 	// const response = await fetch(url, {
+// 	// 	headers: {
+// 	// 		Accept: "application/json",
+// 	// 		"User-Agent": USER_AGENT,
+// 	// 	},
+// 	// });
+// 	//
+// 	// if (!response.ok) {
+// 	// 	return undefined;
+// 	// }
+// 	//
+// 	// const newToken = await response.text();
+// 	const base = auth.host;
+// 	await saveAuthFile({ token: newToken, host: base });
+//
+// 	return newToken;
+// }
+
+async function readAuthFile(): Promise<AuthFile | undefined> {
 	try {
-		const auth = await readAuthFile();
-		if (!auth?.base) return new URL(DEFAULT_HOST);
-		return new URL(auth.base);
+		const contents = await readFile(AUTH_FILE_PATH, "utf-8");
+		const json = JSON.parse(contents);
+		return v.parse(AuthFileSchema, json);
 	} catch {
-		return new URL(DEFAULT_HOST);
+		return undefined;
 	}
 }
+
+async function saveAuthFile(auth: AuthFile): Promise<void> {
+	await writeFile(AUTH_FILE_PATH, stringify(auth));
+}
+
+// async function rmAuthFile(): Promise<boolean> {
+// 	const authFileExists = await exists(AUTH_FILE_PATH);
+// 	if (!authFileExists) return true;
+//
+// 	try {
+// 		await rm(AUTH_FILE_PATH);
+// 		return true;
+// 	} catch {
+// 		return false;
+// 	}
+// }
 
 export async function createLoginSession(options?: {
 	onReady?: (url: URL) => void;
 }): Promise<{ email: string }> {
-	const host = await readHost();
-	const corsOrigin = host.origin;
+	const host = env.PRISMIC_HOST;
+	const corsOrigin = `https://${host}`;
 
 	return new Promise((resolve, reject) => {
 		const server = createServer((req, res) => {
@@ -112,7 +158,7 @@ export async function createLoginSession(options?: {
 							return;
 						}
 
-						await saveToken(token);
+						await saveAuthFile({ token, host });
 
 						res.writeHead(200, {
 							"Access-Control-Allow-Origin": corsOrigin,
@@ -144,7 +190,7 @@ export async function createLoginSession(options?: {
 			reject(new Error("Login timed out. Please try again."));
 		}, LOGIN_TIMEOUT_MS);
 
-		const onListening = (): void => {
+		const onListening = async (): Promise<void> => {
 			const address = server.address();
 			if (!address || typeof address === "string") {
 				clearTimeout(timeoutId);
@@ -153,7 +199,7 @@ export async function createLoginSession(options?: {
 				return;
 			}
 
-			const url = buildLoginUrl(host, address.port);
+			const url = await buildLoginUrl(host, address.port);
 			options?.onReady?.(url);
 		};
 
@@ -170,31 +216,9 @@ export async function createLoginSession(options?: {
 	});
 }
 
-function buildLoginUrl(host: URL, port: number): URL {
-	const url = new URL("/dashboard/cli/login", host);
-	url.searchParams.set("source", "prismic-cli");
+async function buildLoginUrl(host: string, port: number): Promise<URL> {
+	const url = new URL("dashboard/cli/login", `https://${host}/`);
+	url.searchParams.set("source", LOGIN_SOURCE);
 	url.searchParams.set("port", port.toString());
 	return url;
-}
-
-async function readAuthFile(): Promise<AuthContents | undefined> {
-	try {
-		const contents = await readFile(AUTH_FILE_PATH, "utf-8");
-		return JSON.parse(contents);
-	} catch {
-		return undefined;
-	}
-}
-
-export async function removeToken(): Promise<boolean> {
-	try {
-		await access(AUTH_FILE_PATH);
-	} catch {
-		return true;
-	}
-
-	const auth = await readAuthFile();
-	if (!auth) return false;
-	await rm(AUTH_FILE_PATH);
-	return true;
 }

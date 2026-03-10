@@ -1,9 +1,7 @@
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { isAuthenticated } from "./lib/auth";
-import { ForbiddenRequestError, request } from "./lib/request";
-import { getUserServiceUrl } from "./lib/url";
+import { getProfile } from "./clients/user";
+import { getHost, getToken } from "./lib/auth";
 
 const HELP = `
 Show the currently logged in user.
@@ -31,32 +29,9 @@ export async function whoami(): Promise<void> {
 		return;
 	}
 
-	const authenticated = await isAuthenticated();
-	if (!authenticated) {
-		handleUnauthenticated();
-		return;
-	}
+	const token = await getToken();
+	const host = await getHost();
+	const profile = await getProfile({ token, host });
 
-	const response = await getProfile();
-	if (!response.ok) {
-		if (response.error instanceof ForbiddenRequestError) {
-			handleUnauthenticated();
-		} else {
-			console.error("Failed to fetch user profile.");
-		}
-		process.exitCode = 1;
-		return;
-	}
-
-	console.info(response.value.email);
-}
-
-async function getProfile() {
-	const url = new URL("profile", await getUserServiceUrl());
-	return await request(url, { schema: v.object({ email: v.string() }) });
-}
-
-function handleUnauthenticated() {
-	console.error("Not logged in. Run `prismic login` first.");
-	process.exitCode = 1;
+	console.info(profile.email);
 }

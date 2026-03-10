@@ -1,8 +1,8 @@
 import { parseArgs } from "node:util";
 
-import { isAuthenticated, readHost } from "./lib/auth";
-import { createConfig, readConfig, updateConfig } from "./lib/config";
 import { getClientSetupAnchor, getDocsPath, getFramework } from "./framework";
+import { isAuthenticated, getHost } from "./lib/auth";
+import { createConfig, readConfig, updateConfig } from "./lib/config";
 import { stringify } from "./lib/json";
 import { ForbiddenRequestError, request } from "./lib/request";
 import { getRepoUrl } from "./lib/url";
@@ -140,12 +140,14 @@ export async function repoCreate(): Promise<void> {
 		const clientFile = await framework.getClientFilePath();
 		const fileDesc = clientFile ? `creating ${clientFile}` : "configuring Prismic";
 		console.info();
-		console.info(`Next: Run \`prismic docs fetch ${docsPath}${anchor}\` for instructions on ${fileDesc}`);
+		console.info(
+			`Next: Run \`prismic docs fetch ${docsPath}${anchor}\` for instructions on ${fileDesc}`,
+		);
 	}
 }
 
 async function checkDomainAvailable(domain: string) {
-	const url = new URL(`/app/dashboard/repositories/${domain}/exists`, await readHost());
+	const url = new URL(`/app/dashboard/repositories/${domain}/exists`, await getHost());
 	const response = await request<string>(url);
 	if (!response.ok) {
 		return response;
@@ -155,7 +157,7 @@ async function checkDomainAvailable(domain: string) {
 }
 
 async function createRepository(domain: string, name = domain) {
-	const url = new URL("/app/dashboard/repositories", await readHost());
+	const url = new URL("/app/dashboard/repositories", await getHost());
 	return await request(url, {
 		method: "POST",
 		body: {

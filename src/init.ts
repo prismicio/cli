@@ -1,14 +1,17 @@
 import { readFile, rm } from "node:fs/promises";
 import { parseArgs } from "node:util";
-import * as v from "valibot";
 
-import { createLoginSession, isAuthenticated } from "./lib/auth";
+import type { Profile } from "./clients/user";
+import type { FrameworkAdapter } from "./framework";
+import type { Config } from "./lib/config";
+
+import { getProfile } from "./clients/user";
+import { NoSupportedFrameworkError, requireFramework } from "./framework";
+import { createLoginSession, getHost, getToken } from "./lib/auth";
 import { openBrowser } from "./lib/browser";
 import { createConfig, readConfig, UnknownProjectRoot } from "./lib/config";
 import { findUpward } from "./lib/file";
-import { getFramework } from "./framework";
-import { request } from "./lib/request";
-import { getUserServiceUrl } from "./lib/url";
+import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import { syncCustomTypes, syncSlices } from "./sync";
 
 const HELP = `
@@ -30,15 +33,6 @@ EXAMPLES
 LEARN MORE
   Use \`prismic <command> --help\` for more information about a command.
 `.trim();
-
-const ProfileSchema = v.object({
-	repositories: v.array(
-		v.object({
-			domain: v.string(),
-			name: v.optional(v.string()),
-		}),
-	),
-});
 
 export async function init(): Promise<void> {
 	const { values } = parseArgs({
@@ -88,34 +82,29 @@ export async function init(): Promise<void> {
 		return;
 	}
 
-	// Login if needed
-	if (!(await isAuthenticated())) {
-		console.info("Not logged in. Starting login...");
-		const { email } = await createLoginSession({
-			onReady: (url) => {
-				console.info("Opening browser to complete login...");
-				console.info(`If the browser doesn't open, visit: ${url}`);
-				openBrowser(url);
-			},
-		});
-		console.info(`Logged in as ${email}`);
-	}
-
 	// Validate repo membership
-	const profileUrl = new URL("profile", await getUserServiceUrl());
-	const profileResponse = await request(profileUrl, {
-		schema: ProfileSchema,
-	});
-	if (!profileResponse.ok) {
-		console.error("Failed to fetch user profile.");
-		process.exitCode = 1;
-		return;
+	const token = await getToken();
+	const host = await getHost();
+	let profile: Profile;
+	try {
+		profile = await getProfile({ token, host });
+	} catch (error) {
+		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
+			console.info("Not logged in. Starting login...");
+			const { email } = await createLoginSession({
+				onReady: (url) => {
+					console.info("Opening browser to complete login...");
+					console.info(`If the browser doesn't open, visit: ${url}`);
+					openBrowser(url);
+				},
+			});
+			console.info(`Logged in as ${email}`);
+		}
+		throw error;
 	}
 
-	const repoData = profileResponse.value.repositories.find(
-		(r) => r.domain === repo,
-	);
-	if (!repoData) {
+	const repoMeta = profile.repositories.find((repository) => repository.domain === repo);
+	if (!repoMeta) {
 		console.error(
 			`Repository "${repo}" not found in your account. Check the name or create it with \`prismic repo create\`.`,
 		);
@@ -123,20 +112,20 @@ export async function init(): Promise<void> {
 		return;
 	}
 
-	// Detect framework
-	const framework = await getFramework();
-	if (!framework) {
-		console.error(
-			"Could not detect a supported framework (Next.js, Nuxt, or SvelteKit).",
-		);
-		process.exitCode = 1;
-		return;
+	let framework: FrameworkAdapter;
+	try {
+		framework = await requireFramework();
+	} catch (error) {
+		if (error instanceof NoSupportedFrameworkError) {
+			console.error(error.message);
+			process.exitCode = 1;
+			return;
+		}
+		throw error;
 	}
 
 	// Create prismic.config.json
-	const configData: { repositoryName: string; libraries?: string[] } = {
-		repositoryName: repo,
-	};
+	const configData: Config = { repositoryName: repo };
 	if (legacyLibraries?.length) {
 		configData.libraries = legacyLibraries;
 	}

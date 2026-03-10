@@ -112,7 +112,9 @@ export abstract class FrameworkAdapter {
 			allSlices.push(...slices);
 		}
 
-		return allSlices;
+		return allSlices.sort((a, b) =>
+			a.model.id.toLowerCase().localeCompare(b.model.id.toLowerCase()),
+		);
 	}
 
 	async getDefaultSliceLibrary(): Promise<URL> {
@@ -169,7 +171,9 @@ export abstract class FrameworkAdapter {
 				};
 			}),
 		);
-		return customTypes;
+		return customTypes.sort((a, b) =>
+			a.model.id.toLowerCase().localeCompare(b.model.id.toLowerCase()),
+		);
 	}
 
 	async getProjectRoot(): Promise<URL> {
@@ -346,15 +350,14 @@ const PackageJsonSchema = v.object({
 
 export type Framework = "next" | "nuxt" | "sveltekit";
 
-export async function requireFramework(): Promise<FrameworkAdapter | undefined> {
+export async function requireFramework(): Promise<FrameworkAdapter> {
 	const framework = await getFramework();
-	if (!framework) {
-		console.error("No supported framework found (Next.js, Nuxt, or SvelteKit required)");
-		console.error("Ensure your project has the framework listed as a dependency in package.json");
-		process.exitCode = 1;
-		return undefined;
-	}
+	if (!framework) throw new NoSupportedFrameworkError();
 	return framework;
+}
+
+export class NoSupportedFrameworkError extends Error {
+	message = "No supported framework found (Next.js, Nuxt, or SvelteKit required)";
 }
 
 export async function getFramework(): Promise<FrameworkAdapter | undefined> {

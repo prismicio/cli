@@ -1,44 +1,31 @@
 import * as v from "valibot";
 
-import { readToken } from "./auth";
+const USER_AGENT = "prismic-cli";
 
-type CustomRequestInit = Omit<RequestInit, "body"> & {
+type CustomRequestInit = Omit<RequestInit, "body" | "credentials"> & {
 	body?: RequestInit["body"] | Record<PropertyKey, unknown>;
+	credentials?: Record<string, string | undefined>;
 };
 
-export type RequestResponse<T> = SuccessfulRequestResponse<T> | FailedRequestResponse;
-export type ParsedRequestResponse<T> =
-	| RequestResponse<T>
-	| { ok: false; value: unknown; error: v.ValiError<v.GenericSchema<T>> };
-export type SuccessfulRequestResponse<T> = { ok: true; value: T };
-export type FailedRequestResponse = {
-	ok: false;
-	value: unknown;
-	error: RequestError | ForbiddenRequestError | UnauthorizedRequestError;
-};
-export type FailedParsedRequestResponse<T> =
-	| FailedRequestResponse
-	| { ok: false; value: unknown; error: v.ValiError<v.GenericSchema<T>> };
-
-export async function request<T>(
-	input: RequestInfo | URL,
-	init?: CustomRequestInit,
-): Promise<RequestResponse<T>>;
-export async function request<T>(
-	input: RequestInfo | URL,
-	init: CustomRequestInit & { schema: v.GenericSchema<T> },
-): Promise<ParsedRequestResponse<T>>;
 export async function request<T>(
 	input: RequestInfo | URL,
 	init: CustomRequestInit & { schema?: v.GenericSchema<T> } = {},
-): Promise<ParsedRequestResponse<T>> {
-	const { credentials = "include" } = init;
+): Promise<T> {
+	const { credentials, ...otherInit } = init;
 
 	const headers = new Headers(init.headers);
-	headers.set("Accept", "application/json");
-	if (credentials === "include") {
-		const token = await readToken();
-		if (token) headers.set("Cookie", `SESSION=fake_session; prismic-auth=${token}`);
+	if (!headers.has("Accept")) {
+		headers.set("Accept", "application/json");
+	}
+	if (!headers.has("User-Agent")) {
+		headers.set("User-Agent", USER_AGENT);
+	}
+	if (credentials) {
+		const cookies: string[] = [];
+		for (const key in credentials) {
+			cookies.push(`${key}=${credentials[key] ?? ""}`);
+		}
+		headers.set("Cookie", cookies.join("; "));
 	}
 	if (!headers.has("Content-Type") && init.body) {
 		headers.set("Content-Type", "application/json");
@@ -52,7 +39,7 @@ export async function request<T>(
 			? JSON.stringify(init.body)
 			: (init.body as RequestInit["body"]);
 
-	const response = await fetch(input, { ...init, body, headers });
+	const response = await fetch(input, { ...otherInit, body, headers });
 
 	const value = await response
 		.clone()
@@ -60,33 +47,21 @@ export async function request<T>(
 		.catch(() => response.clone().text());
 
 	if (response.ok) {
-		if (!init?.schema) return { ok: true, value };
+		if (init.schema) {
+			return v.parse(init.schema, value);
+		}
 
-		try {
-			const parsed = v.parse(init.schema, value);
-			return { ok: true, value: parsed };
-		} catch (error) {
-			if (v.isValiError<v.GenericSchema<T>>(error)) {
-				return { ok: false, value, error };
-			}
-			throw error;
-		}
+		return value;
 	} else {
-		if (response.status === 401) {
-			const error = new UnauthorizedRequestError(response);
-			return { ok: false, value, error };
-		} else if (response.status === 403) {
-			const error = new ForbiddenRequestError(response);
-			return { ok: false, value, error };
-		} else {
-			const error = new RequestError(response);
-			return { ok: false, value, error };
-		}
+		if (response.status === 401) throw new UnauthorizedRequestError(response);
+		if (response.status === 403) throw new ForbiddenRequestError(response);
+		if (response.status === 404) throw new NotFoundRequestError(response);
+		throw new RequestError(response);
 	}
 }
 
 export class RequestError extends Error {
-	name = "RequestError" as const;
+	name = "RequestError";
 	response: Response;
 
 	constructor(response: Response) {
@@ -111,6 +86,12 @@ export class RequestError extends Error {
 	}
 }
 
-export class ForbiddenRequestError extends RequestError {}
-
-export class UnauthorizedRequestError extends RequestError {}
+export class NotFoundRequestError extends RequestError {
+	name = "NotFoundRequestError";
+}
+export class ForbiddenRequestError extends RequestError {
+	name = "ForbiddenRequestError";
+}
+export class UnauthorizedRequestError extends RequestError {
+	name = "UnauthorizedRequestError";
+}

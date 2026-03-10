@@ -1,6 +1,6 @@
 import * as v from "valibot";
 
-import { readToken } from "./auth";
+import { getToken } from "./auth";
 import { getUserServiceUrl } from "./url";
 
 const PrismicUserProfileSchema = v.object({
@@ -15,7 +15,7 @@ const PrismicUserProfileSchema = v.object({
 export type PrismicUserProfile = v.InferOutput<typeof PrismicUserProfileSchema>;
 
 export async function getProfile(): Promise<PrismicUserProfile> {
-	const token = await readToken();
+	const token = await getToken();
 	if (!token) {
 		throw new Error("Not authenticated. Log in before trying again.");
 	}

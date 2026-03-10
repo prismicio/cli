@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 
-import { removeToken } from "./lib/auth";
+import { logout as baseLogout } from "./lib/auth";
 
 const HELP = `
 Log out of Prismic.
@@ -26,7 +26,7 @@ export async function logout(): Promise<void> {
 		return;
 	}
 
-	const ok = await removeToken();
+	const ok = await baseLogout();
 	if (ok) {
 		console.info("Logged out of Prismic");
 	} else {

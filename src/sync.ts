@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 import { parseArgs } from "node:util";
 
-import { isAuthenticated } from "./lib/auth";
+import { getCustomTypes, getSlices } from "./clients/custom-types";
+import { type FrameworkAdapter, NoSupportedFrameworkError, requireFramework } from "./framework";
+import { getHost, getToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
-import { fetchRemoteCustomTypes, fetchRemoteSlices } from "./lib/custom-types-api";
-import { type FrameworkAdapter, getFramework } from "./framework";
 import { trackEnd } from "./lib/segment";
 import { dedent } from "./lib/string";
 
@@ -53,17 +53,16 @@ export async function sync(): Promise<void> {
 		return;
 	}
 
-	if (!(await isAuthenticated())) {
-		console.error("Not logged in. Run `prismic login` first.");
-		process.exitCode = 1;
-		return;
-	}
-
-	const framework = await getFramework();
-	if (!framework) {
-		console.error("Could not detect a supported framework (Next.js, Nuxt, or SvelteKit).");
-		process.exitCode = 1;
-		return;
+	let framework: FrameworkAdapter;
+	try {
+		framework = await requireFramework();
+	} catch (error) {
+		if (error instanceof NoSupportedFrameworkError) {
+			console.error(error.message);
+			process.exitCode = 1;
+			return;
+		}
+		throw error;
 	}
 
 	console.info(`Syncing from repository: ${repo}`);
@@ -79,21 +78,11 @@ export async function sync(): Promise<void> {
 }
 
 async function watchForChanges(repo: string, framework: FrameworkAdapter) {
-	const remoteSlicesResult = await fetchRemoteSlices(repo);
-	if (!remoteSlicesResult.ok) {
-		console.error(`Failed to fetch remote slices: ${remoteSlicesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
-	const initialRemoteSlices = remoteSlicesResult.value;
+	const token = await getToken();
+	const host = await getHost();
 
-	const remoteCustomTypesResult = await fetchRemoteCustomTypes(repo);
-	if (!remoteCustomTypesResult.ok) {
-		console.error(`Failed to fetch remote custom types: ${remoteCustomTypesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
-	const initialRemoteCustomTypes = remoteCustomTypesResult.value;
+	const initialRemoteSlices = await getSlices({ repo, token, host });
+	const initialRemoteCustomTypes = await getCustomTypes({ repo, token, host });
 
 	await syncSlices(repo, framework);
 	await syncCustomTypes(repo, framework);
@@ -102,7 +91,7 @@ async function watchForChanges(repo: string, framework: FrameworkAdapter) {
 		Initial sync completed!
 
 		Watching for changes (polling every ${POLL_INTERVAL_MS / 1000}s),
-		Press Ctrl+C to stop
+		Press Ctrl+C to stop\n
 	`);
 
 	let lastRemoteSlicesHash = hash(initialRemoteSlices);
@@ -123,25 +112,30 @@ async function watchForChanges(repo: string, framework: FrameworkAdapter) {
 		await setTimeout(exponentialMs(consecutiveErrors));
 
 		try {
-			const remoteSlicesResult = await fetchRemoteSlices(repo);
-			if (!remoteSlicesResult.ok) continue;
-			const remoteSlicesHash = hash(remoteSlicesResult.value);
+			const remoteSlicesResult = await getSlices({ repo, token, host });
+			const remoteSlicesHash = hash(remoteSlicesResult);
 			const slicesChanged = remoteSlicesHash !== lastRemoteSlicesHash;
 
-			const remoteCustomTypesResult = await fetchRemoteCustomTypes(repo);
-			if (!remoteCustomTypesResult.ok) continue;
-			const remoteCustomTypesHash = hash(remoteCustomTypesResult.value);
+			const remoteCustomTypesResult = await getCustomTypes({ repo, token, host });
+			const remoteCustomTypesHash = hash(remoteCustomTypesResult);
 			const customTypesChanged = remoteCustomTypesHash !== lastRemoteCustomTypesHash;
 
 			if (slicesChanged || customTypesChanged) {
+				const changed = [];
+
 				if (slicesChanged) {
 					await syncSlices(repo, framework);
 					lastRemoteSlicesHash = remoteSlicesHash;
+					changed.push("slices");
 				}
 				if (customTypesChanged) {
 					await syncCustomTypes(repo, framework);
 					lastRemoteCustomTypesHash = remoteCustomTypesHash;
+					changed.push("custom types");
 				}
+
+				const timestamp = new Date().toLocaleTimeString();
+				console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
 			}
 
 			// Reset error count on success
@@ -166,13 +160,10 @@ async function watchForChanges(repo: string, framework: FrameworkAdapter) {
 }
 
 export async function syncSlices(repo: string, framework: FrameworkAdapter): Promise<void> {
-	const remoteSlicesResult = await fetchRemoteSlices(repo);
-	if (!remoteSlicesResult.ok) {
-		console.error(`Failed to fetch remote slices: ${remoteSlicesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
-	const remoteSlices = remoteSlicesResult.value;
+	const token = await getToken();
+	const host = await getHost();
+
+	const remoteSlices = await getSlices({ repo, token, host });
 	const localSlices = await framework.getSlices();
 
 	// Handle slices update
@@ -202,13 +193,10 @@ export async function syncSlices(repo: string, framework: FrameworkAdapter): Pro
 }
 
 export async function syncCustomTypes(repo: string, framework: FrameworkAdapter): Promise<void> {
-	const remoteCustomTypesResult = await fetchRemoteCustomTypes(repo);
-	if (!remoteCustomTypesResult.ok) {
-		console.error(`Failed to fetch remote custom types: ${remoteCustomTypesResult.error}`);
-		process.exitCode = 1;
-		return;
-	}
-	const remoteCustomTypes = remoteCustomTypesResult.value;
+	const token = await getToken();
+	const host = await getHost();
+
+	const remoteCustomTypes = await getCustomTypes({ repo, token, host });
 	const localCustomTypes = await framework.getCustomTypes();
 
 	// Handle custom types update
