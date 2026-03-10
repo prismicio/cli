@@ -1,7 +1,7 @@
 import { exec } from "node:child_process";
 import { parseArgs } from "node:util";
 
-import { createLoginSession } from "./lib/auth";
+import { createLoginSession } from "../lib/auth";
 
 const HELP = `
 Log in to Prismic via browser.

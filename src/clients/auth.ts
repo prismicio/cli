@@ -1,6 +1,6 @@
 import * as v from "valibot";
 
-import { env } from "../lib/env";
+import { env } from "../env";
 import { request } from "../lib/request";
 
 export async function validateToken(

@@ -4,8 +4,12 @@ import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
 import { getProfile } from "./clients/user";
-import { getFramework } from "./framework";
-import { init } from "./init";
+import { init } from "./commands/init";
+import { login } from "./commands/login";
+import { logout } from "./commands/logout";
+import { sync } from "./commands/sync";
+import { whoami } from "./commands/whoami";
+import { getFramework } from "./frameworks";
 import { getHost, refreshToken } from "./lib/auth";
 import { safeGetRepositoryFromConfig } from "./lib/config";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
@@ -23,10 +27,6 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { login } from "./login";
-import { logout } from "./logout";
-import { sync } from "./sync";
-import { whoami } from "./whoami";
 
 const HELP = `
 Prismic CLI for managing repositories and configurations.

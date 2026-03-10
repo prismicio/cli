@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import * as v from "valibot";
 
 import { refreshToken as baseRefreshToken } from "../clients/auth";
-import { env } from "./env";
+import { env } from "../env";
 import { exists } from "./file";
 import { stringify } from "./json";
 import { appendTrailingSlash } from "./url";

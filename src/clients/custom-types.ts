@@ -1,6 +1,6 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { env } from "../lib/env";
+import { env } from "../env";
 import { request } from "../lib/request";
 
 export async function getCustomTypes(config: {
