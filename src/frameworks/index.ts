@@ -36,6 +36,14 @@ export abstract class FrameworkAdapter {
 
 	abstract getDefaultSliceLibraryPath(projectRoot: URL): Promise<URL>;
 
+	async updateRoutesForPageTypes(_customTypes: CustomType[]): Promise<void> {
+		// No-op by default. Override in framework-specific subclasses.
+	}
+
+	async removeRoutesForPageType(_customTypeId: string): Promise<void> {
+		// No-op by default. Override in framework-specific subclasses.
+	}
+
 	async initProject(): Promise<void> {
 		const deps = await this.getDependencies();
 		await addDependencies(deps);

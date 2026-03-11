@@ -61,5 +61,8 @@
 			"version": ">=24",
 			"onFail": "warn"
 		}
+	},
+	"dependencies": {
+		"recast": "^0.23.11"
 	}
 }

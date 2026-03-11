@@ -224,6 +224,9 @@ export async function syncCustomTypes(repo: string, framework: FrameworkAdapter)
 			(customType) => customType.id === localCustomType.model.id,
 		);
 		if (!existsRemotely) {
+			if (localCustomType.model.format === "page") {
+				await framework.removeRoutesForPageType(localCustomType.model.id);
+			}
 			await framework.deleteCustomType(localCustomType.model.id);
 		}
 	}
@@ -237,6 +240,9 @@ export async function syncCustomTypes(repo: string, framework: FrameworkAdapter)
 			await framework.createCustomType(remoteCustomType);
 		}
 	}
+
+	// Append missing page type routes to prismicio.ts
+	await framework.updateRoutesForPageTypes(remoteCustomTypes);
 }
 
 function shutdown(): void {
