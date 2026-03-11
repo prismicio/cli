@@ -1,6 +1,5 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-
 import { createRequire } from "node:module";
 
 import type { Framework } from ".";
