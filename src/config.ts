@@ -51,7 +51,7 @@ export async function readConfig(): Promise<Config> {
 
 export class InvalidPrismicConfig extends Error {
 	name = "InvalidPrismicConfig";
-	message = `${CONFIG_FILENAME}.config.json is invalid.`;
+	message = `${CONFIG_FILENAME} is invalid.`;
 	issues: z.core.$ZodIssue[];
 
 	constructor(issues: z.core.$ZodIssue[] = []) {
