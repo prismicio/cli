@@ -3,7 +3,7 @@
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 
-Prismic's official command line tool. Run the following in your terminal to get an overview of `prismic`s commands.
+Prismic's official command line tool. Run the following in your terminal to get an overview of `prismic`'s commands.
 
 ```sh
 npx prismic@latest --help
