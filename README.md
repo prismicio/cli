@@ -3,11 +3,15 @@
 [![npm version][npm-version-src]][npm-version-href]
 [![npm downloads][npm-downloads-src]][npm-downloads-href]
 
-Prismic's official command line tool.
+Prismic's official command line tool. Run the following in your terminal to get an overview of `prismic`s commands.
+
+```sh
+npx prismic@latest --help
+```
 
 ## Install
 
-Use `npx` to run `prismic` anywhere:
+You do not need to install `prismic`. Use [`npx`](https://docs.npmjs.com/cli/commands/npx) to run `prismic` in your projects:
 
 ```sh
 npx prismic@latest
