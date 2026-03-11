@@ -237,6 +237,9 @@ export async function syncCustomTypes(repo: string, framework: FrameworkAdapter)
 			await framework.createCustomType(remoteCustomType);
 		}
 	}
+
+	// Append missing page type routes to prismicio.ts
+	await framework.updateRoutesForPageTypes(remoteCustomTypes);
 }
 
 function shutdown(): void {

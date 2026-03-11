@@ -1,6 +1,12 @@
-import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
+import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+
+import { kebabCase } from "change-case";
+import type { types } from "recast";
+import * as recast from "recast";
+import * as typescriptParser from "recast/parsers/typescript.js";
 
 import type { Framework } from ".";
 
@@ -91,6 +97,124 @@ export class NextJsFramework extends FrameworkAdapter {
 			default:
 				return null;
 		}
+	}
+
+	async updateRoutesForPageTypes(customTypes: CustomType[]): Promise<void> {
+		const pageTypes = customTypes
+			.filter((ct) => ct.format === "page")
+			.sort((a, b) => a.id.localeCompare(b.id));
+
+		if (pageTypes.length === 0) {
+			return;
+		}
+
+		const extension = await this.getJsFileExtension();
+		const filePath = await this.#buildSrcPath(`prismicio.${extension}`);
+
+		if (!(await exists(filePath))) {
+			return;
+		}
+
+		const contents = await readFile(filePath, "utf8");
+
+		let ast: types.ASTNode;
+		try {
+			ast = recast.parse(contents, { parser: typescriptParser });
+		} catch {
+			return;
+		}
+
+		const routesArray = this.#findRoutesArray(ast);
+		if (!routesArray) {
+			return;
+		}
+
+		const existingTypes = new Set(
+			routesArray.elements.map((el) => this.#getRouteType(el)).filter(Boolean),
+		);
+
+		const missingTypes = pageTypes.filter((m) => !existingTypes.has(m.id));
+		if (missingTypes.length === 0) {
+			return;
+		}
+
+		for (const model of missingTypes) {
+			const routePath = this.#buildRoutePath(model.id, model.repeatable);
+			const routeObj = this.#createRouteObject(model.id, routePath);
+			routesArray.elements.push(routeObj);
+		}
+
+		const updated = recast.print(ast).code;
+		if (updated !== contents) {
+			await writeFileRecursive(filePath, updated);
+		}
+	}
+
+	#findRoutesArray(ast: types.ASTNode): types.namedTypes.ArrayExpression | undefined {
+		const n = recast.types.namedTypes;
+		let routesArray: types.namedTypes.ArrayExpression | undefined;
+
+		recast.visit(ast, {
+			visitVariableDeclarator(nodePath): false | void {
+				const node = nodePath.node;
+				if (
+					n.Identifier.check(node.id) &&
+					node.id.name === "routes" &&
+					n.ArrayExpression.check(node.init)
+				) {
+					routesArray = node.init;
+					return false;
+				}
+				this.traverse(nodePath);
+			},
+		});
+
+		return routesArray;
+	}
+
+	#getRouteType(element: unknown): string | undefined {
+		const n = recast.types.namedTypes;
+
+		if (!n.ObjectExpression.check(element)) {
+			return;
+		}
+
+		for (const prop of element.properties) {
+			if (!n.Property.check(prop) && !n.ObjectProperty?.check?.(prop)) {
+				continue;
+			}
+
+			const keyName = n.Identifier.check(prop.key)
+				? prop.key.name
+				: n.StringLiteral.check(prop.key)
+					? prop.key.value
+					: n.Literal.check(prop.key) && typeof prop.key.value === "string"
+						? prop.key.value
+						: undefined;
+
+			if (keyName === "type") {
+				const val = prop.value;
+				if (n.StringLiteral.check(val)) {
+					return val.value;
+				}
+				if (n.Literal.check(val) && typeof val.value === "string") {
+					return val.value;
+				}
+			}
+		}
+	}
+
+	#createRouteObject(typeId: string, routePath: string): types.namedTypes.ObjectExpression {
+		const b = recast.types.builders;
+		return b.objectExpression([
+			b.property("init", b.identifier("type"), b.stringLiteral(typeId)),
+			b.property("init", b.identifier("path"), b.stringLiteral(routePath)),
+		]);
+	}
+
+	#buildRoutePath(typeId: string, repeatable?: boolean): string {
+		const segment = kebabCase(typeId);
+		return `/${segment}${repeatable ? "/:uid" : ""}`;
 	}
 
 	async #checkHasAppRouter(): Promise<boolean> {
