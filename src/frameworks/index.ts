@@ -5,9 +5,9 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { glob } from "tinyglobby";
-import * as v from "valibot";
+import * as z from "zod/mini";
 
-import { readConfig } from "../lib/config";
+import { readConfig } from "../config";
 import { exists, findUpward } from "../lib/file";
 import { stringify } from "../lib/json";
 import { addDependencies } from "../lib/packageJson";
@@ -222,17 +222,15 @@ export abstract class FrameworkAdapter {
 
 	async #getSliceLibraries(): Promise<URL[]> {
 		const projectRoot = await this.getProjectRoot();
-		const configResult = await readConfig();
-		const sliceLibraries = configResult.ok ? configResult.config.libraries : undefined;
-
-		if (sliceLibraries?.length) {
-			return sliceLibraries.map((sliceLibrary) => {
-				const withoutLeadingSlash = sliceLibrary.replace(/^\//, "");
-				return appendTrailingSlash(new URL(withoutLeadingSlash, projectRoot));
-			});
+		const config = await readConfig();
+		const sliceLibraries = config.libraries ?? [];
+		if (sliceLibraries.length < 1) {
+			return [await this.getDefaultSliceLibraryPath(projectRoot)];
 		}
-
-		return [await this.getDefaultSliceLibraryPath(projectRoot)];
+		return sliceLibraries.map((sliceLibrary) => {
+			const withoutLeadingSlash = sliceLibrary.replace(/^\//, "");
+			return appendTrailingSlash(new URL(withoutLeadingSlash, projectRoot));
+		});
 	}
 
 	async #updateSliceLibraryIndexFile(library: URL): Promise<{ indexPath: URL }> {
@@ -343,9 +341,9 @@ export function getPreviewSetupAnchor(framework: Framework): string {
 	}
 }
 
-const PackageJsonSchema = v.object({
-	dependencies: v.optional(v.record(v.string(), v.string())),
-	devDependencies: v.optional(v.record(v.string(), v.string())),
+const PackageJsonSchema = z.object({
+	dependencies: z.optional(z.record(z.string(), z.string())),
+	devDependencies: z.optional(z.record(z.string(), z.string())),
 });
 
 export type Framework = "next" | "nuxt" | "sveltekit";
@@ -386,7 +384,7 @@ async function detectFramework(): Promise<Framework | undefined> {
 
 	try {
 		const contents = await readFile(packageJsonPath, "utf8");
-		const { dependencies = {}, devDependencies = {} } = v.parse(
+		const { dependencies = {}, devDependencies = {} } = z.parse(
 			PackageJsonSchema,
 			JSON.parse(contents),
 		);

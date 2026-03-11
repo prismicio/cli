@@ -1,24 +1,23 @@
-import * as v from "valibot";
+import * as z from "zod/mini";
 
-import { env } from "../lib/env";
 import { request } from "../lib/request";
 
-const ProfileSchema = v.object({
-	email: v.string(),
-	shortId: v.string(),
-	intercomHash: v.string(),
-	repositories: v.array(
-		v.object({
-			domain: v.string(),
-			name: v.optional(v.string()),
+const ProfileSchema = z.object({
+	email: z.string(),
+	shortId: z.string(),
+	intercomHash: z.string(),
+	repositories: z.array(
+		z.object({
+			domain: z.string(),
+			name: z.optional(z.string()),
 		}),
 	),
 });
-export type Profile = v.InferOutput<typeof ProfileSchema>;
+export type Profile = z.infer<typeof ProfileSchema>;
 
 export async function getProfile(config: {
 	token: string | undefined;
-	host: string | undefined;
+	host: string;
 }): Promise<Profile> {
 	const { token, host } = config;
 	const userServiceUrl = getUserServiceUrl(host);
@@ -30,6 +29,6 @@ export async function getProfile(config: {
 	return response;
 }
 
-function getUserServiceUrl(host = env.PRISMIC_HOST): URL {
+function getUserServiceUrl(host: string): URL {
 	return new URL(`https://user-service.${host}/`);
 }

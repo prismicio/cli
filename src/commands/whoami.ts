@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 
-import { getProfile } from "./clients/user";
-import { getHost, getToken } from "./lib/auth";
+import { getHost, getToken } from "../auth";
+import { getProfile } from "../clients/user";
 
 const HELP = `
 Show the currently logged in user.

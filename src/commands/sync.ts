@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 import { parseArgs } from "node:util";
 
-import { getCustomTypes, getSlices } from "./clients/custom-types";
-import { type FrameworkAdapter, NoSupportedFrameworkError, requireFramework } from "./framework";
-import { getHost, getToken } from "./lib/auth";
-import { safeGetRepositoryFromConfig } from "./lib/config";
-import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "./lib/segment";
-import { sentrySetContext, sentrySetTag } from "./lib/sentry";
-import { dedent } from "./lib/string";
+import { getHost, getToken } from "../auth";
+import { getCustomTypes, getSlices } from "../clients/custom-types";
+import { safeGetRepositoryFromConfig } from "../config";
+import { type FrameworkAdapter, NoSupportedFrameworkError, requireFramework } from "../frameworks";
+import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "../lib/segment";
+import { sentrySetContext, sentrySetTag } from "../lib/sentry";
+import { dedent } from "../lib/string";
 
 const HELP = `
 Sync slices, page types, and custom types from Prismic to local files.

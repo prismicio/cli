@@ -7,6 +7,7 @@ import type { Framework } from ".";
 
 import { FrameworkAdapter } from ".";
 import { exists } from "../lib/file";
+import { getNpmPackageVersion } from "../lib/packageJson";
 import {
 	exitPreviewRouteTemplate,
 	previewRouteTemplate,
@@ -15,7 +16,6 @@ import {
 	sliceSimulatorPageTemplate,
 	sliceTemplate,
 } from "./nextjs.templates";
-import { getNpmPackageVersion } from "../lib/packageJson";
 
 export class NextJsFramework extends FrameworkAdapter {
 	readonly id: Framework = "next";

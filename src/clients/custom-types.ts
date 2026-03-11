@@ -1,12 +1,11 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { env } from "../lib/env";
 import { request } from "../lib/request";
 
 export async function getCustomTypes(config: {
 	repo: string;
 	token: string | undefined;
-	host: string | undefined;
+	host: string;
 }): Promise<CustomType[]> {
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
@@ -20,7 +19,7 @@ export async function getCustomTypes(config: {
 export async function getSlices(config: {
 	repo: string;
 	token: string | undefined;
-	host: string | undefined;
+	host: string;
 }): Promise<SharedSlice[]> {
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
@@ -31,6 +30,6 @@ export async function getSlices(config: {
 	return response;
 }
 
-function getCustomTypesServiceUrl(host = env.PRISMIC_HOST): URL {
+function getCustomTypesServiceUrl(host: string): URL {
 	return new URL(`https://customtypes.${host}/`);
 }
