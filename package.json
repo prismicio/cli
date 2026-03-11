@@ -53,6 +53,13 @@
 		"zod": "^4.3.6"
 	},
 	"engines": {
-		"node": ">=24"
+		"node": ">=20"
+	},
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": ">=24",
+			"onFail": "error"
+		}
 	}
 }
