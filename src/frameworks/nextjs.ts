@@ -150,6 +150,86 @@ export class NextJsFramework extends FrameworkAdapter {
 		}
 	}
 
+	async removeRoutesForPageType(customTypeId: string): Promise<void> {
+		const extension = await this.getJsFileExtension();
+		const filePath = await this.#buildSrcPath(`prismicio.${extension}`);
+
+		if (!(await exists(filePath))) {
+			return;
+		}
+
+		const contents = await readFile(filePath, "utf8");
+
+		let ast: types.ASTNode;
+		try {
+			ast = recast.parse(contents, { parser: typescriptParser });
+		} catch {
+			return;
+		}
+
+		const routesArray = this.#findRoutesArray(ast);
+		if (!routesArray) {
+			return;
+		}
+
+		// Find ALL elements with matching type (a type can have multiple route configs)
+		const indicesToRemove = routesArray.elements
+			.map((el, i) => (this.#getRouteType(el) === customTypeId ? i : -1))
+			.filter((i) => i !== -1);
+
+		if (indicesToRemove.length === 0) {
+			return;
+		}
+
+		// Process in reverse order to avoid index shifting issues
+		for (let i = indicesToRemove.length - 1; i >= 0; i--) {
+			const indexToRemove = indicesToRemove[i];
+			const elementToRemove = routesArray.elements[indexToRemove];
+
+			// Preserve leading comments by attaching them to the next non-deleted element
+			const comments = this.#getNodeComments(elementToRemove);
+			const leadingComments = comments.filter((c) => c.leading);
+
+			if (leadingComments.length > 0) {
+				const nextIndex = routesArray.elements.findIndex(
+					(_, idx) => idx > indexToRemove && !indicesToRemove.includes(idx),
+				);
+
+				const nextElement = nextIndex !== -1 ? routesArray.elements[nextIndex] : null;
+
+				if (nextElement) {
+					const existingComments = this.#getNodeComments(nextElement);
+					this.#setNodeComments(nextElement, [...leadingComments, ...existingComments]);
+				}
+			}
+
+			routesArray.elements.splice(indexToRemove, 1);
+		}
+
+		const updated = recast.print(ast).code;
+		if (updated !== contents) {
+			await writeFileRecursive(filePath, updated);
+		}
+	}
+
+	#getNodeComments(node: unknown): { leading: boolean; value: string }[] {
+		if (
+			typeof node === "object" &&
+			node !== null &&
+			"comments" in node &&
+			Array.isArray(node.comments)
+		) {
+			return node.comments;
+		}
+		return [];
+	}
+
+	#setNodeComments(node: unknown, comments: { leading: boolean; value: string }[]): void {
+		if (typeof node === "object" && node !== null) {
+			Object.assign(node, { comments });
+		}
+	}
+
 	#findRoutesArray(ast: types.ASTNode): types.namedTypes.ArrayExpression | undefined {
 		const n = recast.types.namedTypes;
 		let routesArray: types.namedTypes.ArrayExpression | undefined;
