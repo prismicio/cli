@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import type { Framework } from ".";
 
 import { FrameworkAdapter } from ".";
-import { exists } from "../lib/file";
+import { exists, writeFileRecursive } from "../lib/file";
 import { getNpmPackageVersion } from "../lib/packageJson";
 import {
 	exitPreviewRouteTemplate,
@@ -135,7 +135,7 @@ export class NextJsFramework extends FrameworkAdapter {
 			appRouter,
 			hasSrcDirectory,
 		});
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createSliceSimulatorPage(): Promise<void> {

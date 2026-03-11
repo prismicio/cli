@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
 import { appendTrailingSlash } from "./url";
@@ -46,4 +46,13 @@ export async function exists(path: URL): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+export async function writeFileRecursive(
+	path: URL,
+	data: Parameters<typeof writeFile>[1],
+): Promise<void> {
+	const dirname = new URL(".", path);
+	await mkdir(dirname, { recursive: true });
+	await writeFile(path, data);
 }

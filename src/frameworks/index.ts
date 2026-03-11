@@ -1,14 +1,14 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { readFile, rename, rm } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { glob } from "tinyglobby";
 import * as z from "zod/mini";
 
 import { readConfig } from "../config";
-import { exists, findUpward } from "../lib/file";
+import { exists, findUpward, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { addDependencies } from "../lib/packageJson";
 import { dedent } from "../lib/string";
@@ -207,10 +207,9 @@ export abstract class FrameworkAdapter {
 
 	async #writeSliceModel(model: SharedSlice, library: URL): Promise<{ modelPath: URL }> {
 		const sliceDirectory = await this.#getSliceDirectory(model.name, library);
-		await mkdir(sliceDirectory, { recursive: true });
 		const modelPath = new URL("model.json", sliceDirectory);
 		const formattedModel = this.#formatModel(model);
-		await writeFile(modelPath, formattedModel);
+		await writeFileRecursive(modelPath, formattedModel);
 		return { modelPath };
 	}
 
@@ -239,7 +238,7 @@ export abstract class FrameworkAdapter {
 		const extension = await this.getJsFileExtension();
 		const filename = `index.${extension}`;
 		const indexPath = new URL(filename, library);
-		await writeFile(indexPath, contents);
+		await writeFileRecursive(indexPath, contents);
 		return { indexPath };
 	}
 
@@ -271,10 +270,9 @@ export abstract class FrameworkAdapter {
 
 	async #writeCustomType(model: CustomType): Promise<{ modelPath: URL }> {
 		const customTypeDirectory = await this.#getCustomTypeDirectory(model.id);
-		await mkdir(customTypeDirectory, { recursive: true });
 		const modelPath = new URL("index.json", customTypeDirectory);
 		const formattedModel = this.#formatModel(model);
-		await writeFile(modelPath, formattedModel);
+		await writeFileRecursive(modelPath, formattedModel);
 		return { modelPath };
 	}
 
