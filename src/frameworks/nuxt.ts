@@ -1,7 +1,7 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { builders, loadFile, writeFile as magicastWriteFile } from "magicast";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,7 +9,7 @@ import type { Framework } from ".";
 
 import { FrameworkAdapter } from ".";
 import { readConfig, updateConfig } from "../config";
-import { exists } from "../lib/file";
+import { exists, writeFileRecursive } from "../lib/file";
 import { getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import { sliceSimulatorPageTemplate, sliceTemplate } from "./nuxt.templates";
@@ -44,7 +44,7 @@ export class NuxtFramework extends FrameworkAdapter {
 			name: model.name,
 			typescript: await this.checkIsTypeScriptProject(),
 		});
-		await writeFile(componentPath, contents);
+		await writeFileRecursive(componentPath, contents);
 		return { componentPath };
 	}
 
@@ -193,8 +193,7 @@ export class NuxtFramework extends FrameworkAdapter {
 		}
 
 		const contents = sliceSimulatorPageTemplate({ typescript });
-		await mkdir(targetDir, { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #moveOrDeleteAppVue(): Promise<void> {
@@ -214,8 +213,7 @@ export class NuxtFramework extends FrameworkAdapter {
 		const indexVuePath = new URL("pages/index.vue", srcDir);
 
 		if (!(await exists(indexVuePath))) {
-			await mkdir(new URL(".", indexVuePath), { recursive: true });
-			await writeFile(indexVuePath, contents);
+			await writeFileRecursive(indexVuePath, contents);
 		}
 
 		await rm(appVuePath);

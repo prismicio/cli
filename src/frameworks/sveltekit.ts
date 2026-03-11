@@ -1,13 +1,13 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { loadFile } from "magicast";
-import { mkdir, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 
 import type { Framework } from ".";
 
 import { FrameworkAdapter } from ".";
-import { exists } from "../lib/file";
+import { exists, writeFileRecursive } from "../lib/file";
 import { getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import {
@@ -51,7 +51,7 @@ export class SvelteKitFramework extends FrameworkAdapter {
 			typescript: await this.checkIsTypeScriptProject(),
 			version: await this.#getSvelteMajor(),
 		});
-		await writeFile(componentPath, contents);
+		await writeFileRecursive(componentPath, contents);
 		return { componentPath };
 	}
 
@@ -97,8 +97,7 @@ export class SvelteKitFramework extends FrameworkAdapter {
 
 		const typescript = await this.checkIsTypeScriptProject();
 		const contents = prismicIOFileTemplate({ typescript });
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createSliceSimulatorPage(): Promise<void> {
@@ -112,8 +111,7 @@ export class SvelteKitFramework extends FrameworkAdapter {
 		const contents = sliceSimulatorPageTemplate({
 			version: await this.#getSvelteMajor(),
 		});
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createPreviewRouteMatcher(): Promise<void> {
@@ -130,8 +128,7 @@ export class SvelteKitFramework extends FrameworkAdapter {
 				return param === 'preview';
 			}
 		`;
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createPreviewAPIRoute(): Promise<void> {
@@ -145,8 +142,7 @@ export class SvelteKitFramework extends FrameworkAdapter {
 
 		const typescript = await this.checkIsTypeScriptProject();
 		const contents = previewAPIRouteTemplate({ typescript });
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createPreviewRouteDirectory(): Promise<void> {
@@ -167,8 +163,7 @@ export class SvelteKitFramework extends FrameworkAdapter {
 
 			See <https://prismic.io/docs/svelte-preview> for more information.
 		`;
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createRootLayoutServerFile(): Promise<void> {
@@ -183,8 +178,7 @@ export class SvelteKitFramework extends FrameworkAdapter {
 		const contents = dedent`
 			export const prerender = "auto";
 		`;
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createRootLayoutFile(): Promise<void> {
@@ -198,8 +192,7 @@ export class SvelteKitFramework extends FrameworkAdapter {
 		const contents = rootLayoutTemplate({
 			version: await this.#getSvelteMajor(),
 		});
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #modifyViteConfig(): Promise<void> {

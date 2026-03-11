@@ -1,12 +1,11 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 
 import type { Framework } from ".";
 
 import { FrameworkAdapter } from ".";
-import { exists } from "../lib/file";
+import { exists, writeFileRecursive } from "../lib/file";
 import { getNpmPackageVersion } from "../lib/packageJson";
 import {
 	exitPreviewRouteTemplate,
@@ -48,7 +47,7 @@ export class NextJsFramework extends FrameworkAdapter {
 			name: model.name,
 			typescript: await this.checkIsTypeScriptProject(),
 		});
-		await writeFile(componentPath, contents);
+		await writeFileRecursive(componentPath, contents);
 		return { componentPath };
 	}
 
@@ -135,7 +134,7 @@ export class NextJsFramework extends FrameworkAdapter {
 			appRouter,
 			hasSrcDirectory,
 		});
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createSliceSimulatorPage(): Promise<void> {
@@ -152,8 +151,7 @@ export class NextJsFramework extends FrameworkAdapter {
 		}
 
 		const contents = sliceSimulatorPageTemplate({ typescript, appRouter });
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createPreviewRoute(): Promise<void> {
@@ -170,8 +168,7 @@ export class NextJsFramework extends FrameworkAdapter {
 		}
 
 		const contents = previewRouteTemplate({ typescript, appRouter });
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createExitPreviewRoute(): Promise<void> {
@@ -188,8 +185,7 @@ export class NextJsFramework extends FrameworkAdapter {
 		}
 
 		const contents = exitPreviewRouteTemplate({ typescript, appRouter });
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 
 	async #createRevalidateRoute(): Promise<void> {
@@ -210,7 +206,6 @@ export class NextJsFramework extends FrameworkAdapter {
 		const supportsCacheLife = major >= 16;
 
 		const contents = revalidateRouteTemplate({ supportsCacheLife });
-		await mkdir(new URL(".", filePath), { recursive: true });
-		await writeFile(filePath, contents);
+		await writeFileRecursive(filePath, contents);
 	}
 }
