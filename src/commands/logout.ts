@@ -1,6 +1,6 @@
 import { parseArgs } from "node:util";
 
-import { logout as baseLogout } from "../lib/auth";
+import { logout as baseLogout } from "../auth";
 
 const HELP = `
 Log out of Prismic.

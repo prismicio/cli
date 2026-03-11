@@ -1,16 +1,19 @@
-import { readFile, rm } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 import type { Profile } from "../clients/user";
-import type { FrameworkAdapter } from "../frameworks";
-import type { Config } from "../lib/config";
 
+import { createLoginSession, getHost, getToken } from "../auth";
 import { getProfile } from "../clients/user";
-import { NoSupportedFrameworkError, requireFramework } from "../frameworks";
-import { createLoginSession, getHost, getToken } from "../lib/auth";
+import {
+	createConfig,
+	deleteLegacySliceMachineConfig,
+	InvalidLegacySliceMachineConfig,
+	readConfig,
+	readLegacySliceMachineConfig,
+	UnknownProjectRoot,
+} from "../config";
+import { getFramework } from "../frameworks";
 import { openBrowser } from "../lib/browser";
-import { createConfig, readConfig, UnknownProjectRoot } from "../lib/config";
-import { findUpward } from "../lib/file";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { syncCustomTypes, syncSlices } from "./sync";
 
@@ -49,33 +52,24 @@ export async function init(): Promise<void> {
 	}
 
 	// Check for existing prismic.config.json
-	const existingConfig = await readConfig();
-	if (existingConfig.ok) {
-		console.error("A prismic.config.json file already exists.");
+	try {
+		await readConfig();
+		console.error("A prismic.config.json file exists. This project is already initialized.");
 		process.exitCode = 1;
 		return;
-	}
+	} catch {}
 
-	// Check for legacy slicemachine.config.json
-	const legacyConfigPath = await findUpward("slicemachine.config.json", {
-		stop: "package.json",
-	});
-	let legacyRepoName: string | undefined;
-	let legacyLibraries: string[] | undefined;
-
-	if (legacyConfigPath) {
-		try {
-			const contents = await readFile(legacyConfigPath, "utf8");
-			const legacyConfig = JSON.parse(contents);
-			legacyRepoName = legacyConfig.repositoryName;
-			legacyLibraries = legacyConfig.libraries;
-		} catch {
+	// Load legacy slicemachine.config.json
+	let legacySliceMachineConfig;
+	try {
+		legacySliceMachineConfig = await readLegacySliceMachineConfig();
+	} catch (error) {
+		if (error instanceof InvalidLegacySliceMachineConfig) {
 			console.warn("Could not read slicemachine.config.json, ignoring.");
 		}
 	}
 
-	// Determine repo name: --repo flag > legacy config > error
-	const repo = values.repo ?? legacyRepoName;
+	const repo = values.repo ?? legacySliceMachineConfig?.repositoryName;
 	if (!repo) {
 		console.error("Missing required flag: --repo");
 		process.exitCode = 1;
@@ -106,33 +100,27 @@ export async function init(): Promise<void> {
 	const repoMeta = profile.repositories.find((repository) => repository.domain === repo);
 	if (!repoMeta) {
 		console.error(
-			`Repository "${repo}" not found in your account. Check the name or create it with \`prismic repo create\`.`,
+			`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
 		);
 		process.exitCode = 1;
 		return;
 	}
 
-	let framework: FrameworkAdapter;
-	try {
-		framework = await requireFramework();
-	} catch (error) {
-		if (error instanceof NoSupportedFrameworkError) {
-			console.error(error.message);
-			process.exitCode = 1;
-			return;
-		}
-		throw error;
+	const framework = await getFramework();
+	if (!framework) {
+		console.error("No supported framework found (Next.js, Nuxt, or SvelteKit required)");
+		process.exitCode = 1;
+		return;
 	}
 
 	// Create prismic.config.json
-	const configData: Config = { repositoryName: repo };
-	if (legacyLibraries?.length) {
-		configData.libraries = legacyLibraries;
-	}
-
-	const configResult = await createConfig(configData);
-	if (!configResult.ok) {
-		if (configResult.error instanceof UnknownProjectRoot) {
+	try {
+		await createConfig({
+			repositoryName: repo,
+			libraries: legacySliceMachineConfig?.libraries,
+		});
+	} catch (error) {
+		if (error instanceof UnknownProjectRoot) {
 			console.error(
 				"Could not find a package.json file. Run this command from a project directory.",
 			);
@@ -143,9 +131,10 @@ export async function init(): Promise<void> {
 		return;
 	}
 
-	// Delete legacy config after new config is created
-	if (legacyConfigPath) {
-		await rm(legacyConfigPath);
+	if (legacySliceMachineConfig) {
+		try {
+			await deleteLegacySliceMachineConfig();
+		} catch {}
 		console.info("Migrated slicemachine.config.json to prismic.config.json");
 	}
 

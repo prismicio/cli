@@ -8,11 +8,11 @@ import { fileURLToPath } from "node:url";
 import type { Framework } from ".";
 
 import { FrameworkAdapter } from ".";
-import { readConfig, updateConfig } from "../lib/config";
+import { readConfig, updateConfig } from "../config";
 import { exists } from "../lib/file";
-import { sliceSimulatorPageTemplate, sliceTemplate } from "./nuxt.templates";
 import { getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
+import { sliceSimulatorPageTemplate, sliceTemplate } from "./nuxt.templates";
 
 const NUXT_PRISMIC = "@nuxtjs/prismic";
 
@@ -230,10 +230,14 @@ export class NuxtFramework extends FrameworkAdapter {
 			return;
 		}
 
-		const configResult = await readConfig();
-		if (!configResult.ok) return;
+		let config;
+		try {
+			config = await readConfig();
+		} catch {
+			return;
+		}
 
-		const libraries = configResult.config.libraries;
+		const libraries = config.libraries;
 		if (!libraries || JSON.stringify(libraries) !== JSON.stringify(["./slices"])) {
 			return;
 		}

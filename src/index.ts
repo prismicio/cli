@@ -3,15 +3,15 @@
 import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
+import { getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
 import { init } from "./commands/init";
 import { login } from "./commands/login";
 import { logout } from "./commands/logout";
 import { sync } from "./commands/sync";
 import { whoami } from "./commands/whoami";
+import { InvalidPrismicConfig, MissingPrismicConfig, safeGetRepositoryFromConfig } from "./config";
 import { getFramework } from "./frameworks";
-import { getHost, refreshToken } from "./lib/auth";
-import { safeGetRepositoryFromConfig } from "./lib/config";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import {
 	initSegment,
@@ -138,6 +138,10 @@ if (version) {
 
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			console.error("Not logged in. Run `prismic login` first.");
+		} else if (error instanceof InvalidPrismicConfig) {
+			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
+		} else if (error instanceof MissingPrismicConfig) {
+			console.error(`${error.message} Run \`prismic init\` to create a config.`);
 		} else {
 			await sentryCaptureError(error);
 			throw error;

@@ -1,28 +1,8 @@
 import * as z from "zod/mini";
 
-import { env } from "../env";
 import { request } from "../lib/request";
 
-export async function validateToken(
-	token: string,
-	config: { host: string | undefined },
-): Promise<boolean> {
-	const { host } = config;
-	const authServiceUrl = getAuthServiceUrl(host);
-	const url = new URL("validate", authServiceUrl);
-	url.searchParams.set("token", token);
-	try {
-		await request(url);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-export async function refreshToken(
-	token: string,
-	config: { host: string | undefined },
-): Promise<string> {
+export async function refreshToken(token: string, config: { host: string }): Promise<string> {
 	const { host } = config;
 	const authServiceUrl = getAuthServiceUrl(host);
 	const url = new URL("refreshtoken", authServiceUrl);
@@ -31,6 +11,6 @@ export async function refreshToken(
 	return refreshedToken;
 }
 
-function getAuthServiceUrl(host = env.PRISMIC_HOST): URL {
+function getAuthServiceUrl(host: string): URL {
 	return new URL(`https://auth.${host}/`);
 }
