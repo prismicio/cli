@@ -84,7 +84,7 @@ if (version) {
 		sentrySetTag("framework", framework.id);
 	}
 
-	if (!SKIP_REFRESH_COMMANDS.has(command)) {
+	if (command && !SKIP_REFRESH_COMMANDS.has(command)) {
 		// Refreesh the token and identify the user in the background.
 		refreshToken()
 			.then(async (token) => {
@@ -97,7 +97,7 @@ if (version) {
 			.catch(() => {});
 	}
 
-	if (!UNTRACKED_COMMANDS.has(command)) {
+	if (command && !UNTRACKED_COMMANDS.has(command)) {
 		segmentTrackStart(command, { repository });
 	}
 
@@ -127,11 +127,11 @@ if (version) {
 			}
 		}
 
-		if (!UNTRACKED_COMMANDS.has(command)) {
+		if (command && !UNTRACKED_COMMANDS.has(command)) {
 			segmentTrackEnd(command, process.exitCode !== 1);
 		}
 	} catch (error) {
-		if (!UNTRACKED_COMMANDS.has(command)) {
+		if (command && !UNTRACKED_COMMANDS.has(command)) {
 			segmentTrackEnd(command, false, error);
 		}
 		process.exitCode = 1;
