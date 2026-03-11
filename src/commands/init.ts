@@ -93,6 +93,7 @@ export async function init(): Promise<void> {
 				},
 			});
 			console.info(`Logged in as ${email}`);
+			const token = await getToken();
 			profile = await getProfile({ token, host });
 		} else {
 			throw error;
