@@ -93,8 +93,10 @@ export async function init(): Promise<void> {
 				},
 			});
 			console.info(`Logged in as ${email}`);
+			profile = await getProfile({ token, host });
+		} else {
+			throw error;
 		}
-		throw error;
 	}
 
 	const repoMeta = profile.repositories.find((repository) => repository.domain === repo);
