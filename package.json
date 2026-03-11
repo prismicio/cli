@@ -59,7 +59,7 @@
 		"runtime": {
 			"name": "node",
 			"version": ">=24",
-			"onFail": "error"
+			"onFail": "warn"
 		}
 	}
 }
