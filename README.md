@@ -13,7 +13,7 @@ Use `npx` to run `prismic` anywhere:
 npx prismic@latest
 ```
 
-Install the skill to teach AI agents to use the CLI:
+Install the skill to teach AI agents how to use the CLI:
 
 ```sh
 npx skills add --global prismicio/skills
