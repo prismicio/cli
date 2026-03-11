@@ -1,6 +1,5 @@
 import * as z from "zod/mini";
 
-import { env } from "../env";
 import { request } from "../lib/request";
 
 const ProfileSchema = z.object({
@@ -18,7 +17,7 @@ export type Profile = z.infer<typeof ProfileSchema>;
 
 export async function getProfile(config: {
 	token: string | undefined;
-	host: string | undefined;
+	host: string;
 }): Promise<Profile> {
 	const { token, host } = config;
 	const userServiceUrl = getUserServiceUrl(host);
@@ -30,6 +29,6 @@ export async function getProfile(config: {
 	return response;
 }
 
-function getUserServiceUrl(host = env.PRISMIC_HOST): URL {
+function getUserServiceUrl(host: string): URL {
 	return new URL(`https://user-service.${host}/`);
 }

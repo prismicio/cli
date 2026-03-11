@@ -4,16 +4,17 @@ import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
-import { refreshToken as baseRefreshToken } from "../clients/auth";
-import { env } from "../env";
-import { exists } from "./file";
-import { stringify } from "./json";
-import { appendTrailingSlash } from "./url";
+import { refreshToken as baseRefreshToken } from "./clients/auth";
+import { env } from "./env";
+import { exists } from "./lib/file";
+import { stringify } from "./lib/json";
+import { appendTrailingSlash } from "./lib/url";
 
 const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
 const LOGIN_SOURCE = "prismic-cli";
+const DEFAULT_PRISMIC_HOST = "prismic.io";
 
 const AuthFileSchema = z.object({
 	token: z.optional(z.string().check(z.minLength(1))),
@@ -26,16 +27,16 @@ export async function getToken(): Promise<string | undefined> {
 	return auth?.token;
 }
 
-export async function getHost(): Promise<string | undefined> {
+export async function getHost(): Promise<string> {
+	if (env.PRISMIC_HOST) return env.PRISMIC_HOST;
 	const auth = await readAuthFile();
-	return auth?.host;
+	return auth?.host ?? DEFAULT_PRISMIC_HOST;
 }
 
 export async function refreshToken(): Promise<string | undefined> {
-	const auth = await readAuthFile();
-	const token = auth?.token;
-	const host = auth?.host;
+	const token = await getToken();
 	if (!token) return;
+	const host = await getHost();
 	const newToken = await baseRefreshToken(token, { host });
 	await saveAuthFile({ token: newToken, host });
 	return newToken;
@@ -70,7 +71,7 @@ async function saveAuthFile(auth: AuthFile): Promise<void> {
 export async function createLoginSession(options?: {
 	onReady?: (url: URL) => void;
 }): Promise<{ email: string }> {
-	const host = env.PRISMIC_HOST;
+	const host = await getHost();
 	const corsOrigin = `https://${host}`;
 
 	return new Promise((resolve, reject) => {

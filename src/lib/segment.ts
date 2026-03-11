@@ -19,7 +19,11 @@ let authorization = "";
 let userId: string | undefined;
 let repository: string | undefined;
 const appContext = { app: { name: packageJson.name, version: packageJson.version } };
-const trackQueue: Array<{ event: string; properties: Record<string, unknown>; context: Record<string, unknown> }> = [];
+const trackQueue: Array<{
+	event: string;
+	properties: Record<string, unknown>;
+	context: Record<string, unknown>;
+}> = [];
 const identifyQueue: Array<Record<string, unknown>> = [];
 
 export async function initSegment(): Promise<void> {
@@ -142,11 +146,10 @@ function flushTelemetry(): void {
 			}),
 		).toString("base64");
 
-		const child = spawn(
-			process.execPath,
-			["--input-type=module", "-e", FLUSH_SCRIPT, payload],
-			{ detached: true, stdio: "ignore" },
-		);
+		const child = spawn(process.execPath, ["--input-type=module", "-e", FLUSH_SCRIPT, payload], {
+			detached: true,
+			stdio: "ignore",
+		});
 		child.unref();
 	} catch {
 		// Silent failure — never breaks the CLI
@@ -185,9 +188,7 @@ async function isTelemetryEnabled(): Promise<boolean> {
 	}
 }
 
-async function readJsonFile(
-	path: string,
-): Promise<Record<string, unknown> | undefined> {
+async function readJsonFile(path: string): Promise<Record<string, unknown> | undefined> {
 	try {
 		const contents = await readFile(path, "utf8");
 		return JSON.parse(contents);

@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 import { parseArgs } from "node:util";
 
+import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
+import { safeGetRepositoryFromConfig } from "../config";
 import { type FrameworkAdapter, NoSupportedFrameworkError, requireFramework } from "../frameworks";
-import { getHost, getToken } from "../lib/auth";
-import { safeGetRepositoryFromConfig } from "../lib/config";
 import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { sentrySetContext, sentrySetTag } from "../lib/sentry";
 import { dedent } from "../lib/string";
