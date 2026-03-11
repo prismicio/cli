@@ -15,7 +15,7 @@ const Env = z.object({
 
 export const env = z.parse(Env, {
 	MODE: process.env.MODE,
-	DEV: process.env.MODE !== "production",
-	PROD: process.env.MODE === "production",
+	DEV: JSON.stringify(process.env.MODE !== "production"),
+	PROD: JSON.stringify(process.env.MODE === "production"),
 	...process.env,
 });
