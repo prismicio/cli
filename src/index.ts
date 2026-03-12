@@ -54,7 +54,7 @@ const SKIP_REFRESH_COMMANDS = new Set(["login", "logout"]);
 
 const {
 	positionals,
-	values: { version },
+	values: { version, help },
 } = parseArgs({
 	options: {
 		help: { type: "boolean", short: "h" },
@@ -84,7 +84,7 @@ if (version) {
 		sentrySetTag("framework", framework.id);
 	}
 
-	if (command && !SKIP_REFRESH_COMMANDS.has(command)) {
+	if (command && !help && !SKIP_REFRESH_COMMANDS.has(command)) {
 		// Refreesh the token and identify the user in the background.
 		refreshToken()
 			.then(async (token) => {

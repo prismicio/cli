@@ -10,7 +10,8 @@ USAGE
   prismic login [flags]
 
 FLAGS
-  -h, --help   Show help for command
+      --no-browser   Skip opening the browser automatically
+  -h, --help         Show help for command
 
 LEARN MORE
   Use \`prismic <command> --help\` for more information about a command.
@@ -19,7 +20,10 @@ LEARN MORE
 export async function login(): Promise<void> {
 	const { values } = parseArgs({
 		args: process.argv.slice(3),
-		options: { help: { type: "boolean", short: "h" } },
+		options: {
+			help: { type: "boolean", short: "h" },
+			"no-browser": { type: "boolean" },
+		},
 	});
 
 	if (values.help) {
@@ -29,9 +33,13 @@ export async function login(): Promise<void> {
 
 	const { email } = await createLoginSession({
 		onReady: (url) => {
-			console.info("Opening browser to complete login...");
-			console.info(`If the browser doesn't open, visit: ${url}`);
-			openBrowser(url);
+			if (values["no-browser"]) {
+				console.info(`Open this URL to log in: ${url}`);
+			} else {
+				console.info("Opening browser to complete login...");
+				console.info(`If the browser doesn't open, visit: ${url}`);
+				openBrowser(url);
+			}
 		},
 	});
 

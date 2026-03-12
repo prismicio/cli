@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import packageJson from "../../package.json" with { type: "json" };
+import { env } from "../env";
 
 const SEGMENT_WRITE_KEY =
 	process.env.PRISMIC_ENV && process.env.PRISMIC_ENV !== "production"
@@ -28,6 +29,9 @@ const identifyQueue: Array<Record<string, unknown>> = [];
 
 export async function initSegment(): Promise<void> {
 	try {
+		if (env.TEST) {
+			return;
+		}
 		enabled = await isTelemetryEnabled();
 		if (!enabled) {
 			return;

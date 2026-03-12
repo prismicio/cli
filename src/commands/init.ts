@@ -28,6 +28,7 @@ USAGE
 
 FLAGS
   -r, --repo string   Repository name
+      --no-browser     Skip opening the browser automatically during login
   -h, --help          Show help for command
 
 EXAMPLES
@@ -43,6 +44,7 @@ export async function init(): Promise<void> {
 		options: {
 			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
+			"no-browser": { type: "boolean" },
 		},
 	});
 
@@ -87,9 +89,13 @@ export async function init(): Promise<void> {
 			console.info("Not logged in. Starting login...");
 			const { email } = await createLoginSession({
 				onReady: (url) => {
-					console.info("Opening browser to complete login...");
-					console.info(`If the browser doesn't open, visit: ${url}`);
-					openBrowser(url);
+					if (values["no-browser"]) {
+						console.info(`Open this URL to log in: ${url}`);
+					} else {
+						console.info("Opening browser to complete login...");
+						console.info(`If the browser doesn't open, visit: ${url}`);
+						openBrowser(url);
+					}
 				},
 			});
 			console.info(`Logged in as ${email}`);
