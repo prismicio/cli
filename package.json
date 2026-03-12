@@ -30,30 +30,29 @@
 		"prepare": "npm run build",
 		"lint": "oxlint --deny-warnings",
 		"types": "tsc --noEmit",
-		"unit": "vitest run --coverage",
-		"unit:watch": "vitest watch",
-		"test": "npm run lint && npm run types && npm run unit && npm run build"
+		"unit": "cross-env MODE=test tsdown --logLevel=warn && vitest run",
+		"unit:watch": "concurrently --raw --kill-others \"cross-env MODE=test tsdown --watch --logLevel=warn\" \"vitest watch\"",
+		"test": "npm run lint && npm run types && npm run unit"
 	},
 	"devDependencies": {
 		"@prismicio/types-internal": "3.16.1",
 		"@sentry/node-core": "10.42.0",
 		"@types/node": "25.0.9",
-		"@vitest/coverage-v8": "4.0.17",
 		"change-case": "5.4.4",
+		"concurrently": "^9.2.1",
+		"cross-env": "^10.1.0",
 		"dedent": "^1.7.2",
 		"detect-indent": "^7.0.2",
 		"magicast": "0.5.1",
 		"oxfmt": "^0.24.0",
 		"oxlint": "1.39.0",
 		"prismic-ts-codegen": "^0.1.28",
+		"tinyexec": "^1.0.2",
 		"tinyglobby": "^0.2.15",
 		"tsdown": "0.19.0",
 		"typescript": "5.9.3",
 		"vitest": "4.0.17",
 		"zod": "^4.3.6"
-	},
-	"engines": {
-		"node": ">=20"
 	},
 	"devEngines": {
 		"runtime": {
@@ -61,5 +60,8 @@
 			"version": ">=24",
 			"onFail": "warn"
 		}
+	},
+	"engines": {
+		"node": ">=20"
 	}
 }

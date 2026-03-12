@@ -7,6 +7,7 @@ const Env = z.object({
 	MODE: z.string(),
 	DEV: z.stringbool(),
 	PROD: z.stringbool(),
+	TEST: z.stringbool(),
 	PRISMIC_SENTRY_DSN: z._default(z.httpUrl(), DEFAULT_PRISMIC_SENTRY_DSN),
 	PRISMIC_SENTRY_ENVIRONMENT: z.optional(z.string()),
 	PRISMIC_SENTRY_ENABLED: z.optional(z.stringbool()),
@@ -14,8 +15,9 @@ const Env = z.object({
 });
 
 export const env = z.parse(Env, {
-	MODE: process.env.MODE,
-	DEV: JSON.stringify(process.env.MODE !== "production"),
-	PROD: JSON.stringify(process.env.MODE === "production"),
 	...process.env,
+	MODE: process.env.MODE,
+	DEV: process.env.DEV,
+	PROD: process.env.PROD,
+	TEST: process.env.TEST,
 });

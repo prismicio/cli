@@ -1,10 +1,13 @@
-import { expect } from "vitest";
-
 import { it } from "./it";
 
-// TODO: Test the package's exports
-// See: https://vitest.dev/api/
+it("supports --help", async ({ expect, prismic }) => {
+	const { stdout, exitCode } = await prismic("", ["--help"]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain("USAGE");
+});
 
-it("placeholder test", () => {
-	expect(true).toBe(true);
+it("prints help text by default", async ({ expect, prismic }) => {
+	const { stdout, exitCode } = await prismic("");
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain("USAGE");
 });
