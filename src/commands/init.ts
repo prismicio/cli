@@ -14,6 +14,7 @@ import {
 } from "../config";
 import { getFramework } from "../frameworks";
 import { openBrowser } from "../lib/browser";
+import { generateAndWriteTypes } from "../lib/codegen";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { syncCustomTypes, syncSlices } from "./sync";
 
@@ -153,6 +154,16 @@ export async function init(): Promise<void> {
 	// Sync models from remote
 	await syncSlices(repo, framework);
 	await syncCustomTypes(repo, framework);
+
+	// Generate TypeScript types from synced models
+	const slices = await framework.getSlices();
+	const customTypes = await framework.getCustomTypes();
+	const projectRoot = await framework.getProjectRoot();
+	await generateAndWriteTypes({
+		customTypes: customTypes.map((customType) => customType.model),
+		slices: slices.map((slice) => slice.model),
+		projectRoot,
+	});
 
 	console.info(
 		`Initialized Prismic for repository "${repo}". Run \`npm install\` to install new dependencies.`,

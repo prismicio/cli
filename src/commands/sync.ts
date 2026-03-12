@@ -6,6 +6,7 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { safeGetRepositoryFromConfig } from "../config";
 import { type FrameworkAdapter, NoSupportedFrameworkError, requireFramework } from "../frameworks";
+import { generateAndWriteTypes } from "../lib/codegen";
 import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { sentrySetContext, sentrySetTag } from "../lib/sentry";
 import { dedent } from "../lib/string";
@@ -80,6 +81,7 @@ export async function sync(): Promise<void> {
 	} else {
 		await syncSlices(repo, framework);
 		await syncCustomTypes(repo, framework);
+		await regenerateTypes(framework);
 		segmentTrackEnd("sync", true, undefined, { watch: false });
 
 		console.info("Sync complete");
@@ -95,6 +97,7 @@ async function watchForChanges(repo: string, framework: FrameworkAdapter) {
 
 	await syncSlices(repo, framework);
 	await syncCustomTypes(repo, framework);
+	await regenerateTypes(framework);
 
 	console.info(dedent`
 		Initial sync completed!
@@ -142,6 +145,8 @@ async function watchForChanges(repo: string, framework: FrameworkAdapter) {
 					lastRemoteCustomTypesHash = remoteCustomTypesHash;
 					changed.push("custom types");
 				}
+
+				await regenerateTypes(framework);
 
 				const timestamp = new Date().toLocaleTimeString();
 				console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
@@ -253,4 +258,15 @@ function exponentialMs(base: number): number {
 
 function hash(data: unknown): string {
 	return createHash("sha256").update(JSON.stringify(data)).digest("hex");
+}
+
+async function regenerateTypes(framework: FrameworkAdapter): Promise<void> {
+	const slices = await framework.getSlices();
+	const customTypes = await framework.getCustomTypes();
+	const projectRoot = await framework.getProjectRoot();
+	await generateAndWriteTypes({
+		customTypes: customTypes.map((customType) => customType.model),
+		slices: slices.map((slice) => slice.model),
+		projectRoot,
+	});
 }
