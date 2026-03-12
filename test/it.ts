@@ -1,6 +1,5 @@
 import type { Result } from "tinyexec";
 
-import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,7 +31,7 @@ export const it = test.extend<Fixtures>({
 		await rm(dir, { recursive: true, force: true });
 	},
 	project: async ({ home }, use) => {
-		const projectPath = new URL(randomUUID() + "/", home);
+		const projectPath = new URL("project/", home);
 		await mkdir(projectPath, { recursive: true });
 		await use(projectPath);
 	},
@@ -57,8 +56,13 @@ export const it = test.extend<Fixtures>({
 			await rm(new URL(".prismic", home), { recursive: true, force: true });
 		});
 	},
-	prismic: async ({ home, project, login }, use) => {
+	prismic: async ({ home, project, login, setupPackageJson, repo }, use) => {
 		await login();
+		await setupPackageJson({ dependencies: { next: "latest" } });
+		await writeFile(
+			new URL("prismic.config.json", project),
+			JSON.stringify({ repositoryName: repo }),
+		);
 		const procs: Result[] = [];
 		await use((command, args = [], options) => {
 			const env = {

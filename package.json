@@ -30,8 +30,8 @@
 		"prepare": "npm run build",
 		"lint": "oxlint --deny-warnings",
 		"types": "tsc --noEmit",
-		"unit": "MODE=test tsdown --logLevel=warn && vitest run --coverage",
-		"unit:watch": "concurrently --raw --kill-others \"MODE=test tsdown --watch --logLevel=warn\" \"vitest watch\"",
+		"unit": "cross-env MODE=test tsdown --logLevel=warn && vitest run --coverage",
+		"unit:watch": "concurrently --raw --kill-others \"cross-env MODE=test tsdown --watch --logLevel=warn\" \"vitest watch\"",
 		"test": "npm run lint && npm run types && npm run unit"
 	},
 	"devDependencies": {
@@ -41,6 +41,7 @@
 		"@vitest/coverage-v8": "4.0.17",
 		"change-case": "5.4.4",
 		"concurrently": "^9.2.1",
+		"cross-env": "^10.1.0",
 		"dedent": "^1.7.2",
 		"detect-indent": "^7.0.2",
 		"magicast": "0.5.1",

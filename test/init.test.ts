@@ -1,4 +1,4 @@
-import { readFile, writeFile, access } from "node:fs/promises";
+import { readFile, writeFile, access, rm } from "node:fs/promises";
 
 import { captureOutput, it } from "./it";
 
@@ -8,17 +8,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("USAGE");
 });
 
-it("fails if prismic.config.json already exists", async ({
-	expect,
-	project,
-	prismic,
-	setupPackageJson,
-}) => {
-	await setupPackageJson({ dependencies: { next: "latest" } });
-	await writeFile(
-		new URL("prismic.config.json", project),
-		JSON.stringify({ repositoryName: "test" }),
-	);
+it("fails if prismic.config.json already exists", async ({ expect, prismic }) => {
 	const { exitCode, stderr } = await prismic("init", ["--repo", "test"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("already initialized");
@@ -26,10 +16,10 @@ it("fails if prismic.config.json already exists", async ({
 
 it("fails if --repo is not provided and no legacy config exists", async ({
 	expect,
+	project,
 	prismic,
-	setupPackageJson,
 }) => {
-	await setupPackageJson({ dependencies: { next: "latest" } });
+	await rm(new URL("prismic.config.json", project));
 	const { exitCode, stderr } = await prismic("init");
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Missing required flag");
@@ -40,9 +30,8 @@ it("initializes a project with --repo when logged in", async ({
 	project,
 	prismic,
 	repo,
-	setupPackageJson,
 }) => {
-	await setupPackageJson({ dependencies: { next: "latest" } });
+	await rm(new URL("prismic.config.json", project));
 
 	const { exitCode, stdout } = await prismic("init", ["--repo", repo]);
 	expect(exitCode).toBe(0);
@@ -55,13 +44,13 @@ it("initializes a project with --repo when logged in", async ({
 
 it("triggers login flow when not logged in, then initializes", async ({
 	expect,
+	project,
 	prismic,
 	token,
 	logout,
 	repo,
-	setupPackageJson,
 }) => {
-	await setupPackageJson({ dependencies: { next: "latest" } });
+	await rm(new URL("prismic.config.json", project));
 	await logout();
 
 	const proc = prismic("init", ["--repo", repo, "--no-browser"]);
@@ -85,23 +74,15 @@ it("triggers login flow when not logged in, then initializes", async ({
 		.toContain(`Initialized Prismic for repository "${repo}"`);
 }, 60_000);
 
-it("fails if repo is not in the user's account", async ({ expect, prismic, setupPackageJson }) => {
-	await setupPackageJson({ dependencies: { next: "latest" } });
+it("fails if repo is not in the user's account", async ({ expect, project, prismic }) => {
+	await rm(new URL("prismic.config.json", project));
 	const { exitCode, stderr } = await prismic("init", ["--repo", "nonexistent-repo-xyz-12345"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("not found in your account");
 }, 30_000);
 
-it("migrates slicemachine.config.json", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	setupPackageJson,
-}) => {
-	await setupPackageJson({ dependencies: { next: "latest" } });
-
-	// Write a legacy slicemachine.config.json
+it("migrates slicemachine.config.json", async ({ expect, project, prismic, repo }) => {
+	await rm(new URL("prismic.config.json", project));
 	await writeFile(
 		new URL("slicemachine.config.json", project),
 		JSON.stringify({
