@@ -8,7 +8,6 @@ export default defineConfig({
 	format: "esm",
 	platform: "node",
 	bundle: PROD,
-	unbundle: !PROD,
 	minify: PROD,
 	envPrefix: "PRISMIC_",
 	define: {
