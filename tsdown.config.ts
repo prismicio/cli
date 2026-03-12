@@ -7,7 +7,7 @@ export default defineConfig({
 	entry: "./src/index.ts",
 	format: "esm",
 	platform: "node",
-	bundle: !TEST,
+	unbundle: TEST,
 	minify: !TEST,
 	envPrefix: "PRISMIC_",
 	define: {
