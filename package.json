@@ -30,7 +30,7 @@
 		"prepare": "npm run build",
 		"lint": "oxlint --deny-warnings",
 		"types": "tsc --noEmit",
-		"unit": "cross-env MODE=test tsdown --logLevel=warn && vitest run --coverage",
+		"unit": "cross-env MODE=test tsdown --logLevel=warn && vitest run",
 		"unit:watch": "concurrently --raw --kill-others \"cross-env MODE=test tsdown --watch --logLevel=warn\" \"vitest watch\"",
 		"test": "npm run lint && npm run types && npm run unit"
 	},
@@ -38,7 +38,6 @@
 		"@prismicio/types-internal": "3.16.1",
 		"@sentry/node-core": "10.42.0",
 		"@types/node": "25.0.9",
-		"@vitest/coverage-v8": "4.0.17",
 		"change-case": "5.4.4",
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",

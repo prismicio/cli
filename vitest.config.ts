@@ -7,11 +7,6 @@ export default defineConfig({
 		typecheck: {
 			enabled: true,
 		},
-		coverage: {
-			provider: "v8",
-			reporter: ["lcovonly", "text"],
-			include: ["src"],
-		},
 		sequence: {
 			concurrent: true,
 		},
