@@ -1,7 +1,21 @@
 import detectIndent from "detect-indent";
 import { readFile, writeFile } from "node:fs/promises";
+import { z } from "zod/mini";
 
-import { findUpward } from "./file";
+import { findUpward, readJsonFile } from "./file";
+
+const PackageJsonSchema = z.object({
+	dependencies: z.optional(z.record(z.string(), z.string())),
+	devDependencies: z.optional(z.record(z.string(), z.string())),
+	peerDependencies: z.optional(z.record(z.string(), z.string())),
+});
+type PackageJson = z.infer<typeof PackageJsonSchema>;
+
+export async function readPackageJson(): Promise<PackageJson> {
+	const packageJsonPath = await findPackageJson();
+	const packageJson = await readJsonFile(packageJsonPath, { schema: PackageJsonSchema });
+	return packageJson;
+}
 
 export async function findPackageJson(): Promise<URL> {
 	const packageJsonPath = await findUpward("package.json");
