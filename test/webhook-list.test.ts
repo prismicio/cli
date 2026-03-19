@@ -1,30 +1,26 @@
 import { it } from "./it";
 import { createWebhook } from "./prismic";
 
-const PRISMIC_HOST = process.env.PRISMIC_HOST ?? "prismic.io";
-
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("webhook", ["list", "--help"]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("prismic webhook list [flags]");
 });
 
-it("lists webhooks", async ({ expect, prismic, repo, token }) => {
+it("lists webhooks", async ({ expect, prismic, repo, token, host }) => {
 	const url = `https://example.com/test-${crypto.randomUUID()}`;
-	const config = { repo, token, host: PRISMIC_HOST };
 
-	await createWebhook(url, config);
+	await createWebhook(url, { repo, token, host });
 
 	const { stdout, exitCode } = await prismic("webhook", ["list"]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(url);
 });
 
-it("lists webhooks as JSON", async ({ expect, prismic, repo, token }) => {
+it("lists webhooks as JSON", async ({ expect, prismic, repo, token, host }) => {
 	const url = `https://example.com/test-${crypto.randomUUID()}`;
-	const config = { repo, token, host: PRISMIC_HOST };
 
-	await createWebhook(url, config);
+	await createWebhook(url, { repo, token, host });
 
 	const { stdout, exitCode } = await prismic("webhook", ["list", "--json"]);
 	expect(exitCode).toBe(0);
