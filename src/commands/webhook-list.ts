@@ -1,9 +1,9 @@
 import { parseArgs } from "node:util";
 
-import { getWebhooks } from "./clients/wroom";
-import { getHost, getToken } from "./lib/auth";
-import { safeGetRepositoryFromConfig } from "./lib/config";
-import { stringify } from "./lib/json";
+import { getWebhooks } from "../clients/wroom";
+import { getHost, getToken } from "../lib/auth";
+import { safeGetRepositoryFromConfig } from "../lib/config";
+import { stringify } from "../lib/json";
 
 const HELP = `
 List all webhooks in a Prismic repository.

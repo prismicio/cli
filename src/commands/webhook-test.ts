@@ -1,17 +1,18 @@
 import { parseArgs } from "node:util";
 
-import { getWebhooks } from "./clients/wroom";
-import { getHost, getToken } from "./lib/auth";
-import { safeGetRepositoryFromConfig } from "./lib/config";
+import { getWebhooks, triggerWebhook } from "../clients/wroom";
+import { getHost, getToken } from "../lib/auth";
+import { safeGetRepositoryFromConfig } from "../lib/config";
+import { UnknownRequestError } from "../lib/request";
 
 const HELP = `
-Show the enabled/disabled status of a webhook.
+Trigger a test webhook in a Prismic repository.
 
 By default, this command reads the repository from prismic.config.json at the
 project root.
 
 USAGE
-  prismic webhook status <url> [flags]
+  prismic webhook test <url> [flags]
 
 ARGUMENTS
   <url>   Webhook URL
@@ -24,12 +25,12 @@ LEARN MORE
   Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
-export async function webhookStatus(): Promise<void> {
+export async function webhookTest(): Promise<void> {
 	const {
 		values: { help, repo = await safeGetRepositoryFromConfig() },
 		positionals: [webhookUrl],
 	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "webhook", "status"
+		args: process.argv.slice(4), // skip: node, script, "webhook", "test"
 		options: {
 			repo: { type: "string", short: "r" },
 			help: { type: "boolean", short: "h" },
@@ -64,6 +65,19 @@ export async function webhookStatus(): Promise<void> {
 		return;
 	}
 
-	const status = webhook.config.active ? "enabled" : "disabled";
-	console.info(status);
+	const id = webhook.config._id;
+
+	try {
+		await triggerWebhook(id, { repo, token, host });
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			console.error(`Failed to test webhook: ${message}`);
+			process.exitCode = 1;
+			return;
+		}
+		throw error;
+	}
+
+	console.info(`Test webhook triggered: ${webhookUrl}`);
 }

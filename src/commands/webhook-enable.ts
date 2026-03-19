@@ -1,9 +1,9 @@
 import { parseArgs } from "node:util";
 
-import { getWebhooks, updateWebhook } from "./clients/wroom";
-import { getHost, getToken } from "./lib/auth";
-import { safeGetRepositoryFromConfig } from "./lib/config";
-import { UnknownRequestError } from "./lib/request";
+import { getWebhooks, updateWebhook } from "../clients/wroom";
+import { getHost, getToken } from "../lib/auth";
+import { safeGetRepositoryFromConfig } from "../lib/config";
+import { UnknownRequestError } from "../lib/request";
 
 const HELP = `
 Enable a webhook in a Prismic repository.

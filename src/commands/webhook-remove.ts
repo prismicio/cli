@@ -1,9 +1,9 @@
 import { parseArgs } from "node:util";
 
-import { deleteWebhook, getWebhooks } from "./clients/wroom";
-import { getHost, getToken } from "./lib/auth";
-import { safeGetRepositoryFromConfig } from "./lib/config";
-import { UnknownRequestError } from "./lib/request";
+import { deleteWebhook, getWebhooks } from "../clients/wroom";
+import { getHost, getToken } from "../lib/auth";
+import { safeGetRepositoryFromConfig } from "../lib/config";
+import { UnknownRequestError } from "../lib/request";
 
 const HELP = `
 Delete a webhook from a Prismic repository.

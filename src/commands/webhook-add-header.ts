@@ -1,22 +1,23 @@
 import { parseArgs } from "node:util";
 
-import { getWebhooks, updateWebhook } from "./clients/wroom";
-import { getHost, getToken } from "./lib/auth";
-import { safeGetRepositoryFromConfig } from "./lib/config";
-import { UnknownRequestError } from "./lib/request";
+import { getWebhooks, updateWebhook } from "../clients/wroom";
+import { getHost, getToken } from "../lib/auth";
+import { safeGetRepositoryFromConfig } from "../lib/config";
+import { UnknownRequestError } from "../lib/request";
 
 const HELP = `
-Remove a custom HTTP header from a webhook.
+Add a custom HTTP header to a webhook.
 
 By default, this command reads the repository from prismic.config.json at the
 project root.
 
 USAGE
-  prismic webhook remove-header <url> <key> [flags]
+  prismic webhook add-header <url> <key> <value> [flags]
 
 ARGUMENTS
-  <url>   Webhook URL
-  <key>   Header name
+  <url>     Webhook URL
+  <key>     Header name
+  <value>   Header value
 
 FLAGS
   -r, --repo string   Repository domain
@@ -26,12 +27,12 @@ LEARN MORE
   Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
 
-export async function webhookRemoveHeader(): Promise<void> {
+export async function webhookAddHeader(): Promise<void> {
 	const {
 		values: { help, repo = await safeGetRepositoryFromConfig() },
-		positionals: [webhookUrl, headerKey],
+		positionals: [webhookUrl, headerKey, headerValue],
 	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "webhook", "remove-header"
+		args: process.argv.slice(4), // skip: node, script, "webhook", "add-header"
 		options: {
 			repo: { type: "string", short: "r" },
 			help: { type: "boolean", short: "h" },
@@ -56,6 +57,12 @@ export async function webhookRemoveHeader(): Promise<void> {
 		return;
 	}
 
+	if (!headerValue) {
+		console.error("Missing required argument: <value>");
+		process.exitCode = 1;
+		return;
+	}
+
 	if (!repo) {
 		console.error("Missing prismic.config.json or --repo option");
 		process.exitCode = 1;
@@ -72,28 +79,22 @@ export async function webhookRemoveHeader(): Promise<void> {
 		return;
 	}
 
-	if (!(headerKey in webhook.config.headers)) {
-		console.error(`Header not found: ${headerKey}`);
-		process.exitCode = 1;
-		return;
-	}
-
 	const id = webhook.config._id;
 
 	const updatedConfig = structuredClone(webhook.config);
-	delete updatedConfig.headers[headerKey];
+	updatedConfig.headers[headerKey] = headerValue;
 
 	try {
 		await updateWebhook(id, updatedConfig, { repo, token, host });
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
-			console.error(`Failed to remove header: ${message}`);
+			console.error(`Failed to add header: ${message}`);
 			process.exitCode = 1;
 			return;
 		}
 		throw error;
 	}
 
-	console.info(`Header removed: ${headerKey}`);
+	console.info(`Header added: ${headerKey}`);
 }

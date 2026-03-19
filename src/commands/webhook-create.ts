@@ -1,9 +1,9 @@
 import { parseArgs } from "node:util";
 
-import { createWebhook } from "./clients/wroom";
-import { getHost, getToken } from "./lib/auth";
-import { safeGetRepositoryFromConfig } from "./lib/config";
-import { UnknownRequestError } from "./lib/request";
+import { createWebhook } from "../clients/wroom";
+import { getHost, getToken } from "../lib/auth";
+import { safeGetRepositoryFromConfig } from "../lib/config";
+import { UnknownRequestError } from "../lib/request";
 import { TRIGGER_DISPLAY } from "./webhook-view";
 
 const HELP = `

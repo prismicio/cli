@@ -28,7 +28,7 @@ import {
 	setupSentry,
 } from "./lib/sentry";
 import { safeGetRepositoryName } from "./project";
-import { webhook } from "./webhook";
+import { webhook } from "./commands/webhook";
 
 const HELP = `
 Prismic CLI for managing repositories and configurations.
