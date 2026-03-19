@@ -11,6 +11,7 @@ import { login } from "./commands/login";
 import { logout } from "./commands/logout";
 import { sync } from "./commands/sync";
 import { whoami } from "./commands/whoami";
+import { preview } from "./commands/preview";
 import { InvalidPrismicConfig, MissingPrismicConfig } from "./config";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import {
@@ -39,6 +40,7 @@ USAGE
 COMMANDS
   init        Initialize a Prismic project
   sync        Sync types and slices from Prismic
+  preview     Manage preview configurations
   webhook     Manage webhooks
   login       Log in to Prismic
   logout      Log out of Prismic
@@ -119,6 +121,9 @@ if (version) {
 				break;
 			case "logout":
 				await logout();
+				break;
+			case "preview":
+				await preview();
 				break;
 			case "webhook":
 				await webhook();

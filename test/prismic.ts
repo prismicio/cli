@@ -110,3 +110,45 @@ export async function createWebhook(webhookUrl: string, config: RepoConfig): Pro
 	if (!res.ok) throw new Error(`Failed to create webhook: ${res.status} ${await res.text()}`);
 }
 
+export async function getPreviews(config: RepoConfig): Promise<{ id: string; label: string; url: string }[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("core/repository/preview_configs", `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok) throw new Error(`Failed to get previews: ${res.status} ${await res.text()}`);
+	const data = await res.json();
+	return data.results;
+}
+
+export async function addPreview(
+	previewUrl: string,
+	name: string,
+	config: RepoConfig,
+): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const parsed = new URL(previewUrl);
+	const websiteURL = `${parsed.protocol}//${parsed.host}`;
+	const resolverPath = parsed.pathname === "/" ? undefined : parsed.pathname;
+	const url = new URL("previews/new", `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Cookie: `prismic-auth=${config.token}`,
+		},
+		body: JSON.stringify({ name, websiteURL, resolverPath }),
+	});
+	if (!res.ok) throw new Error(`Failed to add preview: ${res.status} ${await res.text()}`);
+}
+
+export async function getRepository(config: RepoConfig): Promise<{ simulator_url?: string }> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("core/repository", `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok) throw new Error(`Failed to get repository: ${res.status} ${await res.text()}`);
+	return await res.json();
+}
+
