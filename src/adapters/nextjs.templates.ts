@@ -3,16 +3,16 @@ import { pascalCase } from "change-case";
 import { dedent } from "../lib/string";
 
 const SLICE_MARKUP = dedent`
-return (
-	<section
-		data-slice-type={slice.slice_type}
-		data-slice-variation={slice.variation}
-	>
-		Placeholder component for {slice.slice_type} (variation: {slice.variation}) slices.
-		<br />
-		<strong>You can edit this slice directly in your code editor.</strong>
-	</section>
-)
+	return (
+		<section
+			data-slice-type={slice.slice_type}
+			data-slice-variation={slice.variation}
+		>
+			Placeholder component for {slice.slice_type} (variation: {slice.variation}) slices.
+			<br />
+			<strong>You can edit this slice directly in your code editor.</strong>
+		</section>
+	)
 `;
 
 export function sliceTemplate(args: { name: string; typescript: boolean }): string {
@@ -248,53 +248,45 @@ export function sliceSimulatorPageTemplate(args: {
 }): string {
 	const { typescript, appRouter } = args;
 
-	if (appRouter) {
-		if (typescript) {
-			return dedent`
-				import {
-					SliceSimulator,
-					SliceSimulatorParams,
-					getSlices,
-				} from "@prismicio/next";
-				import { SliceZone } from "@prismicio/react";
+	const appTS = dedent`
+		import { SliceSimulator, SliceSimulatorParams, getSlices } from "@prismicio/next";
+		import { SliceZone } from "@prismicio/react";
 
-				import { components } from "../../slices";
+		import { components } from "../../slices";
 
-				export default async function SliceSimulatorPage({
-					searchParams,
-				}: SliceSimulatorParams) {
-					const { state } = await searchParams
-					const slices = getSlices(state);
+		export default async function SliceSimulatorPage({
+			searchParams,
+		}: SliceSimulatorParams) {
+			const { state } = await searchParams
+			const slices = getSlices(state);
 
-					return (
-						<SliceSimulator>
-							<SliceZone slices={slices} components={components} />
-						</SliceSimulator>
-					);
-				}
-			`;
+			return (
+				<SliceSimulator>
+					<SliceZone slices={slices} components={components} />
+				</SliceSimulator>
+			);
 		}
+	`;
 
-		return dedent`
-			import { SliceSimulator, getSlices } from "@prismicio/next";
-			import { SliceZone } from "@prismicio/react";
+	const appJS = dedent`
+		import { SliceSimulator, getSlices } from "@prismicio/next";
+		import { SliceZone } from "@prismicio/react";
 
-			import { components } from "../../slices";
+		import { components } from "../../slices";
 
-			export default async function SliceSimulatorPage({ searchParams }) {
-				const { state } = await searchParams
-				const slices = getSlices(state);
+		export default async function SliceSimulatorPage({ searchParams }) {
+			const { state } = await searchParams
+			const slices = getSlices(state);
 
-				return (
-					<SliceSimulator>
-						<SliceZone slices={slices} components={components} />
-					</SliceSimulator>
-				);
-			}
-		`;
-	}
+			return (
+				<SliceSimulator>
+					<SliceZone slices={slices} components={components} />
+				</SliceSimulator>
+			);
+		}
+	`;
 
-	return dedent`
+	const pages = dedent`
 		import { SliceSimulator } from "@prismicio/next/pages";
 		import { SliceZone } from "@prismicio/react";
 
@@ -308,58 +300,58 @@ export function sliceSimulatorPageTemplate(args: {
 			);
 		}
 	`;
+
+	if (appRouter) {
+		return typescript ? appTS : appJS;
+	} else {
+		return pages;
+	}
 }
 
 export function previewRouteTemplate(args: { typescript: boolean; appRouter: boolean }): string {
 	const { typescript, appRouter } = args;
 
-	if (appRouter) {
-		if (typescript) {
-			return dedent`
-				import { NextRequest } from "next/server";
-				import { redirectToPreviewURL } from "@prismicio/next";
+	const appTS = dedent`
+		import { NextRequest } from "next/server";
+		import { redirectToPreviewURL } from "@prismicio/next";
 
-				import { createClient } from "../../../prismicio";
+		import { createClient } from "../../../prismicio";
 
-				export async function GET(request: NextRequest) {
-					const client = createClient();
+		export async function GET(request: NextRequest) {
+			const client = createClient();
 
-					return await redirectToPreviewURL({ client, request });
-				}
-			`;
+			return await redirectToPreviewURL({ client, request });
 		}
+	`;
 
-		return dedent`
-			import { redirectToPreviewURL } from "@prismicio/next";
+	const appJS = dedent`
+		import { redirectToPreviewURL } from "@prismicio/next";
 
-			import { createClient } from "../../../prismicio";
+		import { createClient } from "../../../prismicio";
 
-			export async function GET(request) {
-				const client = createClient();
+		export async function GET(request) {
+			const client = createClient();
 
-				return await redirectToPreviewURL({ client, request });
-			}
-		`;
-	}
+			return await redirectToPreviewURL({ client, request });
+		}
+	`;
 
-	if (typescript) {
-		return dedent`
-			import { NextApiRequest, NextApiResponse } from "next";
-			import { setPreviewData, redirectToPreviewURL } from "@prismicio/next/pages";
+	const pagesTS = dedent`
+		import { NextApiRequest, NextApiResponse } from "next";
+		import { setPreviewData, redirectToPreviewURL } from "@prismicio/next/pages";
 
-			import { createClient } from "../../prismicio";
+		import { createClient } from "../../prismicio";
 
-			export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-				const client = createClient({ req });
+		export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+			const client = createClient({ req });
 
-				setPreviewData({ req, res });
+			setPreviewData({ req, res });
 
-				return await redirectToPreviewURL({ req, res, client });
-			};
-		`;
-	}
+			return await redirectToPreviewURL({ req, res, client });
+		};
+	`;
 
-	return dedent`
+	const pagesJS = dedent`
 		import { setPreviewData, redirectToPreviewURL } from "@prismicio/next/pages";
 
 		import { createClient } from "../../prismicio";
@@ -372,6 +364,12 @@ export function previewRouteTemplate(args: { typescript: boolean; appRouter: boo
 			return await redirectToPreviewURL({ req, res, client });
 		};
 	`;
+
+	if (appRouter) {
+		return typescript ? appTS : appJS;
+	} else {
+		return typescript ? pagesTS : pagesJS;
+	}
 }
 
 export function exitPreviewRouteTemplate(args: {
@@ -380,34 +378,36 @@ export function exitPreviewRouteTemplate(args: {
 }): string {
 	const { typescript, appRouter } = args;
 
-	if (appRouter) {
-		return dedent`
-			import { exitPreview } from "@prismicio/next";
+	const app = dedent`
+		import { exitPreview } from "@prismicio/next";
 
-			export function GET() {
-				return exitPreview();
-			}
-		`;
-	}
+		export function GET() {
+			return exitPreview();
+		}
+	`;
 
-	if (typescript) {
-		return dedent`
-			import { NextApiRequest, NextApiResponse } from "next";
-			import { exitPreview } from "@prismicio/next/pages";
+	const pagesTS = dedent`
+		import { NextApiRequest, NextApiResponse } from "next";
+		import { exitPreview } from "@prismicio/next/pages";
 
-			export default function handler(req: NextApiRequest, res: NextApiResponse) {
-				return exitPreview({ req, res });
-			}
-		`;
-	}
+		export default function handler(req: NextApiRequest, res: NextApiResponse) {
+			return exitPreview({ req, res });
+		}
+	`;
 
-	return dedent`
+	const pagesJS = dedent`
 		import { exitPreview } from "@prismicio/next/pages";
 
 		export default function handler(req, res) {
 			return exitPreview({ req, res });
 		}
 	`;
+
+	if (appRouter) {
+		return app;
+	} else {
+		return typescript ? pagesTS : pagesJS;
+	}
 }
 
 export function revalidateRouteTemplate(args: { supportsCacheLife: boolean }): string {

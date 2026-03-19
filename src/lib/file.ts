@@ -1,5 +1,6 @@
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import * as z from "zod/mini";
 
 import { appendTrailingSlash } from "./url";
 
@@ -55,4 +56,15 @@ export async function writeFileRecursive(
 	const dirname = new URL(".", path);
 	await mkdir(dirname, { recursive: true });
 	await writeFile(path, data);
+}
+
+export async function readJsonFile<T = unknown>(
+	path: URL,
+	options: { schema?: z.ZodMiniType<T> } = {},
+): Promise<T> {
+	const { schema } = options;
+	const file = await readFile(path, "utf8");
+	const json = JSON.parse(file);
+	if (schema) return z.parse(schema, json);
+	return json;
 }

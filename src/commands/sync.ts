@@ -2,14 +2,14 @@ import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 import { parseArgs } from "node:util";
 
+import { getAdapter, type Adapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
-import { safeGetRepositoryFromConfig } from "../config";
-import { type FrameworkAdapter, NoSupportedFrameworkError, requireFramework } from "../frameworks";
 import { generateAndWriteTypes } from "../lib/codegen";
 import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { sentrySetContext, sentrySetTag } from "../lib/sentry";
 import { dedent } from "../lib/string";
+import { findProjectRoot, safeGetRepositoryName } from "../project";
 
 const HELP = `
 Sync slices, page types, and custom types from Prismic to local files.
@@ -33,7 +33,7 @@ const MAX_CONSECUTIVE_ERRORS = 10;
 
 export async function sync(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryFromConfig(), watch },
+		values: { help, repo = await safeGetRepositoryName(), watch },
 	} = parseArgs({
 		args: process.argv.slice(3), // skip: node, script, "sync"
 		options: {
@@ -60,44 +60,34 @@ export async function sync(): Promise<void> {
 	sentrySetTag("repository", repo);
 	sentrySetContext("Repository Data", { name: repo });
 
-	let framework: FrameworkAdapter;
-	try {
-		framework = await requireFramework();
-	} catch (error) {
-		if (error instanceof NoSupportedFrameworkError) {
-			console.error(error.message);
-			process.exitCode = 1;
-			return;
-		}
-		throw error;
-	}
+	const adapter = await getAdapter();
 
 	console.info(`Syncing from repository: ${repo}`);
 
 	segmentTrackStart("sync", { repository: repo });
 
 	if (watch) {
-		await watchForChanges(repo, framework);
+		await watchForChanges(repo, adapter);
 	} else {
-		await syncSlices(repo, framework);
-		await syncCustomTypes(repo, framework);
-		await regenerateTypes(framework);
+		await syncSlices(repo, adapter);
+		await syncCustomTypes(repo, adapter);
+		await regenerateTypes(adapter);
 		segmentTrackEnd("sync", true, undefined, { watch: false });
 
 		console.info("Sync complete");
 	}
 }
 
-async function watchForChanges(repo: string, framework: FrameworkAdapter) {
+async function watchForChanges(repo: string, adapter: Adapter) {
 	const token = await getToken();
 	const host = await getHost();
 
 	const initialRemoteSlices = await getSlices({ repo, token, host });
 	const initialRemoteCustomTypes = await getCustomTypes({ repo, token, host });
 
-	await syncSlices(repo, framework);
-	await syncCustomTypes(repo, framework);
-	await regenerateTypes(framework);
+	await syncSlices(repo, adapter);
+	await syncCustomTypes(repo, adapter);
+	await regenerateTypes(adapter);
 
 	console.info(dedent`
 		Initial sync completed!
@@ -136,17 +126,17 @@ async function watchForChanges(repo: string, framework: FrameworkAdapter) {
 				const changed = [];
 
 				if (slicesChanged) {
-					await syncSlices(repo, framework);
+					await syncSlices(repo, adapter);
 					lastRemoteSlicesHash = remoteSlicesHash;
 					changed.push("slices");
 				}
 				if (customTypesChanged) {
-					await syncCustomTypes(repo, framework);
+					await syncCustomTypes(repo, adapter);
 					lastRemoteCustomTypesHash = remoteCustomTypesHash;
 					changed.push("custom types");
 				}
 
-				await regenerateTypes(framework);
+				await regenerateTypes(adapter);
 
 				const timestamp = new Date().toLocaleTimeString();
 				console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
@@ -173,18 +163,18 @@ async function watchForChanges(repo: string, framework: FrameworkAdapter) {
 	}
 }
 
-export async function syncSlices(repo: string, framework: FrameworkAdapter): Promise<void> {
+export async function syncSlices(repo: string, adapter: Adapter): Promise<void> {
 	const token = await getToken();
 	const host = await getHost();
 
 	const remoteSlices = await getSlices({ repo, token, host });
-	const localSlices = await framework.getSlices();
+	const localSlices = await adapter.getSlices();
 
 	// Handle slices update
 	for (const remoteSlice of remoteSlices) {
 		const localSlice = localSlices.find((slice) => slice.model.id === remoteSlice.id);
 		if (localSlice) {
-			await framework.updateSlice(remoteSlice);
+			await adapter.updateSlice(remoteSlice);
 		}
 	}
 
@@ -192,26 +182,26 @@ export async function syncSlices(repo: string, framework: FrameworkAdapter): Pro
 	for (const localSlice of localSlices) {
 		const existsRemotely = remoteSlices.some((slice) => slice.id === localSlice.model.id);
 		if (!existsRemotely) {
-			await framework.deleteSlice(localSlice.model.id);
+			await adapter.deleteSlice(localSlice.model.id);
 		}
 	}
 
 	// Handle slices creation
-	const defaultLibrary = await framework.getDefaultSliceLibrary();
+	const defaultLibrary = await adapter.getDefaultSliceLibrary();
 	for (const remoteSlice of remoteSlices) {
 		const existsLocally = localSlices.some((slice) => slice.model.id === remoteSlice.id);
 		if (!existsLocally) {
-			await framework.createSlice(remoteSlice, defaultLibrary);
+			await adapter.createSlice(remoteSlice, defaultLibrary);
 		}
 	}
 }
 
-export async function syncCustomTypes(repo: string, framework: FrameworkAdapter): Promise<void> {
+export async function syncCustomTypes(repo: string, adapter: Adapter): Promise<void> {
 	const token = await getToken();
 	const host = await getHost();
 
 	const remoteCustomTypes = await getCustomTypes({ repo, token, host });
-	const localCustomTypes = await framework.getCustomTypes();
+	const localCustomTypes = await adapter.getCustomTypes();
 
 	// Handle custom types update
 	for (const remoteCustomType of remoteCustomTypes) {
@@ -219,7 +209,7 @@ export async function syncCustomTypes(repo: string, framework: FrameworkAdapter)
 			(customType) => customType.model.id === remoteCustomType.id,
 		);
 		if (localCustomType) {
-			await framework.updateCustomType(remoteCustomType);
+			await adapter.updateCustomType(remoteCustomType);
 		}
 	}
 
@@ -229,7 +219,7 @@ export async function syncCustomTypes(repo: string, framework: FrameworkAdapter)
 			(customType) => customType.id === localCustomType.model.id,
 		);
 		if (!existsRemotely) {
-			await framework.deleteCustomType(localCustomType.model.id);
+			await adapter.deleteCustomType(localCustomType.model.id);
 		}
 	}
 
@@ -239,7 +229,7 @@ export async function syncCustomTypes(repo: string, framework: FrameworkAdapter)
 			(customType) => customType.model.id === remoteCustomType.id,
 		);
 		if (!existsLocally) {
-			await framework.createCustomType(remoteCustomType);
+			await adapter.createCustomType(remoteCustomType);
 		}
 	}
 }
@@ -260,10 +250,10 @@ function hash(data: unknown): string {
 	return createHash("sha256").update(JSON.stringify(data)).digest("hex");
 }
 
-async function regenerateTypes(framework: FrameworkAdapter): Promise<void> {
-	const slices = await framework.getSlices();
-	const customTypes = await framework.getCustomTypes();
-	const projectRoot = await framework.getProjectRoot();
+async function regenerateTypes(adapter: Adapter): Promise<void> {
+	const slices = await adapter.getSlices();
+	const customTypes = await adapter.getCustomTypes();
+	const projectRoot = await findProjectRoot();
 	await generateAndWriteTypes({
 		customTypes: customTypes.map((customType) => customType.model),
 		slices: slices.map((slice) => slice.model),

@@ -26,15 +26,6 @@ export async function createConfig(config: Config): Promise<URL> {
 	return suggestedConfigPath;
 }
 
-export async function safeGetRepositoryFromConfig(): Promise<string | undefined> {
-	try {
-		const config = await readConfig();
-		return config.repositoryName;
-	} catch {
-		return undefined;
-	}
-}
-
 export async function readConfig(): Promise<Config> {
 	const configPath = await findConfigPath();
 	try {
@@ -68,7 +59,7 @@ export async function updateConfig(updates: Partial<Config>): Promise<Config> {
 	return updatedConfig;
 }
 
-async function findConfigPath(): Promise<URL> {
+export async function findConfigPath(): Promise<URL> {
 	const configPath = await findUpward(CONFIG_FILENAME, { stop: "package.json" });
 	if (!configPath) throw new MissingPrismicConfig();
 	return configPath;
@@ -79,7 +70,7 @@ export class MissingPrismicConfig extends Error {
 	message = `Could not find a ${CONFIG_FILENAME} file.`;
 }
 
-async function findSuggestedConfigPath() {
+export async function findSuggestedConfigPath(): Promise<URL> {
 	try {
 		const packageJsonPath = await findPackageJson();
 		const suggestedConfigPath = new URL(CONFIG_FILENAME, packageJsonPath);

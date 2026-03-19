@@ -3,6 +3,7 @@
 import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
+import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
 import { init } from "./commands/init";
@@ -10,8 +11,7 @@ import { login } from "./commands/login";
 import { logout } from "./commands/logout";
 import { sync } from "./commands/sync";
 import { whoami } from "./commands/whoami";
-import { InvalidPrismicConfig, MissingPrismicConfig, safeGetRepositoryFromConfig } from "./config";
-import { getFramework } from "./frameworks";
+import { InvalidPrismicConfig, MissingPrismicConfig } from "./config";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import {
 	initSegment,
@@ -27,6 +27,7 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
+import { safeGetRepositoryName } from "./project";
 
 const HELP = `
 Prismic CLI for managing repositories and configurations.
@@ -72,17 +73,19 @@ if (version) {
 } else {
 	const command = positionals[0];
 
-	const repository = await safeGetRepositoryFromConfig();
+	const repository = await safeGetRepositoryName();
 	if (repository) {
 		segmentSetRepository(repository);
 		sentrySetTag("repository", repository);
 		sentrySetContext("Repository Data", { name: repository });
 	}
 
-	const framework = await getFramework();
-	if (framework) {
-		sentrySetTag("framework", framework.id);
-	}
+	try {
+		const adapter = await getAdapter();
+		if (adapter) {
+			sentrySetTag("framework", adapter.id);
+		}
+	} catch {}
 
 	if (command && !help && !SKIP_REFRESH_COMMANDS.has(command)) {
 		// Refreesh the token and identify the user in the background.
@@ -134,6 +137,7 @@ if (version) {
 		if (command && !UNTRACKED_COMMANDS.has(command)) {
 			segmentTrackEnd(command, false, error);
 		}
+
 		process.exitCode = 1;
 
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
@@ -142,6 +146,8 @@ if (version) {
 			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
 		} else if (error instanceof MissingPrismicConfig) {
 			console.error(`${error.message} Run \`prismic init\` to create a config.`);
+		} else if (error instanceof NoSupportedFrameworkError) {
+			console.error(error.message);
 		} else {
 			await sentryCaptureError(error);
 			throw error;

@@ -2,6 +2,7 @@ import { parseArgs } from "node:util";
 
 import type { Profile } from "../clients/user";
 
+import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
 import { getProfile } from "../clients/user";
 import {
@@ -12,10 +13,10 @@ import {
 	readLegacySliceMachineConfig,
 	UnknownProjectRoot,
 } from "../config";
-import { getFramework } from "../frameworks";
 import { openBrowser } from "../lib/browser";
 import { generateAndWriteTypes } from "../lib/codegen";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import { findProjectRoot } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
 
 const HELP = `
@@ -116,12 +117,7 @@ export async function init(): Promise<void> {
 		return;
 	}
 
-	const framework = await getFramework();
-	if (!framework) {
-		console.error("No supported framework found (Next.js, Nuxt, or SvelteKit required)");
-		process.exitCode = 1;
-		return;
-	}
+	const adapter = await getAdapter();
 
 	// Create prismic.config.json
 	try {
@@ -149,16 +145,16 @@ export async function init(): Promise<void> {
 	}
 
 	// Install dependencies and create framework files
-	await framework.initProject();
+	await adapter.initProject();
 
 	// Sync models from remote
-	await syncSlices(repo, framework);
-	await syncCustomTypes(repo, framework);
+	await syncSlices(repo, adapter);
+	await syncCustomTypes(repo, adapter);
 
 	// Generate TypeScript types from synced models
-	const slices = await framework.getSlices();
-	const customTypes = await framework.getCustomTypes();
-	const projectRoot = await framework.getProjectRoot();
+	const slices = await adapter.getSlices();
+	const customTypes = await adapter.getCustomTypes();
+	const projectRoot = await findProjectRoot();
 	await generateAndWriteTypes({
 		customTypes: customTypes.map((customType) => customType.model),
 		slices: slices.map((slice) => slice.model),
