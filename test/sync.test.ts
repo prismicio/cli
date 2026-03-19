@@ -10,7 +10,7 @@ const PRISMIC_HOST = process.env.PRISMIC_HOST ?? "prismic.io";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("sync", ["--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("USAGE");
+	expect(stdout).toContain("prismic sync [flags]");
 });
 
 it("syncs slices and custom types from remote", async ({
