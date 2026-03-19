@@ -10,7 +10,7 @@ it("supports --help", async ({ expect, prismic }) => {
 });
 
 it("enables a disabled webhook", async ({ expect, prismic, repo, token }) => {
-	const url = `https://example.com/test-${crypto.randomUUID().split("-")[0]}`;
+	const url = `https://example.com/test-${crypto.randomUUID()}`;
 	const config = { repo, token, host: PRISMIC_HOST };
 
 	await createWebhook(url, config);
