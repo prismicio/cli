@@ -1,8 +1,8 @@
 import { parseArgs } from "node:util";
 
 import { createWebhook } from "../clients/wroom";
-import { getHost, getToken } from "../lib/auth";
-import { safeGetRepositoryFromConfig } from "../lib/config";
+import { getHost, getToken } from "../auth";
+import { safeGetRepositoryName } from "../project";
 import { UnknownRequestError } from "../lib/request";
 import { TRIGGER_DISPLAY } from "./webhook-view";
 
@@ -43,7 +43,7 @@ const VALID_TRIGGERS = Object.values(TRIGGER_DISPLAY);
 
 export async function webhookCreate(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryFromConfig(), name, secret, trigger = [] },
+		values: { help, repo = await safeGetRepositoryName(), name, secret, trigger = [] },
 		positionals: [webhookUrl],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "create"

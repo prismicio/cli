@@ -1,8 +1,8 @@
 import { parseArgs } from "node:util";
 
 import { getWebhooks, updateWebhook } from "../clients/wroom";
-import { getHost, getToken } from "../lib/auth";
-import { safeGetRepositoryFromConfig } from "../lib/config";
+import { getHost, getToken } from "../auth";
+import { safeGetRepositoryName } from "../project";
 import { UnknownRequestError } from "../lib/request";
 
 const HELP = `
@@ -29,7 +29,7 @@ LEARN MORE
 
 export async function webhookAddHeader(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryFromConfig() },
+		values: { help, repo = await safeGetRepositoryName() },
 		positionals: [webhookUrl, headerKey, headerValue],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "add-header"

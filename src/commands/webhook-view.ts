@@ -1,8 +1,8 @@
 import { parseArgs } from "node:util";
 
 import { getWebhooks } from "../clients/wroom";
-import { getHost, getToken } from "../lib/auth";
-import { safeGetRepositoryFromConfig } from "../lib/config";
+import { getHost, getToken } from "../auth";
+import { safeGetRepositoryName } from "../project";
 
 const HELP = `
 View details of a webhook in a Prismic repository.
@@ -35,7 +35,7 @@ export const TRIGGER_DISPLAY = {
 
 export async function webhookView(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryFromConfig() },
+		values: { help, repo = await safeGetRepositoryName() },
 		positionals: [webhookUrl],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "view"

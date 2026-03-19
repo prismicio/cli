@@ -1,8 +1,8 @@
 import { parseArgs } from "node:util";
 
 import { getWebhooks } from "../clients/wroom";
-import { getHost, getToken } from "../lib/auth";
-import { safeGetRepositoryFromConfig } from "../lib/config";
+import { getHost, getToken } from "../auth";
+import { safeGetRepositoryName } from "../project";
 
 const HELP = `
 Show the enabled/disabled status of a webhook.
@@ -26,7 +26,7 @@ LEARN MORE
 
 export async function webhookStatus(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryFromConfig() },
+		values: { help, repo = await safeGetRepositoryName() },
 		positionals: [webhookUrl],
 	} = parseArgs({
 		args: process.argv.slice(4), // skip: node, script, "webhook", "status"
