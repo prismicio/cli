@@ -165,7 +165,7 @@ export abstract class Adapter {
 async function upsertSliceModel(model: SharedSlice, library: URL): Promise<void> {
 	const sliceDirectoryName = pascalCase(model.name);
 	const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
-	const modelPath = new URL("model.json", sliceDirectory);
+	const modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
 	await writeFileRecursive(modelPath, stringify(model));
 }
 
