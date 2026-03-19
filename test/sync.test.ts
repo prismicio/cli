@@ -5,12 +5,10 @@ import { readFile } from "node:fs/promises";
 import { captureOutput, it } from "./it";
 import { insertCustomType, insertSlice } from "./prismic";
 
-const PRISMIC_HOST = process.env.PRISMIC_HOST ?? "prismic.io";
-
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("sync", ["--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("USAGE");
+	expect(stdout).toContain("prismic sync [flags]");
 });
 
 it("syncs slices and custom types from remote", async ({
@@ -19,12 +17,13 @@ it("syncs slices and custom types from remote", async ({
 	prismic,
 	repo,
 	token,
+	host,
 }) => {
 	const customType = buildCustomType();
 	const slice = buildSlice();
 
-	await insertCustomType(customType, { repo, token, host: PRISMIC_HOST });
-	await insertSlice(slice, { repo, token, host: PRISMIC_HOST });
+	await insertCustomType(customType, { repo, token, host });
+	await insertSlice(slice, { repo, token, host });
 
 	const { exitCode, stdout } = await prismic("sync", ["--repo", repo]);
 	expect(exitCode).toBe(0);
@@ -41,7 +40,7 @@ it("syncs slices and custom types from remote", async ({
 	expect(sliceModel.id).toBe(slice.id);
 }, 60_000);
 
-it("watches for changes and syncs", async ({ expect, project, prismic, repo, token }) => {
+it("watches for changes and syncs", async ({ expect, project, prismic, repo, token, host }) => {
 	const customType = buildCustomType();
 	const slice = buildSlice();
 
@@ -50,8 +49,8 @@ it("watches for changes and syncs", async ({ expect, project, prismic, repo, tok
 
 	await expect.poll(output, { timeout: 30_000 }).toContain("Watching for changes");
 
-	await insertCustomType(customType, { repo, token, host: PRISMIC_HOST });
-	await insertSlice(slice, { repo, token, host: PRISMIC_HOST });
+	await insertCustomType(customType, { repo, token, host });
+	await insertSlice(slice, { repo, token, host });
 
 	await expect.poll(output, { timeout: 30_000 }).toContain("Changes detected");
 

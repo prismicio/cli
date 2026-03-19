@@ -10,9 +10,10 @@ import { inject, test } from "vitest";
 const BIN = fileURLToPath(new URL("../dist/index.mjs", import.meta.url));
 
 const E2E_PRISMIC_EMAIL = process.env.E2E_PRISMIC_EMAIL!;
-const PRISMIC_HOST = process.env.PRISMIC_HOST ?? "prismic.io";
+const DEFUALT_PRISMIC_HOST = "prismic.io";
 
 export type Fixtures = {
+	host: string;
 	home: URL;
 	project: URL;
 	prismic: typeof x;
@@ -24,6 +25,10 @@ export type Fixtures = {
 };
 
 export const it = test.extend<Fixtures>({
+	// oxlint-disable-next-line no-empty-pattern
+	host: async ({}, use) => {
+		await use(process.env.PRISMIC_HOST ?? DEFUALT_PRISMIC_HOST);
+	},
 	// oxlint-disable-next-line no-empty-pattern
 	home: async ({}, use) => {
 		const dir = await mkdtemp(join(tmpdir(), "prismic-test-"));
@@ -47,7 +52,10 @@ export const it = test.extend<Fixtures>({
 	},
 	login: async ({ token, home }, use) => {
 		await use(async () => {
-			await writeFile(new URL(".prismic", home), JSON.stringify({ token, host: PRISMIC_HOST }));
+			await writeFile(
+				new URL(".prismic", home),
+				JSON.stringify({ token, host: DEFUALT_PRISMIC_HOST }),
+			);
 			return { token, email: E2E_PRISMIC_EMAIL };
 		});
 	},

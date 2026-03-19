@@ -76,3 +76,37 @@ export async function insertSlice(slice: object, config: RepoConfig): Promise<vo
 	});
 	if (!res.ok) throw new Error(`Failed to insert slice: ${res.status} ${await res.text()}`);
 }
+
+export async function getWebhooks(config: RepoConfig): Promise<{ config: Record<string, unknown> }[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("app/settings/webhooks", `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok) throw new Error(`Failed to get webhooks: ${res.status} ${await res.text()}`);
+	return await res.json();
+}
+
+export async function createWebhook(webhookUrl: string, config: RepoConfig): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("app/settings/webhooks/create", `https://${config.repo}.${host}/`);
+	const body = new FormData();
+	body.set("url", webhookUrl);
+	body.set("name", "");
+	body.set("secret", "");
+	body.set("headers", JSON.stringify({}));
+	body.set("active", "on");
+	body.set("documentsPublished", "true");
+	body.set("documentsUnpublished", "true");
+	body.set("releasesCreated", "true");
+	body.set("releasesUpdated", "true");
+	body.set("tagsCreated", "true");
+	body.set("tagsDeleted", "true");
+	const res = await fetch(url, {
+		method: "POST",
+		headers: { Cookie: `prismic-auth=${config.token}` },
+		body,
+	});
+	if (!res.ok) throw new Error(`Failed to create webhook: ${res.status} ${await res.text()}`);
+}
+

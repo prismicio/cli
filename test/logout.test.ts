@@ -5,7 +5,7 @@ import { it } from "./it";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("logout", ["--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("USAGE");
+	expect(stdout).toContain("prismic logout [flags]");
 });
 
 it("logs out and deletes auth file", async ({ expect, home, prismic }) => {
