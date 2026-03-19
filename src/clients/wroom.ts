@@ -1,6 +1,5 @@
 import * as z from "zod/mini";
 
-import { env } from "../env";
 import { request } from "../lib/request";
 
 const WebhookTriggersSchema = z.object({
@@ -29,7 +28,7 @@ type Webhook = z.infer<typeof WebhookSchema>;
 export async function getWebhooks(config: {
 	repo: string;
 	token: string | undefined;
-	host: string | undefined;
+	host: string;
 }): Promise<Webhook[]> {
 	const { repo, token, host } = config;
 	const wroomUrl = getWroomUrl(repo, host);
@@ -41,22 +40,9 @@ export async function getWebhooks(config: {
 	return response;
 }
 
-export async function triggerWebhook(
-	id: string,
-	config: { repo: string; token: string | undefined; host: string | undefined },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const wroomUrl = getWroomUrl(repo, host);
-	const url = new URL(`app/settings/webhooks/${id}/trigger`, wroomUrl);
-	await request(url, {
-		method: "POST",
-		credentials: { "prismic-auth": token },
-	});
-}
-
 export async function createWebhook(
 	webhookConfig: Omit<Webhook["config"], "_id" | "active" | "headers">,
-	config: { repo: string; token: string | undefined; host: string | undefined },
+	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	const { repo, token, host } = config;
 	const wroomUrl = getWroomUrl(repo, host);
@@ -83,7 +69,7 @@ export async function createWebhook(
 export async function updateWebhook(
 	id: string,
 	webhookConfig: Omit<Webhook["config"], "_id">,
-	config: { repo: string; token: string | undefined; host: string | undefined },
+	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	const { repo, token, host } = config;
 	const wroomUrl = getWroomUrl(repo, host);
@@ -109,7 +95,7 @@ export async function updateWebhook(
 
 export async function deleteWebhook(
 	id: string,
-	config: { repo: string; token: string | undefined; host: string | undefined },
+	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	const { repo, token, host } = config;
 	const wroomUrl = getWroomUrl(repo, host);
@@ -120,6 +106,6 @@ export async function deleteWebhook(
 	});
 }
 
-function getWroomUrl(repo: string, host = env.PRISMIC_HOST): URL {
+function getWroomUrl(repo: string, host: string): URL {
 	return new URL(`https://${repo}.${host}/`);
 }
