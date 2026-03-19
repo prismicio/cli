@@ -82,10 +82,10 @@ if (version) {
 
 	try {
 		const adapter = await getAdapter();
-		if (adapter) {
-			sentrySetTag("framework", adapter.id);
-		}
-	} catch {}
+		sentrySetTag("framework", adapter.id);
+	} catch {
+		// noop - it's okay if we can't set the framework
+	}
 
 	if (command && !help && !SKIP_REFRESH_COMMANDS.has(command)) {
 		// Refreesh the token and identify the user in the background.
