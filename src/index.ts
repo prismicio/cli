@@ -88,7 +88,7 @@ if (version) {
 	}
 
 	if (command && !help && !SKIP_REFRESH_COMMANDS.has(command)) {
-		// Refreesh the token and identify the user in the background.
+		// Refresh the token and identify the user in the background.
 		refreshToken()
 			.then(async (token) => {
 				if (!token) return;
