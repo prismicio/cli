@@ -62,12 +62,12 @@ export async function createWebhook(
 	body.set("secret", webhookConfig.secret ?? "");
 	body.set("headers", JSON.stringify({}));
 	body.set("active", "on");
-	body.set("documentsPublished", webhookConfig.documentsUnpublished.toString());
+	body.set("documentsPublished", webhookConfig.documentsPublished.toString());
 	body.set("documentsUnpublished", webhookConfig.documentsUnpublished.toString());
-	body.set("releasesCreated", webhookConfig.documentsUnpublished.toString());
-	body.set("releasesUpdated", webhookConfig.documentsUnpublished.toString());
-	body.set("tagsCreated", webhookConfig.documentsUnpublished.toString());
-	body.set("documentsPublished", webhookConfig.documentsUnpublished.toString());
+	body.set("releasesCreated", webhookConfig.releasesCreated.toString());
+	body.set("releasesUpdated", webhookConfig.releasesUpdated.toString());
+	body.set("tagsCreated", webhookConfig.tagsCreated.toString());
+	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
 	await request(url, {
 		method: "POST",
 		body,
@@ -89,12 +89,12 @@ export async function updateWebhook(
 	body.set("secret", webhookConfig.secret ?? "");
 	body.set("headers", JSON.stringify(webhookConfig.headers ?? {}));
 	body.set("active", webhookConfig.active ? "on" : "off");
-	body.set("documentsPublished", webhookConfig.documentsUnpublished.toString());
+	body.set("documentsPublished", webhookConfig.documentsPublished.toString());
 	body.set("documentsUnpublished", webhookConfig.documentsUnpublished.toString());
-	body.set("releasesCreated", webhookConfig.documentsUnpublished.toString());
-	body.set("releasesUpdated", webhookConfig.documentsUnpublished.toString());
-	body.set("tagsCreated", webhookConfig.documentsUnpublished.toString());
-	body.set("documentsPublished", webhookConfig.documentsUnpublished.toString());
+	body.set("releasesCreated", webhookConfig.releasesCreated.toString());
+	body.set("releasesUpdated", webhookConfig.releasesUpdated.toString());
+	body.set("tagsCreated", webhookConfig.tagsCreated.toString());
+	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
 	await request(url, {
 		method: "POST",
 		body,
