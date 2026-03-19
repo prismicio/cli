@@ -38,7 +38,7 @@ export async function getRepositoryName(): Promise<string> {
 export async function getLibraries(): Promise<URL[] | undefined> {
 	const config = await readConfig();
 	const rawLibraries = config.libraries;
-	if (!rawLibraries) return;
+	if (!rawLibraries || rawLibraries.length < 1) return;
 	const projectRoot = await findProjectRoot();
 	const libraries = rawLibraries.map((library) =>
 		appendTrailingSlash(new URL(library.replace(/^\//, ""), projectRoot)),
