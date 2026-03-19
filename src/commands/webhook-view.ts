@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 
-import { getWebhooks } from "../clients/wroom";
 import { getHost, getToken } from "../auth";
+import { getWebhooks, WEBHOOK_TRIGGERS } from "../clients/wroom";
 import { safeGetRepositoryName } from "../project";
 
 const HELP = `
@@ -23,15 +23,6 @@ FLAGS
 LEARN MORE
   Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
-
-export const TRIGGER_DISPLAY = {
-	documentsPublished: "document.published",
-	documentsUnpublished: "document.unpublished",
-	releasesCreated: "release.created",
-	releasesUpdated: "release.updated",
-	tagsCreated: "tag.created",
-	tagsDeleted: "tag.deleted",
-};
 
 export async function webhookView(): Promise<void> {
 	const {
@@ -83,9 +74,9 @@ export async function webhookView(): Promise<void> {
 
 	// Show triggers
 	const enabledTriggers: string[] = [];
-	for (const [apiField, displayName] of Object.entries(TRIGGER_DISPLAY)) {
-		if (config[apiField as keyof typeof config]) {
-			enabledTriggers.push(displayName);
+	for (const trigger of WEBHOOK_TRIGGERS) {
+		if (config[trigger as keyof typeof config]) {
+			enabledTriggers.push(trigger);
 		}
 	}
 	console.info(`Triggers: ${enabledTriggers.length > 0 ? enabledTriggers.join(", ") : "(none)"}`);

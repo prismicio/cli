@@ -1,10 +1,9 @@
 import { parseArgs } from "node:util";
 
-import { getWebhooks, updateWebhook } from "../clients/wroom";
 import { getHost, getToken } from "../auth";
-import { safeGetRepositoryName } from "../project";
+import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
 import { UnknownRequestError } from "../lib/request";
-import { TRIGGER_DISPLAY } from "./webhook-view";
+import { safeGetRepositoryName } from "../project";
 
 const HELP = `
 Update which events trigger a webhook.
@@ -24,18 +23,16 @@ FLAGS
   -h, --help             Show help for command
 
 TRIGGERS
-  document.published    When documents are published
-  document.unpublished  When documents are unpublished
-  release.created       When a release is created
-  release.updated       When a release is edited or deleted
-  tag.created           When a tag is created
-  tag.deleted           When a tag is deleted
+  documentsPublished    When documents are published
+  documentsUnpublished  When documents are unpublished
+  releasesCreated       When a release is created
+  releasesUpdated       When a release is edited or deleted
+  tagsCreated           When a tag is created
+  tagsDeleted           When a tag is deleted
 
 LEARN MORE
   Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
-
-const VALID_TRIGGERS = Object.values(TRIGGER_DISPLAY);
 
 export async function webhookSetTriggers(): Promise<void> {
 	const {
@@ -76,9 +73,9 @@ export async function webhookSetTriggers(): Promise<void> {
 
 	// Validate triggers
 	for (const t of trigger) {
-		if (!VALID_TRIGGERS.includes(t)) {
+		if (!WEBHOOK_TRIGGERS.includes(t)) {
 			console.error(`Invalid trigger: ${t}`);
-			console.error(`Valid triggers: ${VALID_TRIGGERS.join(", ")}`);
+			console.error(`Valid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`);
 			process.exitCode = 1;
 			return;
 		}
@@ -96,24 +93,20 @@ export async function webhookSetTriggers(): Promise<void> {
 
 	const id = webhook.config._id;
 
-	// Build trigger settings: all false, then enable specified ones
-	const defaultValue = trigger.length > 0 ? false : true;
-	const triggers: Record<keyof typeof TRIGGER_DISPLAY, boolean> = {
-		documentsPublished: defaultValue,
-		documentsUnpublished: defaultValue,
-		releasesCreated: defaultValue,
-		releasesUpdated: defaultValue,
-		tagsCreated: defaultValue,
-		tagsDeleted: defaultValue,
-	};
-	for (const t of trigger) {
-		const [apiField] = Object.entries(TRIGGER_DISPLAY).find(([, display]) => t === display) ?? [];
-		if (!apiField) continue;
-		triggers[apiField as keyof typeof TRIGGER_DISPLAY] = true;
-	}
-
 	try {
-		await updateWebhook(id, { ...webhook.config, ...triggers }, { repo, token, host });
+		await updateWebhook(
+			id,
+			{
+				...webhook.config,
+				documentsPublished: trigger.includes("documentsPublished"),
+				documentsUnpublished: trigger.includes("documentsUnpublished"),
+				releasesCreated: trigger.includes("releasesCreated"),
+				releasesUpdated: trigger.includes("releasesUpdated"),
+				tagsCreated: trigger.includes("tagsCreated"),
+				tagsDeleted: trigger.includes("tagsDeleted"),
+			},
+			{ repo, token, host },
+		);
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();

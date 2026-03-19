@@ -1,10 +1,9 @@
 import { parseArgs } from "node:util";
 
-import { createWebhook } from "../clients/wroom";
 import { getHost, getToken } from "../auth";
-import { safeGetRepositoryName } from "../project";
+import { createWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
 import { UnknownRequestError } from "../lib/request";
-import { TRIGGER_DISPLAY } from "./webhook-view";
+import { safeGetRepositoryName } from "../project";
 
 const HELP = `
 Create a new webhook in a Prismic repository.
@@ -26,20 +25,18 @@ FLAGS
   -h, --help             Show help for command
 
 TRIGGERS
-  document.published    When documents are published
-  document.unpublished  When documents are unpublished
-  release.created       When a release is created
-  release.updated       When a release is edited or deleted
-  tag.created           When a tag is created
-  tag.deleted           When a tag is deleted
+  documentsPublished    When documents are published
+  documentsUnpublished  When documents are unpublished
+  releasesCreated       When a release is created
+  releasesUpdated       When a release is edited or deleted
+  tagsCreated           When a tag is created
+  tagsDeleted           When a tag is deleted
 
 If no triggers specified, all are enabled.
 
 LEARN MORE
   Use \`prismic <command> <subcommand> --help\` for more information about a command.
 `.trim();
-
-const VALID_TRIGGERS = Object.values(TRIGGER_DISPLAY);
 
 export async function webhookCreate(): Promise<void> {
 	const {
@@ -76,32 +73,18 @@ export async function webhookCreate(): Promise<void> {
 
 	// Validate triggers
 	for (const t of trigger) {
-		if (!VALID_TRIGGERS.includes(t)) {
+		if (!WEBHOOK_TRIGGERS.includes(t)) {
 			console.error(`Invalid trigger: ${t}`);
-			console.error(`Valid triggers: ${VALID_TRIGGERS.join(", ")}`);
+			console.error(`Valid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`);
 			process.exitCode = 1;
 			return;
 		}
 	}
 
-	// Build trigger settings
-	const defaultValue = trigger.length > 0 ? false : true;
-	const triggers: Record<keyof typeof TRIGGER_DISPLAY, boolean> = {
-		documentsPublished: defaultValue,
-		documentsUnpublished: defaultValue,
-		releasesCreated: defaultValue,
-		releasesUpdated: defaultValue,
-		tagsCreated: defaultValue,
-		tagsDeleted: defaultValue,
-	};
-	for (const t of trigger) {
-		const [apiField] = Object.entries(TRIGGER_DISPLAY).find(([, display]) => t === display) ?? [];
-		if (!apiField) continue;
-		triggers[apiField as keyof typeof TRIGGER_DISPLAY] = true;
-	}
-
 	const token = await getToken();
 	const host = await getHost();
+
+	const defaultValue = trigger.length > 0 ? false : true;
 
 	try {
 		await createWebhook(
@@ -109,7 +92,12 @@ export async function webhookCreate(): Promise<void> {
 				url: webhookUrl,
 				name: name ?? null,
 				secret: secret ?? null,
-				...triggers,
+				documentsPublished: trigger.includes("documentsPublished") || defaultValue,
+				documentsUnpublished: trigger.includes("documentsUnpublished") || defaultValue,
+				releasesCreated: trigger.includes("releasesCreated") || defaultValue,
+				releasesUpdated: trigger.includes("releasesUpdated") || defaultValue,
+				tagsCreated: trigger.includes("tagsCreated") || defaultValue,
+				tagsDeleted: trigger.includes("tagsDeleted") || defaultValue,
 			},
 			{ repo, token, host },
 		);

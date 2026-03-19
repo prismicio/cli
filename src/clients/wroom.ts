@@ -3,20 +3,25 @@ import * as z from "zod/mini";
 import { env } from "../env";
 import { request } from "../lib/request";
 
+const WebhookTriggersSchema = z.object({
+	documentsPublished: z.boolean(),
+	documentsUnpublished: z.boolean(),
+	releasesCreated: z.boolean(),
+	releasesUpdated: z.boolean(),
+	tagsCreated: z.boolean(),
+	tagsDeleted: z.boolean(),
+});
+
+export const WEBHOOK_TRIGGERS = Object.keys(WebhookTriggersSchema.shape);
+
 const WebhookSchema = z.object({
-	config: z.object({
+	config: z.extend(WebhookTriggersSchema, {
 		_id: z.string(),
 		url: z.string(),
 		active: z.boolean(),
 		name: z.nullable(z.string()),
 		secret: z.nullable(z.string()),
 		headers: z.record(z.string(), z.string()),
-		documentsPublished: z.boolean(),
-		documentsUnpublished: z.boolean(),
-		releasesCreated: z.boolean(),
-		releasesUpdated: z.boolean(),
-		tagsCreated: z.boolean(),
-		tagsDeleted: z.boolean(),
 	}),
 });
 type Webhook = z.infer<typeof WebhookSchema>;
