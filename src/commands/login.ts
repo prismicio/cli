@@ -1,32 +1,18 @@
 import { exec } from "node:child_process";
 
 import { createLoginSession } from "../auth";
-import { parseCommand } from "../lib/command";
+import { createCommand, defineCommandConfig } from "../lib/command";
 
-const HELP = `
-Log in to Prismic via browser.
+const config = defineCommandConfig({
+	name: "login",
+	description: "Log in to Prismic via browser.",
+	options: {
+		"no-browser": { type: "boolean", description: "Skip opening the browser automatically" },
+	},
+});
 
-USAGE
-  prismic login [flags]
-
-FLAGS
-      --no-browser   Skip opening the browser automatically
-  -h, --help         Show help for command
-
-LEARN MORE
-  Use \`prismic <command> --help\` for more information about a command.
-`.trim();
-
-export async function login(): Promise<void> {
-	const {
-		values: { "no-browser": noBrowser },
-	} = parseCommand({
-		help: HELP,
-		argv: process.argv.slice(3),
-		options: {
-			"no-browser": { type: "boolean" },
-		},
-	});
+export default createCommand(config, async ({ values }) => {
+	const { "no-browser": noBrowser } = values;
 
 	const { email } = await createLoginSession({
 		onReady: (url) => {
@@ -41,7 +27,7 @@ export async function login(): Promise<void> {
 	});
 
 	console.info(`Logged in to Prismic as ${email}`);
-}
+});
 
 function openBrowser(url: URL): void {
 	const cmd =

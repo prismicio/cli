@@ -4,7 +4,7 @@ import { createWebhook, getWebhooks } from "./prismic";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("webhook", ["disable", "--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic webhook disable <url> [flags]");
+	expect(stdout).toContain("prismic webhook disable <url> [options]");
 });
 
 it("disables a webhook", async ({ expect, prismic, repo, token, host }) => {

@@ -1,48 +1,29 @@
 import { getHost, getToken } from "../auth";
 import { setSimulatorUrl } from "../clients/core";
-import { CommandError, parseCommand } from "../lib/command";
+import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
-const HELP = `
-Set the slice simulator URL for a Prismic repository.
+const config = defineCommandConfig({
+	name: "preview set-simulator",
+	description: `Set the slice simulator URL for a Prismic repository.
 
 If the URL pathname does not end with /slice-simulator, it is appended
 automatically.
 
 By default, this command reads the repository from prismic.config.json at the
-project root.
+project root.`,
+	positionals: {
+		url: { description: "Simulator URL (e.g. https://example.com/slice-simulator)" },
+	},
+	options: {
+		repo: { type: "string", short: "r", description: "Repository domain" },
+	},
+});
 
-USAGE
-  prismic preview set-simulator <url> [flags]
-
-ARGUMENTS
-  <url>   Simulator URL (e.g. https://example.com/slice-simulator)
-
-FLAGS
-  -r, --repo string   Repository domain
-  -h, --help          Show help for command
-
-EXAMPLES
-  prismic preview set-simulator https://my-site.com
-  prismic preview set-simulator http://localhost:3000/slice-simulator
-
-LEARN MORE
-  Use \`prismic <command> <subcommand> --help\` for more information about a command.
-`.trim();
-
-export async function previewSetSimulator(): Promise<void> {
-	const {
-		values: { repo = await getRepositoryName() },
-		positionals: [urlArg],
-	} = parseCommand({
-		help: HELP,
-		argv: process.argv.slice(4),
-		options: {
-			repo: { type: "string", short: "r" },
-		},
-		allowPositionals: true,
-	});
+export default createCommand(config, async ({ positionals, values }) => {
+	const [urlArg] = positionals;
+	const { repo = await getRepositoryName() } = values;
 
 	if (!urlArg) {
 		throw new CommandError("Missing required argument: <url>");
@@ -75,4 +56,4 @@ export async function previewSetSimulator(): Promise<void> {
 	}
 
 	console.info(`Simulator URL set: ${simulatorUrl}`);
-}
+});

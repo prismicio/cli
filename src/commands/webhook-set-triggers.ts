@@ -1,51 +1,35 @@
 import { getHost, getToken } from "../auth";
 import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
-import { CommandError, parseCommand } from "../lib/command";
+import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
-const HELP = `
-Update which events trigger a webhook.
+const config = defineCommandConfig({
+	name: "webhook set-triggers",
+	description: `Update which events trigger a webhook.
 
 By default, this command reads the repository from prismic.config.json at the
-project root.
+project root.`,
+	positionals: {
+		url: { description: "Webhook URL" },
+	},
+	options: {
+		trigger: { type: "string", multiple: true, short: "t", description: "Trigger events (can be repeated, at least one required)" },
+		repo: { type: "string", short: "r", description: "Repository domain" },
+	},
+	sections: {
+		TRIGGERS: `documentsPublished    When documents are published
+documentsUnpublished  When documents are unpublished
+releasesCreated       When a release is created
+releasesUpdated       When a release is edited or deleted
+tagsCreated           When a tag is created
+tagsDeleted           When a tag is deleted`,
+	},
+});
 
-USAGE
-  prismic webhook set-triggers <url> [flags]
-
-ARGUMENTS
-  <url>   Webhook URL
-
-FLAGS
-  -t, --trigger string   Trigger events (can be repeated, at least one required)
-  -r, --repo string      Repository domain
-  -h, --help             Show help for command
-
-TRIGGERS
-  documentsPublished    When documents are published
-  documentsUnpublished  When documents are unpublished
-  releasesCreated       When a release is created
-  releasesUpdated       When a release is edited or deleted
-  tagsCreated           When a tag is created
-  tagsDeleted           When a tag is deleted
-
-LEARN MORE
-  Use \`prismic <command> <subcommand> --help\` for more information about a command.
-`.trim();
-
-export async function webhookSetTriggers(): Promise<void> {
-	const {
-		values: { repo = await getRepositoryName(), trigger = [] },
-		positionals: [webhookUrl],
-	} = parseCommand({
-		help: HELP,
-		argv: process.argv.slice(4),
-		options: {
-			trigger: { type: "string", multiple: true, short: "t" },
-			repo: { type: "string", short: "r" },
-		},
-		allowPositionals: true,
-	});
+export default createCommand(config, async ({ positionals, values }) => {
+	const [webhookUrl] = positionals;
+	const { repo = await getRepositoryName(), trigger = [] } = values;
 
 	if (!webhookUrl) {
 		throw new CommandError("Missing required argument: <url>");
@@ -95,4 +79,4 @@ export async function webhookSetTriggers(): Promise<void> {
 	}
 
 	console.info(`Webhook triggers updated: ${trigger.join(", ")}`);
-}
+});

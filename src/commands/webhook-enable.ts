@@ -1,41 +1,26 @@
 import { getHost, getToken } from "../auth";
 import { getWebhooks, updateWebhook } from "../clients/wroom";
-import { CommandError, parseCommand } from "../lib/command";
+import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
-const HELP = `
-Enable a webhook in a Prismic repository.
+const config = defineCommandConfig({
+	name: "webhook enable",
+	description: `Enable a webhook in a Prismic repository.
 
 By default, this command reads the repository from prismic.config.json at the
-project root.
+project root.`,
+	positionals: {
+		url: { description: "Webhook URL" },
+	},
+	options: {
+		repo: { type: "string", short: "r", description: "Repository domain" },
+	},
+});
 
-USAGE
-  prismic webhook enable <url> [flags]
-
-ARGUMENTS
-  <url>   Webhook URL
-
-FLAGS
-  -r, --repo string   Repository domain
-  -h, --help          Show help for command
-
-LEARN MORE
-  Use \`prismic <command> <subcommand> --help\` for more information about a command.
-`.trim();
-
-export async function webhookEnable(): Promise<void> {
-	const {
-		values: { repo = await getRepositoryName() },
-		positionals: [webhookUrl],
-	} = parseCommand({
-		help: HELP,
-		argv: process.argv.slice(4),
-		options: {
-			repo: { type: "string", short: "r" },
-		},
-		allowPositionals: true,
-	});
+export default createCommand(config, async ({ positionals, values }) => {
+	const [webhookUrl] = positionals;
+	const { repo = await getRepositoryName() } = values;
 
 	if (!webhookUrl) {
 		throw new CommandError("Missing required argument: <url>");
@@ -70,4 +55,4 @@ export async function webhookEnable(): Promise<void> {
 	}
 
 	console.info(`Webhook enabled: ${webhookUrl}`);
-}
+});

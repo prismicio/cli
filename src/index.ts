@@ -6,11 +6,11 @@ import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
-import { init } from "./commands/init";
-import { login } from "./commands/login";
-import { logout } from "./commands/logout";
-import { sync } from "./commands/sync";
-import { whoami } from "./commands/whoami";
+import init from "./commands/init";
+import login from "./commands/login";
+import logout from "./commands/logout";
+import sync from "./commands/sync";
+import whoami from "./commands/whoami";
 import { preview } from "./commands/preview";
 import { InvalidPrismicConfig, MissingPrismicConfig } from "./config";
 import { CommandError, HelpRequested } from "./lib/command";
@@ -36,7 +36,7 @@ const HELP = `
 Prismic CLI for managing repositories and configurations.
 
 USAGE
-  prismic <command> [flags]
+  prismic <command> [options]
 
 COMMANDS
   init        Initialize a Prismic project

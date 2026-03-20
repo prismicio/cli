@@ -13,43 +13,25 @@ import {
 } from "../config";
 import { openBrowser } from "../lib/browser";
 import { generateAndWriteTypes } from "../lib/codegen";
-import { parseCommand } from "../lib/command";
+import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { findProjectRoot } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
 
-const HELP = `
-Initialize a Prismic project by creating a prismic.config.json file.
+const config = defineCommandConfig({
+	name: "init",
+	description: `Initialize a Prismic project by creating a prismic.config.json file.
 
 Detects the project framework, installs dependencies, and syncs models
-from Prismic. If a slicemachine.config.json exists, it will be migrated.
+from Prismic. If a slicemachine.config.json exists, it will be migrated.`,
+	options: {
+		repo: { type: "string", short: "r", description: "Repository name" },
+		"no-browser": { type: "boolean", description: "Skip opening the browser automatically during login" },
+	},
+});
 
-USAGE
-  prismic init [flags]
-
-FLAGS
-  -r, --repo string   Repository name
-      --no-browser     Skip opening the browser automatically during login
-  -h, --help          Show help for command
-
-EXAMPLES
-  prismic init --repo my-repo
-
-LEARN MORE
-  Use \`prismic <command> --help\` for more information about a command.
-`.trim();
-
-export async function init(): Promise<void> {
-	const {
-		values: { repo: explicitRepo, "no-browser": noBrowser },
-	} = parseCommand({
-		help: HELP,
-		argv: process.argv.slice(3),
-		options: {
-			repo: { type: "string", short: "r" },
-			"no-browser": { type: "boolean" },
-		},
-	});
+export default createCommand(config, async ({ values }) => {
+	const { repo: explicitRepo, "no-browser": noBrowser } = values;
 
 	// Check for existing prismic.config.json
 	try {
@@ -71,9 +53,7 @@ export async function init(): Promise<void> {
 
 	const repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
 	if (!repo) {
-		console.error("Missing required flag: --repo");
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Missing required flag: --repo");
 	}
 
 	// Validate repo membership
@@ -106,11 +86,9 @@ export async function init(): Promise<void> {
 
 	const repoMeta = profile.repositories.find((repository) => repository.domain === repo);
 	if (!repoMeta) {
-		console.error(
+		throw new CommandError(
 			`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
 		);
-		process.exitCode = 1;
-		return;
 	}
 
 	const adapter = await getAdapter();
@@ -160,4 +138,4 @@ export async function init(): Promise<void> {
 	console.info(
 		`Initialized Prismic for repository "${repo}". Run \`npm install\` to install new dependencies.`,
 	);
-}
+});

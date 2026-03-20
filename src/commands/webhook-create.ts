@@ -1,57 +1,39 @@
 import { getHost, getToken } from "../auth";
 import { createWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
-import { CommandError, parseCommand } from "../lib/command";
+import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
-const HELP = `
-Create a new webhook in a Prismic repository.
+const config = defineCommandConfig({
+	name: "webhook create",
+	description: `Create a new webhook in a Prismic repository.
 
 By default, this command reads the repository from prismic.config.json at the
-project root.
+project root.`,
+	positionals: {
+		url: { description: "Webhook URL to receive events" },
+	},
+	options: {
+		name: { type: "string", short: "n", description: "Webhook name" },
+		secret: { type: "string", short: "s", description: "Secret for webhook signature" },
+		trigger: { type: "string", multiple: true, short: "t", description: "Trigger events (can be repeated)" },
+		repo: { type: "string", short: "r", description: "Repository domain" },
+	},
+	sections: {
+		TRIGGERS: `documentsPublished    When documents are published
+documentsUnpublished  When documents are unpublished
+releasesCreated       When a release is created
+releasesUpdated       When a release is edited or deleted
+tagsCreated           When a tag is created
+tagsDeleted           When a tag is deleted
 
-USAGE
-  prismic webhook create <url> [flags]
+If no triggers specified, all are enabled.`,
+	},
+});
 
-ARGUMENTS
-  <url>   Webhook URL to receive events
-
-FLAGS
-  -n, --name string      Webhook name
-  -s, --secret string    Secret for webhook signature
-  -t, --trigger string   Trigger events (can be repeated)
-  -r, --repo string      Repository domain
-  -h, --help             Show help for command
-
-TRIGGERS
-  documentsPublished    When documents are published
-  documentsUnpublished  When documents are unpublished
-  releasesCreated       When a release is created
-  releasesUpdated       When a release is edited or deleted
-  tagsCreated           When a tag is created
-  tagsDeleted           When a tag is deleted
-
-If no triggers specified, all are enabled.
-
-LEARN MORE
-  Use \`prismic <command> <subcommand> --help\` for more information about a command.
-`.trim();
-
-export async function webhookCreate(): Promise<void> {
-	const {
-		values: { repo = await getRepositoryName(), name, secret, trigger = [] },
-		positionals: [webhookUrl],
-	} = parseCommand({
-		help: HELP,
-		argv: process.argv.slice(4),
-		options: {
-			name: { type: "string", short: "n" },
-			secret: { type: "string", short: "s" },
-			trigger: { type: "string", multiple: true, short: "t" },
-			repo: { type: "string", short: "r" },
-		},
-		allowPositionals: true,
-	});
+export default createCommand(config, async ({ positionals, values }) => {
+	const [webhookUrl] = positionals;
+	const { repo = await getRepositoryName(), name, secret, trigger = [] } = values;
 
 	if (!webhookUrl) {
 		throw new CommandError("Missing required argument: <url>");
@@ -93,4 +75,4 @@ export async function webhookCreate(): Promise<void> {
 	}
 
 	console.info(`Webhook created: ${webhookUrl}`);
-}
+});

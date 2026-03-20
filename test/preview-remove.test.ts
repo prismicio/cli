@@ -4,7 +4,7 @@ import { addPreview, getPreviews } from "./prismic";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("preview", ["remove", "--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic preview remove <url> [flags]");
+	expect(stdout).toContain("prismic preview remove <url> [options]");
 });
 
 it("removes a preview", async ({ expect, prismic, repo, token, host }) => {

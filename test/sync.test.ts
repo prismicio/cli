@@ -8,7 +8,7 @@ import { insertCustomType, insertSlice } from "./prismic";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("sync", ["--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic sync [flags]");
+	expect(stdout).toContain("prismic sync [options]");
 });
 
 it("syncs slices and custom types from remote", async ({

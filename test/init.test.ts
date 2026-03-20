@@ -5,7 +5,7 @@ import { captureOutput, it } from "./it";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("init", ["--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic init [flags]");
+	expect(stdout).toContain("prismic init [options]");
 });
 
 it("fails if prismic.config.json already exists", async ({ expect, prismic }) => {

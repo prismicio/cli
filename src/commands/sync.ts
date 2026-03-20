@@ -5,43 +5,31 @@ import { getAdapter, type Adapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { generateAndWriteTypes } from "../lib/codegen";
-import { parseCommand } from "../lib/command";
+import { createCommand, defineCommandConfig } from "../lib/command";
 import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { sentrySetContext, sentrySetTag } from "../lib/sentry";
 import { dedent } from "../lib/string";
 import { findProjectRoot, getRepositoryName } from "../project";
-
-const HELP = `
-Sync slices, page types, and custom types from Prismic to local files.
-
-Remote models are the source of truth. Local files are created, updated,
-or deleted to match.
-
-USAGE
-  prismic sync [flags]
-
-FLAGS
-  -r, --repo string   Repository domain
-  -w, --watch         Watch for changes and sync continuously
-  -h, --help          Show help for command
-`.trim();
 
 // 5 seconds balances responsiveness with API load
 const POLL_INTERVAL_MS = 5000;
 const MAX_BACKOFF_MS = 60000; // Cap backoff at 1 minute
 const MAX_CONSECUTIVE_ERRORS = 10;
 
-export async function sync(): Promise<void> {
-	const {
-		values: { repo = await getRepositoryName(), watch },
-	} = parseCommand({
-		help: HELP,
-		argv: process.argv.slice(3),
-		options: {
-			repo: { type: "string", short: "r" },
-			watch: { type: "boolean", short: "w" },
-		},
-	});
+const config = defineCommandConfig({
+	name: "sync",
+	description: `Sync slices, page types, and custom types from Prismic to local files.
+
+Remote models are the source of truth. Local files are created, updated,
+or deleted to match.`,
+	options: {
+		repo: { type: "string", short: "r", description: "Repository domain" },
+		watch: { type: "boolean", short: "w", description: "Watch for changes and sync continuously" },
+	},
+});
+
+export default createCommand(config, async ({ values }) => {
+	const { repo = await getRepositoryName(), watch } = values;
 
 	// Override analytics repository context with the resolved repo
 	segmentSetRepository(repo);
@@ -64,7 +52,7 @@ export async function sync(): Promise<void> {
 
 		console.info("Sync complete");
 	}
-}
+});
 
 async function watchForChanges(repo: string, adapter: Adapter) {
 	const token = await getToken();
