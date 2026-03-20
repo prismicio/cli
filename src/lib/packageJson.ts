@@ -1,8 +1,10 @@
 import detectIndent from "detect-indent";
 import { readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { x } from "tinyexec";
 import { z } from "zod/mini";
 
-import { findUpward, readJsonFile } from "./file";
+import { exists, findUpward, readJsonFile } from "./file";
 
 const PackageJsonSchema = z.object({
 	dependencies: z.optional(z.record(z.string(), z.string())),
@@ -48,4 +50,29 @@ export async function getNpmPackageVersion(name: string, tag = "latest"): Promis
 	const res = await fetch(url);
 	const { version } = await res.json();
 	return version;
+}
+
+export async function installDependencies(): Promise<void> {
+	const packageJsonPath = await findPackageJson();
+	const dir = new URL(".", packageJsonPath);
+	const [cmd, ...args] = await detectInstallCommand(dir);
+	await x(cmd, args, {
+		nodeOptions: { cwd: fileURLToPath(dir), stdio: "inherit" },
+		throwOnError: true,
+	});
+}
+
+const PM_INSTALL_ARGS: [lockfile: string, args: string[]][] = [
+	["bun.lock", ["bun", "install"]],
+	["bun.lockb", ["bun", "install"]],
+	["pnpm-lock.yaml", ["pnpm", "install"]],
+	["yarn.lock", ["yarn", "install"]],
+	["package-lock.json", ["npm", "install"]],
+];
+
+async function detectInstallCommand(dir: URL): Promise<string[]> {
+	for (const [file, command] of PM_INSTALL_ARGS) {
+		if (await exists(new URL(file, dir))) return command;
+	}
+	return ["npm", "install"];
 }

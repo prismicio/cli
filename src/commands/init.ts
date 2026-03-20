@@ -15,7 +15,7 @@ import {
 } from "../config";
 import { openBrowser } from "../lib/browser";
 import { generateAndWriteTypes } from "../lib/codegen";
-import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import { installDependencies } from "../lib/packageJson";
 import { findProjectRoot } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
 
@@ -147,6 +147,16 @@ export async function init(): Promise<void> {
 	// Install dependencies and create framework files
 	await adapter.initProject();
 
+	// Run package manager install
+	try {
+		console.info("Installing dependencies...");
+		await installDependencies();
+	} catch {
+		console.warn(
+			"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
+		);
+	}
+
 	// Sync models from remote
 	await syncSlices(repo, adapter);
 	await syncCustomTypes(repo, adapter);
@@ -161,7 +171,5 @@ export async function init(): Promise<void> {
 		projectRoot,
 	});
 
-	console.info(
-		`Initialized Prismic for repository "${repo}". Run \`npm install\` to install new dependencies.`,
-	);
+	console.info(`Initialized Prismic for repository "${repo}".`);
 }
