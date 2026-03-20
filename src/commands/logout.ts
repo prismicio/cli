@@ -1,6 +1,5 @@
-import { parseArgs } from "node:util";
-
 import { logout as baseLogout } from "../auth";
+import { parseCommand } from "../lib/command";
 
 const HELP = `
 Log out of Prismic.
@@ -16,15 +15,10 @@ LEARN MORE
 `.trim();
 
 export async function logout(): Promise<void> {
-	const { values } = parseArgs({
-		args: process.argv.slice(3),
-		options: { help: { type: "boolean", short: "h" } },
+	parseCommand({
+		help: HELP,
+		argv: process.argv.slice(3),
 	});
-
-	if (values.help) {
-		console.info(HELP);
-		return;
-	}
 
 	const ok = await baseLogout();
 	if (ok) {

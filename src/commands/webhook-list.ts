@@ -1,9 +1,8 @@
-import { parseArgs } from "node:util";
-
-import { getWebhooks } from "../clients/wroom";
 import { getHost, getToken } from "../auth";
-import { safeGetRepositoryName } from "../project";
+import { getWebhooks } from "../clients/wroom";
+import { parseCommand } from "../lib/command";
 import { stringify } from "../lib/json";
+import { getRepositoryName } from "../project";
 
 const HELP = `
 List all webhooks in a Prismic repository.
@@ -25,27 +24,15 @@ LEARN MORE
 
 export async function webhookList(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryName(), json },
-	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "webhook", "list"
+		values: { repo = await getRepositoryName(), json },
+	} = parseCommand({
+		help: HELP,
+		argv: process.argv.slice(4),
 		options: {
 			json: { type: "boolean" },
 			repo: { type: "string", short: "r" },
-			help: { type: "boolean", short: "h" },
 		},
-		allowPositionals: false,
 	});
-
-	if (help) {
-		console.info(HELP);
-		return;
-	}
-
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
-	}
 
 	const token = await getToken();
 	const host = await getHost();

@@ -1,9 +1,8 @@
-import { parseArgs } from "node:util";
-
-import { getWebhooks, updateWebhook } from "../clients/wroom";
 import { getHost, getToken } from "../auth";
-import { safeGetRepositoryName } from "../project";
+import { getWebhooks, updateWebhook } from "../clients/wroom";
+import { CommandError, parseCommand } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
+import { getRepositoryName } from "../project";
 
 const HELP = `
 Enable a webhook in a Prismic repository.
@@ -27,32 +26,19 @@ LEARN MORE
 
 export async function webhookEnable(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryName() },
+		values: { repo = await getRepositoryName() },
 		positionals: [webhookUrl],
-	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "webhook", "enable"
+	} = parseCommand({
+		help: HELP,
+		argv: process.argv.slice(4),
 		options: {
 			repo: { type: "string", short: "r" },
-			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});
 
-	if (help) {
-		console.info(HELP);
-		return;
-	}
-
 	if (!webhookUrl) {
-		console.error("Missing required argument: <url>");
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Missing required argument: <url>");
 	}
 
 	const token = await getToken();
@@ -60,9 +46,7 @@ export async function webhookEnable(): Promise<void> {
 	const webhooks = await getWebhooks({ repo, token, host });
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
-		console.error(`Webhook not found: ${webhookUrl}`);
-		process.exitCode = 1;
-		return;
+		throw new CommandError(`Webhook not found: ${webhookUrl}`);
 	}
 
 	if (webhook.config.active) {
@@ -80,9 +64,7 @@ export async function webhookEnable(): Promise<void> {
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
-			console.error(`Failed to enable webhook: ${message}`);
-			process.exitCode = 1;
-			return;
+			throw new CommandError(`Failed to enable webhook: ${message}`);
 		}
 		throw error;
 	}

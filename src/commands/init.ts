@@ -1,5 +1,3 @@
-import { parseArgs } from "node:util";
-
 import type { Profile } from "../clients/user";
 
 import { getAdapter } from "../adapters";
@@ -15,6 +13,7 @@ import {
 } from "../config";
 import { openBrowser } from "../lib/browser";
 import { generateAndWriteTypes } from "../lib/codegen";
+import { parseCommand } from "../lib/command";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { findProjectRoot } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
@@ -41,19 +40,16 @@ LEARN MORE
 `.trim();
 
 export async function init(): Promise<void> {
-	const { values } = parseArgs({
-		args: process.argv.slice(3),
+	const {
+		values: { repo: explicitRepo, "no-browser": noBrowser },
+	} = parseCommand({
+		help: HELP,
+		argv: process.argv.slice(3),
 		options: {
-			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
 			"no-browser": { type: "boolean" },
 		},
 	});
-
-	if (values.help) {
-		console.info(HELP);
-		return;
-	}
 
 	// Check for existing prismic.config.json
 	try {
@@ -73,7 +69,7 @@ export async function init(): Promise<void> {
 		}
 	}
 
-	const repo = values.repo ?? legacySliceMachineConfig?.repositoryName;
+	const repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
 	if (!repo) {
 		console.error("Missing required flag: --repo");
 		process.exitCode = 1;
@@ -91,7 +87,7 @@ export async function init(): Promise<void> {
 			console.info("Not logged in. Starting login...");
 			const { email } = await createLoginSession({
 				onReady: (url) => {
-					if (values["no-browser"]) {
+					if (noBrowser) {
 						console.info(`Open this URL to log in: ${url}`);
 					} else {
 						console.info("Opening browser to complete login...");

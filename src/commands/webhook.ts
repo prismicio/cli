@@ -1,4 +1,4 @@
-import { parseArgs } from "node:util";
+import { defineRouter } from "../lib/command";
 
 import { webhookCreate } from "./webhook-create";
 import { webhookDisable } from "./webhook-disable";
@@ -30,46 +30,16 @@ LEARN MORE
   Use \`prismic webhook <command> --help\` for more information about a command.
 `.trim();
 
-export async function webhook(): Promise<void> {
-	const {
-		positionals: [subcommand],
-	} = parseArgs({
-		args: process.argv.slice(3), // skip: node, script, "webhook"
-		options: {
-			help: { type: "boolean", short: "h" },
-		},
-		allowPositionals: true,
-		strict: false,
-	});
-
-	switch (subcommand) {
-		case "list":
-			await webhookList();
-			break;
-		case "create":
-			await webhookCreate();
-			break;
-		case "view":
-			await webhookView();
-			break;
-		case "remove":
-			await webhookRemove();
-			break;
-		case "enable":
-			await webhookEnable();
-			break;
-		case "disable":
-			await webhookDisable();
-			break;
-		case "set-triggers":
-			await webhookSetTriggers();
-			break;
-		default: {
-			if (subcommand) {
-				console.error(`Unknown webhook subcommand: ${subcommand}\n`);
-				process.exitCode = 1;
-			}
-			console.info(HELP);
-		}
-	}
-}
+export const webhook = defineRouter({
+	help: HELP,
+	argv: process.argv.slice(3),
+	commands: {
+		list: webhookList,
+		create: webhookCreate,
+		view: webhookView,
+		remove: webhookRemove,
+		enable: webhookEnable,
+		disable: webhookDisable,
+		"set-triggers": webhookSetTriggers,
+	},
+});

@@ -1,9 +1,8 @@
-import { parseArgs } from "node:util";
-
 import { getHost, getToken } from "../auth";
 import { createWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
+import { CommandError, parseCommand } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
-import { safeGetRepositoryName } from "../project";
+import { getRepositoryName } from "../project";
 
 const HELP = `
 Create a new webhook in a Prismic repository.
@@ -40,44 +39,28 @@ LEARN MORE
 
 export async function webhookCreate(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryName(), name, secret, trigger = [] },
+		values: { repo = await getRepositoryName(), name, secret, trigger = [] },
 		positionals: [webhookUrl],
-	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "webhook", "create"
+	} = parseCommand({
+		help: HELP,
+		argv: process.argv.slice(4),
 		options: {
 			name: { type: "string", short: "n" },
 			secret: { type: "string", short: "s" },
 			trigger: { type: "string", multiple: true, short: "t" },
 			repo: { type: "string", short: "r" },
-			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});
 
-	if (help) {
-		console.info(HELP);
-		return;
-	}
-
 	if (!webhookUrl) {
-		console.error("Missing required argument: <url>");
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Missing required argument: <url>");
 	}
 
 	// Validate triggers
 	for (const t of trigger) {
 		if (!WEBHOOK_TRIGGERS.includes(t)) {
-			console.error(`Invalid trigger: ${t}`);
-			console.error(`Valid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`);
-			process.exitCode = 1;
-			return;
+			throw new CommandError(`Invalid trigger: ${t}\nValid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`);
 		}
 	}
 
@@ -104,9 +87,7 @@ export async function webhookCreate(): Promise<void> {
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
-			console.error(`Failed to create webhook: ${message}`);
-			process.exitCode = 1;
-			return;
+			throw new CommandError(`Failed to create webhook: ${message}`);
 		}
 		throw error;
 	}

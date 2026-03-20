@@ -1,7 +1,7 @@
 import { exec } from "node:child_process";
-import { parseArgs } from "node:util";
 
 import { createLoginSession } from "../auth";
+import { parseCommand } from "../lib/command";
 
 const HELP = `
 Log in to Prismic via browser.
@@ -18,22 +18,19 @@ LEARN MORE
 `.trim();
 
 export async function login(): Promise<void> {
-	const { values } = parseArgs({
-		args: process.argv.slice(3),
+	const {
+		values: { "no-browser": noBrowser },
+	} = parseCommand({
+		help: HELP,
+		argv: process.argv.slice(3),
 		options: {
-			help: { type: "boolean", short: "h" },
 			"no-browser": { type: "boolean" },
 		},
 	});
 
-	if (values.help) {
-		console.info(HELP);
-		return;
-	}
-
 	const { email } = await createLoginSession({
 		onReady: (url) => {
-			if (values["no-browser"]) {
+			if (noBrowser) {
 				console.info(`Open this URL to log in: ${url}`);
 			} else {
 				console.info("Opening browser to complete login...");

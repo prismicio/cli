@@ -1,4 +1,4 @@
-import { parseArgs } from "node:util";
+import { defineRouter } from "../lib/command";
 
 import { previewAdd } from "./preview-add";
 import { previewList } from "./preview-list";
@@ -24,37 +24,13 @@ LEARN MORE
   Use \`prismic preview <command> --help\` for more information about a command.
 `.trim();
 
-export async function preview(): Promise<void> {
-	const {
-		positionals: [subcommand],
-	} = parseArgs({
-		args: process.argv.slice(3), // skip: node, script, "preview"
-		options: {
-			help: { type: "boolean", short: "h" },
-		},
-		allowPositionals: true,
-		strict: false,
-	});
-
-	switch (subcommand) {
-		case "add":
-			await previewAdd();
-			break;
-		case "list":
-			await previewList();
-			break;
-		case "remove":
-			await previewRemove();
-			break;
-		case "set-simulator":
-			await previewSetSimulator();
-			break;
-		default: {
-			if (subcommand) {
-				console.error(`Unknown preview subcommand: ${subcommand}\n`);
-				process.exitCode = 1;
-			}
-			console.info(HELP);
-		}
-	}
-}
+export const preview = defineRouter({
+	help: HELP,
+	argv: process.argv.slice(3),
+	commands: {
+		add: previewAdd,
+		list: previewList,
+		remove: previewRemove,
+		"set-simulator": previewSetSimulator,
+	},
+});

@@ -1,7 +1,6 @@
-import { parseArgs } from "node:util";
-
 import { getHost, getToken } from "../auth";
 import { getProfile } from "../clients/user";
+import { parseCommand } from "../lib/command";
 
 const HELP = `
 Show the currently logged in user.
@@ -17,17 +16,10 @@ LEARN MORE
 `.trim();
 
 export async function whoami(): Promise<void> {
-	const {
-		values: { help },
-	} = parseArgs({
-		args: process.argv.slice(3),
-		options: { help: { type: "boolean", short: "h" } },
+	parseCommand({
+		help: HELP,
+		argv: process.argv.slice(3),
 	});
-
-	if (help) {
-		console.info(HELP);
-		return;
-	}
 
 	const token = await getToken();
 	const host = await getHost();

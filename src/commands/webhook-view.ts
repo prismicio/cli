@@ -1,8 +1,7 @@
-import { parseArgs } from "node:util";
-
 import { getHost, getToken } from "../auth";
 import { getWebhooks, WEBHOOK_TRIGGERS } from "../clients/wroom";
-import { safeGetRepositoryName } from "../project";
+import { CommandError, parseCommand } from "../lib/command";
+import { getRepositoryName } from "../project";
 
 const HELP = `
 View details of a webhook in a Prismic repository.
@@ -26,32 +25,19 @@ LEARN MORE
 
 export async function webhookView(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryName() },
+		values: { repo = await getRepositoryName() },
 		positionals: [webhookUrl],
-	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "webhook", "view"
+	} = parseCommand({
+		help: HELP,
+		argv: process.argv.slice(4),
 		options: {
 			repo: { type: "string", short: "r" },
-			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});
 
-	if (help) {
-		console.info(HELP);
-		return;
-	}
-
 	if (!webhookUrl) {
-		console.error("Missing required argument: <url>");
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Missing required argument: <url>");
 	}
 
 	const token = await getToken();
@@ -60,9 +46,7 @@ export async function webhookView(): Promise<void> {
 
 	const webhook = webhooks.find((webhook) => webhook.config.url === webhookUrl);
 	if (!webhook) {
-		console.error(`Webhook not found: ${webhookUrl}`);
-		process.exitCode = 1;
-		return;
+		throw new CommandError(`Webhook not found: ${webhookUrl}`);
 	}
 
 	const { config } = webhook;

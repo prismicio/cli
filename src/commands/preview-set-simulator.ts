@@ -1,9 +1,8 @@
-import { parseArgs } from "node:util";
-
 import { getHost, getToken } from "../auth";
 import { setSimulatorUrl } from "../clients/core";
+import { CommandError, parseCommand } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
-import { safeGetRepositoryName } from "../project";
+import { getRepositoryName } from "../project";
 
 const HELP = `
 Set the slice simulator URL for a Prismic repository.
@@ -34,41 +33,26 @@ LEARN MORE
 
 export async function previewSetSimulator(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryName() },
+		values: { repo = await getRepositoryName() },
 		positionals: [urlArg],
-	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "preview", "set-simulator"
+	} = parseCommand({
+		help: HELP,
+		argv: process.argv.slice(4),
 		options: {
 			repo: { type: "string", short: "r" },
-			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});
 
-	if (help) {
-		console.info(HELP);
-		return;
-	}
-
 	if (!urlArg) {
-		console.error("Missing required argument: <url>");
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Missing required argument: <url>");
 	}
 
 	let parsed: URL;
 	try {
 		parsed = new URL(urlArg);
 	} catch {
-		console.error(`Invalid URL: ${urlArg}`);
-		process.exitCode = 1;
-		return;
+		throw new CommandError(`Invalid URL: ${urlArg}`);
 	}
 
 	if (!parsed.pathname.endsWith("/slice-simulator")) {
@@ -85,9 +69,7 @@ export async function previewSetSimulator(): Promise<void> {
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
-			console.error(`Failed to set simulator URL: ${message}`);
-			process.exitCode = 1;
-			return;
+			throw new CommandError(`Failed to set simulator URL: ${message}`);
 		}
 		throw error;
 	}

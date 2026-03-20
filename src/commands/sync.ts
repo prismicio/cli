@@ -1,15 +1,15 @@
 import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
-import { parseArgs } from "node:util";
 
 import { getAdapter, type Adapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { generateAndWriteTypes } from "../lib/codegen";
+import { parseCommand } from "../lib/command";
 import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { sentrySetContext, sentrySetTag } from "../lib/sentry";
 import { dedent } from "../lib/string";
-import { findProjectRoot, safeGetRepositoryName } from "../project";
+import { findProjectRoot, getRepositoryName } from "../project";
 
 const HELP = `
 Sync slices, page types, and custom types from Prismic to local files.
@@ -33,27 +33,15 @@ const MAX_CONSECUTIVE_ERRORS = 10;
 
 export async function sync(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryName(), watch },
-	} = parseArgs({
-		args: process.argv.slice(3), // skip: node, script, "sync"
+		values: { repo = await getRepositoryName(), watch },
+	} = parseCommand({
+		help: HELP,
+		argv: process.argv.slice(3),
 		options: {
 			repo: { type: "string", short: "r" },
 			watch: { type: "boolean", short: "w" },
-			help: { type: "boolean", short: "h" },
 		},
-		allowPositionals: false,
 	});
-
-	if (help) {
-		console.info(HELP);
-		return;
-	}
-
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
-	}
 
 	// Override analytics repository context with the resolved repo
 	segmentSetRepository(repo);

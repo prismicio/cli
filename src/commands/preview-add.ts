@@ -1,9 +1,8 @@
-import { parseArgs } from "node:util";
-
 import { getHost, getToken } from "../auth";
 import { addPreview } from "../clients/core";
+import { CommandError, parseCommand } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
-import { safeGetRepositoryName } from "../project";
+import { getRepositoryName } from "../project";
 
 const HELP = `
 Add a preview configuration to a Prismic repository.
@@ -28,42 +27,27 @@ LEARN MORE
 
 export async function previewAdd(): Promise<void> {
 	const {
-		values: { help, name, repo = await safeGetRepositoryName() },
+		values: { repo = await getRepositoryName(), name },
 		positionals: [previewUrl],
-	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "preview", "add"
+	} = parseCommand({
+		help: HELP,
+		argv: process.argv.slice(4),
 		options: {
 			name: { type: "string", short: "n" },
 			repo: { type: "string", short: "r" },
-			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});
 
-	if (help) {
-		console.info(HELP);
-		return;
-	}
-
 	if (!previewUrl) {
-		console.error("Missing required argument: <url>");
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Missing required argument: <url>");
 	}
 
 	let parsed: URL;
 	try {
 		parsed = new URL(previewUrl);
 	} catch {
-		console.error(`Invalid URL: ${previewUrl}`);
-		process.exitCode = 1;
-		return;
+		throw new CommandError(`Invalid URL: ${previewUrl}`);
 	}
 
 	const displayName = name || parsed.hostname;
@@ -82,9 +66,7 @@ export async function previewAdd(): Promise<void> {
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
-			console.error(`Failed to add preview: ${message}`);
-			process.exitCode = 1;
-			return;
+			throw new CommandError(`Failed to add preview: ${message}`);
 		}
 		throw error;
 	}

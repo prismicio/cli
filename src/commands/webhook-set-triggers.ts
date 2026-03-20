@@ -1,9 +1,8 @@
-import { parseArgs } from "node:util";
-
 import { getHost, getToken } from "../auth";
 import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
+import { CommandError, parseCommand } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
-import { safeGetRepositoryName } from "../project";
+import { getRepositoryName } from "../project";
 
 const HELP = `
 Update which events trigger a webhook.
@@ -36,48 +35,30 @@ LEARN MORE
 
 export async function webhookSetTriggers(): Promise<void> {
 	const {
-		values: { help, repo = await safeGetRepositoryName(), trigger },
+		values: { repo = await getRepositoryName(), trigger = [] },
 		positionals: [webhookUrl],
-	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "webhook", "set-triggers"
+	} = parseCommand({
+		help: HELP,
+		argv: process.argv.slice(4),
 		options: {
 			trigger: { type: "string", multiple: true, short: "t" },
 			repo: { type: "string", short: "r" },
-			help: { type: "boolean", short: "h" },
 		},
 		allowPositionals: true,
 	});
 
-	if (help) {
-		console.info(HELP);
-		return;
-	}
-
 	if (!webhookUrl) {
-		console.error("Missing required argument: <url>");
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Missing required argument: <url>");
 	}
 
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!trigger || trigger.length === 0) {
-		console.error("Missing required option: --trigger");
-		process.exitCode = 1;
-		return;
+	if (trigger.length === 0) {
+		throw new CommandError("Missing required option: --trigger");
 	}
 
 	// Validate triggers
 	for (const t of trigger) {
 		if (!WEBHOOK_TRIGGERS.includes(t)) {
-			console.error(`Invalid trigger: ${t}`);
-			console.error(`Valid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`);
-			process.exitCode = 1;
-			return;
+			throw new CommandError(`Invalid trigger: ${t}\nValid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`);
 		}
 	}
 
@@ -86,9 +67,7 @@ export async function webhookSetTriggers(): Promise<void> {
 	const webhooks = await getWebhooks({ repo, token, host });
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
-		console.error(`Webhook not found: ${webhookUrl}`);
-		process.exitCode = 1;
-		return;
+		throw new CommandError(`Webhook not found: ${webhookUrl}`);
 	}
 
 	const id = webhook.config._id;
@@ -110,9 +89,7 @@ export async function webhookSetTriggers(): Promise<void> {
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
-			console.error(`Failed to update webhook triggers: ${message}`);
-			process.exitCode = 1;
-			return;
+			throw new CommandError(`Failed to update webhook triggers: ${message}`);
 		}
 		throw error;
 	}

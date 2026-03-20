@@ -13,6 +13,7 @@ import { sync } from "./commands/sync";
 import { whoami } from "./commands/whoami";
 import { preview } from "./commands/preview";
 import { InvalidPrismicConfig, MissingPrismicConfig } from "./config";
+import { CommandError, HelpRequested } from "./lib/command";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import {
 	initSegment,
@@ -144,23 +145,33 @@ if (version) {
 			segmentTrackEnd(command, process.exitCode !== 1);
 		}
 	} catch (error) {
-		if (command && !UNTRACKED_COMMANDS.has(command)) {
-			segmentTrackEnd(command, false, error);
-		}
-
-		process.exitCode = 1;
-
-		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
-			console.error("Not logged in. Run `prismic login` first.");
-		} else if (error instanceof InvalidPrismicConfig) {
-			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
-		} else if (error instanceof MissingPrismicConfig) {
-			console.error(`${error.message} Run \`prismic init\` to create a config.`);
-		} else if (error instanceof NoSupportedFrameworkError) {
+		if (error instanceof HelpRequested) {
+			console.info(error.message);
+		} else if (error instanceof CommandError) {
+			if (command && !UNTRACKED_COMMANDS.has(command)) {
+				segmentTrackEnd(command, false, error);
+			}
 			console.error(error.message);
+			process.exitCode = 1;
 		} else {
-			await sentryCaptureError(error);
-			throw error;
+			if (command && !UNTRACKED_COMMANDS.has(command)) {
+				segmentTrackEnd(command, false, error);
+			}
+
+			process.exitCode = 1;
+
+			if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
+				console.error("Not logged in. Run `prismic login` first.");
+			} else if (error instanceof InvalidPrismicConfig) {
+				console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
+			} else if (error instanceof MissingPrismicConfig) {
+				console.error(`${error.message} Run \`prismic init\` to create a config.`);
+			} else if (error instanceof NoSupportedFrameworkError) {
+				console.error(error.message);
+			} else {
+				await sentryCaptureError(error);
+				throw error;
+			}
 		}
 	}
 }
