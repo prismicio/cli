@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 
 import { getHost, getToken } from "../auth";
-import { getPreviews, removePreview } from "../clients/preview";
+import { getPreviews, removePreview } from "../clients/core";
 import { UnknownRequestError } from "../lib/request";
 import { safeGetRepositoryName } from "../project";
 

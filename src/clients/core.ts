@@ -22,7 +22,7 @@ export async function getPreviews(config: {
 	const { repo, token, host } = config;
 	const url = new URL(
 		"core/repository/preview_configs",
-		getPreviewBaseUrl(repo, host),
+		getCoreBaseUrl(repo, host),
 	);
 	const response = await request(url, {
 		credentials: { "prismic-auth": token },
@@ -40,7 +40,7 @@ export async function addPreview(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	const { repo, token, host } = config;
-	const url = new URL("previews/new", getPreviewBaseUrl(repo, host));
+	const url = new URL("previews/new", getCoreBaseUrl(repo, host));
 	await request(url, {
 		method: "POST",
 		body: {
@@ -59,7 +59,7 @@ export async function removePreview(
 	const { repo, token, host } = config;
 	const url = new URL(
 		`previews/delete/${id}`,
-		getPreviewBaseUrl(repo, host),
+		getCoreBaseUrl(repo, host),
 	);
 	await request(url, {
 		method: "POST",
@@ -78,7 +78,7 @@ export async function getSimulatorUrl(config: {
 	host: string;
 }): Promise<string | undefined> {
 	const { repo, token, host } = config;
-	const url = new URL("core/repository", getPreviewBaseUrl(repo, host));
+	const url = new URL("core/repository", getCoreBaseUrl(repo, host));
 	const response = await request(url, {
 		credentials: { "prismic-auth": token },
 		schema: RepositoryResponseSchema,
@@ -91,7 +91,7 @@ export async function setSimulatorUrl(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	const { repo, token, host } = config;
-	const url = new URL("core/repository", getPreviewBaseUrl(repo, host));
+	const url = new URL("core/repository", getCoreBaseUrl(repo, host));
 	await request(url, {
 		method: "PATCH",
 		body: { simulator_url: simulatorUrl },
@@ -99,6 +99,6 @@ export async function setSimulatorUrl(
 	});
 }
 
-function getPreviewBaseUrl(repo: string, host: string): URL {
+function getCoreBaseUrl(repo: string, host: string): URL {
 	return new URL(`https://${repo}.${host}/`);
 }

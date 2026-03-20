@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 
 import { getHost, getToken } from "../auth";
-import { setSimulatorUrl } from "../clients/preview";
+import { setSimulatorUrl } from "../clients/core";
 import { UnknownRequestError } from "../lib/request";
 import { safeGetRepositoryName } from "../project";
 

@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 
 import { getHost, getToken } from "../auth";
-import { getPreviews, getSimulatorUrl } from "../clients/preview";
+import { getPreviews, getSimulatorUrl } from "../clients/core";
 import { stringify } from "../lib/json";
 import { safeGetRepositoryName } from "../project";
 
