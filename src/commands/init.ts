@@ -16,6 +16,7 @@ import {
 import { openBrowser } from "../lib/browser";
 import { generateAndWriteTypes } from "../lib/codegen";
 import { installDependencies } from "../lib/packageJson";
+import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { findProjectRoot } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
 
