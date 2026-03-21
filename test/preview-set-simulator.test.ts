@@ -7,7 +7,7 @@ it("supports --help", async ({ expect, prismic }) => {
 		"--help",
 	]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic preview set-simulator <url> [flags]");
+	expect(stdout).toContain("prismic preview set-simulator <url> [options]");
 });
 
 // Must be sequential because the repo only has one simulator URL.

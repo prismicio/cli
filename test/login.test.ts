@@ -5,7 +5,7 @@ import { captureOutput, it } from "./it";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("login", ["--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic login [flags]");
+	expect(stdout).toContain("prismic login [options]");
 });
 
 it("logs in and writes token", async ({ expect, home, prismic, logout }) => {

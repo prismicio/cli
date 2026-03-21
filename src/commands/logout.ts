@@ -1,36 +1,16 @@
-import { parseArgs } from "node:util";
-
 import { logout as baseLogout } from "../auth";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 
-const HELP = `
-Log out of Prismic.
+const config = {
+	name: "prismic logout",
+	description: "Log out of Prismic.",
+} satisfies CommandConfig;
 
-USAGE
-  prismic logout [flags]
-
-FLAGS
-  -h, --help   Show help for command
-
-LEARN MORE
-  Use \`prismic <command> --help\` for more information about a command.
-`.trim();
-
-export async function logout(): Promise<void> {
-	const { values } = parseArgs({
-		args: process.argv.slice(3),
-		options: { help: { type: "boolean", short: "h" } },
-	});
-
-	if (values.help) {
-		console.info(HELP);
-		return;
-	}
-
+export default createCommand(config, async () => {
 	const ok = await baseLogout();
 	if (ok) {
 		console.info("Logged out of Prismic");
 	} else {
-		console.error("Logout failed. You can log out manually by deleting the file.");
-		process.exitCode = 1;
+		throw new CommandError("Logout failed. You can log out manually by deleting the file.");
 	}
-}
+});

@@ -1,37 +1,16 @@
-import { parseArgs } from "node:util";
-
 import { getHost, getToken } from "../auth";
 import { getProfile } from "../clients/user";
+import { createCommand, type CommandConfig } from "../lib/command";
 
-const HELP = `
-Show the currently logged in user.
+const config = {
+	name: "prismic whoami",
+	description: "Show the currently logged in user.",
+} satisfies CommandConfig;
 
-USAGE
-  prismic whoami [flags]
-
-FLAGS
-  -h, --help   Show help for command
-
-LEARN MORE
-  Use \`prismic <command> --help\` for more information about a command.
-`.trim();
-
-export async function whoami(): Promise<void> {
-	const {
-		values: { help },
-	} = parseArgs({
-		args: process.argv.slice(3),
-		options: { help: { type: "boolean", short: "h" } },
-	});
-
-	if (help) {
-		console.info(HELP);
-		return;
-	}
-
+export default createCommand(config, async () => {
 	const token = await getToken();
 	const host = await getHost();
 	const profile = await getProfile({ token, host });
 
 	console.info(profile.email);
-}
+});

@@ -1,5 +1,3 @@
-import { parseArgs } from "node:util";
-
 import type { Profile } from "../clients/user";
 
 import { getAdapter } from "../adapters";
@@ -9,60 +7,52 @@ import {
 	createConfig,
 	deleteLegacySliceMachineConfig,
 	InvalidLegacySliceMachineConfig,
+	MissingPrismicConfig,
 	readConfig,
 	readLegacySliceMachineConfig,
 	UnknownProjectRoot,
 } from "../config";
 import { openBrowser } from "../lib/browser";
 import { generateAndWriteTypes } from "../lib/codegen";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { findProjectRoot } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
 
-const HELP = `
-Initialize a Prismic project by creating a prismic.config.json file.
+const config = {
+	name: "prismic init",
+	description: `
+		Initialize a Prismic project by creating a prismic.config.json file.
 
-Detects the project framework, installs dependencies, and syncs models
-from Prismic. If a slicemachine.config.json exists, it will be migrated.
-
-USAGE
-  prismic init [flags]
-
-FLAGS
-  -r, --repo string   Repository name
-      --no-browser     Skip opening the browser automatically during login
-  -h, --help          Show help for command
-
-EXAMPLES
-  prismic init --repo my-repo
-
-LEARN MORE
-  Use \`prismic <command> --help\` for more information about a command.
-`.trim();
-
-export async function init(): Promise<void> {
-	const { values } = parseArgs({
-		args: process.argv.slice(3),
-		options: {
-			help: { type: "boolean", short: "h" },
-			repo: { type: "string", short: "r" },
-			"no-browser": { type: "boolean" },
+		Detects the project framework, installs dependencies, and syncs models
+		from Prismic. If a slicemachine.config.json exists, it will be migrated.
+	`,
+	options: {
+		repo: { type: "string", short: "r", description: "Repository name" },
+		"no-browser": {
+			type: "boolean",
+			description: "Skip opening the browser automatically during login",
 		},
-	});
+	},
+} satisfies CommandConfig;
 
-	if (values.help) {
-		console.info(HELP);
-		return;
-	}
+export default createCommand(config, async ({ values }) => {
+	const { repo: explicitRepo, "no-browser": noBrowser } = values;
 
 	// Check for existing prismic.config.json
 	try {
 		await readConfig();
-		console.error("A prismic.config.json file exists. This project is already initialized.");
-		process.exitCode = 1;
-		return;
-	} catch {}
+		throw new CommandError(
+			"A prismic.config.json file exists. This project is already initialized.",
+		);
+	} catch (error) {
+		if (error instanceof MissingPrismicConfig) {
+			// No config found — proceed with initialization.
+		} else {
+			throw error;
+		}
+	}
 
 	// Load legacy slicemachine.config.json
 	let legacySliceMachineConfig;
@@ -74,11 +64,9 @@ export async function init(): Promise<void> {
 		}
 	}
 
-	const repo = values.repo ?? legacySliceMachineConfig?.repositoryName;
+	const repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
 	if (!repo) {
-		console.error("Missing required flag: --repo");
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Missing required flag: --repo");
 	}
 
 	// Validate repo membership
@@ -92,7 +80,7 @@ export async function init(): Promise<void> {
 			console.info("Not logged in. Starting login...");
 			const { email } = await createLoginSession({
 				onReady: (url) => {
-					if (values["no-browser"]) {
+					if (noBrowser) {
 						console.info(`Open this URL to log in: ${url}`);
 					} else {
 						console.info("Opening browser to complete login...");
@@ -111,11 +99,9 @@ export async function init(): Promise<void> {
 
 	const repoMeta = profile.repositories.find((repository) => repository.domain === repo);
 	if (!repoMeta) {
-		console.error(
+		throw new CommandError(
 			`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
 		);
-		process.exitCode = 1;
-		return;
 	}
 
 	const adapter = await getAdapter();
@@ -128,14 +114,11 @@ export async function init(): Promise<void> {
 		});
 	} catch (error) {
 		if (error instanceof UnknownProjectRoot) {
-			console.error(
+			throw new CommandError(
 				"Could not find a package.json file. Run this command from a project directory.",
 			);
-		} else {
-			console.error("Failed to create config file.");
 		}
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Failed to create prismic.config.json.");
 	}
 
 	if (legacySliceMachineConfig) {
@@ -173,4 +156,4 @@ export async function init(): Promise<void> {
 	});
 
 	console.info(`Initialized Prismic for repository "${repo}".`);
-}
+});

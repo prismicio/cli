@@ -1,57 +1,30 @@
-import { parseArgs } from "node:util";
-
 import { getHost, getToken } from "../auth";
 import { getWebhooks, WEBHOOK_TRIGGERS } from "../clients/wroom";
-import { safeGetRepositoryName } from "../project";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { getRepositoryName } from "../project";
 
-const HELP = `
-View details of a webhook in a Prismic repository.
+const config = {
+	name: "prismic webhook view",
+	description: `
+		View details of a webhook in a Prismic repository.
 
-By default, this command reads the repository from prismic.config.json at the
-project root.
+		By default, this command reads the repository from prismic.config.json at the
+		project root.
+	`,
+	positionals: {
+		url: { description: "Webhook URL" },
+	},
+	options: {
+		repo: { type: "string", short: "r", description: "Repository domain" },
+	},
+} satisfies CommandConfig;
 
-USAGE
-  prismic webhook view <url> [flags]
-
-ARGUMENTS
-  <url>   Webhook URL
-
-FLAGS
-  -r, --repo string   Repository domain
-  -h, --help          Show help for command
-
-LEARN MORE
-  Use \`prismic <command> <subcommand> --help\` for more information about a command.
-`.trim();
-
-export async function webhookView(): Promise<void> {
-	const {
-		values: { help, repo = await safeGetRepositoryName() },
-		positionals: [webhookUrl],
-	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "webhook", "view"
-		options: {
-			repo: { type: "string", short: "r" },
-			help: { type: "boolean", short: "h" },
-		},
-		allowPositionals: true,
-	});
-
-	if (help) {
-		console.info(HELP);
-		return;
-	}
+export default createCommand(config, async ({ positionals, values }) => {
+	const [webhookUrl] = positionals;
+	const { repo = await getRepositoryName() } = values;
 
 	if (!webhookUrl) {
-		console.error("Missing required argument: <url>");
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Missing required argument: <url>");
 	}
 
 	const token = await getToken();
@@ -60,35 +33,33 @@ export async function webhookView(): Promise<void> {
 
 	const webhook = webhooks.find((webhook) => webhook.config.url === webhookUrl);
 	if (!webhook) {
-		console.error(`Webhook not found: ${webhookUrl}`);
-		process.exitCode = 1;
-		return;
+		throw new CommandError(`Webhook not found: ${webhookUrl}`);
 	}
 
-	const { config } = webhook;
+	const { config: webhookConfig } = webhook;
 
-	console.info(`URL:     ${config.url}`);
-	console.info(`Name:    ${config.name || "(none)"}`);
-	console.info(`Status:  ${config.active ? "enabled" : "disabled"}`);
-	console.info(`Secret:  ${config.secret ? "(set)" : "(none)"}`);
+	console.info(`URL:     ${webhookConfig.url}`);
+	console.info(`Name:    ${webhookConfig.name || "(none)"}`);
+	console.info(`Status:  ${webhookConfig.active ? "enabled" : "disabled"}`);
+	console.info(`Secret:  ${webhookConfig.secret ? "(set)" : "(none)"}`);
 
 	// Show triggers
 	const enabledTriggers: string[] = [];
 	for (const trigger of WEBHOOK_TRIGGERS) {
-		if (config[trigger as keyof typeof config]) {
+		if (webhookConfig[trigger as keyof typeof webhookConfig]) {
 			enabledTriggers.push(trigger);
 		}
 	}
 	console.info(`Triggers: ${enabledTriggers.length > 0 ? enabledTriggers.join(", ") : "(none)"}`);
 
 	// Show headers
-	const headerKeys = Object.keys(config.headers);
+	const headerKeys = Object.keys(webhookConfig.headers);
 	if (headerKeys.length > 0) {
 		console.info("Headers:");
-		for (const [key, value] of Object.entries(config.headers)) {
+		for (const [key, value] of Object.entries(webhookConfig.headers)) {
 			console.info(`  ${key}: ${value}`);
 		}
 	} else {
 		console.info("Headers: (none)");
 	}
-}
+});
