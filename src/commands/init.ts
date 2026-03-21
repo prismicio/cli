@@ -114,7 +114,7 @@ export default createCommand(config, async ({ values }) => {
 				"Could not find a package.json file. Run this command from a project directory.",
 			);
 		}
-		throw new CommandError("Failed to prismic.config.json.");
+		throw new CommandError("Failed to create prismic.config.json.");
 	}
 
 	if (legacySliceMachineConfig) {

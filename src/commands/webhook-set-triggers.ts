@@ -25,12 +25,14 @@ const config = {
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 	sections: {
-		TRIGGERS: `documentsPublished    When documents are published
-documentsUnpublished  When documents are unpublished
-releasesCreated       When a release is created
-releasesUpdated       When a release is edited or deleted
-tagsCreated           When a tag is created
-tagsDeleted           When a tag is deleted`,
+		TRIGGERS: `
+			documentsPublished    When documents are published
+			documentsUnpublished  When documents are unpublished
+			releasesCreated       When a release is created
+			releasesUpdated       When a release is edited or deleted
+			tagsCreated           When a tag is created
+			tagsDeleted           When a tag is deleted
+		`,
 	},
 } satisfies CommandConfig;
 

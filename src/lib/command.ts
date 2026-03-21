@@ -98,7 +98,7 @@ function buildCommandHelp(config: CommandConfig): string {
 
 	if (sections) {
 		for (const sectionName in sections) {
-			const content = sections[sectionName];
+			const content = dedent(sections[sectionName]);
 			lines.push("");
 			lines.push(sectionName);
 			for (const line of content.split("\n")) {
