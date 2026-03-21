@@ -7,6 +7,7 @@ import {
 	createConfig,
 	deleteLegacySliceMachineConfig,
 	InvalidLegacySliceMachineConfig,
+	MissingPrismicConfig,
 	readConfig,
 	readLegacySliceMachineConfig,
 	UnknownProjectRoot,
@@ -45,7 +46,9 @@ export default createCommand(config, async ({ values }) => {
 			"A prismic.config.json file exists. This project is already initialized.",
 		);
 	} catch (error) {
-		if (error instanceof CommandError) {
+		if (error instanceof MissingPrismicConfig) {
+			// No config found — proceed with initialization.
+		} else {
 			throw error;
 		}
 	}
