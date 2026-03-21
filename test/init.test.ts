@@ -110,7 +110,7 @@ it("installs dependencies", async ({ expect, project, prismic, repo }) => {
 	const proc = prismic("init", ["--repo", repo]);
 	const output = captureOutput(proc);
 
-	await expect.poll(output, { timeout: 60_000 }).toContain("Installing dependencies...");
+	await expect.poll(output, { timeout: 60_000 }).toContain("Initialized Prismic");
 
-	await expect(access(new URL("package-lock.json", project))).resolves.toBeDefined();
+	await expect(access(new URL("package-lock.json", project))).resolves.toBeUndefined();
 }, 60_000);
