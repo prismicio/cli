@@ -155,5 +155,5 @@ export default createCommand(config, async ({ values }) => {
 		projectRoot,
 	});
 
-	console.info(`Initialized Prismic for repository "${repo}".`);
+	console.info(`\nInitialized Prismic for repository "${repo}".`);
 });
