@@ -1,25 +1,27 @@
 import { getHost, getToken } from "../auth";
 import { setSimulatorUrl } from "../clients/core";
-import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
-const config = defineCommandConfig({
-	name: "preview set-simulator",
-	description: `Set the slice simulator URL for a Prismic repository.
+const config = {
+	name: "prismic preview set-simulator",
+	description: `
+		Set the slice simulator URL for a Prismic repository.
 
-If the URL pathname does not end with /slice-simulator, it is appended
-automatically.
+		If the URL pathname does not end with /slice-simulator, it is appended
+		automatically.
 
-By default, this command reads the repository from prismic.config.json at the
-project root.`,
+		By default, this command reads the repository from prismic.config.json at the
+		project root.
+	`,
 	positionals: {
 		url: { description: "Simulator URL (e.g. https://example.com/slice-simulator)" },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [urlArg] = positionals;
@@ -37,8 +39,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	if (!parsed.pathname.endsWith("/slice-simulator")) {
-		parsed.pathname =
-			parsed.pathname.replace(/\/+$/, "") + "/slice-simulator";
+		parsed.pathname = parsed.pathname.replace(/\/+$/, "") + "/slice-simulator";
 	}
 	const simulatorUrl = parsed.toString();
 

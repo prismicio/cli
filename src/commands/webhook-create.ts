@@ -1,22 +1,29 @@
 import { getHost, getToken } from "../auth";
 import { createWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
-import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
-const config = defineCommandConfig({
-	name: "webhook create",
-	description: `Create a new webhook in a Prismic repository.
+const config = {
+	name: "prismic webhook create",
+	description: `
+		Create a new webhook in a Prismic repository.
 
-By default, this command reads the repository from prismic.config.json at the
-project root.`,
+		By default, this command reads the repository from prismic.config.json at the
+		project root.
+	`,
 	positionals: {
 		url: { description: "Webhook URL to receive events" },
 	},
 	options: {
 		name: { type: "string", short: "n", description: "Webhook name" },
 		secret: { type: "string", short: "s", description: "Secret for webhook signature" },
-		trigger: { type: "string", multiple: true, short: "t", description: "Trigger events (can be repeated)" },
+		trigger: {
+			type: "string",
+			multiple: true,
+			short: "t",
+			description: "Trigger events (can be repeated)",
+		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 	sections: {
@@ -29,7 +36,7 @@ tagsDeleted           When a tag is deleted
 
 If no triggers specified, all are enabled.`,
 	},
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
@@ -42,7 +49,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	// Validate triggers
 	for (const t of trigger) {
 		if (!WEBHOOK_TRIGGERS.includes(t)) {
-			throw new CommandError(`Invalid trigger: ${t}\nValid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`);
+			throw new CommandError(
+				`Invalid trigger: ${t}\nValid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`,
+			);
 		}
 	}
 

@@ -1,20 +1,27 @@
 import { getHost, getToken } from "../auth";
 import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
-import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
-const config = defineCommandConfig({
-	name: "webhook set-triggers",
-	description: `Update which events trigger a webhook.
+const config = {
+	name: "prismic webhook set-triggers",
+	description: `
+		Update which events trigger a webhook.
 
-By default, this command reads the repository from prismic.config.json at the
-project root.`,
+		By default, this command reads the repository from prismic.config.json at the
+		project root.
+	`,
 	positionals: {
 		url: { description: "Webhook URL" },
 	},
 	options: {
-		trigger: { type: "string", multiple: true, short: "t", description: "Trigger events (can be repeated, at least one required)" },
+		trigger: {
+			type: "string",
+			multiple: true,
+			short: "t",
+			description: "Trigger events (can be repeated, at least one required)",
+		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 	sections: {
@@ -25,7 +32,7 @@ releasesUpdated       When a release is edited or deleted
 tagsCreated           When a tag is created
 tagsDeleted           When a tag is deleted`,
 	},
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
@@ -42,7 +49,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	// Validate triggers
 	for (const t of trigger) {
 		if (!WEBHOOK_TRIGGERS.includes(t)) {
-			throw new CommandError(`Invalid trigger: ${t}\nValid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`);
+			throw new CommandError(
+				`Invalid trigger: ${t}\nValid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`,
+			);
 		}
 	}
 

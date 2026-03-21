@@ -1,15 +1,15 @@
 import { exec } from "node:child_process";
 
 import { createLoginSession } from "../auth";
-import { createCommand, defineCommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 
-const config = defineCommandConfig({
-	name: "login",
+const config = {
+	name: "prismic login",
 	description: "Log in to Prismic via browser.",
 	options: {
 		"no-browser": { type: "boolean", description: "Skip opening the browser automatically" },
 	},
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
 	const { "no-browser": noBrowser } = values;

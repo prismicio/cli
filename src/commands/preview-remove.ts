@@ -1,22 +1,24 @@
 import { getHost, getToken } from "../auth";
 import { getPreviews, removePreview } from "../clients/core";
-import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
-const config = defineCommandConfig({
-	name: "preview remove",
-	description: `Remove a preview configuration from a Prismic repository.
+const config = {
+	name: "prismic preview remove",
+	description: `
+		Remove a preview configuration from a Prismic repository.
 
-By default, this command reads the repository from prismic.config.json at the
-project root.`,
+		By default, this command reads the repository from prismic.config.json at the
+		project root.
+	`,
 	positionals: {
 		url: { description: "Preview URL to remove" },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;

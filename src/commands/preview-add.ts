@@ -1,11 +1,11 @@
 import { getHost, getToken } from "../auth";
 import { addPreview } from "../clients/core";
-import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
-const config = defineCommandConfig({
-	name: "preview add",
+const config = {
+	name: "prismic preview add",
 	description: `
 		Add a preview configuration to a Prismic repository.
 
@@ -19,7 +19,7 @@ const config = defineCommandConfig({
 		name: { type: "string", short: "n", description: "Display name (defaults to hostname)" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;

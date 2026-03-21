@@ -5,7 +5,7 @@ import { getAdapter, type Adapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { generateAndWriteTypes } from "../lib/codegen";
-import { createCommand, defineCommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { sentrySetContext, sentrySetTag } from "../lib/sentry";
 import { dedent } from "../lib/string";
@@ -16,17 +16,19 @@ const POLL_INTERVAL_MS = 5000;
 const MAX_BACKOFF_MS = 60000; // Cap backoff at 1 minute
 const MAX_CONSECUTIVE_ERRORS = 10;
 
-const config = defineCommandConfig({
-	name: "sync",
-	description: `Sync slices, page types, and custom types from Prismic to local files.
+const config = {
+	name: "prismic sync",
+	description: `
+		Sync slices, page types, and custom types from Prismic to local files.
 
-Remote models are the source of truth. Local files are created, updated,
-or deleted to match.`,
+		Remote models are the source of truth. Local files are created, updated,
+		or deleted to match.
+	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
 		watch: { type: "boolean", short: "w", description: "Watch for changes and sync continuously" },
 	},
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
 	const { repo = await getRepositoryName(), watch } = values;

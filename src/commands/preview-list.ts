@@ -1,20 +1,22 @@
 import { getHost, getToken } from "../auth";
 import { getPreviews, getSimulatorUrl } from "../clients/core";
-import { createCommand, defineCommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getRepositoryName } from "../project";
 
-const config = defineCommandConfig({
-	name: "preview list",
-	description: `List all preview configurations in a Prismic repository.
+const config = {
+	name: "prismic preview list",
+	description: `
+		List all preview configurations in a Prismic repository.
 
-By default, this command reads the repository from prismic.config.json at the
-project root.`,
+		By default, this command reads the repository from prismic.config.json at the
+		project root.
+	`,
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
 	const { repo = await getRepositoryName(), json } = values;

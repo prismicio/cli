@@ -1,22 +1,24 @@
 import { getHost, getToken } from "../auth";
 import { getWebhooks, updateWebhook } from "../clients/wroom";
-import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
-const config = defineCommandConfig({
-	name: "webhook enable",
-	description: `Enable a webhook in a Prismic repository.
+const config = {
+	name: "prismic webhook enable",
+	description: `
+		Enable a webhook in a Prismic repository.
 
-By default, this command reads the repository from prismic.config.json at the
-project root.`,
+		By default, this command reads the repository from prismic.config.json at the
+		project root.
+	`,
 	positionals: {
 		url: { description: "Webhook URL" },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;

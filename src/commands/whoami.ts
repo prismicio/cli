@@ -1,11 +1,11 @@
 import { getHost, getToken } from "../auth";
 import { getProfile } from "../clients/user";
-import { createCommand, defineCommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 
-const config = defineCommandConfig({
-	name: "whoami",
+const config = {
+	name: "prismic whoami",
 	description: "Show the currently logged in user.",
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async () => {
 	const token = await getToken();

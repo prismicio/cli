@@ -13,22 +13,27 @@ import {
 } from "../config";
 import { openBrowser } from "../lib/browser";
 import { generateAndWriteTypes } from "../lib/codegen";
-import { CommandError, createCommand, defineCommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { findProjectRoot } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
 
-const config = defineCommandConfig({
-	name: "init",
-	description: `Initialize a Prismic project by creating a prismic.config.json file.
+const config = {
+	name: "prismic init",
+	description: `
+		Initialize a Prismic project by creating a prismic.config.json file.
 
-Detects the project framework, installs dependencies, and syncs models
-from Prismic. If a slicemachine.config.json exists, it will be migrated.`,
+		Detects the project framework, installs dependencies, and syncs models
+		from Prismic. If a slicemachine.config.json exists, it will be migrated.
+	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository name" },
-		"no-browser": { type: "boolean", description: "Skip opening the browser automatically during login" },
+		"no-browser": {
+			type: "boolean",
+			description: "Skip opening the browser automatically during login",
+		},
 	},
-});
+} satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
 	const { repo: explicitRepo, "no-browser": noBrowser } = values;
@@ -36,10 +41,14 @@ export default createCommand(config, async ({ values }) => {
 	// Check for existing prismic.config.json
 	try {
 		await readConfig();
-		console.error("A prismic.config.json file exists. This project is already initialized.");
-		process.exitCode = 1;
-		return;
-	} catch {}
+		throw new CommandError(
+			"A prismic.config.json file exists. This project is already initialized.",
+		);
+	} catch (error) {
+		if (error instanceof CommandError) {
+			throw error;
+		}
+	}
 
 	// Load legacy slicemachine.config.json
 	let legacySliceMachineConfig;
@@ -101,14 +110,11 @@ export default createCommand(config, async ({ values }) => {
 		});
 	} catch (error) {
 		if (error instanceof UnknownProjectRoot) {
-			console.error(
+			throw new CommandError(
 				"Could not find a package.json file. Run this command from a project directory.",
 			);
-		} else {
-			console.error("Failed to create config file.");
 		}
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Failed to prismic.config.json.");
 	}
 
 	if (legacySliceMachineConfig) {
