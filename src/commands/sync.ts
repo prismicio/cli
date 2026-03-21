@@ -1,70 +1,42 @@
 import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
-import { parseArgs } from "node:util";
 
 import { getAdapter, type Adapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { generateAndWriteTypes } from "../lib/codegen";
-import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "../lib/segment";
-import { sentrySetContext, sentrySetTag } from "../lib/sentry";
+import { createCommand, type CommandConfig } from "../lib/command";
+import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { dedent } from "../lib/string";
-import { findProjectRoot, safeGetRepositoryName } from "../project";
-
-const HELP = `
-Sync slices, page types, and custom types from Prismic to local files.
-
-Remote models are the source of truth. Local files are created, updated,
-or deleted to match.
-
-USAGE
-  prismic sync [flags]
-
-FLAGS
-  -r, --repo string   Repository domain
-  -w, --watch         Watch for changes and sync continuously
-  -h, --help          Show help for command
-`.trim();
+import { findProjectRoot, getRepositoryName } from "../project";
 
 // 5 seconds balances responsiveness with API load
 const POLL_INTERVAL_MS = 5000;
 const MAX_BACKOFF_MS = 60000; // Cap backoff at 1 minute
 const MAX_CONSECUTIVE_ERRORS = 10;
 
-export async function sync(): Promise<void> {
-	const {
-		values: { help, repo = await safeGetRepositoryName(), watch },
-	} = parseArgs({
-		args: process.argv.slice(3), // skip: node, script, "sync"
-		options: {
-			repo: { type: "string", short: "r" },
-			watch: { type: "boolean", short: "w" },
-			help: { type: "boolean", short: "h" },
-		},
-		allowPositionals: false,
-	});
+const config = {
+	name: "prismic sync",
+	description: `
+		Sync slices, page types, and custom types from Prismic to local files.
 
-	if (help) {
-		console.info(HELP);
-		return;
-	}
+		Remote models are the source of truth. Local files are created, updated,
+		or deleted to match.
+	`,
+	options: {
+		repo: { type: "string", short: "r", description: "Repository domain" },
+		watch: { type: "boolean", short: "w", description: "Watch for changes and sync continuously" },
+	},
+} satisfies CommandConfig;
 
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
-	}
-
-	// Override analytics repository context with the resolved repo
-	segmentSetRepository(repo);
-	sentrySetTag("repository", repo);
-	sentrySetContext("Repository Data", { name: repo });
+export default createCommand(config, async ({ values }) => {
+	const { repo = await getRepositoryName(), watch } = values;
 
 	const adapter = await getAdapter();
 
 	console.info(`Syncing from repository: ${repo}`);
 
-	segmentTrackStart("sync", { repository: repo });
+	segmentTrackStart("sync", { watch });
 
 	if (watch) {
 		await watchForChanges(repo, adapter);
@@ -72,11 +44,11 @@ export async function sync(): Promise<void> {
 		await syncSlices(repo, adapter);
 		await syncCustomTypes(repo, adapter);
 		await regenerateTypes(adapter);
-		segmentTrackEnd("sync", true, undefined, { watch: false });
+		segmentTrackEnd("sync", { watch });
 
 		console.info("Sync complete");
 	}
-}
+});
 
 async function watchForChanges(repo: string, adapter: Adapter) {
 	const token = await getToken();
@@ -236,7 +208,7 @@ export async function syncCustomTypes(repo: string, adapter: Adapter): Promise<v
 
 function shutdown(): void {
 	console.info("Watch stopped. Goodbye!");
-	segmentTrackEnd("sync", true, undefined, { watch: true });
+	segmentTrackEnd("sync", { watch: true });
 	process.exit(0);
 }
 

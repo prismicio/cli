@@ -3,7 +3,7 @@ import { it } from "./it";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("whoami", ["--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic whoami [flags]");
+	expect(stdout).toContain("prismic whoami [options]");
 });
 
 it("prints email of logged-in user", async ({ expect, prismic, login }) => {

@@ -4,7 +4,7 @@ import { getPreviews } from "./prismic";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("preview", ["add", "--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic preview add <url> [flags]");
+	expect(stdout).toContain("prismic preview add <url> [options]");
 });
 
 it("adds a preview", async ({ expect, prismic, repo, token, host }) => {

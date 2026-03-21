@@ -1,83 +1,59 @@
-import { parseArgs } from "node:util";
-
 import { getHost, getToken } from "../auth";
 import { createWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
-import { safeGetRepositoryName } from "../project";
+import { getRepositoryName } from "../project";
 
-const HELP = `
-Create a new webhook in a Prismic repository.
+const config = {
+	name: "prismic webhook create",
+	description: `
+		Create a new webhook in a Prismic repository.
 
-By default, this command reads the repository from prismic.config.json at the
-project root.
-
-USAGE
-  prismic webhook create <url> [flags]
-
-ARGUMENTS
-  <url>   Webhook URL to receive events
-
-FLAGS
-  -n, --name string      Webhook name
-  -s, --secret string    Secret for webhook signature
-  -t, --trigger string   Trigger events (can be repeated)
-  -r, --repo string      Repository domain
-  -h, --help             Show help for command
-
-TRIGGERS
-  documentsPublished    When documents are published
-  documentsUnpublished  When documents are unpublished
-  releasesCreated       When a release is created
-  releasesUpdated       When a release is edited or deleted
-  tagsCreated           When a tag is created
-  tagsDeleted           When a tag is deleted
-
-If no triggers specified, all are enabled.
-
-LEARN MORE
-  Use \`prismic <command> <subcommand> --help\` for more information about a command.
-`.trim();
-
-export async function webhookCreate(): Promise<void> {
-	const {
-		values: { help, repo = await safeGetRepositoryName(), name, secret, trigger = [] },
-		positionals: [webhookUrl],
-	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "webhook", "create"
-		options: {
-			name: { type: "string", short: "n" },
-			secret: { type: "string", short: "s" },
-			trigger: { type: "string", multiple: true, short: "t" },
-			repo: { type: "string", short: "r" },
-			help: { type: "boolean", short: "h" },
+		By default, this command reads the repository from prismic.config.json at the
+		project root.
+	`,
+	positionals: {
+		url: { description: "Webhook URL to receive events" },
+	},
+	options: {
+		name: { type: "string", short: "n", description: "Webhook name" },
+		secret: { type: "string", short: "s", description: "Secret for webhook signature" },
+		trigger: {
+			type: "string",
+			multiple: true,
+			short: "t",
+			description: "Trigger events (can be repeated)",
 		},
-		allowPositionals: true,
-	});
+		repo: { type: "string", short: "r", description: "Repository domain" },
+	},
+	sections: {
+		TRIGGERS: `
+			documentsPublished    When documents are published
+			documentsUnpublished  When documents are unpublished
+			releasesCreated       When a release is created
+			releasesUpdated       When a release is edited or deleted
+			tagsCreated           When a tag is created
+			tagsDeleted           When a tag is deleted
 
-	if (help) {
-		console.info(HELP);
-		return;
-	}
+			If no triggers specified, all are enabled.
+		`,
+	},
+} satisfies CommandConfig;
+
+export default createCommand(config, async ({ positionals, values }) => {
+	const [webhookUrl] = positionals;
+	const { repo = await getRepositoryName(), name, secret, trigger = [] } = values;
 
 	if (!webhookUrl) {
-		console.error("Missing required argument: <url>");
-		process.exitCode = 1;
-		return;
-	}
-
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
+		throw new CommandError("Missing required argument: <url>");
 	}
 
 	// Validate triggers
 	for (const t of trigger) {
 		if (!WEBHOOK_TRIGGERS.includes(t)) {
-			console.error(`Invalid trigger: ${t}`);
-			console.error(`Valid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`);
-			process.exitCode = 1;
-			return;
+			throw new CommandError(
+				`Invalid trigger: ${t}\nValid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`,
+			);
 		}
 	}
 
@@ -104,12 +80,10 @@ export async function webhookCreate(): Promise<void> {
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
-			console.error(`Failed to create webhook: ${message}`);
-			process.exitCode = 1;
-			return;
+			throw new CommandError(`Failed to create webhook: ${message}`);
 		}
 		throw error;
 	}
 
 	console.info(`Webhook created: ${webhookUrl}`);
-}
+});

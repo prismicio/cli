@@ -18,7 +18,7 @@ let enabled = false;
 let anonymousId = "";
 let authorization = "";
 let userId: string | undefined;
-let repository: string | undefined;
+let globalRepository: string | undefined;
 const appContext = { app: { name: packageJson.name, version: packageJson.version } };
 const trackQueue: Array<{
 	event: string;
@@ -47,52 +47,50 @@ export async function initSegment(): Promise<void> {
 
 export type TrackContext = { repository?: string; watch?: boolean };
 
-export function segmentTrackStart(command: string, ctx?: TrackContext): void {
-	if (!enabled) {
-		return;
-	}
+export function segmentTrackStart(command: string, context: TrackContext = {}): void {
+	if (!enabled) return;
 
-	const repo = ctx?.repository ?? repository;
+	const { repository = globalRepository, watch } = context;
+
 	const properties: Record<string, unknown> = {
 		commandType: command,
 		fullCommand: process.argv.join(" "),
 	};
-	if (repo) {
-		properties.repository = repo;
-	}
+	if (repository) properties.repository = repository;
+	if (watch !== undefined) properties.watch = watch;
 
-	trackQueue.push({ event: "Prismic CLI Start", properties, context: buildContext(repo) });
+	trackQueue.push({
+		event: "Prismic CLI Start",
+		properties,
+		context: buildContext(repository),
+	});
 }
 
 export function segmentTrackEnd(
 	command: string,
-	success: boolean,
-	error?: unknown,
-	ctx?: TrackContext,
+	context: TrackContext & { success?: boolean; error?: unknown } = {},
 ): void {
-	if (!enabled) {
-		return;
-	}
+	if (!enabled) return;
 
-	const repo = ctx?.repository ?? repository;
+	const { success = !process.exitCode, error, repository = globalRepository, watch } = context;
+
 	const properties: Record<string, unknown> = {
 		commandType: command,
 		fullCommand: process.argv.join(" "),
 		success,
 	};
-	if (repo) {
-		properties.repository = repo;
-	}
-	if (ctx?.watch !== undefined) {
-		properties.watch = ctx.watch;
-	}
-
+	if (repository) properties.repository = repository;
+	if (watch !== undefined) properties.watch = watch;
 	if (error !== undefined) {
 		const message = error instanceof Error ? error.message : String(error);
 		properties.error = message.slice(0, 512);
 	}
 
-	trackQueue.push({ event: "Prismic CLI End", properties, context: buildContext(repo) });
+	trackQueue.push({
+		event: "Prismic CLI End",
+		properties,
+		context: buildContext(repository),
+	});
 }
 
 export function segmentIdentify(profile: { shortId: string; intercomHash: string }): void {
@@ -112,14 +110,12 @@ export function segmentIdentify(profile: { shortId: string; intercomHash: string
 }
 
 export function segmentSetRepository(repo: string): void {
-	repository = repo;
+	globalRepository = repo;
 }
 
-function buildContext(repo: string | undefined): Record<string, unknown> {
+function buildContext(repository: string | undefined): Record<string, unknown> {
 	const context: Record<string, unknown> = { ...appContext };
-	if (repo) {
-		context.groupId = { Repository: repo };
-	}
+	if (repository) context.groupId = { Repository: repository };
 	return context;
 }
 

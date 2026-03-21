@@ -6,13 +6,15 @@ import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
-import { init } from "./commands/init";
-import { login } from "./commands/login";
-import { logout } from "./commands/logout";
-import { sync } from "./commands/sync";
-import { whoami } from "./commands/whoami";
-import { preview } from "./commands/preview";
+import init from "./commands/init";
+import login from "./commands/login";
+import logout from "./commands/logout";
+import preview from "./commands/preview";
+import sync from "./commands/sync";
+import webhook from "./commands/webhook";
+import whoami from "./commands/whoami";
 import { InvalidPrismicConfig, MissingPrismicConfig } from "./config";
+import { CommandError, createCommandRouter } from "./lib/command";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import {
 	initSegment,
@@ -29,138 +31,137 @@ import {
 	setupSentry,
 } from "./lib/sentry";
 import { safeGetRepositoryName } from "./project";
-import { webhook } from "./commands/webhook";
 
-const HELP = `
-Prismic CLI for managing repositories and configurations.
+const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync"];
+const SKIP_REFRESH_COMMANDS = ["login", "logout"];
 
-USAGE
-  prismic <command> [flags]
-
-COMMANDS
-  init        Initialize a Prismic project
-  sync        Sync types and slices from Prismic
-  preview     Manage preview configurations
-  webhook     Manage webhooks
-  login       Log in to Prismic
-  logout      Log out of Prismic
-  whoami      Show the currently logged in user
-
-FLAGS
-  -v, --version  Show CLI version
-  -h, --help     Show help for command
-
-LEARN MORE
-  Use \`prismic <command> --help\` for more information about a command.
-`.trim();
-
-const UNTRACKED_COMMANDS = new Set(["login", "logout", "whoami", "sync"]);
-const SKIP_REFRESH_COMMANDS = new Set(["login", "logout"]);
-
-const {
-	positionals,
-	values: { version, help },
-} = parseArgs({
-	options: {
-		help: { type: "boolean", short: "h" },
-		version: { type: "boolean", short: "v" },
+const router = createCommandRouter({
+	name: "prismic",
+	description: "Prismic CLI for managing repositories and configurations.",
+	commands: {
+		init: {
+			handler: init,
+			description: "Initialize a Prismic project",
+		},
+		sync: {
+			handler: sync,
+			description: "Sync types and slices from Prismic",
+		},
+		preview: {
+			handler: preview,
+			description: "Manage preview configurations",
+		},
+		webhook: {
+			handler: webhook,
+			description: "Manage webhooks",
+		},
+		login: {
+			handler: login,
+			description: "Log in to Prismic",
+		},
+		logout: {
+			handler: logout,
+			description: "Log out of Prismic",
+		},
+		whoami: {
+			handler: whoami,
+			description: "Show the currently logged in user",
+		},
 	},
-	allowPositionals: true,
-	strict: false,
 });
 
-setupSentry();
-await initSegment();
+await main();
 
-if (version) {
-	console.info(packageJson.version);
-} else {
-	const command = positionals[0];
+async function main(): Promise<void> {
+	let {
+		positionals: [command],
+		values: { version, help, repo = await safeGetRepositoryName() },
+	} = parseArgs({
+		options: {
+			version: { type: "boolean", short: "v" },
+			help: { type: "boolean", short: "h" },
+			repo: { type: "string", short: "r" },
+		},
+		allowPositionals: true,
+		strict: false,
+	});
 
-	const repository = await safeGetRepositoryName();
-	if (repository) {
-		segmentSetRepository(repository);
-		sentrySetTag("repository", repository);
-		sentrySetContext("Repository Data", { name: repository });
+	if (version) {
+		console.info(packageJson.version);
+		return;
 	}
 
-	try {
-		const adapter = await getAdapter();
-		sentrySetTag("framework", adapter.id);
-	} catch {
-		// noop - it's okay if we can't set the framework
-	}
+	if (typeof repo !== "string") repo = "";
 
-	if (command && !help && !SKIP_REFRESH_COMMANDS.has(command)) {
-		// Refresh the token and identify the user in the background.
-		refreshToken()
-			.then(async (token) => {
-				if (!token) return;
-				const host = await getHost();
-				const profile = await getProfile({ token, host });
-				segmentIdentify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
-				sentrySetUser({ id: profile.shortId });
-			})
-			.catch(() => {});
-	}
+	if (!help) {
+		setupSentry();
+		await initSegment();
 
-	if (command && !UNTRACKED_COMMANDS.has(command)) {
-		segmentTrackStart(command, { repository });
-	}
-
-	try {
-		switch (command) {
-			case "init":
-				await init();
-				break;
-			case "sync":
-				await sync();
-				break;
-			case "login":
-				await login();
-				break;
-			case "logout":
-				await logout();
-				break;
-			case "preview":
-				await preview();
-				break;
-			case "webhook":
-				await webhook();
-				break;
-			case "whoami":
-				await whoami();
-				break;
-			default: {
-				if (command) {
-					console.error(`Unknown command: ${command}`);
-					process.exitCode = 1;
-				}
-				console.info(HELP);
-			}
+		if (repo) {
+			segmentSetRepository(repo);
+			sentrySetTag("repository", repo);
+			sentrySetContext("Repository Data", { name: repo });
 		}
 
-		if (command && !UNTRACKED_COMMANDS.has(command)) {
-			segmentTrackEnd(command, process.exitCode !== 1);
+		try {
+			const adapter = await getAdapter();
+			sentrySetTag("framework", adapter.id);
+		} catch {
+			// noop - it's okay if we can't set the framework
+		}
+
+		if (command && !SKIP_REFRESH_COMMANDS.includes(command)) {
+			// Refresh the token and identify the user in the background.
+			refreshToken()
+				.then(async (token) => {
+					if (!token) return;
+					const host = await getHost();
+					const profile = await getProfile({ token, host });
+					segmentIdentify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
+					sentrySetUser({ id: profile.shortId });
+				})
+				.catch(() => {});
+		}
+
+		if (command && !UNTRACKED_COMMANDS.includes(command)) {
+			segmentTrackStart(command);
+		}
+	}
+
+	try {
+		await router();
+
+		if (command && !UNTRACKED_COMMANDS.includes(command)) {
+			segmentTrackEnd(command);
 		}
 	} catch (error) {
-		if (command && !UNTRACKED_COMMANDS.has(command)) {
-			segmentTrackEnd(command, false, error);
+		process.exitCode = 1;
+
+		if (!UNTRACKED_COMMANDS.includes(command)) {
+			segmentTrackEnd(command, { error });
 		}
 
-		process.exitCode = 1;
+		if (error instanceof CommandError || error instanceof NoSupportedFrameworkError) {
+			console.error(error.message);
+			return;
+		}
 
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			console.error("Not logged in. Run `prismic login` first.");
-		} else if (error instanceof InvalidPrismicConfig) {
-			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
-		} else if (error instanceof MissingPrismicConfig) {
-			console.error(`${error.message} Run \`prismic init\` to create a config.`);
-		} else if (error instanceof NoSupportedFrameworkError) {
-			console.error(error.message);
-		} else {
-			await sentryCaptureError(error);
-			throw error;
+			return;
 		}
+
+		if (error instanceof InvalidPrismicConfig) {
+			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
+			return;
+		}
+
+		if (error instanceof MissingPrismicConfig) {
+			console.error(`${error.message} Run \`prismic init\` to create a config.`);
+			return;
+		}
+
+		await sentryCaptureError(error);
+		throw error;
 	}
 }

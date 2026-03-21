@@ -1,51 +1,25 @@
-import { parseArgs } from "node:util";
-
 import { getHost, getToken } from "../auth";
 import { getPreviews, getSimulatorUrl } from "../clients/core";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { safeGetRepositoryName } from "../project";
+import { getRepositoryName } from "../project";
 
-const HELP = `
-List all preview configurations in a Prismic repository.
+const config = {
+	name: "prismic preview list",
+	description: `
+		List all preview configurations in a Prismic repository.
 
-By default, this command reads the repository from prismic.config.json at the
-project root.
+		By default, this command reads the repository from prismic.config.json at the
+		project root.
+	`,
+	options: {
+		json: { type: "boolean", description: "Output as JSON" },
+		repo: { type: "string", short: "r", description: "Repository domain" },
+	},
+} satisfies CommandConfig;
 
-USAGE
-  prismic preview list [flags]
-
-FLAGS
-      --json          Output as JSON
-  -r, --repo string   Repository domain
-  -h, --help          Show help for command
-
-LEARN MORE
-  Use \`prismic <command> <subcommand> --help\` for more information about a command.
-`.trim();
-
-export async function previewList(): Promise<void> {
-	const {
-		values: { help, repo = await safeGetRepositoryName(), json },
-	} = parseArgs({
-		args: process.argv.slice(4), // skip: node, script, "preview", "list"
-		options: {
-			json: { type: "boolean" },
-			repo: { type: "string", short: "r" },
-			help: { type: "boolean", short: "h" },
-		},
-		allowPositionals: false,
-	});
-
-	if (help) {
-		console.info(HELP);
-		return;
-	}
-
-	if (!repo) {
-		console.error("Missing prismic.config.json or --repo option");
-		process.exitCode = 1;
-		return;
-	}
+export default createCommand(config, async ({ values }) => {
+	const { repo = await getRepositoryName(), json } = values;
 
 	const token = await getToken();
 	const host = await getHost();
@@ -77,4 +51,4 @@ export async function previewList(): Promise<void> {
 	if (simulatorUrl) {
 		console.info(`\nSimulator: ${simulatorUrl}`);
 	}
-}
+});
