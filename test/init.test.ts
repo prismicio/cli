@@ -1,4 +1,4 @@
-import { readFile, writeFile, access, rm } from "node:fs/promises";
+import { access, readFile, rm, writeFile } from "node:fs/promises";
 
 import { captureOutput, it } from "./it";
 
@@ -102,4 +102,15 @@ it("migrates slicemachine.config.json", async ({ expect, project, prismic, repo 
 
 	// Verify legacy config was deleted
 	await expect(access(new URL("slicemachine.config.json", project))).rejects.toThrow();
+}, 60_000);
+
+it("installs dependencies", async ({ expect, project, prismic, repo }) => {
+	await rm(new URL("prismic.config.json", project));
+
+	const proc = prismic("init", ["--repo", repo]);
+	const output = captureOutput(proc);
+
+	await expect.poll(output, { timeout: 60_000 }).toContain("Initialized Prismic");
+
+	await expect(access(new URL("package-lock.json", project))).resolves.toBeUndefined();
 }, 60_000);

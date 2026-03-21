@@ -15,6 +15,7 @@ import {
 import { openBrowser } from "../lib/browser";
 import { generateAndWriteTypes } from "../lib/codegen";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { findProjectRoot } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
@@ -130,6 +131,16 @@ export default createCommand(config, async ({ values }) => {
 	// Install dependencies and create framework files
 	await adapter.initProject();
 
+	// Run package manager install
+	try {
+		console.info("Installing dependencies...");
+		await installDependencies();
+	} catch {
+		console.warn(
+			"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
+		);
+	}
+
 	// Sync models from remote
 	await syncSlices(repo, adapter);
 	await syncCustomTypes(repo, adapter);
@@ -144,7 +155,5 @@ export default createCommand(config, async ({ values }) => {
 		projectRoot,
 	});
 
-	console.info(
-		`Initialized Prismic for repository "${repo}". Run \`npm install\` to install new dependencies.`,
-	);
+	console.info(`\nInitialized Prismic for repository "${repo}".`);
 });
