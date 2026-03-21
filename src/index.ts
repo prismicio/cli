@@ -110,7 +110,7 @@ async function main(): Promise<void> {
 			// noop - it's okay if we can't set the framework
 		}
 
-		if (!SKIP_REFRESH_COMMANDS.includes(command)) {
+		if (command && !SKIP_REFRESH_COMMANDS.includes(command)) {
 			// Refresh the token and identify the user in the background.
 			refreshToken()
 				.then(async (token) => {
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
 				.catch(() => {});
 		}
 
-		if (!UNTRACKED_COMMANDS.includes(command)) {
+		if (command && !UNTRACKED_COMMANDS.includes(command)) {
 			segmentTrackStart(command);
 		}
 	}
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
 	try {
 		await router();
 
-		if (!UNTRACKED_COMMANDS.includes(command)) {
+		if (command && !UNTRACKED_COMMANDS.includes(command)) {
 			segmentTrackEnd(command);
 		}
 	} catch (error) {
