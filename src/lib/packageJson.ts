@@ -81,12 +81,13 @@ const PACKAGE_MANAGER_LOCKFILES: Record<string, keyof typeof INSTALL_COMMANDS> =
 
 async function detectPackageManager(): Promise<keyof typeof INSTALL_COMMANDS> {
 	const packageManager = await readPackageManager();
-	if (packageManager && packageManager in INSTALL_COMMANDS) return packageManager;
+	if (packageManager) return packageManager;
 
 	const packageJsonPath = await findPackageJson();
 	for (const file in PACKAGE_MANAGER_LOCKFILES) {
 		const packageManager = PACKAGE_MANAGER_LOCKFILES[file];
-		if (await exists(new URL(file, packageJsonPath))) return packageManager;
+		const hasLockfile = await exists(new URL(file, packageJsonPath));
+		if (hasLockfile) return packageManager;
 	}
 
 	return "npm";
