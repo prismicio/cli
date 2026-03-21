@@ -10,6 +10,7 @@ const PackageJsonSchema = z.object({
 	dependencies: z.optional(z.record(z.string(), z.string())),
 	devDependencies: z.optional(z.record(z.string(), z.string())),
 	peerDependencies: z.optional(z.record(z.string(), z.string())),
+	packageManager: z.optional(z.string()),
 });
 type PackageJson = z.infer<typeof PackageJsonSchema>;
 
@@ -52,27 +53,53 @@ export async function getNpmPackageVersion(name: string, tag = "latest"): Promis
 	return version;
 }
 
+const INSTALL_COMMANDS = {
+	npm: ["npm", "install"],
+	yarn: ["yarn", "install"],
+	pnpm: ["pnpm", "install"],
+	bun: ["bun", "install"],
+};
+
 export async function installDependencies(): Promise<void> {
 	const packageJsonPath = await findPackageJson();
-	const dir = new URL(".", packageJsonPath);
-	const [cmd, ...args] = await detectInstallCommand(dir);
-	await x(cmd, args, {
-		nodeOptions: { cwd: fileURLToPath(dir), stdio: "inherit" },
+	const cwd = new URL(".", packageJsonPath);
+	const packageManager = await detectPackageManager();
+	const [command, ...args] = INSTALL_COMMANDS[packageManager];
+	await x(command, args, {
+		nodeOptions: { cwd: fileURLToPath(cwd), stdio: "inherit" },
 		throwOnError: true,
 	});
 }
 
-const PM_INSTALL_ARGS: [lockfile: string, args: string[]][] = [
-	["bun.lock", ["bun", "install"]],
-	["bun.lockb", ["bun", "install"]],
-	["pnpm-lock.yaml", ["pnpm", "install"]],
-	["yarn.lock", ["yarn", "install"]],
-	["package-lock.json", ["npm", "install"]],
-];
+const PACKAGE_MANAGER_LOCKFILES: Record<string, keyof typeof INSTALL_COMMANDS> = {
+	"bun.lock": "bun",
+	"bun.lockb": "bun",
+	"pnpm-lock.yaml": "pnpm",
+	"yarn.lock": "yarn",
+	"package-lock.json": "npm",
+};
 
-async function detectInstallCommand(dir: URL): Promise<string[]> {
-	for (const [file, command] of PM_INSTALL_ARGS) {
-		if (await exists(new URL(file, dir))) return command;
+async function detectPackageManager(): Promise<keyof typeof INSTALL_COMMANDS> {
+	const packageManager = await readPackageManager();
+	if (packageManager && packageManager in INSTALL_COMMANDS) return packageManager;
+
+	const packageJsonPath = await findPackageJson();
+	for (const file in PACKAGE_MANAGER_LOCKFILES) {
+		const packageManager = PACKAGE_MANAGER_LOCKFILES[file];
+		if (await exists(new URL(file, packageJsonPath))) return packageManager;
 	}
-	return ["npm", "install"];
+
+	return "npm";
+}
+
+async function readPackageManager(): Promise<keyof typeof INSTALL_COMMANDS | undefined> {
+	try {
+		const packageJson = await readPackageJson();
+		if (!packageJson.packageManager) return;
+		const packageManager = packageJson.packageManager.split("@")[0];
+		if (packageManager in INSTALL_COMMANDS) return packageManager as keyof typeof INSTALL_COMMANDS;
+		return undefined;
+	} catch {
+		return undefined;
+	}
 }
