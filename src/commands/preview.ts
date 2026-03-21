@@ -4,7 +4,7 @@ import previewList from "./preview-list";
 import previewRemove from "./preview-remove";
 import previewSetSimulator from "./preview-set-simulator";
 
-export const preview = createCommandRouter({
+export default createCommandRouter({
 	name: "prismic preview",
 	description: "Manage preview configurations in a Prismic repository.",
 	commands: {

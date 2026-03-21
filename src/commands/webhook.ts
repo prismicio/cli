@@ -7,7 +7,7 @@ import webhookRemove from "./webhook-remove";
 import webhookSetTriggers from "./webhook-set-triggers";
 import webhookView from "./webhook-view";
 
-export const webhook = createCommandRouter({
+export default createCommandRouter({
 	name: "prismic webhook",
 	description: "Manage webhooks in a Prismic repository.",
 	commands: {

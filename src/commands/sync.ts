@@ -6,8 +6,7 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { generateAndWriteTypes } from "../lib/codegen";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { segmentSetRepository, segmentTrackEnd, segmentTrackStart } from "../lib/segment";
-import { sentrySetContext, sentrySetTag } from "../lib/sentry";
+import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { dedent } from "../lib/string";
 import { findProjectRoot, getRepositoryName } from "../project";
 
@@ -33,16 +32,11 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo = await getRepositoryName(), watch } = values;
 
-	// Override analytics repository context with the resolved repo
-	segmentSetRepository(repo);
-	sentrySetTag("repository", repo);
-	sentrySetContext("Repository Data", { name: repo });
-
 	const adapter = await getAdapter();
 
 	console.info(`Syncing from repository: ${repo}`);
 
-	segmentTrackStart("sync", { repository: repo });
+	segmentTrackStart("sync", { watch });
 
 	if (watch) {
 		await watchForChanges(repo, adapter);
@@ -50,7 +44,7 @@ export default createCommand(config, async ({ values }) => {
 		await syncSlices(repo, adapter);
 		await syncCustomTypes(repo, adapter);
 		await regenerateTypes(adapter);
-		segmentTrackEnd("sync", true, undefined, { watch: false });
+		segmentTrackEnd("sync", { watch });
 
 		console.info("Sync complete");
 	}
@@ -214,7 +208,7 @@ export async function syncCustomTypes(repo: string, adapter: Adapter): Promise<v
 
 function shutdown(): void {
 	console.info("Watch stopped. Goodbye!");
-	segmentTrackEnd("sync", true, undefined, { watch: true });
+	segmentTrackEnd("sync", { watch: true });
 	process.exit(0);
 }
 
