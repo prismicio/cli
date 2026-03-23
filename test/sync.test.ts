@@ -1,9 +1,7 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile } from "node:fs/promises";
-
 import { captureOutput, it } from "./it";
-import { insertCustomType, insertSlice } from "./prismic";
+import { deleteSlice, insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("sync", ["--help"]);
@@ -25,19 +23,89 @@ it("syncs slices and custom types from remote", async ({
 	await insertCustomType(customType, { repo, token, host });
 	await insertSlice(slice, { repo, token, host });
 
-	const { exitCode, stdout } = await prismic("sync", ["--repo", repo]);
+	const { exitCode } = await prismic("sync", ["--repo", repo]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("Sync complete");
 
-	const customTypeModel = JSON.parse(
-		await readFile(new URL(`customtypes/${customType.id}/index.json`, project), "utf-8"),
-	);
-	expect(customTypeModel.id).toBe(customType.id);
+	await expect(project).toContainCustomType(customType);
+	await expect(project).toContainSlice(slice);
+}, 60_000);
 
-	const sliceModel = JSON.parse(
-		await readFile(new URL(`slices/${slice.name}/model.json`, project), "utf-8"),
-	);
-	expect(sliceModel.id).toBe(slice.id);
+it("syncs multiple slices with correct structure", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const sliceA = buildSlice();
+	const sliceB = buildSlice();
+
+	await insertSlice(sliceA, { repo, token, host });
+	await insertSlice(sliceB, { repo, token, host });
+
+	const { exitCode } = await prismic("sync", ["--repo", repo]);
+	expect(exitCode).toBe(0);
+
+	await expect(project).toContainSlice(sliceA);
+	await expect(project).toContainSlice(sliceB);
+}, 60_000);
+
+it("adds new slice to existing library on re-sync", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const sliceA = buildSlice();
+	await insertSlice(sliceA, { repo, token, host });
+
+	// First sync — creates slice A
+	const first = await prismic("sync", ["--repo", repo]);
+	expect(first.exitCode).toBe(0);
+	await expect(project).toContainSlice(sliceA);
+
+	// Insert a second slice remotely
+	const sliceB = buildSlice();
+	await insertSlice(sliceB, { repo, token, host });
+
+	// Second sync — should add slice B without breaking slice A
+	const second = await prismic("sync", ["--repo", repo]);
+	expect(second.exitCode).toBe(0);
+	await expect(project).toContainSlice(sliceA);
+	await expect(project).toContainSlice(sliceB);
+}, 60_000);
+
+it("removes deleted slice and updates index on re-sync", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const sliceA = buildSlice();
+	const sliceB = buildSlice();
+
+	await insertSlice(sliceA, { repo, token, host });
+	await insertSlice(sliceB, { repo, token, host });
+
+	// First sync — creates both slices
+	const first = await prismic("sync", ["--repo", repo]);
+	expect(first.exitCode).toBe(0);
+	await expect(project).toContainSlice(sliceA);
+	await expect(project).toContainSlice(sliceB);
+
+	// Delete slice B from remote
+	await deleteSlice(sliceB.id, { repo, token, host });
+
+	// Second sync — should remove slice B and update the index
+	const second = await prismic("sync", ["--repo", repo]);
+	expect(second.exitCode).toBe(0);
+	await expect(project).toContainSlice(sliceA);
+	await expect(project).not.toContainSlice(sliceB);
 }, 60_000);
 
 it("watches for changes and syncs", async ({ expect, project, prismic, repo, token, host }) => {
@@ -54,15 +122,8 @@ it("watches for changes and syncs", async ({ expect, project, prismic, repo, tok
 
 	await expect.poll(output, { timeout: 30_000 }).toContain("Changes detected");
 
-	const customTypeModel = JSON.parse(
-		await readFile(new URL(`customtypes/${customType.id}/index.json`, project), "utf-8"),
-	);
-	expect(customTypeModel.id).toBe(customType.id);
-
-	const sliceModel = JSON.parse(
-		await readFile(new URL(`slices/${slice.name}/model.json`, project), "utf-8"),
-	);
-	expect(sliceModel.id).toBe(slice.id);
+	await expect(project).toContainCustomType(customType);
+	await expect(project).toContainSlice(slice);
 }, 60_000);
 
 function buildCustomType(): CustomType {

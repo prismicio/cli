@@ -100,6 +100,7 @@ export abstract class Adapter {
 	async createSlice(model: SharedSlice, library?: URL): Promise<void> {
 		library ??= await this.getDefaultSliceLibrary();
 		await upsertSliceModel(model, library);
+		await this.createSliceIndexFile(library);
 		await this.onSliceCreated(model, library);
 	}
 
