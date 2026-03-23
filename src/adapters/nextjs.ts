@@ -41,7 +41,7 @@ export class NextJsAdapter extends Adapter {
 		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
 
 		const extension = await getJsFileExtension();
-		const componentPath = new URL(`index.${extension}x`, sliceDirectory);
+		const componentPath = new URL(`index.${extension}x`, appendTrailingSlash(sliceDirectory));
 		const contents = sliceTemplate({
 			name: model.name,
 			typescript: await checkIsTypeScriptProject(),

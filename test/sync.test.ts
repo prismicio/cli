@@ -38,6 +38,18 @@ it("syncs slices and custom types from remote", async ({
 		await readFile(new URL(`slices/${slice.name}/model.json`, project), "utf-8"),
 	);
 	expect(sliceModel.id).toBe(slice.id);
+
+	// Verify the component file was created inside the slice directory
+	const componentFile = await readFile(
+		new URL(`slices/${slice.name}/index.jsx`, project),
+		"utf-8",
+	);
+	expect(componentFile).toContain(slice.name);
+
+	// Verify the slice library index file registers the slice in the components object
+	const sliceIndex = await readFile(new URL("slices/index.js", project), "utf-8");
+	expect(sliceIndex).toContain("components");
+	expect(sliceIndex).toMatch(new RegExp(`${slice.id}:\\s*${slice.name}`));
 }, 60_000);
 
 it("watches for changes and syncs", async ({ expect, project, prismic, repo, token, host }) => {
@@ -63,6 +75,18 @@ it("watches for changes and syncs", async ({ expect, project, prismic, repo, tok
 		await readFile(new URL(`slices/${slice.name}/model.json`, project), "utf-8"),
 	);
 	expect(sliceModel.id).toBe(slice.id);
+
+	// Verify the component file was created inside the slice directory
+	const componentFile = await readFile(
+		new URL(`slices/${slice.name}/index.jsx`, project),
+		"utf-8",
+	);
+	expect(componentFile).toContain(slice.name);
+
+	// Verify the slice library index file registers the slice in the components object
+	const sliceIndex = await readFile(new URL("slices/index.js", project), "utf-8");
+	expect(sliceIndex).toContain("components");
+	expect(sliceIndex).toMatch(new RegExp(`${slice.id}:\\s*${slice.name}`));
 }, 60_000);
 
 function buildCustomType(): CustomType {

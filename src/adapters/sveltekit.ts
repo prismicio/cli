@@ -43,7 +43,7 @@ export class SvelteKitAdapter extends Adapter {
 		const sliceDirectoryName = pascalCase(model.name);
 		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
 
-		const componentPath = new URL("index.svelte", sliceDirectory);
+		const componentPath = new URL("index.svelte", appendTrailingSlash(sliceDirectory));
 		const contents = sliceTemplate({
 			name: model.name,
 			typescript: await checkIsTypeScriptProject(),

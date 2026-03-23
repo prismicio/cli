@@ -101,6 +101,7 @@ export abstract class Adapter {
 		library ??= await this.getDefaultSliceLibrary();
 		await upsertSliceModel(model, library);
 		await this.onSliceCreated(model, library);
+		await this.createSliceIndexFile(library);
 	}
 
 	async updateSlice(model: SharedSlice): Promise<void> {
