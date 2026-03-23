@@ -77,6 +77,19 @@ export async function insertSlice(slice: object, config: RepoConfig): Promise<vo
 	if (!res.ok) throw new Error(`Failed to insert slice: ${res.status} ${await res.text()}`);
 }
 
+export async function deleteSlice(sliceId: string, config: RepoConfig): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL(`slices/${sliceId}`, `https://customtypes.${host}/`);
+	const res = await fetch(url, {
+		method: "DELETE",
+		headers: {
+			Authorization: `Bearer ${config.token}`,
+			repository: config.repo,
+		},
+	});
+	if (!res.ok) throw new Error(`Failed to delete slice: ${res.status} ${await res.text()}`);
+}
+
 export async function getWebhooks(config: RepoConfig): Promise<{ config: Record<string, unknown> }[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("app/settings/webhooks", `https://${config.repo}.${host}/`);
