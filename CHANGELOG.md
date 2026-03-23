@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/prismicio/cli/compare/v1.2.0...v1.2.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* slice file creation during sync ([#58](https://github.com/prismicio/cli/issues/58)) ([c50ec41](https://github.com/prismicio/cli/commit/c50ec41d0ed3f834258873969e42ed24ec54f231))
+
 ## [1.2.0](https://github.com/prismicio/cli/compare/v1.1.0...v1.2.0) (2026-03-21)
 
 
