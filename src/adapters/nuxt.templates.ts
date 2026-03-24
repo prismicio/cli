@@ -61,14 +61,16 @@ export function pageTemplate(args: { model: CustomType; typescript: boolean }): 
 	if (typescript) scriptAttributes.push('lang="ts"');
 
 	if (model.repeatable) {
+		const uidExpression = typescript ? "route.params.uid as string" : "route.params.uid";
+
 		return dedent`
 			<script ${scriptAttributes.join(" ")}>
 			import { components } from "~/slices";
 
 			const prismic = usePrismic();
 			const route = useRoute();
-			const { data: page } = await useAsyncData(route.params.uid as string, () =>
-				prismic.client.getByUID("${model.id}", route.params.uid as string),
+			const { data: page } = await useAsyncData(${uidExpression}, () =>
+				prismic.client.getByUID("${model.id}", ${uidExpression}),
 			);
 			</script>
 

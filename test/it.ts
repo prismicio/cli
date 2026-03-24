@@ -76,7 +76,7 @@ export const it = test.extend<Fixtures>({
 	prismic: async ({ home, project, login, setupPackageJson, stubNodeModule, repo }, use) => {
 		await login();
 		await setupPackageJson({ dependencies: { next: "latest" } });
-		await stubNodeModule("next", "v16.0.0");
+		await stubNodeModule("next", "16.0.0");
 		await mkdir(new URL("app/", project));
 		await writeFile(
 			new URL("prismic.config.json", project),

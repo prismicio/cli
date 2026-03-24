@@ -200,6 +200,7 @@ async function createPageFile(model: CustomType): Promise<void> {
 		model,
 		routePath,
 		typescript: await checkIsTypeScriptProject(),
+		appRouter: usesAppRouter,
 	});
 	await writeFileRecursive(pageFilePath, contents);
 }
