@@ -22,6 +22,7 @@ export type Fixtures = {
 	token: string;
 	repo: string;
 	setupPackageJson: (args: { dependencies?: Record<string, string> }) => Promise<void>;
+	stubNodeModule: (name: string, version: string) => Promise<void>;
 };
 
 export const it = test.extend<Fixtures>({
@@ -38,13 +39,20 @@ export const it = test.extend<Fixtures>({
 	project: async ({ home }, use) => {
 		const projectPath = new URL("project/", home);
 		await mkdir(projectPath, { recursive: true });
-		await mkdir(new URL("app/", projectPath));
 		await use(projectPath);
 	},
 	setupPackageJson: async ({ project }, use) => {
 		const packageJsonPath = new URL("package.json", project);
 		await use(async ({ dependencies }) => {
 			await writeFile(packageJsonPath, JSON.stringify({ dependencies }));
+		});
+	},
+	stubNodeModule: async ({ project }, use) => {
+		await use(async (name, version) => {
+			const packageJsonPath = new URL(`node_modules/${name}/package.json`, project);
+
+			await mkdir(new URL(".", packageJsonPath), { recursive: true });
+			await writeFile(packageJsonPath, JSON.stringify({ version }));
 		});
 	},
 	// oxlint-disable-next-line no-empty-pattern
@@ -65,9 +73,11 @@ export const it = test.extend<Fixtures>({
 			await rm(new URL(".prismic", home), { recursive: true, force: true });
 		});
 	},
-	prismic: async ({ home, project, login, setupPackageJson, repo }, use) => {
+	prismic: async ({ home, project, login, setupPackageJson, stubNodeModule, repo }, use) => {
 		await login();
 		await setupPackageJson({ dependencies: { next: "latest" } });
+		await stubNodeModule("next", "v16.0.0");
+		await mkdir(new URL("app/", project));
 		await writeFile(
 			new URL("prismic.config.json", project),
 			JSON.stringify({ repositoryName: repo }),
