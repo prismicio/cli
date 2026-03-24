@@ -229,7 +229,7 @@ export function pageServerTemplate(args: { model: CustomType; typescript: boolea
 		return dedent`
 			import { createClient } from "$lib/prismicio";
 
-			/* @type {import("./$types").PageServerLoad} */
+			/** @type {import("./$types").PageServerLoad} */
 			export async function load({ params, fetch, cookies }) {
 				const client = createClient({ fetch, cookies });
 				const page = await client.getByUID("${model.id}", params.uid);
