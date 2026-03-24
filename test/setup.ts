@@ -8,11 +8,12 @@ declare module "vitest" {
 	interface Matchers<T = any> {
 		toContainCustomType(customType: CustomType): Promise<T>;
 		toContainSlice(slice: SharedSlice): Promise<T>;
+		toHaveRoute(route: { type: string; path?: string }): Promise<T>;
 	}
 }
 
 expect.extend({
-	async toContainCustomType(project: URL, customType: CustomType) {
+	async toContainCustomType(project, customType) {
 		const problems: string[] = [];
 
 		const modelPath = new URL(`customtypes/${customType.id}/index.json`, project);
@@ -34,7 +35,7 @@ expect.extend({
 		};
 	},
 
-	async toContainSlice(project: URL, slice: SharedSlice) {
+	async toContainSlice(project, slice) {
 		const problems: string[] = [];
 
 		const sliceIndexPath = new URL("slices/index.js", project);
@@ -75,6 +76,35 @@ expect.extend({
 				problems.length > 0
 					? problems.join("\n")
 					: `expected project not to contain slice "${slice.id}", but all parts exist`,
+		};
+	},
+
+	async toHaveRoute(project, route) {
+		const problems: string[] = [];
+
+		const configPath = new URL("prismic.config.json", project);
+		try {
+			const config: { routes?: { type: string; path: string }[] } = JSON.parse(
+				await readFile(configPath, "utf-8"),
+			);
+			const hasRoute = config.routes?.find((r) => {
+				if (r.type !== route.type) return false;
+				if (route.path) return r.path === route.path;
+				return true;
+			});
+			if (!hasRoute) {
+				problems.push(`config file (${configPath.href}) does not contain route`);
+			}
+		} catch {
+			problems.push(`config file (${configPath.href}) does not exist`);
+		}
+
+		return {
+			pass: problems.length === 0,
+			message: () =>
+				problems.length > 0
+					? problems.join("\n")
+					: `expected project not to contain route, but it exists`,
 		};
 	},
 });

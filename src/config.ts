@@ -1,3 +1,5 @@
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
 import { readFile, rm, writeFile } from "node:fs/promises";
 import * as z from "zod/mini";
 
@@ -8,9 +10,19 @@ import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
 const CONFIG_FILENAME = "prismic.config.json";
 const LEGACY_SLICE_MACHINE_CONFIG_FILENAME = "slicemachine.config.json";
 
+const RouteSchema = z.object({
+	type: z.string(),
+	path: z.string(),
+	uid: z.optional(z.string()),
+	lang: z.optional(z.string()),
+	resolvers: z.optional(z.record(z.string(), z.string())),
+});
+export type Route = z.infer<typeof RouteSchema>;
+
 const ConfigSchema = z.object({
 	repositoryName: z.string(),
 	libraries: z.optional(z.array(z.string())),
+	routes: z.optional(z.array(RouteSchema)),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -85,6 +97,35 @@ export async function findSuggestedConfigPath(): Promise<URL> {
 
 export class UnknownProjectRoot extends Error {
 	name = "UnknownProjectRoot";
+}
+
+export async function addRoute(pageType: CustomType): Promise<void> {
+	const { routes = [] } = await readConfig();
+	const hasRoute = routes.some((r) => r.type === pageType.id);
+	if (hasRoute) return;
+	const path = buildRoutePath(pageType);
+	const newRoute: Route = { type: pageType.id, path };
+	const newRoutes = [...routes, newRoute].sort((a, b) => a.type.localeCompare(b.type));
+	await updateConfig({ routes: newRoutes });
+}
+
+export async function updateRoute(pageType: CustomType): Promise<void> {
+	await removeRoute(pageType.id);
+	if (pageType.format === "page") await addRoute(pageType);
+}
+
+export async function removeRoute(id: string): Promise<void> {
+	const { routes = [] } = await readConfig();
+	const newRoutes = routes.filter((r) => r.type !== id);
+	if (routes.length === newRoutes.length) return;
+	await updateConfig({ routes: newRoutes.length > 0 ? newRoutes : undefined });
+}
+
+function buildRoutePath(pageType: CustomType): string {
+	if (pageType.id === "homepage") return "/";
+	const segment = pageType.id.replaceAll("_", "-");
+	const routePath = pageType.repeatable ? `/${segment}/:uid` : `/${segment}`;
+	return routePath;
 }
 
 export async function readLegacySliceMachineConfig(): Promise<LegacySliceMachineConfig> {

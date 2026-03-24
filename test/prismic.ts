@@ -62,6 +62,19 @@ export async function insertCustomType(customType: object, config: RepoConfig): 
 	if (!res.ok) throw new Error(`Failed to insert custom type: ${res.status} ${await res.text()}`);
 }
 
+export async function deleteCustomType(customTypeId: string, config: RepoConfig): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL(`customtypes/${customTypeId}`, `https://customtypes.${host}/`);
+	const res = await fetch(url, {
+		method: "DELETE",
+		headers: {
+			Authorization: `Bearer ${config.token}`,
+			repository: config.repo,
+		},
+	});
+	if (!res.ok) throw new Error(`Failed to delete custom type: ${res.status} ${await res.text()}`);
+}
+
 export async function insertSlice(slice: object, config: RepoConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("slices/insert", `https://customtypes.${host}/`);

@@ -5,6 +5,7 @@ import { rm } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { glob } from "tinyglobby";
 
+import { addRoute, removeRoute, updateRoute } from "../config";
 import { readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
@@ -148,17 +149,20 @@ export abstract class Adapter {
 
 	async createCustomType(model: CustomType): Promise<void> {
 		await upsertCustomTypeModel(model);
+		if (model.format === "page") await addRoute(model);
 		await this.onCustomTypeCreated(model);
 	}
 
 	async updateCustomType(model: CustomType): Promise<void> {
 		await upsertCustomTypeModel(model);
+		await updateRoute(model);
 		await this.onCustomTypeUpdated(model);
 	}
 
 	async deleteCustomType(id: string): Promise<void> {
 		const customType = await this.getCustomType(id);
 		await rm(customType.directory, { recursive: true });
+		await removeRoute(id);
 		await this.onCustomTypeDeleted(id);
 	}
 }
