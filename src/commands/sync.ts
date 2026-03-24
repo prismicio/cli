@@ -4,6 +4,7 @@ import { setTimeout } from "node:timers/promises";
 import { getAdapter, type Adapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
+import { env } from "../env";
 import { generateAndWriteTypes } from "../lib/codegen";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
@@ -11,7 +12,7 @@ import { dedent } from "../lib/string";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 // 5 seconds balances responsiveness with API load
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
 const MAX_BACKOFF_MS = 60000; // Cap backoff at 1 minute
 const MAX_CONSECUTIVE_ERRORS = 10;
 

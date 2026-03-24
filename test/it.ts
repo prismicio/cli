@@ -21,8 +21,6 @@ export type Fixtures = {
 	logout: () => Promise<void>;
 	token: string;
 	repo: string;
-	setupPackageJson: (args: { dependencies?: Record<string, string> }) => Promise<void>;
-	stubNodeModule: (name: string, version: string) => Promise<void>;
 };
 
 export const it = test.extend<Fixtures>({
@@ -36,23 +34,34 @@ export const it = test.extend<Fixtures>({
 		await use(pathToFileURL(dir + "/"));
 		await rm(dir, { recursive: true, force: true });
 	},
-	project: async ({ home }, use) => {
+	project: async ({ home, repo }, use) => {
 		const projectPath = new URL("project/", home);
 		await mkdir(projectPath, { recursive: true });
+
+		// Stub npm
+		const binDir = new URL("bin/", home);
+		await mkdir(binDir);
+		const lockfilePath = fileURLToPath(new URL("package-lock.json", projectPath));
+		await writeFile(
+			new URL("npm", binDir),
+			`#!/bin/sh\necho '{}' > "${lockfilePath}"\necho "added 0 packages"\n`,
+			{ mode: 0o755 },
+		);
+
+		// Stub Next.js installation
+		const packageJsonPath = new URL("package.json", projectPath);
+		await writeFile(packageJsonPath, JSON.stringify({ dependencies: { next: "latest" } }));
+		const nextPackageJsonPath = new URL("node_modules/next/package.json", projectPath);
+		await mkdir(new URL(".", nextPackageJsonPath), { recursive: true });
+		await writeFile(nextPackageJsonPath, JSON.stringify({ version: "16.0.0" }));
+		await mkdir(new URL("app/", projectPath));
+
+		await writeFile(
+			new URL("prismic.config.json", projectPath),
+			JSON.stringify({ repositoryName: repo }),
+		);
+
 		await use(projectPath);
-	},
-	setupPackageJson: async ({ project }, use) => {
-		const packageJsonPath = new URL("package.json", project);
-		await use(async ({ dependencies }) => {
-			await writeFile(packageJsonPath, JSON.stringify({ dependencies }));
-		});
-	},
-	stubNodeModule: async ({ project }, use) => {
-		await use(async (name, version) => {
-			const packageJsonPath = new URL(`node_modules/${name}/package.json`, project);
-			await mkdir(new URL(".", packageJsonPath), { recursive: true });
-			await writeFile(packageJsonPath, JSON.stringify({ version }));
-		});
 	},
 	// oxlint-disable-next-line no-empty-pattern
 	token: async ({}, use) => {
@@ -72,20 +81,15 @@ export const it = test.extend<Fixtures>({
 			await rm(new URL(".prismic", home), { recursive: true, force: true });
 		});
 	},
-	prismic: async ({ home, project, login, setupPackageJson, stubNodeModule, repo }, use) => {
+	prismic: async ({ home, project, login }, use) => {
 		await login();
-		await setupPackageJson({ dependencies: { next: "latest" } });
-		await stubNodeModule("next", "16.0.0");
-		await mkdir(new URL("app/", project));
-		await writeFile(
-			new URL("prismic.config.json", project),
-			JSON.stringify({ repositoryName: repo }),
-		);
+		const binDir = new URL("bin/", home);
 		const procs: Result[] = [];
 		await use((command, args = [], options) => {
 			const env = {
 				...process.env,
 				...options?.nodeOptions?.env,
+				PATH: `${fileURLToPath(binDir)}:${process.env.PATH}`,
 				HOME: fileURLToPath(home),
 			};
 			const proc = x("node", [BIN, command, ...args].filter(Boolean), {
