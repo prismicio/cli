@@ -2,15 +2,29 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
 	test: {
-		setupFiles: ["./test/setup.ts"],
 		globalSetup: ["./test/setup.global.ts"],
 		forceRerunTriggers: ["**/dist/index.mjs"],
-		typecheck: {
-			enabled: true,
-		},
-		sequence: {
-			concurrent: true,
-		},
+		typecheck: { enabled: true },
 		retry: 1,
+		projects: [
+			{
+				test: {
+					name: "concurrent",
+					setupFiles: ["./test/setup.ts"],
+					include: ["./test/**/*.test.ts"],
+					exclude: ["./test/*.serial.test.ts"],
+					sequence: { concurrent: true },
+				},
+			},
+			{
+				test: {
+					name: "serial",
+					setupFiles: ["./test/setup.ts"],
+					include: ["./test/*.serial.test.ts"],
+					sequence: { concurrent: false },
+					fileParallelism: false,
+				},
+			},
+		],
 	},
 });

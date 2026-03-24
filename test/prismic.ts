@@ -103,7 +103,9 @@ export async function deleteSlice(sliceId: string, config: RepoConfig): Promise<
 	if (!res.ok) throw new Error(`Failed to delete slice: ${res.status} ${await res.text()}`);
 }
 
-export async function getWebhooks(config: RepoConfig): Promise<{ config: Record<string, unknown> }[]> {
+export async function getWebhooks(
+	config: RepoConfig,
+): Promise<{ config: Record<string, unknown> }[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("app/settings/webhooks", `https://${config.repo}.${host}/`);
 	const res = await fetch(url, {
@@ -136,7 +138,9 @@ export async function createWebhook(webhookUrl: string, config: RepoConfig): Pro
 	if (!res.ok) throw new Error(`Failed to create webhook: ${res.status} ${await res.text()}`);
 }
 
-export async function getPreviews(config: RepoConfig): Promise<{ id: string; label: string; url: string }[]> {
+export async function getPreviews(
+	config: RepoConfig,
+): Promise<{ id: string; label: string; url: string }[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("core/repository/preview_configs", `https://${config.repo}.${host}/`);
 	const res = await fetch(url, {
@@ -168,6 +172,62 @@ export async function addPreview(
 	if (!res.ok) throw new Error(`Failed to add preview: ${res.status} ${await res.text()}`);
 }
 
+export async function getLocales(
+	config: RepoConfig,
+): Promise<{ id: string; label: string; customName: string | null; isMaster: boolean }[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("locale/repository/locales", `https://api.internal.${host}/`);
+	url.searchParams.set("repository", config.repo);
+	const res = await fetch(url, {
+		headers: { Authorization: `Bearer ${config.token}` },
+	});
+	if (!res.ok) throw new Error(`Failed to get locales: ${res.status} ${await res.text()}`);
+	const data = await res.json();
+	return data.results;
+}
+
+export async function upsertLocale(
+	code: string,
+	config: RepoConfig & { isMaster?: boolean },
+): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("locale/repository/locales", `https://api.internal.${host}/`);
+	url.searchParams.set("repository", config.repo);
+	const res = await fetch(url, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${config.token}`,
+		},
+		body: JSON.stringify({ id: code, isMaster: config.isMaster ?? false }),
+	});
+	if (!res.ok) throw new Error(`Failed to add locale ${code}: ${res.status} ${await res.text()}`);
+}
+
+export async function removeLocale(code: string, config: RepoConfig): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL(
+		`locale/repository/locales/${encodeURIComponent(code)}`,
+		`https://api.internal.${host}/`,
+	);
+	url.searchParams.set("repository", config.repo);
+	const res = await fetch(url, {
+		method: "DELETE",
+		headers: { Authorization: `Bearer ${config.token}` },
+	});
+	if (!res.ok && res.status !== 404)
+		throw new Error(`Failed to remove locale ${code}: ${res.status} ${await res.text()}`);
+}
+
+export async function resetLocales(config: RepoConfig): Promise<void> {
+	await upsertLocale("en-us", { isMaster: true, ...config });
+	const locales = await getLocales(config);
+	for (const locale of locales) {
+		if (locale.isMaster) continue;
+		await removeLocale(locale.id, config);
+	}
+}
+
 export async function getRepository(config: RepoConfig): Promise<{ simulator_url?: string }> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("core/repository", `https://${config.repo}.${host}/`);
@@ -177,4 +237,3 @@ export async function getRepository(config: RepoConfig): Promise<{ simulator_url
 	if (!res.ok) throw new Error(`Failed to get repository: ${res.status} ${await res.text()}`);
 	return await res.json();
 }
-
