@@ -133,8 +133,8 @@ it("adds route for synced page type", async ({ expect, project, prismic, repo, t
 	const { exitCode } = await prismic("sync", ["--repo", repo]);
 	expect(exitCode).toBe(0);
 
-	const expectedSegment = customType.id.replaceAll("_", "-");
-	expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}/:uid` });
+	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}/:uid` });
 }, 60_000);
 
 it("adds route without :uid for non-repeatable page type", async ({
@@ -151,8 +151,8 @@ it("adds route without :uid for non-repeatable page type", async ({
 	const { exitCode } = await prismic("sync", ["--repo", repo]);
 	expect(exitCode).toBe(0);
 
-	const expectedSegment = customType.id.replaceAll("_", "-");
-	expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}` });
+	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}` });
 }, 60_000);
 
 it("does not add route for non-page custom type", async ({
@@ -168,7 +168,7 @@ it("does not add route for non-page custom type", async ({
 
 	const { exitCode } = await prismic("sync", ["--repo", repo]);
 	expect(exitCode).toBe(0);
-	expect(project).not.toHaveRoute({ type: customType.id });
+	await expect(project).not.toHaveRoute({ type: customType.id });
 }, 60_000);
 
 it("removes route when page type is deleted", async ({
@@ -185,14 +185,14 @@ it("removes route when page type is deleted", async ({
 	// First sync — adds the route
 	const first = await prismic("sync", ["--repo", repo]);
 	expect(first.exitCode).toBe(0);
-	expect(project).toHaveRoute({ type: customType.id });
+	await expect(project).toHaveRoute({ type: customType.id });
 
 	await deleteCustomType(customType.id, { repo, token, host });
 
 	// Second sync — removes the route
 	const second = await prismic("sync", ["--repo", repo]);
 	expect(second.exitCode).toBe(0);
-	expect(project).not.toHaveRoute({ type: customType.id });
+	await expect(project).not.toHaveRoute({ type: customType.id });
 }, 60_000);
 
 function buildCustomType(overrides?: Partial<CustomType>): CustomType {
