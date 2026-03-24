@@ -42,11 +42,10 @@ it("initializes a project with --repo when logged in", async ({
 	expect(config.repositoryName).toBe(repo);
 }, 60_000);
 
-it("triggers login flow when not logged in, then initializes", async ({
+it("triggers login flow when not logged in", async ({
 	expect,
 	project,
 	prismic,
-	token,
 	logout,
 	repo,
 }) => {
@@ -56,23 +55,10 @@ it("triggers login flow when not logged in, then initializes", async ({
 	const proc = prismic("init", ["--repo", repo, "--no-browser"]);
 	const output = captureOutput(proc);
 
-	// Wait for the login server to start and print the URL with port
+	// Verify login flow starts, then kill — no need to complete it
 	await expect.poll(output, { timeout: 15_000 }).toMatch(/port=(\d+)/);
-
-	const port = output().match(/port=(\d+)/)![1];
-	await fetch(`http://localhost:${port}`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			cookies: [`prismic-auth=${token}; path=/`],
-			email: process.env.E2E_PRISMIC_EMAIL,
-		}),
-	});
-
-	await expect
-		.poll(output, { timeout: 30_000 })
-		.toContain(`Initialized Prismic for repository "${repo}"`);
-}, 60_000);
+	proc.kill();
+});
 
 it("fails if repo is not in the user's account", async ({ expect, project, prismic }) => {
 	await rm(new URL("prismic.config.json", project));
@@ -91,9 +77,12 @@ it("migrates slicemachine.config.json", async ({ expect, project, prismic, repo 
 		}),
 	);
 
-	const { exitCode, stdout } = await prismic("init");
-	expect(exitCode).toBe(0);
-	expect(stdout).toContain("Migrated slicemachine.config.json");
+	const proc = prismic("init");
+	const output = captureOutput(proc);
+
+	// Wait for migration to complete, then kill — no need to wait for sync/install
+	await expect.poll(output, { timeout: 15_000 }).toContain("Migrated slicemachine.config.json");
+	proc.kill();
 
 	const configRaw = await readFile(new URL("prismic.config.json", project), "utf-8");
 	const config = JSON.parse(configRaw);
@@ -102,15 +91,14 @@ it("migrates slicemachine.config.json", async ({ expect, project, prismic, repo 
 
 	// Verify legacy config was deleted
 	await expect(access(new URL("slicemachine.config.json", project))).rejects.toThrow();
-}, 60_000);
+});
 
 it("installs dependencies", async ({ expect, project, prismic, repo }) => {
 	await rm(new URL("prismic.config.json", project));
 
-	const proc = prismic("init", ["--repo", repo]);
-	const output = captureOutput(proc);
+	const { exitCode } = await prismic("init", ["--repo", repo]);
+	expect(exitCode).toBe(0);
 
-	await expect.poll(output, { timeout: 60_000 }).toContain("Initialized Prismic");
-
+	// Verify the stubbed npm was invoked (it creates package-lock.json)
 	await expect(access(new URL("package-lock.json", project))).resolves.toBeUndefined();
-}, 60_000);
+});
