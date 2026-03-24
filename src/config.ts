@@ -1,3 +1,5 @@
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
 import { readFile, rm, writeFile } from "node:fs/promises";
 import * as z from "zod/mini";
 
@@ -8,9 +10,19 @@ import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
 const CONFIG_FILENAME = "prismic.config.json";
 const LEGACY_SLICE_MACHINE_CONFIG_FILENAME = "slicemachine.config.json";
 
+const RouteSchema = z.object({
+	type: z.string(),
+	path: z.string(),
+	uid: z.optional(z.string()),
+	lang: z.optional(z.string()),
+	resolvers: z.optional(z.record(z.string(), z.string())),
+});
+export type Route = z.infer<typeof RouteSchema>;
+
 const ConfigSchema = z.object({
 	repositoryName: z.string(),
 	libraries: z.optional(z.array(z.string())),
+	routes: z.optional(z.array(RouteSchema)),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
@@ -85,6 +97,46 @@ export async function findSuggestedConfigPath(): Promise<URL> {
 
 export class UnknownProjectRoot extends Error {
 	name = "UnknownProjectRoot";
+}
+
+export async function addRoute(pageType: CustomType): Promise<void> {
+	const { routes = [] } = await readConfig();
+	const hasRoute = routes.some((r) => r.type === pageType.id);
+	if (hasRoute) return;
+	const path = buildRoutePath(pageType);
+	const newRoute: Route = { type: pageType.id, path };
+	const newRoutes = [...routes, newRoute].sort((a, b) => a.type.localeCompare(b.type));
+	await updateConfig({ routes: newRoutes });
+}
+
+export async function updateRoute(pageType: CustomType): Promise<void> {
+	if (pageType.format === "page") {
+		const { routes = [] } = await readConfig();
+		const hasRoute = routes.some((r) => r.type === pageType.id);
+		if (hasRoute) return;
+		await addRoute(pageType);
+	} else {
+		await removeRoute(pageType.id);
+	}
+}
+
+export async function removeRoute(id: string): Promise<void> {
+	const { routes = [] } = await readConfig();
+	const newRoutes = routes.filter((r) => r.type !== id);
+	if (routes.length === newRoutes.length) return;
+	await updateConfig({ routes: newRoutes });
+}
+
+function buildRoutePath(pageType: CustomType): string {
+	const { id, repeatable } = pageType;
+	const namespace = id.replaceAll("_", "-").toLowerCase();
+	if (repeatable) {
+		if (id === "page") return "/:uid";
+		return `/${namespace}/:uid`;
+	} else {
+		if (id === "homepage") return "/";
+		return `/${namespace}`;
+	}
 }
 
 export async function readLegacySliceMachineConfig(): Promise<LegacySliceMachineConfig> {

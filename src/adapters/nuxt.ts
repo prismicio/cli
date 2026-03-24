@@ -132,11 +132,14 @@ async function configureNuxtModule(): Promise<void> {
 	if (!hasInlinedConfiguration) {
 		mod.imports.$prepend({
 			from: "./prismic.config.json",
-			imported: "repositoryName",
+			imported: "default",
+			local: "prismicConfig",
 		});
 
 		config.prismic ||= {};
-		config.prismic.endpoint = builders.raw("repositoryName");
+		config.prismic.endpoint = builders.raw("prismicConfig.repositoryName");
+		config.prismic.clientConfig ||= {};
+		config.prismic.clientConfig.routes = builders.raw("prismicConfig.routes");
 	}
 
 	await magicastWriteFile(mod, filepath);

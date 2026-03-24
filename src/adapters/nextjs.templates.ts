@@ -73,7 +73,6 @@ export function prismicIOFileTemplate(args: {
 				import {
 					createClient as baseCreateClient,
 					type ClientConfig,
-					type Route,
 				} from "@prismicio/client";
 				import { enableAutoPreviews } from "@prismicio/next";
 				import prismicConfig from "${configImportPath}";
@@ -88,7 +87,7 @@ export function prismicIOFileTemplate(args: {
 				 */
 				export const createClient = (config: ClientConfig = {}) => {
 					const client = baseCreateClient(repositoryName, {
-						routes,
+						routes: prismicConfig.routes,
 						fetchOptions:
 							process.env.NODE_ENV === 'production'
 								? { next: { tags: ['prismic'] }, cache: 'force-cache' }
@@ -117,7 +116,7 @@ export function prismicIOFileTemplate(args: {
 				 */
 				export const createClient = (config = {}) => {
 					const client = baseCreateClient(repositoryName, {
-						routes,
+						routes: prismicConfig.routes,
 						fetchOptions:
 							process.env.NODE_ENV === 'production'
 								? { next: { tags: ['prismic'] }, cache: 'force-cache' }
@@ -134,7 +133,7 @@ export function prismicIOFileTemplate(args: {
 	} else {
 		if (typescript) {
 			importsContents = dedent`
-				import { createClient as baseCreateClient, type Routes } from "@prismicio/client";
+				import { createClient as baseCreateClient } from "@prismicio/client";
 				import { enableAutoPreviews, type CreateClientConfig } from "@prismicio/next/pages";
 				import prismicConfig from "${configImportPath}";
 			`;
@@ -148,7 +147,7 @@ export function prismicIOFileTemplate(args: {
 				 */
 				export const createClient = ({ previewData, req, ...config }: CreateClientConfig = {}) => {
 					const client = baseCreateClient(repositoryName, {
-						routes,
+						routes: prismicConfig.routes,
 						...config,
 					});
 
@@ -173,7 +172,7 @@ export function prismicIOFileTemplate(args: {
 				 */
 				export const createClient = ({ previewData, req, ...config } = {}) => {
 					const client = baseCreateClient(repositoryName, {
-						routes,
+						routes: prismicConfig.routes,
 						...config,
 					});
 
@@ -194,21 +193,6 @@ export function prismicIOFileTemplate(args: {
 			 */
 			export const repositoryName = prismicConfig.repositoryName;
 
-			/**
-			 * A list of Route Resolver objects that define how a document's \`url\` field is resolved.
-			 *
-			 * {@link https://prismic.io/docs/route-resolver#route-resolver}
-			 *
-			 * Note: \`prismic sync\` may append new default routes for Page Types. Feel free
-			 * to edit these to match your site's routing structure.
-			 */
-			// TODO: Update the routes array to match your project's route structure.
-			const routes: Route[] = [
-				// Examples:
-				// { type: "homepage", path: "/" },
-				// { type: "page", path: "/:uid" },
-			];
-
 			${createClientContents}
 		`;
 	}
@@ -220,23 +204,6 @@ export function prismicIOFileTemplate(args: {
 		 * The project's Prismic repository name.
 		 */
 		export const repositoryName = prismicConfig.repositoryName;
-
-		/**
-		 * A list of Route Resolver objects that define how a document's \`url\` field is resolved.
-		 *
-		 * {@link https://prismic.io/docs/route-resolver#route-resolver}
-		 *
-		 * Note: \`prismic sync\` may append new default routes for Page Types. Feel free
-		 * to edit these to match your site's routing structure.
-		 *
-		 * @type {import("@prismicio/client").Route[]}
-		 */
-		// TODO: Update the routes array to match your project's route structure.
-		const routes = [
-			// Examples:
-			// { type: "homepage", path: "/" },
-			// { type: "page", path: "/:uid" },
-		];
 
 		${createClientContents}
 	`;

@@ -111,6 +111,7 @@ export default createCommand(config, async ({ values }) => {
 		await createConfig({
 			repositoryName: repo,
 			libraries: legacySliceMachineConfig?.libraries,
+			routes: [],
 		});
 	} catch (error) {
 		if (error instanceof UnknownProjectRoot) {

@@ -7,7 +7,7 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 
 	if (typescript) {
 		return dedent`
-			import { createClient as baseCreateClient, type Route } from "@prismicio/client";
+			import { createClient as baseCreateClient } from "@prismicio/client";
 			import { type CreateClientConfig, enableAutoPreviews } from '@prismicio/svelte/kit';
 			import prismicConfig from "../../prismic.config.json";
 
@@ -17,21 +17,6 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 			export const repositoryName = prismicConfig.repositoryName;
 
 			/**
-			 * A list of Route Resolver objects that define how a document's \`url\` field is resolved.
-			 *
-			 * {@link https://prismic.io/docs/route-resolver}
-			 *
-			 * Note: \`prismic sync\` may append new default routes for Page Types. Feel free
-			 * to edit these to match your site's routing structure.
-			 */
-			// TODO: Update the routes array to match your project's route structure.
-			const routes: Route[] = [
-				// Examples:
-				// { type: "homepage", path: "/" },
-				// { type: "page", path: "/:uid" },
-			];
-
-			/**
 			 * Creates a Prismic client for the project's repository. The client is used to
 			 * query content from the Prismic API.
 			 *
@@ -39,7 +24,7 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 			 */
 			export const createClient = ({ cookies, ...config }: CreateClientConfig = {}) => {
 				const client = baseCreateClient(repositoryName, {
-					routes,
+					routes: prismicConfig.routes,
 					...config,
 				});
 
@@ -61,23 +46,6 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 		export const repositoryName = prismicConfig.repositoryName;
 
 		/**
-		 * A list of Route Resolver objects that define how a document's \`url\` field is resolved.
-		 *
-		 * {@link https://prismic.io/docs/route-resolver#route-resolver}
-		 *
-		 * Note: \`prismic sync\` may append new default routes for Page Types. Feel free
-		 * to edit these to match your site's routing structure.
-		 *
-		 * @type {import("@prismicio/client").Route[]}
-		 */
-		// TODO: Update the routes array to match your project's route structure.
-		const routes = [
-			// Examples:
-			// { type: "homepage", path: "/" },
-			// { type: "page", path: "/:uid" },
-		];
-
-		/**
 		 * Creates a Prismic client for the project's repository. The client is used to
 		 * query content from the Prismic API.
 		 *
@@ -85,7 +53,7 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 		 */
 		export const createClient = ({ cookies, ...config } = {}) => {
 			const client = baseCreateClient(repositoryName, {
-				routes,
+				routes: prismicConfig.routes,
 				...config,
 			});
 

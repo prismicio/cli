@@ -1,7 +1,7 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { captureOutput, it } from "./it";
-import { deleteSlice, insertCustomType, insertSlice } from "./prismic";
+import { deleteCustomType, deleteSlice, insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("sync", ["--help"]);
@@ -126,7 +126,76 @@ it("watches for changes and syncs", async ({ expect, project, prismic, repo, tok
 	await expect(project).toContainSlice(slice);
 }, 60_000);
 
-function buildCustomType(): CustomType {
+it("adds route for synced page type", async ({ expect, project, prismic, repo, token, host }) => {
+	const customType = buildCustomType({ format: "page", repeatable: true });
+	await insertCustomType(customType, { repo, token, host });
+
+	const { exitCode } = await prismic("sync", ["--repo", repo]);
+	expect(exitCode).toBe(0);
+
+	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}/:uid` });
+}, 60_000);
+
+it("adds route without :uid for non-repeatable page type", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType({ format: "page", repeatable: false });
+	await insertCustomType(customType, { repo, token, host });
+
+	const { exitCode } = await prismic("sync", ["--repo", repo]);
+	expect(exitCode).toBe(0);
+
+	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}` });
+}, 60_000);
+
+it("does not add route for non-page custom type", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType();
+	await insertCustomType(customType, { repo, token, host });
+
+	const { exitCode } = await prismic("sync", ["--repo", repo]);
+	expect(exitCode).toBe(0);
+	await expect(project).not.toHaveRoute({ type: customType.id });
+}, 60_000);
+
+it("removes route when page type is deleted", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType({ format: "page", repeatable: true });
+	await insertCustomType(customType, { repo, token, host });
+
+	// First sync — adds the route
+	const first = await prismic("sync", ["--repo", repo]);
+	expect(first.exitCode).toBe(0);
+	await expect(project).toHaveRoute({ type: customType.id });
+
+	await deleteCustomType(customType.id, { repo, token, host });
+
+	// Second sync — removes the route
+	const second = await prismic("sync", ["--repo", repo]);
+	expect(second.exitCode).toBe(0);
+	await expect(project).not.toHaveRoute({ type: customType.id });
+}, 60_000);
+
+function buildCustomType(overrides?: Partial<CustomType>): CustomType {
 	const id = crypto.randomUUID().split("-")[0];
 	return {
 		id: `type-T${id}`,
@@ -134,6 +203,7 @@ function buildCustomType(): CustomType {
 		repeatable: true,
 		status: true,
 		json: {},
+		...overrides,
 	};
 }
 
