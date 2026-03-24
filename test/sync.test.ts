@@ -30,7 +30,7 @@ it("syncs slices and custom types from remote", async ({
 
 	await expect(project).toContainCustomType(customType);
 	await expect(project).toContainSlice(slice);
-}, 60_000);
+});
 
 it("syncs multiple slices with correct structure", async ({
 	expect,
@@ -51,7 +51,7 @@ it("syncs multiple slices with correct structure", async ({
 
 	await expect(project).toContainSlice(sliceA);
 	await expect(project).toContainSlice(sliceB);
-}, 60_000);
+});
 
 it("adds new slice to existing library on re-sync", async ({
 	expect,
@@ -78,7 +78,7 @@ it("adds new slice to existing library on re-sync", async ({
 	expect(second.exitCode).toBe(0);
 	await expect(project).toContainSlice(sliceA);
 	await expect(project).toContainSlice(sliceB);
-}, 60_000);
+});
 
 it("removes deleted slice and updates index on re-sync", async ({
 	expect,
@@ -108,7 +108,7 @@ it("removes deleted slice and updates index on re-sync", async ({
 	expect(second.exitCode).toBe(0);
 	await expect(project).toContainSlice(sliceA);
 	await expect(project).not.toContainSlice(sliceB);
-}, 60_000);
+});
 
 it("watches for changes and syncs", async ({ expect, project, prismic, repo, token, host }) => {
 	const customType = buildCustomType();
@@ -137,7 +137,7 @@ it("adds route for synced page type", async ({ expect, project, prismic, repo, t
 
 	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
 	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}/:uid` });
-}, 60_000);
+});
 
 it("adds route without :uid for non-repeatable page type", async ({
 	expect,
@@ -155,7 +155,7 @@ it("adds route without :uid for non-repeatable page type", async ({
 
 	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
 	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}` });
-}, 60_000);
+});
 
 it("does not add route for non-page custom type", async ({
 	expect,
@@ -171,7 +171,7 @@ it("does not add route for non-page custom type", async ({
 	const { exitCode } = await prismic("sync", ["--repo", repo]);
 	expect(exitCode).toBe(0);
 	await expect(project).not.toHaveRoute({ type: customType.id });
-}, 60_000);
+});
 
 it("removes route when page type is deleted", async ({
 	expect,
@@ -195,7 +195,7 @@ it("removes route when page type is deleted", async ({
 	const second = await prismic("sync", ["--repo", repo]);
 	expect(second.exitCode).toBe(0);
 	await expect(project).not.toHaveRoute({ type: customType.id });
-}, 60_000);
+});
 
 it("generates page file for repeatable page type", async ({
 	expect,
@@ -215,7 +215,7 @@ it("generates page file for repeatable page type", async ({
 	await expect(project).toHaveFile(`app/${expectedSegment}/[uid]/page.jsx`, {
 		contains: `getByUID("${customType.id}"`,
 	});
-}, 60_000);
+});
 
 it("generates page file for non-repeatable page type", async ({
 	expect,
@@ -235,7 +235,7 @@ it("generates page file for non-repeatable page type", async ({
 	await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
 		contains: `getSingle("${customType.id}"`,
 	});
-}, 60_000);
+});
 
 it("does not generate page file for non-page custom type", async ({
 	expect,
@@ -253,7 +253,7 @@ it("does not generate page file for non-page custom type", async ({
 
 	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
 	await expect(project).not.toHaveFile(`app/${expectedSegment}/page.jsx`);
-}, 60_000);
+});
 
 it("does not overwrite existing page file", async ({
 	expect,
@@ -279,7 +279,7 @@ it("does not overwrite existing page file", async ({
 	await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
 		contains: originalContent,
 	});
-}, 60_000);
+});
 
 function buildCustomType(overrides?: Partial<CustomType>): CustomType {
 	const id = crypto.randomUUID().split("-")[0];

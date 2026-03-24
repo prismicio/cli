@@ -50,7 +50,6 @@ export const it = test.extend<Fixtures>({
 	stubNodeModule: async ({ project }, use) => {
 		await use(async (name, version) => {
 			const packageJsonPath = new URL(`node_modules/${name}/package.json`, project);
-
 			await mkdir(new URL(".", packageJsonPath), { recursive: true });
 			await writeFile(packageJsonPath, JSON.stringify({ version }));
 		});
