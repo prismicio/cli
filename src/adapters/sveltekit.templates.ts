@@ -1,3 +1,5 @@
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
 import { pascalCase } from "change-case";
 
 import { dedent } from "../lib/string";
@@ -175,6 +177,93 @@ export function rootLayoutTemplate(args: { version: number }): string {
 	`;
 
 	return version <= 4 ? v4 : v5;
+}
+
+export function pageTemplate(args: { typescript: boolean }): string {
+	const { typescript } = args;
+
+	if (typescript) {
+		return dedent`
+			<script lang="ts">
+				import { SliceZone } from "@prismicio/svelte";
+				import { components } from "$lib/slices";
+				import type { PageProps } from "./$types";
+
+				const { data }: PageProps = $props();
+			</script>
+
+			<SliceZone slices={data.page.data.slices} {components} />
+		`;
+	}
+
+	return dedent`
+		<script>
+			import { SliceZone } from "@prismicio/svelte";
+			import { components } from "$lib/slices";
+
+			const { data } = $props();
+		</script>
+
+		<SliceZone slices={data.page.data.slices} {components} />
+	`;
+}
+
+export function pageServerTemplate(args: { model: CustomType; typescript: boolean }): string {
+	const { model, typescript } = args;
+
+	if (model.repeatable) {
+		if (typescript) {
+			return dedent`
+				import type { PageServerLoad } from "./$types";
+				import { createClient } from "$lib/prismicio";
+
+				export const load: PageServerLoad = async ({ params, fetch, cookies }) => {
+					const client = createClient({ fetch, cookies });
+					const page = await client.getByUID("${model.id}", params.uid);
+
+					return { page };
+				};
+			`;
+		}
+
+		return dedent`
+			import { createClient } from "$lib/prismicio";
+
+			/** @type {import("./$types").PageServerLoad} */
+			export async function load({ params, fetch, cookies }) {
+				const client = createClient({ fetch, cookies });
+				const page = await client.getByUID("${model.id}", params.uid);
+
+				return { page };
+			}
+		`;
+	}
+
+	if (typescript) {
+		return dedent`
+			import type { PageServerLoad } from "./$types";
+			import { createClient } from "$lib/prismicio";
+
+			export const load: PageServerLoad = async ({ fetch, cookies }) => {
+				const client = createClient({ fetch, cookies });
+				const page = await client.getSingle("${model.id}");
+
+				return { page };
+			};
+		`;
+	}
+
+	return dedent`
+		import { createClient } from "$lib/prismicio";
+
+		/* @type {import("./$types").PageServerLoad} */
+		export async function load({ fetch, cookies }) {
+			const client = createClient({ fetch, cookies });
+			const page = await client.getSingle("${model.id}");
+
+			return { page };
+		}
+	`;
 }
 
 const SLICE_MARKUP = dedent`

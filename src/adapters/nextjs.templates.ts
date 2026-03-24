@@ -1,3 +1,5 @@
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
 import { pascalCase } from "change-case";
 
 import { dedent } from "../lib/string";
@@ -54,6 +56,169 @@ export function sliceTemplate(args: { name: string; typescript: boolean }): stri
 	`;
 
 	return typescript ? TS : JS;
+}
+
+export function pageTemplate(args: {
+	model: CustomType;
+	routePath: string;
+	typescript: boolean;
+	appRouter: boolean;
+}): string {
+	const { model, routePath, typescript, appRouter } = args;
+
+	if (appRouter) {
+		if (model.repeatable) {
+			if (typescript) {
+				return dedent`
+					import { SliceZone } from "@prismicio/react";
+					import { createClient } from "@/prismicio";
+					import { components } from "@/slices";
+
+					export default async function Page({ params }: PageProps<"/${routePath}">) {
+						const { uid } = await params;
+						const client = createClient();
+						const page = await client.getByUID("${model.id}", uid);
+
+						return <SliceZone slices={page.data.slices} components={components} />;
+					}
+				`;
+			}
+
+			return dedent`
+				import { SliceZone } from "@prismicio/react";
+				import { createClient } from "@/prismicio";
+				import { components } from "@/slices";
+
+				/**
+				 * @type {PageProps<"/${routePath}">}
+				 */
+				export default async function Page({ params }) {
+					const { uid } = await params;
+					const client = createClient();
+					const page = await client.getByUID("${model.id}", uid);
+
+					return <SliceZone slices={page.data.slices} components={components} />;
+				}
+			`;
+		}
+
+		return dedent`
+			import { SliceZone } from "@prismicio/react";
+			import { createClient } from "@/prismicio";
+			import { components } from "@/slices";
+
+			export default async function Page() {
+				const client = createClient();
+				const page = await client.getSingle("${model.id}");
+
+				return <SliceZone slices={page.data.slices} components={components} />;
+			}
+		`;
+	}
+
+	if (model.repeatable) {
+		if (typescript) {
+			return dedent`
+				import type { InferGetStaticPropsType, GetStaticPropsContext } from "next";
+				import { SliceZone } from "@prismicio/react";
+				import { createClient } from "@/prismicio";
+				import { components } from "@/slices";
+
+				type Params = { uid: string };
+
+				export async function getStaticProps({ params, previewData }: GetStaticPropsContext<Params>) {
+					const client = createClient({ previewData });
+					const page = await client.getByUID("${model.id}", params.uid);
+
+					return { props: { page } };
+				}
+
+				export default function Page({ page }: InferGetStaticPropsType<typeof getStaticProps>) {
+					return <SliceZone slices={page.data.slices} components={components} />;
+				}
+
+				export async function getStaticPaths() {
+					const client = createClient();
+					const pages = await client.getAllByType("${model.id}");
+
+					return {
+						paths: pages.map((page) => ({ params: { uid: page.uid } })),
+						fallback: false,
+					};
+				}
+			`;
+		}
+
+		return dedent`
+			import { SliceZone } from "@prismicio/react";
+			import { createClient } from "@/prismicio";
+			import { components } from "@/slices";
+
+			/**
+			 * @param {import("next").InferGetStaticPropsType<typeof getStaticProps>} props
+			 */
+			export default function Page({ page }) {
+				return <SliceZone slices={page.data.slices} components={components} />;
+			}
+
+			export async function getStaticProps({ params, previewData }) {
+				const client = createClient({ previewData });
+				const page = await client.getByUID("${model.id}", params.uid);
+
+				return { props: { page } };
+			}
+
+			export async function getStaticPaths() {
+				const client = createClient();
+				const pages = await client.getAllByType("${model.id}");
+
+				return {
+					paths: pages.map((page) => ({ params: { uid: page.uid } })),
+					fallback: false,
+				};
+			}
+		`;
+	}
+
+	if (typescript) {
+		return dedent`
+			import type { InferGetStaticPropsType, GetStaticPropsContext } from "next";
+			import { SliceZone } from "@prismicio/react";
+			import { createClient } from "@/prismicio";
+			import { components } from "@/slices";
+
+			export async function getStaticProps({ previewData }: GetStaticPropsContext) {
+				const client = createClient({ previewData });
+				const page = await client.getSingle("${model.id}");
+
+				return { props: { page } };
+			}
+
+			export default function Page({ page }: InferGetStaticPropsType<typeof getStaticProps>) {
+				return <SliceZone slices={page.data.slices} components={components} />;
+			}
+		`;
+	}
+
+	return dedent`
+		import { SliceZone } from "@prismicio/react";
+		import { createClient } from "@/prismicio";
+		import { components } from "@/slices";
+
+		/**
+		 * @param {import("next").InferGetStaticPropsType<typeof getStaticProps>} props
+		 */
+		export default function Page({ page }) {
+			return <SliceZone slices={page.data.slices} components={components} />;
+		}
+
+		export async function getStaticProps({ previewData }) {
+			const client = createClient({ previewData });
+			const page = await client.getSingle("${model.id}");
+
+			return { props: { page } };
+		}
+	`;
 }
 
 export function prismicIOFileTemplate(args: {

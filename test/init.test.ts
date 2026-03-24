@@ -79,7 +79,7 @@ it("fails if repo is not in the user's account", async ({ expect, project, prism
 	const { exitCode, stderr } = await prismic("init", ["--repo", "nonexistent-repo-xyz-12345"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("not found in your account");
-}, 30_000);
+});
 
 it("migrates slicemachine.config.json", async ({ expect, project, prismic, repo }) => {
 	await rm(new URL("prismic.config.json", project));

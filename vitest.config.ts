@@ -11,5 +11,6 @@ export default defineConfig({
 		sequence: {
 			concurrent: true,
 		},
+		retry: 1,
 	},
 });

@@ -1,4 +1,4 @@
-import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
 import { loadFile } from "magicast";
@@ -8,12 +8,15 @@ import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
+import { buildRoutePath } from "../config";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import { appendTrailingSlash } from "../lib/url";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import {
+	pageServerTemplate,
+	pageTemplate,
 	previewAPIRouteTemplate,
 	prismicIOFileTemplate,
 	rootLayoutTemplate,
@@ -56,7 +59,9 @@ export class SvelteKitAdapter extends Adapter {
 
 	onSliceDeleted(): void {}
 
-	onCustomTypeCreated(): void {}
+	async onCustomTypeCreated(model: CustomType): Promise<void> {
+		if (model.format === "page") await createPageFile(model);
+	}
 
 	onCustomTypeUpdated(): void {}
 
@@ -181,6 +186,34 @@ async function createRootLayoutFile(): Promise<void> {
 		version: await getSvelteMajor(),
 	});
 	await writeFileRecursive(filePath, contents);
+}
+
+async function createPageFile(model: CustomType): Promise<void> {
+	const routePath = buildRoutePath(model)
+		.split("/")
+		.filter(Boolean)
+		.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
+		.join("/");
+	const projectRoot = await findProjectRoot();
+	const extension = await getJsFileExtension();
+	const fullRoutePath = new URL(`src/routes/[[preview=preview]]/${routePath}/`, projectRoot);
+
+	const pageFilePath = new URL("+page.svelte", fullRoutePath);
+	if (!(await exists(pageFilePath))) {
+		const contents = pageTemplate({
+			typescript: await checkIsTypeScriptProject(),
+		});
+		await writeFileRecursive(pageFilePath, contents);
+	}
+
+	const serverFilePath = new URL(`+page.server.${extension}`, fullRoutePath);
+	if (!(await exists(serverFilePath))) {
+		const contents = pageServerTemplate({
+			model,
+			typescript: await checkIsTypeScriptProject(),
+		});
+		await writeFileRecursive(serverFilePath, contents);
+	}
 }
 
 async function modifyViteConfig(): Promise<void> {

@@ -1,3 +1,5 @@
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
 import { pascalCase } from "change-case";
 
 import { dedent } from "../lib/string";
@@ -48,6 +50,52 @@ export function sliceTemplate(args: { name: string; typescript: boolean }): stri
 				<br />
 				<strong>You can edit this slice directly in your code editor.</strong>
 			</section>
+		</template>
+	`;
+}
+
+export function pageTemplate(args: { model: CustomType; typescript: boolean }): string {
+	const { model, typescript } = args;
+
+	const scriptAttributes = ["setup"];
+	if (typescript) scriptAttributes.push('lang="ts"');
+
+	if (model.repeatable) {
+		const uidExpression = typescript ? "route.params.uid as string" : "route.params.uid";
+
+		return dedent`
+			<script ${scriptAttributes.join(" ")}>
+			import { components } from "~/slices";
+
+			const prismic = usePrismic();
+			const route = useRoute();
+			const { data: page } = await useAsyncData(${uidExpression}, () =>
+				prismic.client.getByUID("${model.id}", ${uidExpression}),
+			);
+			</script>
+
+			<template>
+				<main>
+					<SliceZone :slices="page?.data.slices ?? []" :components="components" />
+				</main>
+			</template>
+		`;
+	}
+
+	return dedent`
+		<script ${scriptAttributes.join(" ")}>
+		import { components } from "~/slices";
+
+		const prismic = usePrismic();
+		const { data: page } = await useAsyncData("${model.id}", () =>
+			prismic.client.getSingle("${model.id}"),
+		);
+		</script>
+
+		<template>
+			<main>
+				<SliceZone :slices="page?.data.slices ?? []" :components="components" />
+			</main>
 		</template>
 	`;
 }
