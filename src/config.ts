@@ -123,8 +123,10 @@ export async function removeRoute(id: string): Promise<void> {
 
 function buildRoutePath(pageType: CustomType): string {
 	if (pageType.id === "homepage") return "/";
-	const segment = pageType.id.replaceAll("_", "-");
-	const routePath = pageType.repeatable ? `/${segment}/:uid` : `/${segment}`;
+	const segments: string[] = [];
+	if (pageType.id !== "page") segments.push(pageType.id.replaceAll("_", "-").toLowerCase());
+	if (pageType.repeatable) segments.push(":uid");
+	const routePath = `/${segments.join("/")}`;
 	return routePath;
 }
 
