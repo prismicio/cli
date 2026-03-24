@@ -118,7 +118,7 @@ export async function removeRoute(id: string): Promise<void> {
 	const { routes = [] } = await readConfig();
 	const newRoutes = routes.filter((r) => r.type !== id);
 	if (routes.length === newRoutes.length) return;
-	await updateConfig({ routes: newRoutes.length > 0 ? newRoutes : undefined });
+	await updateConfig({ routes: newRoutes });
 }
 
 function buildRoutePath(pageType: CustomType): string {
