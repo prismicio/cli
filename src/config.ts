@@ -128,12 +128,15 @@ export async function removeRoute(id: string): Promise<void> {
 }
 
 function buildRoutePath(pageType: CustomType): string {
-	if (pageType.id === "homepage") return "/";
-	const segments: string[] = [];
-	if (pageType.id !== "page") segments.push(pageType.id.replaceAll("_", "-").toLowerCase());
-	if (pageType.repeatable) segments.push(":uid");
-	const routePath = `/${segments.join("/")}`;
-	return routePath;
+	const { id, repeatable } = pageType;
+	const namespace = id.replaceAll("_", "-").toLowerCase();
+	if (repeatable) {
+		if (id === "page") return "/:uid";
+		return `/${namespace}/:uid`;
+	} else {
+		if (id === "homepage") return "/";
+		return `/${namespace}`;
+	}
 }
 
 export async function readLegacySliceMachineConfig(): Promise<LegacySliceMachineConfig> {
