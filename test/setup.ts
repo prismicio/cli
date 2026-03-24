@@ -9,6 +9,7 @@ declare module "vitest" {
 		toContainCustomType(customType: CustomType): Promise<T>;
 		toContainSlice(slice: SharedSlice): Promise<T>;
 		toHaveRoute(route: { type: string; path?: string }): Promise<T>;
+		toHaveFile(path: string | URL, args?: { contains?: string }): Promise<T>;
 	}
 }
 
@@ -76,6 +77,30 @@ expect.extend({
 				problems.length > 0
 					? problems.join("\n")
 					: `expected project not to contain slice "${slice.id}", but all parts exist`,
+		};
+	},
+
+	async toHaveFile(project, path, args = {}) {
+		const { contains } = args;
+
+		const problems: string[] = [];
+
+		const filePath = new URL(path, project);
+		try {
+			const contents = await readFile(filePath, "utf-8");
+			if (contains && !contents.includes(contains)) {
+				problems.push(`file (${filePath.href}) does not contain "${contains}"`);
+			}
+		} catch {
+			problems.push(`file (${filePath.href}) does not exist`);
+		}
+
+		return {
+			pass: problems.length === 0,
+			message: () =>
+				problems.length > 0
+					? problems.join("\n")
+					: `expected project not to have file at "${path}", but it exists`,
 		};
 	},
 

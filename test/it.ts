@@ -38,6 +38,7 @@ export const it = test.extend<Fixtures>({
 	project: async ({ home }, use) => {
 		const projectPath = new URL("project/", home);
 		await mkdir(projectPath, { recursive: true });
+		await mkdir(new URL("app/", projectPath));
 		await use(projectPath);
 	},
 	setupPackageJson: async ({ project }, use) => {

@@ -127,7 +127,7 @@ export async function removeRoute(id: string): Promise<void> {
 	await updateConfig({ routes: newRoutes });
 }
 
-function buildRoutePath(pageType: CustomType): string {
+export function buildRoutePath(pageType: CustomType): string {
 	const { id, repeatable } = pageType;
 	const namespace = id.replaceAll("_", "-").toLowerCase();
 	if (repeatable) {

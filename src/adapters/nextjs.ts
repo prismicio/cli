@@ -1,4 +1,4 @@
-import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
 import { createRequire } from "node:module";
@@ -6,12 +6,14 @@ import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
+import { buildRoutePath } from "../config";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import { appendTrailingSlash } from "../lib/url";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import {
+	pageTemplate,
 	revalidateRouteTemplate,
 	exitPreviewRouteTemplate,
 	previewRouteTemplate,
@@ -53,7 +55,9 @@ export class NextJsAdapter extends Adapter {
 
 	onSliceDeleted(): void {}
 
-	onCustomTypeCreated(): void {}
+	async onCustomTypeCreated(model: CustomType): Promise<void> {
+		if (model.format === "page") await createPageFile(model);
+	}
 
 	onCustomTypeUpdated(): void {}
 
@@ -175,6 +179,29 @@ async function createPrismicIoFile(): Promise<void> {
 		hasSrcDirectory,
 	});
 	await writeFileRecursive(filePath, contents);
+}
+
+async function createPageFile(model: CustomType): Promise<void> {
+	const routePath = buildRoutePath(model)
+		.split("/")
+		.filter(Boolean)
+		.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
+		.join("/");
+	const sourceRoot = await getSourceRoot();
+	const extension = `${await getJsFileExtension()}x`;
+	const usesAppRouter = await checkUsesAppRouter();
+	const pageFilePath = usesAppRouter
+		? new URL(`app/${routePath}/page.${extension}`, sourceRoot)
+		: new URL(`pages/${routePath || "index"}.${extension}`, sourceRoot);
+
+	if (await exists(pageFilePath)) return;
+
+	const contents = pageTemplate({
+		model,
+		routePath,
+		typescript: await checkIsTypeScriptProject(),
+	});
+	await writeFileRecursive(pageFilePath, contents);
 }
 
 async function checkUsesAppRouter() {

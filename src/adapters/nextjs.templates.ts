@@ -1,3 +1,5 @@
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
 import { pascalCase } from "change-case";
 
 import { dedent } from "../lib/string";
@@ -54,6 +56,62 @@ export function sliceTemplate(args: { name: string; typescript: boolean }): stri
 	`;
 
 	return typescript ? TS : JS;
+}
+
+export function pageTemplate(args: {
+	model: CustomType;
+	routePath: string;
+	typescript: boolean;
+}): string {
+	const { model, routePath, typescript } = args;
+
+	if (model.repeatable) {
+		if (typescript) {
+			return dedent`
+				import { SliceZone } from "@prismicio/react";
+				import { createClient } from "@/prismicio";
+				import { components } from "@/slices";
+
+				export default async function Page({ params }: PageProps<"/${routePath}">) {
+					const { uid } = await params;
+					const client = createClient();
+					const page = await client.getByUID("${model.id}", uid);
+
+					return <SliceZone slices={page.data.slices} components={components} />;
+				}
+			`;
+		}
+
+		return dedent`
+			import { SliceZone } from "@prismicio/react";
+			import { createClient } from "@/prismicio";
+			import { components } from "@/slices";
+
+			/**
+			 * @type {PageProps<"/${routePath}">}
+			 */
+			export default async function Page({ params }) {
+				const { uid } = await params;
+				const client = createClient();
+				const page = await client.getByUID("${model.id}", uid);
+
+				return <SliceZone slices={page.data.slices} components={components} />;
+			}
+		`;
+	}
+
+	return dedent`
+		import { SliceZone } from "@prismicio/react";
+		import { createClient } from "@/prismicio";
+		import { components } from "@/slices";
+
+		export default async function Page() {
+			const client = createClient();
+			const page = await client.getSingle("${model.id}");
+
+			return <SliceZone slices={page.data.slices} components={components} />;
+		}
+	`;
 }
 
 export function prismicIOFileTemplate(args: {
