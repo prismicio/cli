@@ -7,6 +7,7 @@ import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
 import init from "./commands/init";
+import locale from "./commands/locale";
 import login from "./commands/login";
 import logout from "./commands/logout";
 import preview from "./commands/preview";
@@ -46,6 +47,10 @@ const router = createCommandRouter({
 		sync: {
 			handler: sync,
 			description: "Sync types and slices from Prismic",
+		},
+		locale: {
+			handler: locale,
+			description: "Manage locales",
 		},
 		preview: {
 			handler: preview,

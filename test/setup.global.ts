@@ -1,6 +1,6 @@
 import type { Vitest } from "vitest/node";
 
-import { createRepository, deleteRepository, login } from "./prismic";
+import { upsertLocale, createRepository, deleteRepository, login } from "./prismic";
 
 declare module "vitest" {
 	export interface ProvidedContext {
@@ -26,17 +26,18 @@ export default async function ({ provide }: Vitest): Promise<() => Promise<void>
 	const token = await login(email, password, { host });
 	provide("token", token);
 
-	const domain = `prismic-cli-test-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
-	console.info(`Creating shared test repository: ${domain}`);
-	await createRepository(domain, { token, host });
-	provide("repo", domain);
+	const repo = `prismic-cli-test-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+	console.info(`Creating shared test repository: ${repo}`);
+	await createRepository(repo, { token, host });
+	await upsertLocale("en-us", { isMaster: true, repo, token, host });
+	provide("repo", repo);
 
 	return async () => {
 		try {
-			console.info(`Deleting shared test repository: ${domain}`);
-			await deleteRepository(domain, { token, password, host });
+			console.info(`Deleting shared test repository: ${repo}`);
+			await deleteRepository(repo, { token, password, host });
 		} catch {
-			console.warn(`Warning: failed to delete test repository ${domain}`);
+			console.warn(`Warning: failed to delete test repository ${repo}`);
 		}
 	};
 }
