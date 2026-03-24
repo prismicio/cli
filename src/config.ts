@@ -110,8 +110,14 @@ export async function addRoute(pageType: CustomType): Promise<void> {
 }
 
 export async function updateRoute(pageType: CustomType): Promise<void> {
-	await removeRoute(pageType.id);
-	if (pageType.format === "page") await addRoute(pageType);
+	if (pageType.format === "page") {
+		const { routes = [] } = await readConfig();
+		const hasRoute = routes.some((r) => r.type === pageType.id);
+		if (hasRoute) return;
+		await addRoute(pageType);
+	} else {
+		await removeRoute(pageType.id);
+	}
 }
 
 export async function removeRoute(id: string): Promise<void> {
