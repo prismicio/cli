@@ -6,11 +6,13 @@ import { generateTypes } from "prismic-ts-codegen";
 export async function generateAndWriteTypes(args: {
 	customTypes: CustomType[];
 	slices: SharedSlice[];
-	projectRoot: URL;
+	output: URL;
 }): Promise<void> {
+	const { customTypes, slices, output } = args;
+
 	const types = generateTypes({
-		customTypeModels: args.customTypes,
-		sharedSliceModels: args.slices,
+		customTypeModels: customTypes,
+		sharedSliceModels: slices,
 		clientIntegration: {
 			includeContentNamespace: true,
 			includeCreateClientInterface: true,
@@ -18,6 +20,5 @@ export async function generateAndWriteTypes(args: {
 		cache: true,
 		typesProvider: "@prismicio/client",
 	});
-	const outputPath = new URL("prismicio-types.d.ts", args.projectRoot);
-	await writeFile(outputPath, types);
+	await writeFile(output, types);
 }

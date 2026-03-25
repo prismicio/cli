@@ -5,7 +5,6 @@ export default defineConfig({
 		globalSetup: ["./test/setup.global.ts"],
 		forceRerunTriggers: ["**/dist/index.mjs"],
 		typecheck: { enabled: true },
-		testTimeout: 10_000,
 		retry: 1,
 		projects: [
 			{
@@ -15,6 +14,7 @@ export default defineConfig({
 					include: ["./test/**/*.test.ts"],
 					exclude: ["./test/*.serial.test.ts"],
 					sequence: { concurrent: true },
+					testTimeout: 10_000,
 				},
 			},
 			{
@@ -24,6 +24,7 @@ export default defineConfig({
 					include: ["./test/*.serial.test.ts"],
 					sequence: { concurrent: false },
 					fileParallelism: false,
+					testTimeout: 10_000,
 				},
 			},
 		],

@@ -227,9 +227,10 @@ async function regenerateTypes(adapter: Adapter): Promise<void> {
 	const slices = await adapter.getSlices();
 	const customTypes = await adapter.getCustomTypes();
 	const projectRoot = await findProjectRoot();
+	const output = new URL("prismicio-types.d.ts", projectRoot);
 	await generateAndWriteTypes({
 		customTypes: customTypes.map((customType) => customType.model),
 		slices: slices.map((slice) => slice.model),
-		projectRoot,
+		output,
 	});
 }

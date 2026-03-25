@@ -150,10 +150,11 @@ export default createCommand(config, async ({ values }) => {
 	const slices = await adapter.getSlices();
 	const customTypes = await adapter.getCustomTypes();
 	const projectRoot = await findProjectRoot();
+	const output = new URL("prismicio-types.d.ts", projectRoot);
 	await generateAndWriteTypes({
 		customTypes: customTypes.map((customType) => customType.model),
 		slices: slices.map((slice) => slice.model),
-		projectRoot,
+		output,
 	});
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
