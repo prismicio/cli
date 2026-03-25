@@ -5,6 +5,7 @@ export default defineConfig({
 		globalSetup: ["./test/setup.global.ts"],
 		forceRerunTriggers: ["**/dist/index.mjs"],
 		typecheck: { enabled: true },
+		testTimeout: 10_000,
 		retry: 1,
 		projects: [
 			{

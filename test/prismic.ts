@@ -228,6 +228,103 @@ export async function resetLocales(config: RepoConfig): Promise<void> {
 	}
 }
 
+export async function getAccessTokens(
+	config: RepoConfig,
+): Promise<
+	{ id: string; name: string; wroom_auths: { id: string; token: string; scope: string }[] }[]
+> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("settings/security/contentapi", `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok) throw new Error(`Failed to get access tokens: ${res.status} ${await res.text()}`);
+	return await res.json();
+}
+
+export async function createAccessToken(
+	config: RepoConfig,
+): Promise<{ appId: string; authId: string; token: string }> {
+	const host = config.host ?? DEFAULT_HOST;
+	const baseUrl = `https://${config.repo}.${host}/`;
+	const headers = { "Content-Type": "application/json", Cookie: `prismic-auth=${config.token}` };
+
+	// Find or create an OAuth app for tests.
+	const apps = await getAccessTokens(config);
+	let app = apps.find((a) => a.name === "Prismic CLI Test");
+	if (!app) {
+		const createUrl = new URL("settings/security/oauthapp", baseUrl);
+		const res = await fetch(createUrl, {
+			method: "POST",
+			headers,
+			body: JSON.stringify({ app_name: "Prismic CLI Test" }),
+		});
+		if (!res.ok) throw new Error(`Failed to create OAuth app: ${res.status} ${await res.text()}`);
+		app = await res.json();
+	}
+
+	// Create an authorization on that app.
+	const authUrl = new URL("settings/security/authorizations", baseUrl);
+	const res = await fetch(authUrl, {
+		method: "POST",
+		headers,
+		body: JSON.stringify({ app: app!.id, scope: "master" }),
+	});
+	if (!res.ok) throw new Error(`Failed to create access token: ${res.status} ${await res.text()}`);
+	const auth = await res.json();
+	return { appId: app!.id, authId: auth.id, token: auth.token };
+}
+
+export async function deleteAccessToken(authId: string, config: RepoConfig): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL(
+		`settings/security/authorizations/${authId}`,
+		`https://${config.repo}.${host}/`,
+	);
+	const res = await fetch(url, {
+		method: "DELETE",
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok && res.status !== 404)
+		throw new Error(`Failed to delete access token: ${res.status} ${await res.text()}`);
+}
+
+export async function getWriteTokens(
+	config: RepoConfig,
+): Promise<{ tokens: { app_name: string; token: string; timestamp: number }[] }> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("settings/security/customtypesapi", `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok) throw new Error(`Failed to get write tokens: ${res.status} ${await res.text()}`);
+	return await res.json();
+}
+
+export async function createWriteToken(config: RepoConfig): Promise<{ token: string }> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("settings/security/token", `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json", Cookie: `prismic-auth=${config.token}` },
+		body: JSON.stringify({ app_name: "Prismic CLI Test" }),
+	});
+	if (!res.ok) throw new Error(`Failed to create write token: ${res.status} ${await res.text()}`);
+	const data = await res.json();
+	return { token: data.token };
+}
+
+export async function deleteWriteToken(tokenValue: string, config: RepoConfig): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL(`settings/security/token/${tokenValue}`, `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		method: "DELETE",
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok && res.status !== 404)
+		throw new Error(`Failed to delete write token: ${res.status} ${await res.text()}`);
+}
+
 export async function getRepository(config: RepoConfig): Promise<{ simulator_url?: string }> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("core/repository", `https://${config.repo}.${host}/`);

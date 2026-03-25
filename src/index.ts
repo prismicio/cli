@@ -12,6 +12,7 @@ import login from "./commands/login";
 import logout from "./commands/logout";
 import preview from "./commands/preview";
 import sync from "./commands/sync";
+import token from "./commands/token";
 import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
 import { InvalidPrismicConfig, MissingPrismicConfig } from "./config";
@@ -55,6 +56,10 @@ const router = createCommandRouter({
 		preview: {
 			handler: preview,
 			description: "Manage preview configurations",
+		},
+		token: {
+			handler: token,
+			description: "Manage API tokens",
 		},
 		webhook: {
 			handler: webhook,

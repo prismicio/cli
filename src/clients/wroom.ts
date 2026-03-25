@@ -106,6 +106,126 @@ export async function deleteWebhook(
 	});
 }
 
+const AccessTokenSchema = z.object({
+	id: z.string(),
+	scope: z.string(),
+	token: z.string(),
+	created_at: z.object({ $date: z.number() }),
+});
+type AccessToken = z.infer<typeof AccessTokenSchema>;
+
+const OAuthAppSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	wroom_auths: z.array(AccessTokenSchema),
+});
+type OAuthApp = z.infer<typeof OAuthAppSchema>;
+
+const WriteTokenSchema = z.object({
+	app_name: z.string(),
+	token: z.string(),
+	timestamp: z.number(),
+});
+type WriteToken = z.infer<typeof WriteTokenSchema>;
+
+const WriteTokensInfoSchema = z.object({
+	max_tokens: z.number(),
+	tokens: z.array(WriteTokenSchema),
+});
+type WriteTokensInfo = z.infer<typeof WriteTokensInfoSchema>;
+
+export async function getOAuthApps(config: {
+	repo: string;
+	token: string | undefined;
+	host: string;
+}): Promise<OAuthApp[]> {
+	const url = new URL("settings/security/contentapi", getWroomUrl(config.repo, config.host));
+	return await request(url, {
+		credentials: { "prismic-auth": config.token },
+		schema: z.array(OAuthAppSchema),
+	});
+}
+
+export async function createOAuthApp(
+	name: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<OAuthApp> {
+	const url = new URL("settings/security/oauthapp", getWroomUrl(config.repo, config.host));
+	return await request(url, {
+		method: "POST",
+		body: { app_name: name },
+		credentials: { "prismic-auth": config.token },
+		schema: OAuthAppSchema,
+	});
+}
+
+export async function createOAuthAuthorization(
+	appId: string,
+	scope: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<AccessToken> {
+	const url = new URL("settings/security/authorizations", getWroomUrl(config.repo, config.host));
+	return await request(url, {
+		method: "POST",
+		body: { app: appId, scope },
+		credentials: { "prismic-auth": config.token },
+		schema: AccessTokenSchema,
+	});
+}
+
+export async function deleteOAuthAuthorization(
+	authId: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const url = new URL(
+		`settings/security/authorizations/${encodeURIComponent(authId)}`,
+		getWroomUrl(config.repo, config.host),
+	);
+	await request(url, {
+		method: "DELETE",
+		credentials: { "prismic-auth": config.token },
+	});
+}
+
+export async function getWriteTokens(config: {
+	repo: string;
+	token: string | undefined;
+	host: string;
+}): Promise<WriteTokensInfo> {
+	const url = new URL("settings/security/customtypesapi", getWroomUrl(config.repo, config.host));
+	return await request(url, {
+		credentials: { "prismic-auth": config.token },
+		schema: WriteTokensInfoSchema,
+	});
+}
+
+export async function createWriteToken(
+	name: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<WriteToken> {
+	const url = new URL("settings/security/token", getWroomUrl(config.repo, config.host));
+	return await request(url, {
+		method: "POST",
+		body: { app_name: name },
+		credentials: { "prismic-auth": config.token },
+		schema: WriteTokenSchema,
+	});
+}
+
+export async function deleteWriteToken(
+	tokenValue: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const url = new URL(
+		`settings/security/token/${encodeURIComponent(tokenValue)}`,
+		getWroomUrl(config.repo, config.host),
+	);
+	await request(url, {
+		method: "DELETE",
+		credentials: { "prismic-auth": config.token },
+	});
+}
+
 function getWroomUrl(repo: string, host: string): URL {
 	return new URL(`https://${repo}.${host}/`);
 }
