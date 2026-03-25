@@ -226,6 +226,98 @@ export async function deleteWriteToken(
 	});
 }
 
+export async function checkIsDomainAvailable(config: {
+	domain: string;
+	token: string | undefined;
+	host: string;
+}): Promise<boolean> {
+	const { domain, token, host } = config;
+	const url = new URL(`app/dashboard/repositories/${domain}/exists`, getDashboardUrl(host));
+	const response = await request(url, {
+		credentials: { "prismic-auth": token },
+		schema: z.boolean(),
+	});
+	return response;
+}
+
+export async function createRepository(config: {
+	domain: string;
+	name: string;
+	framework: string;
+	token: string | undefined;
+	host: string;
+}): Promise<void> {
+	const { domain, name, framework, token, host } = config;
+	const url = new URL("app/dashboard/repositories", getDashboardUrl(host));
+	await request(url, {
+		method: "POST",
+		body: { domain, name, framework, plan: "personal" },
+		credentials: { "prismic-auth": token },
+	});
+}
+
+const SyncStateSchema = z.object({
+	repository: z.object({
+		api_access: z.string(),
+	}),
+});
+
+export async function getRepositoryAccess(config: {
+	repo: string;
+	token: string | undefined;
+	host: string;
+}): Promise<string> {
+	const { repo, token, host } = config;
+	const url = new URL("syncState", getWroomUrl(repo, host));
+	const response = await request(url, {
+		credentials: { "prismic-auth": token },
+		schema: SyncStateSchema,
+	});
+	return response.repository.api_access;
+}
+
+export type RepositoryAccessLevel = "private" | "public" | "open";
+
+export async function setRepositoryAccess(
+	level: RepositoryAccessLevel,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const { repo, token, host } = config;
+	const url = new URL("settings/security/apiaccess", getWroomUrl(repo, host));
+	await request(url, {
+		method: "POST",
+		body: { api_access: level },
+		credentials: { "prismic-auth": token },
+	});
+}
+
+const SetNameResponseSchema = z.object({
+	repository: z.object({
+		name: z.string(),
+	}),
+});
+
+export async function setRepositoryName(
+	name: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<string> {
+	const { repo, token, host } = config;
+	const url = new URL("app/settings/repository", getWroomUrl(repo, host));
+	const formData = new FormData();
+	formData.set("displayname", name);
+	const response = await request(url, {
+		method: "POST",
+		body: formData,
+		credentials: { "prismic-auth": token },
+		schema: SetNameResponseSchema,
+	});
+	return response.repository.name;
+}
+
+function getDashboardUrl(host: string): URL {
+	return new URL(`https://${host}/`);
+}
+
 function getWroomUrl(repo: string, host: string): URL {
 	return new URL(`https://${repo}.${host}/`);
 }

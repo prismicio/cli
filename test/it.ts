@@ -20,6 +20,7 @@ export type Fixtures = {
 	login: () => Promise<{ token: string; email: string }>;
 	logout: () => Promise<void>;
 	token: string;
+	password: string;
 	repo: string;
 };
 
@@ -106,6 +107,10 @@ export const it = test.extend<Fixtures>({
 		for (const proc of procs) {
 			if (proc.exitCode === undefined) proc.kill();
 		}
+	},
+	// oxlint-disable-next-line no-empty-pattern
+	password: async ({}, use) => {
+		await use(process.env.E2E_PRISMIC_PASSWORD!);
 	},
 	// oxlint-disable-next-line no-empty-pattern
 	repo: async ({}, use) => {

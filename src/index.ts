@@ -12,6 +12,7 @@ import locale from "./commands/locale";
 import login from "./commands/login";
 import logout from "./commands/logout";
 import preview from "./commands/preview";
+import repo from "./commands/repo";
 import sync from "./commands/sync";
 import token from "./commands/token";
 import webhook from "./commands/webhook";
@@ -57,6 +58,10 @@ const router = createCommandRouter({
 		locale: {
 			handler: locale,
 			description: "Manage locales",
+		},
+		repo: {
+			handler: repo,
+			description: "Manage repositories",
 		},
 		preview: {
 			handler: preview,

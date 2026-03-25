@@ -22,7 +22,7 @@ it.sequential("sets simulator URL", async ({ expect, prismic, repo, token, host 
 	expect(stdout).toContain(`Simulator URL set: ${simulatorUrl}`);
 
 	const repository = await getRepository({ repo, token, host });
-	expect(repository.simulator_url).toBe(simulatorUrl);
+	expect(repository.simulatorUrl).toBe(simulatorUrl);
 });
 
 // Must be sequential because the repo only has one simulator URL.
