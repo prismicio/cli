@@ -25,7 +25,7 @@ import {
 export class NextJsAdapter extends Adapter {
 	readonly id = "next";
 
-	async onProjectInitialized(): Promise<void> {
+	async setupProject(): Promise<void> {
 		await addDependencies({
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
 			"@prismicio/react": `^${await getNpmPackageVersion("@prismicio/react")}`,
@@ -37,6 +37,8 @@ export class NextJsAdapter extends Adapter {
 		await createExitPreviewRoute();
 		await createRevalidateRoute();
 	}
+
+	onProjectInitialized(): void {}
 
 	async onSliceCreated(model: SharedSlice, library: URL): Promise<void> {
 		const sliceDirectoryName = pascalCase(model.name);

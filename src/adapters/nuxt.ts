@@ -20,7 +20,7 @@ const NUXT_PRISMIC = "@nuxtjs/prismic";
 export class NuxtAdapter extends Adapter {
 	readonly id = "nuxt";
 
-	async onProjectInitialized(): Promise<void> {
+	async setupProject(): Promise<void> {
 		await addDependencies({
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
 			[NUXT_PRISMIC]: `^${await getNpmPackageVersion(NUXT_PRISMIC)}`,
@@ -30,6 +30,8 @@ export class NuxtAdapter extends Adapter {
 		await moveOrDeleteAppVue();
 		await modifySliceLibraryPath(this);
 	}
+
+	onProjectInitialized(): void {}
 
 	async onSliceCreated(model: SharedSlice, library: URL): Promise<void> {
 		const sliceDirectoryName = pascalCase(model.name);

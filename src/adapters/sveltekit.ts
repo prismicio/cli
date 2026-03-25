@@ -27,7 +27,7 @@ import {
 export class SvelteKitAdapter extends Adapter {
 	readonly id = "sveltekit";
 
-	async onProjectInitialized(): Promise<void> {
+	async setupProject(): Promise<void> {
 		await addDependencies({
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
 			"@prismicio/svelte": `^${await getNpmPackageVersion("@prismicio/svelte")}`,
@@ -41,6 +41,8 @@ export class SvelteKitAdapter extends Adapter {
 		await createRootLayoutFile();
 		await modifyViteConfig();
 	}
+
+	onProjectInitialized(): void {}
 
 	async onSliceCreated(model: SharedSlice, library: URL): Promise<void> {
 		const sliceDirectoryName = pascalCase(model.name);

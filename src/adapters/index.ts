@@ -48,6 +48,7 @@ export abstract class Adapter {
 	abstract onCustomTypeUpdated(model: CustomType): Promise<void> | void;
 	abstract onCustomTypeDeleted(id: string): Promise<void> | void;
 
+	abstract setupProject(): Promise<void>;
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	abstract getDefaultSliceLibrary(): Promise<URL>;
 
@@ -56,6 +57,7 @@ export abstract class Adapter {
 		for (const library of libraries) {
 			await this.createSliceIndexFile(library);
 		}
+		await this.setupProject();
 		await this.onProjectInitialized();
 	}
 
