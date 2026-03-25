@@ -6,6 +6,7 @@ import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
+import gen from "./commands/gen";
 import init from "./commands/init";
 import locale from "./commands/locale";
 import login from "./commands/login";
@@ -44,6 +45,10 @@ const router = createCommandRouter({
 		init: {
 			handler: init,
 			description: "Initialize a Prismic project",
+		},
+		gen: {
+			handler: gen,
+			description: "Generate files from local models",
 		},
 		sync: {
 			handler: sync,
