@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.0](https://github.com/prismicio/cli/compare/v1.2.1...v1.3.0) (2026-03-25)
+
+
+### Features
+
+* add `gen setup` command ([#73](https://github.com/prismicio/cli/issues/73)) ([9f1abb9](https://github.com/prismicio/cli/commit/9f1abb9fb03044b84ecb1bb92a864e6df34421f2))
+* add documentAPIEndpoint to config ([#71](https://github.com/prismicio/cli/issues/71)) ([c647872](https://github.com/prismicio/cli/commit/c647872c9cff38622016479a794b92818836b9aa))
+* add gen commands ([#68](https://github.com/prismicio/cli/issues/68)) ([3077302](https://github.com/prismicio/cli/commit/30773024f845dedc7aa7651ca26690f6a4c7ded6)), closes [#19](https://github.com/prismicio/cli/issues/19)
+* add locale commands ([#66](https://github.com/prismicio/cli/issues/66)) ([b3507fb](https://github.com/prismicio/cli/commit/b3507fbc34960403c0f1aa9bd09f4adb563045a8))
+* add repo commands ([#69](https://github.com/prismicio/cli/issues/69)) ([acf686e](https://github.com/prismicio/cli/commit/acf686e89b8b6f6e7aacc5508e58129d9d5ce839)), closes [#16](https://github.com/prismicio/cli/issues/16)
+* add token commands ([#67](https://github.com/prismicio/cli/issues/67)) ([f02cfc3](https://github.com/prismicio/cli/commit/f02cfc3c906517f50d6027347227c9cc670d6251))
+* generate page files for page types ([#63](https://github.com/prismicio/cli/issues/63)) ([1b40899](https://github.com/prismicio/cli/commit/1b408995f68843856eee883f2c84ad14cfb4a15c))
+* manage routes in config for page types ([#62](https://github.com/prismicio/cli/issues/62)) ([6831aaa](https://github.com/prismicio/cli/commit/6831aaa3cff3013bb2eced1812a2d360013697c1))
+
 ## [1.2.1](https://github.com/prismicio/cli/compare/v1.2.0...v1.2.1) (2026-03-23)
 
 
