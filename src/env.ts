@@ -3,6 +3,8 @@ import * as z from "zod/mini";
 const DEFAULT_PRISMIC_SENTRY_DSN =
 	"https://e1886b1775bd397cd1afc60bfd2ebfc8@o146123.ingest.us.sentry.io/4510445143588864";
 
+export const DEFAULT_PRISMIC_HOST = "prismic.io";
+
 const Env = z.object({
 	MODE: z.string(),
 	DEV: z.stringbool(),

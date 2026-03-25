@@ -12,6 +12,7 @@ import {
 	readLegacySliceMachineConfig,
 	UnknownProjectRoot,
 } from "../config";
+import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { generateAndWriteTypes } from "../lib/codegen";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -108,8 +109,11 @@ export default createCommand(config, async ({ values }) => {
 
 	// Create prismic.config.json
 	try {
+		const documentAPIEndpoint =
+			host !== DEFAULT_PRISMIC_HOST ? `https://${repo}.cdn.${host}/api/v2/` : undefined;
 		await createConfig({
 			repositoryName: repo,
+			documentAPIEndpoint,
 			libraries: legacySliceMachineConfig?.libraries,
 			routes: [],
 		});

@@ -21,6 +21,7 @@ export type Route = z.infer<typeof RouteSchema>;
 
 const ConfigSchema = z.object({
 	repositoryName: z.string(),
+	documentAPIEndpoint: z.optional(z.url()),
 	libraries: z.optional(z.array(z.string())),
 	routes: z.optional(z.array(RouteSchema)),
 });
