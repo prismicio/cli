@@ -1,6 +1,6 @@
 import { getHost, getToken } from "../auth";
 import {
-	deleteAuthorization,
+	deleteOAuthAuthorization,
 	deleteWriteToken,
 	getOAuthApps,
 	getWriteTokens,
@@ -17,7 +17,7 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		token: { description: "Token value (or partial match)" },
+		token: { description: "Token value" },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
@@ -44,7 +44,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const accessTokenAuths = apps.flatMap((app) => app.wroom_auths);
 	const accessToken = accessTokenAuths.find((auth) => auth.token === tokenValue);
 	if (accessToken) {
-		await deleteAuthorization(accessToken.id, { repo, token, host });
+		await deleteOAuthAuthorization(accessToken.id, { repo, token, host });
 		console.info("Token deleted");
 		return;
 	}

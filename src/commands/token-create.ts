@@ -1,6 +1,6 @@
 import { getHost, getToken } from "../auth";
 import {
-	createAuthorization,
+	createOAuthAuthorization,
 	createOAuthApp,
 	createWriteToken,
 	getOAuthApps,
@@ -19,10 +19,10 @@ const config = {
 		project root.
 	`,
 	options: {
-		write: { type: "boolean", short: "w", description: "Create a write token" },
+		write: { type: "boolean", description: "Create a write token" },
 		"allow-releases": {
 			type: "boolean",
-			description: "Allow access to releases (non-write tokens only)",
+			description: "Allow access to releases (read tokens only)",
 		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
@@ -49,7 +49,7 @@ export default createCommand(config, async ({ values }) => {
 		let app = apps.find((a) => a.name === CLI_APP_NAME);
 		if (!app) app = await createOAuthApp(CLI_APP_NAME, { repo, token, host });
 
-		const accessToken = await createAuthorization(app.id, scope, { repo, token, host });
+		const accessToken = await createOAuthAuthorization(app.id, scope, { repo, token, host });
 		console.info(`Token created: ${accessToken.token}`);
 	}
 });

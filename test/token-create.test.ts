@@ -1,5 +1,5 @@
 import { it } from "./it";
-import { deleteAccessToken, deleteWriteToken, getAccessTokens, getWriteTokens } from "./prismic";
+import { getAccessTokens, getWriteTokens } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("token", ["create", "--help"]);
@@ -14,32 +14,48 @@ it("creates an access token", async ({ expect, prismic, repo, token, host }) => 
 
 	const createdToken = stdout.replace("Token created:", "").trim();
 
-	try {
-		const apps = await getAccessTokens({ repo, token, host });
-		const app = apps.find((a) => a.name === "Prismic CLI");
-		expect(app).toBeDefined();
-		const auth = app!.wroom_auths.find((a) => a.token === createdToken);
-		expect(auth).toBeDefined();
-	} finally {
-		const apps = await getAccessTokens({ repo, token, host });
-		const app = apps.find((a) => a.name === "Prismic CLI");
-		const auth = app?.wroom_auths.find((a) => a.token === createdToken);
-		if (auth) await deleteAccessToken(auth.id, { repo, token, host });
-	}
+	const apps = await getAccessTokens({ repo, token, host });
+	const app = apps.find((a) => a.name === "Prismic CLI");
+	expect(app).toBeDefined();
+	const auth = app!.wroom_auths.find((a) => a.token === createdToken);
+	expect(auth).toBeDefined();
 });
 
-it("creates a write token", async ({ expect, prismic, repo, token, host }) => {
-	const { stdout, exitCode } = await prismic("token", ["create", "-w"]);
+it("creates an access token with --allow-releases", async ({
+	expect,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const { stdout, exitCode } = await prismic("token", ["create", "--allow-releases"]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Token created:");
 
 	const createdToken = stdout.replace("Token created:", "").trim();
 
-	try {
-		const writeTokensInfo = await getWriteTokens({ repo, token, host });
-		const found = writeTokensInfo.tokens.find((t) => t.token === createdToken);
-		expect(found).toBeDefined();
-	} finally {
-		await deleteWriteToken(createdToken, { repo, token, host });
-	}
+	const apps = await getAccessTokens({ repo, token, host });
+	const app = apps.find((a) => a.name === "Prismic CLI");
+	expect(app).toBeDefined();
+	const auth = app!.wroom_auths.find((a) => a.token === createdToken);
+	expect(auth).toBeDefined();
+	expect(auth!.scope).toBe("master+releases");
+});
+
+it("creates a write token", async ({ expect, prismic, repo, token, host }) => {
+	const { stdout, exitCode } = await prismic("token", ["create", "--write"]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain("Token created:");
+
+	const createdToken = stdout.replace("Token created:", "").trim();
+
+	const writeTokensInfo = await getWriteTokens({ repo, token, host });
+	const found = writeTokensInfo.tokens.find((t) => t.token === createdToken);
+	expect(found).toBeDefined();
+});
+
+it("errors when combining --write and --allow-releases", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("token", ["create", "--write", "--allow-releases"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("--allow-releases is only valid for access tokens");
 });

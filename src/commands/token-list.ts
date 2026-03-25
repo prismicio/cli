@@ -46,8 +46,8 @@ export default createCommand(config, async ({ values }) => {
 
 	if (accessTokens.length > 0) {
 		console.info("ACCESS TOKENS");
-		for (const token of accessTokens) {
-			console.info(`  ${token.name}  ${token.scope}  ${token.token}  ${token.createdAt}`);
+		for (const accessToken of accessTokens) {
+			console.info(`  ${accessToken.name}  ${accessToken.scope}  ${accessToken.token}  ${accessToken.createdAt}`);
 		}
 	} else {
 		console.info("ACCESS TOKENS  (none)");
@@ -57,9 +57,9 @@ export default createCommand(config, async ({ values }) => {
 
 	if (writeTokens.length > 0) {
 		console.info("WRITE TOKENS");
-		for (const token of writeTokens) {
-			const date = new Date(token.timestamp * 1000).toISOString().split("T")[0];
-			console.info(`  ${token.app_name}  ${token.token}  ${date}`);
+		for (const writeToken of writeTokens) {
+			const date = new Date(writeToken.timestamp * 1000).toISOString().split("T")[0];
+			console.info(`  ${writeToken.app_name}  ${writeToken.token}  ${date}`);
 		}
 	} else {
 		console.info("WRITE TOKENS  (none)");

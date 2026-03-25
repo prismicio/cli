@@ -106,13 +106,11 @@ export async function deleteWebhook(
 	});
 }
 
-const MongoDBDateSchema = z.object({ $date: z.number() });
-
 const AccessTokenSchema = z.object({
 	id: z.string(),
 	scope: z.string(),
 	token: z.string(),
-	created_at: MongoDBDateSchema,
+	created_at: z.object({ $date: z.number() }),
 });
 type AccessToken = z.infer<typeof AccessTokenSchema>;
 
@@ -148,18 +146,6 @@ export async function getOAuthApps(config: {
 	});
 }
 
-export async function getWriteTokens(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<WriteTokensInfo> {
-	const url = new URL("settings/security/customtypesapi", getWroomUrl(config.repo, config.host));
-	return await request(url, {
-		credentials: { "prismic-auth": config.token },
-		schema: WriteTokensInfoSchema,
-	});
-}
-
 export async function createOAuthApp(
 	name: string,
 	config: { repo: string; token: string | undefined; host: string },
@@ -173,7 +159,7 @@ export async function createOAuthApp(
 	});
 }
 
-export async function createAuthorization(
+export async function createOAuthAuthorization(
 	appId: string,
 	scope: string,
 	config: { repo: string; token: string | undefined; host: string },
@@ -187,17 +173,29 @@ export async function createAuthorization(
 	});
 }
 
-export async function deleteAuthorization(
+export async function deleteOAuthAuthorization(
 	authId: string,
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	const url = new URL(
-		`settings/security/authorizations/${authId}`,
+		`settings/security/authorizations/${encodeURIComponent(authId)}`,
 		getWroomUrl(config.repo, config.host),
 	);
 	await request(url, {
 		method: "DELETE",
 		credentials: { "prismic-auth": config.token },
+	});
+}
+
+export async function getWriteTokens(config: {
+	repo: string;
+	token: string | undefined;
+	host: string;
+}): Promise<WriteTokensInfo> {
+	const url = new URL("settings/security/customtypesapi", getWroomUrl(config.repo, config.host));
+	return await request(url, {
+		credentials: { "prismic-auth": config.token },
+		schema: WriteTokensInfoSchema,
 	});
 }
 
@@ -219,7 +217,7 @@ export async function deleteWriteToken(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	const url = new URL(
-		`settings/security/token/${tokenValue}`,
+		`settings/security/token/${encodeURIComponent(tokenValue)}`,
 		getWroomUrl(config.repo, config.host),
 	);
 	await request(url, {

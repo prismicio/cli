@@ -230,25 +230,15 @@ export async function resetLocales(config: RepoConfig): Promise<void> {
 
 export async function getAccessTokens(
 	config: RepoConfig,
-): Promise<{ id: string; name: string; wroom_auths: { id: string; token: string; scope: string }[] }[]> {
+): Promise<
+	{ id: string; name: string; wroom_auths: { id: string; token: string; scope: string }[] }[]
+> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("settings/security/contentapi", `https://${config.repo}.${host}/`);
 	const res = await fetch(url, {
 		headers: { Cookie: `prismic-auth=${config.token}` },
 	});
 	if (!res.ok) throw new Error(`Failed to get access tokens: ${res.status} ${await res.text()}`);
-	return await res.json();
-}
-
-export async function getWriteTokens(
-	config: RepoConfig,
-): Promise<{ tokens: { app_name: string; token: string; timestamp: number }[] }> {
-	const host = config.host ?? DEFAULT_HOST;
-	const url = new URL("settings/security/customtypesapi", `https://${config.repo}.${host}/`);
-	const res = await fetch(url, {
-		headers: { Cookie: `prismic-auth=${config.token}` },
-	});
-	if (!res.ok) throw new Error(`Failed to get write tokens: ${res.status} ${await res.text()}`);
 	return await res.json();
 }
 
@@ -297,6 +287,18 @@ export async function deleteAccessToken(authId: string, config: RepoConfig): Pro
 	});
 	if (!res.ok && res.status !== 404)
 		throw new Error(`Failed to delete access token: ${res.status} ${await res.text()}`);
+}
+
+export async function getWriteTokens(
+	config: RepoConfig,
+): Promise<{ tokens: { app_name: string; token: string; timestamp: number }[] }> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("settings/security/customtypesapi", `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok) throw new Error(`Failed to get write tokens: ${res.status} ${await res.text()}`);
+	return await res.json();
 }
 
 export async function createWriteToken(config: RepoConfig): Promise<{ token: string }> {
