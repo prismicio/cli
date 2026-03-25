@@ -10,6 +10,7 @@ const ProfileSchema = z.object({
 		z.object({
 			domain: z.string(),
 			name: z.optional(z.string()),
+			role: z.optional(z.string()),
 		}),
 	),
 });

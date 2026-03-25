@@ -325,12 +325,27 @@ export async function deleteWriteToken(tokenValue: string, config: RepoConfig): 
 		throw new Error(`Failed to delete write token: ${res.status} ${await res.text()}`);
 }
 
-export async function getRepository(config: RepoConfig): Promise<{ simulator_url?: string }> {
+export async function getRepository(
+	config: RepoConfig,
+): Promise<{ name: string; framework: string; simulatorUrl?: string }> {
 	const host = config.host ?? DEFAULT_HOST;
-	const url = new URL("core/repository", `https://${config.repo}.${host}/`);
+	const url = new URL("repository/", `https://api.internal.${host}/`);
+	url.searchParams.set("repository", config.repo);
 	const res = await fetch(url, {
-		headers: { Cookie: `prismic-auth=${config.token}` },
+		headers: { Authorization: `Bearer ${config.token}` },
 	});
 	if (!res.ok) throw new Error(`Failed to get repository: ${res.status} ${await res.text()}`);
 	return await res.json();
+}
+
+export async function getRepositoryAccess(config: RepoConfig): Promise<string> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("syncState", `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok)
+		throw new Error(`Failed to get repository access: ${res.status} ${await res.text()}`);
+	const data = await res.json();
+	return data.repository.api_access;
 }
