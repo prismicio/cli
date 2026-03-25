@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
 import { refreshToken as baseRefreshToken } from "./clients/auth";
-import { env } from "./env";
+import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { exists } from "./lib/file";
 import { stringify } from "./lib/json";
 import { appendTrailingSlash } from "./lib/url";
@@ -14,7 +14,6 @@ const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(hom
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
 const LOGIN_SOURCE = "prismic-cli";
-const DEFAULT_PRISMIC_HOST = "prismic.io";
 
 const AuthFileSchema = z.object({
 	token: z.optional(z.string().check(z.minLength(1))),
