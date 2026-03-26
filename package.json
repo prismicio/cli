@@ -16,8 +16,7 @@
 		"prismic": "./dist/index.mjs"
 	},
 	"files": [
-		"./dist",
-		"./src"
+		"./dist"
 	],
 	"type": "module",
 	"publishConfig": {
