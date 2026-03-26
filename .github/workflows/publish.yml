@@ -1,11 +1,5 @@
 name: publish
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  id-token: write
-
 on:
   push:
     branches: [main]
@@ -16,43 +10,30 @@ jobs:
   release:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
     env:
       MODE: production
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
+        continue-on-error: true
         with:
           release-type: node
       - uses: actions/checkout@v6
-        if: ${{ steps.release.outputs.release_created }}
       - uses: actions/setup-node@v6
-        if: ${{ steps.release.outputs.release_created }}
         with:
           node-version: 24
           registry-url: "https://registry.npmjs.org"
       - run: npm ci
-        if: ${{ steps.release.outputs.release_created }}
-      - run: npm publish
-        if: ${{ steps.release.outputs.release_created }}
-
-  canary:
-    if: >-
-      github.event_name == 'push'
-      && github.repository_owner == 'prismicio'
-      && needs.release.outputs.release_created != 'true'
-    needs: release
-    runs-on: ubuntu-latest
-    env:
-      MODE: production
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          registry-url: "https://registry.npmjs.org"
+      - name: "Publish release"
+        if: steps.release.outputs.release_created == 'true'
+        run: npm publish
       - name: "Deprecate previous canary"
+        if: steps.release.outputs.release_created != 'true' && github.repository_owner == 'prismicio'
         continue-on-error: true
         run: |
           PACKAGE_NAME=$(jq -r ".name" package.json)
@@ -62,17 +43,20 @@ jobs:
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - run: npm ci
-      - name: "Generate new version"
+      - name: "Publish canary"
+        if: steps.release.outputs.release_created != 'true' && github.repository_owner == 'prismicio'
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
           CURRENT_VERSION=$(jq -r '.version' package.json)
           npm version "${CURRENT_VERSION}-canary.${SHORT_SHA}" --no-git-tag-version
-      - run: npm publish --tag canary
+          npm publish --tag canary
 
-  pr-prerelease:
-    if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.repository_owner == 'prismicio'
+  pr:
+    if: github.event_name == 'pull_request' && github.repository_owner == 'prismicio'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     env:
       MODE: production
     steps:
@@ -82,6 +66,7 @@ jobs:
           node-version: 24
           registry-url: "https://registry.npmjs.org"
       - name: "Deprecate previous PR prerelease"
+        if: github.event.action != 'closed'
         continue-on-error: true
         run: |
           PACKAGE_NAME=$(jq -r ".name" package.json)
@@ -92,24 +77,16 @@ jobs:
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - run: npm ci
-      - name: "Generate new version"
+      - name: "Publish PR prerelease"
+        if: github.event.action != 'closed'
         run: |
+          npm ci
           SHORT_SHA=$(git rev-parse --short HEAD)
           CURRENT_VERSION=$(jq -r '.version' package.json)
           npm version "${CURRENT_VERSION}-pr.${{ github.event.number }}.${SHORT_SHA}" --no-git-tag-version
-      - run: npm publish --tag pr-${{ github.event.number }}
-
-  pr-cleanup:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.repository_owner == 'prismicio'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          registry-url: "https://registry.npmjs.org"
-      - name: "Deprecate and remove PR prerelease"
+          npm publish --tag pr-${{ github.event.number }}
+      - name: "Clean up PR prerelease"
+        if: github.event.action == 'closed'
         continue-on-error: true
         run: |
           PACKAGE_NAME=$(jq -r ".name" package.json)
