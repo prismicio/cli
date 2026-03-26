@@ -8,7 +8,7 @@ on:
 
 jobs:
   release:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.repository_owner == 'prismicio'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -33,7 +33,7 @@ jobs:
         if: steps.release.outputs.release_created == 'true'
         run: npm publish
       - name: "Deprecate previous canary"
-        if: steps.release.outputs.release_created != 'true' && github.repository_owner == 'prismicio'
+        if: steps.release.outputs.release_created != 'true'
         continue-on-error: true
         run: |
           PACKAGE_NAME=$(jq -r ".name" package.json)
@@ -44,14 +44,14 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: "Publish canary"
-        if: steps.release.outputs.release_created != 'true' && github.repository_owner == 'prismicio'
+        if: steps.release.outputs.release_created != 'true'
         run: |
           SHORT_SHA=$(git rev-parse --short HEAD)
           CURRENT_VERSION=$(jq -r '.version' package.json)
           npm version "${CURRENT_VERSION}-canary.${SHORT_SHA}" --no-git-tag-version
           npm publish --tag canary
 
-  pr:
+  prerelease:
     if: github.event_name == 'pull_request' && github.repository_owner == 'prismicio'
     runs-on: ubuntu-latest
     permissions:
