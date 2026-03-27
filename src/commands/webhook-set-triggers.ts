@@ -13,14 +13,15 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		url: { description: "Webhook URL" },
+		url: { description: "Webhook URL", required: true },
 	},
 	options: {
 		trigger: {
 			type: "string",
 			multiple: true,
 			short: "t",
-			description: "Trigger events (can be repeated, at least one required)",
+			description: "Trigger events (can be repeated)",
+			required: true,
 		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
@@ -39,14 +40,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
 	const { repo = await getRepositoryName(), trigger = [] } = values;
-
-	if (!webhookUrl) {
-		throw new CommandError("Missing required argument: <url>");
-	}
-
-	if (trigger.length === 0) {
-		throw new CommandError("Missing required option: --trigger");
-	}
 
 	// Validate triggers
 	for (const t of trigger) {

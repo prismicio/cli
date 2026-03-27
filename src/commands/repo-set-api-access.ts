@@ -15,7 +15,7 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		level: { description: `Access level (${VALID_LEVELS.join(", ")})` },
+		level: { description: `Access level (${VALID_LEVELS.join(", ")})`, required: true },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
@@ -25,10 +25,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [level] = positionals;
 	const { repo = await getRepositoryName() } = values;
-
-	if (!level) {
-		throw new CommandError("Missing required argument: <level>");
-	}
 
 	if (!VALID_LEVELS.includes(level as RepositoryAccessLevel)) {
 		throw new CommandError(

@@ -8,8 +8,8 @@ export type CommandConfig = {
 	name: string;
 	description: string;
 	sections?: Record<string, string>;
-	positionals?: Record<string, { description: string }>;
-	options?: Record<string, ParseArgsOptionDescriptor & { description: string }>;
+	positionals?: Record<string, { description: string; required?: boolean }>;
+	options?: Record<string, ParseArgsOptionDescriptor & { description: string; required?: boolean }>;
 };
 
 type CommandHandlerArgs<T extends CommandConfig> = ReturnType<
@@ -21,7 +21,7 @@ export function createCommand<T extends CommandConfig>(
 	handler: (args: CommandHandlerArgs<T>) => Promise<void>,
 ): () => Promise<void> {
 	return async function () {
-		const { positionals = {}, options } = config;
+		const { positionals = {}, options = {} } = config;
 
 		const depth = config.name.split(" ").length;
 		const args = process.argv.slice(1 + depth);
@@ -40,6 +40,18 @@ export function createCommand<T extends CommandConfig>(
 		if (result.values.help) {
 			console.info(buildCommandHelp(config));
 			return;
+		}
+
+		for (const [index, [name, config]] of Object.entries(positionals).entries()) {
+			if (config.required && !result.positionals[index]) {
+				throw new CommandError(`Missing required argument: <${name}>`);
+			}
+		}
+
+		for (const [name, config] of Object.entries(options)) {
+			if (config.required && !(name in result.values)) {
+				throw new CommandError(`Missing required option: --${name}`);
+			}
 		}
 
 		await handler(result as CommandHandlerArgs<T>);
@@ -71,7 +83,8 @@ function buildCommandHelp(config: CommandConfig): string {
 		for (const positionalName in positionals) {
 			const formattedName = `<${positionalName}>`;
 			const paddedName = formattedName.padEnd(maxNameLength);
-			const description = positionals[positionalName].description;
+			const positional = positionals[positionalName];
+			const description = positional.description + (positional.required ? " (required)" : "");
 			lines.push(`  ${paddedName}   ${description}`);
 		}
 	}
@@ -86,7 +99,8 @@ function buildCommandHelp(config: CommandConfig): string {
 			const shortPart = option.short ? `-${option.short}, ` : "    ";
 			const typeSuffix = option.type === "string" ? " string" : "";
 			const left = `${shortPart}--${optionName}${typeSuffix}`;
-			optionEntries.push({ left, description: option.description });
+			const description = option.description + (option.required ? " (required)" : "");
+			optionEntries.push({ left, description });
 		}
 	}
 	optionEntries.push({ left: "-h, --help", description: "Show help for command" });

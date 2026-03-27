@@ -13,7 +13,7 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		url: { description: "Preview URL to remove" },
+		url: { description: "Preview URL to remove", required: true },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
@@ -23,10 +23,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;
 	const { repo = await getRepositoryName() } = values;
-
-	if (!previewUrl) {
-		throw new CommandError("Missing required argument: <url>");
-	}
 
 	const token = await getToken();
 	const host = await getHost();
