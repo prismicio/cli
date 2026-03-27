@@ -12,9 +12,21 @@ export type CommandConfig = {
 	options?: Record<string, ParseArgsOptionDescriptor & { description: string; required?: boolean }>;
 };
 
-type CommandHandlerArgs<T extends CommandConfig> = ReturnType<
+type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
+	values: ParseArgsRequiredValues<T>;
+};
+
+type ParseArgsReturnType<T extends CommandConfig> = ReturnType<
 	typeof parseArgs<T & { allowPositionals: T["positionals"] extends undefined ? false : true }>
 >;
+
+type ParseArgsRequiredValues<T extends CommandConfig> = {
+	[P in keyof T["options"] as NonNullable<NonNullable<T["options"]>[P]>["required"] extends true
+		? P
+		: never]: P extends keyof ParseArgsReturnType<T>["values"]
+		? NonNullable<ParseArgsReturnType<T>["values"][P]>
+		: never;
+};
 
 export function createCommand<T extends CommandConfig>(
 	config: T,

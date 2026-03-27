@@ -1,8 +1,6 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
 import { mkdir, writeFile } from "node:fs/promises";
 
-import { it } from "./it";
+import { buildCustomType, buildSlice, it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("gen", ["types", "--help"]);
@@ -37,33 +35,3 @@ it("generates types with no models", async ({ expect, project, prismic }) => {
 
 	await expect(project).toHaveFile("prismicio-types.d.ts");
 });
-
-function buildCustomType(): CustomType {
-	const id = crypto.randomUUID().split("-")[0];
-	return {
-		id: `type-T${id}`,
-		label: `TypeT${id}`,
-		repeatable: true,
-		status: true,
-		json: {},
-	};
-}
-
-function buildSlice(): SharedSlice {
-	const id = crypto.randomUUID().split("-")[0];
-	return {
-		id: `slice-S${id}`,
-		type: "SharedSlice",
-		name: `SliceS${id}`,
-		variations: [
-			{
-				id: "default",
-				name: "Default",
-				docURL: "",
-				version: "initial",
-				description: "Default",
-				imageUrl: "",
-			},
-		],
-	};
-}
