@@ -14,7 +14,7 @@ const config = {
 
 export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
-	const [rawFields] = await resolveModel(adapter, values);
+	const [rawFields] = await resolveModel(values, { adapter });
 
 	const fields = Object.entries(rawFields).map(([id, field]) => {
 		return {

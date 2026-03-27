@@ -44,7 +44,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	};
 
 	const adapter = await getAdapter();
-	const [fields, saveModel] = await resolveModel(adapter, values);
+	const [fields, saveModel] = await resolveModel(values, { adapter });
 	if (id in fields) throw new CommandError(`Field "${id}" already exists.`);
 	fields[id] = field;
 	await saveModel();

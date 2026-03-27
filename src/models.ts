@@ -1,7 +1,11 @@
+import { pathToFileURL } from "node:url";
+
 import type { Adapter } from "./adapters";
 import type { CommandConfig } from "./lib/command";
 
 import { CommandError } from "./lib/command";
+import { appendTrailingSlash, relativePathname } from "./lib/url";
+import { findProjectRoot } from "./project";
 
 type Field = {
 	type: string;
@@ -13,77 +17,76 @@ type Fields = Record<string, Field>;
 type Target = [fields: Fields, save: () => Promise<void>];
 
 export const TARGET_OPTIONS = {
-	slice: { type: "string", description: "Slice ID" },
+	to: {
+		type: "string",
+		description: "Relative path to the slice, page type, or custom type model",
+		required: true,
+	},
 	variation: { type: "string", description: "Slice variation ID" },
-	"page-type": { type: "string", description: "Page type ID" },
-	"custom-type": { type: "string", description: "Custom type ID" },
 	tab: { type: "string", description: "Page or custom type tab name" },
 } satisfies CommandConfig["options"];
 
 export async function resolveModel(
-	adapter: Adapter,
-	flags: {
-		slice?: string;
-		variation?: string;
-		"custom-type"?: string;
-		"page-type"?: string;
-		tab?: string;
-	},
+	values: { to: string; variation?: string; tab?: string },
+	config: { adapter: Adapter },
 ): Promise<Target> {
-	const {
-		slice: sliceId,
-		variation: variationId = "default",
-		"page-type": pageTypeId,
-		"custom-type": customTypeId,
-		tab = "Main",
-	} = flags;
+	const { to = "", variation = "default", tab = "Main" } = values;
+	const { adapter } = config;
 
-	const targets = [sliceId, customTypeId, pageTypeId].filter(Boolean);
-	if (targets.length === 0) {
-		throw new CommandError(
-			"Missing target flag. Provide one of --slice, --custom-type, or --page-type.",
+	const resolvedTo = appendTrailingSlash(
+		new URL(to, appendTrailingSlash(pathToFileURL(process.cwd()))),
+	);
+
+	const slices = await adapter.getSlices();
+	const slice = slices.find((s) => {
+		return (
+			new URL("model.json", s.directory).href ===
+			(resolvedTo.pathname.endsWith("/model.json")
+				? resolvedTo.href
+				: new URL("model.json", resolvedTo).href)
 		);
-	}
-	if (targets.length > 1) {
-		throw new CommandError("Flags --slice, --custom-type, and --page-type are mutually exclusive.");
-	}
-
-	if (sliceId) {
-		if (tab) {
-			throw new CommandError("--tab is only valid with --page-type or --custom-type.");
+	});
+	if (slice) {
+		if ("tab" in values) {
+			throw new CommandError("--tab is only valid for page or custom types.");
 		}
 
-		const slice = await adapter.getSlice(sliceId);
 		const newModel = structuredClone(slice.model);
-
-		const newVariation = newModel.variations?.find((v) => v.id === variationId);
+		const newVariation = newModel.variations?.find((v) => v.id === variation);
 		if (!newVariation) {
-			const variationIds = slice.model.variations?.map((v) => v.id).join(", ") || "none";
-			throw new CommandError(`Variation "${variationId}" not found. Available: ${variationIds}`);
+			const variationIds = slice.model.variations?.map((v) => v.id).join(", ") || "(none)";
+			throw new CommandError(`Variation "${variation}" not found. Available: ${variationIds}`);
 		}
-
 		newVariation.primary ??= {};
 
 		return [newVariation.primary, () => adapter.updateSlice(newModel)];
 	}
 
-	const typeId = pageTypeId ?? customTypeId;
-	if (typeId) {
-		if (flags.variation) {
-			throw new CommandError("--variation is only valid with --slice.");
+	const customTypes = await adapter.getCustomTypes();
+	const customType = customTypes.find(
+		(c) =>
+			new URL("index.json", c.directory).href ===
+			(resolvedTo.pathname.endsWith("/index.json")
+				? resolvedTo.href
+				: new URL("index.json", resolvedTo).href),
+	);
+	if (customType) {
+		if ("variation" in values) {
+			throw new CommandError("--variation is only valid for slices.");
 		}
 
-		const customType = await adapter.getCustomType(typeId);
 		const newModel = structuredClone(customType.model);
-
 		const newTab = newModel.json[tab];
 		if (!newTab) {
-			const tabNames = Object.keys(customType.model.json).join(", ") || "none";
+			const tabNames = Object.keys(customType.model.json).join(", ") || "(none)";
 			throw new CommandError(`Tab "${tab}" not found. Available: ${tabNames}`);
 		}
 
 		return [newTab, () => adapter.updateCustomType(newModel)];
 	}
 
-	throw new CommandError("This is a bug. Please verify your command and try again.");
+	const projectRoot = await findProjectRoot();
+	const relativeTo = relativePathname(projectRoot, resolvedTo);
+
+	throw new CommandError(`There is no model at ${relativeTo}.`);
 }
