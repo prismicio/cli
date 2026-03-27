@@ -1,7 +1,7 @@
 import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { resolveModel, TARGET_OPTIONS } from "./field";
+import { resolveModel, TARGET_OPTIONS } from "../models";
 
 const config = {
 	name: "prismic field list",

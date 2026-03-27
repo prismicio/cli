@@ -1,6 +1,6 @@
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveModel, TARGET_OPTIONS } from "./field";
+import { resolveModel, TARGET_OPTIONS } from "../models";
 
 const config = {
 	name: "prismic field remove",
