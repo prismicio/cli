@@ -14,11 +14,9 @@ import {
 } from "../config";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
-import { generateAndWriteTypes } from "../lib/codegen";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
-import { findProjectRoot } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
 
 const config = {
@@ -151,15 +149,7 @@ export default createCommand(config, async ({ values }) => {
 	await syncCustomTypes(repo, adapter);
 
 	// Generate TypeScript types from synced models
-	const slices = await adapter.getSlices();
-	const customTypes = await adapter.getCustomTypes();
-	const projectRoot = await findProjectRoot();
-	const output = new URL("prismicio-types.d.ts", projectRoot);
-	await generateAndWriteTypes({
-		customTypes: customTypes.map((customType) => customType.model),
-		slices: slices.map((slice) => slice.model),
-		output,
-	});
+	await adapter.generateTypes();
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 });
