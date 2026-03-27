@@ -32,12 +32,7 @@ it("errors when targeting a slice", async ({ expect, project, prismic }) => {
 	await mkdir(new URL(".", modelPath), { recursive: true });
 	await writeFile(modelPath, JSON.stringify(buildSlice()));
 
-	const { stderr, exitCode } = await prismic("field", [
-		"add",
-		"uid",
-		"--to",
-		"slices/MySlice",
-	]);
+	const { stderr, exitCode } = await prismic("field", ["add", "uid", "--to", "slices/MySlice"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("can only be added to custom types");
+	expect(stderr).toContain("can only be added to page types or custom types");
 });
