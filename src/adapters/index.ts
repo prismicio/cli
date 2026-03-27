@@ -3,6 +3,7 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 import { pascalCase } from "change-case";
 import { rm } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
 import { addRoute, removeRoute, updateRoute } from "../config";
@@ -11,6 +12,8 @@ import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
 import { findProjectRoot, getLibraries } from "../project";
+
+const TYPES_FILENAME = "prismicio-types.d.ts";
 
 type CustomTypeMeta = { model: CustomType; directory: URL };
 type SharedSliceMeta = { model: SharedSlice; directory: URL; library: URL };
@@ -166,6 +169,25 @@ export abstract class Adapter {
 		await rm(customType.directory, { recursive: true });
 		await removeRoute(id);
 		await this.onCustomTypeDeleted(id);
+	}
+
+	async generateTypes(): Promise<URL> {
+		const projectRoot = await findProjectRoot();
+		const output = new URL(TYPES_FILENAME, projectRoot);
+		const slices = await this.getSlices();
+		const customTypes = await this.getCustomTypes();
+		const types = generateTypes({
+			customTypeModels: customTypes.map((customType) => customType.model),
+			sharedSliceModels: slices.map((slice) => slice.model),
+			clientIntegration: {
+				includeContentNamespace: true,
+				includeCreateClientInterface: true,
+			},
+			cache: true,
+			typesProvider: "@prismicio/client",
+		});
+		await writeFileRecursive(output, types);
+		return output;
 	}
 }
 

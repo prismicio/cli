@@ -5,11 +5,10 @@ import { getAdapter, type Adapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { env } from "../env";
-import { generateAndWriteTypes } from "../lib/codegen";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { dedent } from "../lib/string";
-import { findProjectRoot, getRepositoryName } from "../project";
+import { getRepositoryName } from "../project";
 
 // 5 seconds balances responsiveness with API load
 const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
@@ -44,7 +43,7 @@ export default createCommand(config, async ({ values }) => {
 	} else {
 		await syncSlices(repo, adapter);
 		await syncCustomTypes(repo, adapter);
-		await regenerateTypes(adapter);
+		await adapter.generateTypes();
 		segmentTrackEnd("sync", { watch });
 
 		console.info("Sync complete");
@@ -60,7 +59,7 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 
 	await syncSlices(repo, adapter);
 	await syncCustomTypes(repo, adapter);
-	await regenerateTypes(adapter);
+	await adapter.generateTypes();
 
 	console.info(dedent`
 		Initial sync completed!
@@ -109,7 +108,7 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 					changed.push("custom types");
 				}
 
-				await regenerateTypes(adapter);
+				await adapter.generateTypes();
 
 				const timestamp = new Date().toLocaleTimeString();
 				console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
@@ -221,16 +220,4 @@ function exponentialMs(base: number): number {
 
 function hash(data: unknown): string {
 	return createHash("sha256").update(JSON.stringify(data)).digest("hex");
-}
-
-async function regenerateTypes(adapter: Adapter): Promise<void> {
-	const slices = await adapter.getSlices();
-	const customTypes = await adapter.getCustomTypes();
-	const projectRoot = await findProjectRoot();
-	const output = new URL("prismicio-types.d.ts", projectRoot);
-	await generateAndWriteTypes({
-		customTypes: customTypes.map((customType) => customType.model),
-		slices: slices.map((slice) => slice.model),
-		output,
-	});
 }
