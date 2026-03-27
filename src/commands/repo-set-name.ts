@@ -13,7 +13,7 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		name: { description: "Display name for the repository" },
+		name: { description: "Display name for the repository", required: true },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
@@ -23,10 +23,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [displayName] = positionals;
 	const { repo = await getRepositoryName() } = values;
-
-	if (!displayName) {
-		throw new CommandError("Missing required argument: <name>");
-	}
 
 	const token = await getToken();
 	const host = await getHost();

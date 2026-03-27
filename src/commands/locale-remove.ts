@@ -13,7 +13,7 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		code: { description: "Locale code (e.g. en-us, fr-fr)" },
+		code: { description: "Locale code (e.g. en-us, fr-fr)", required: true },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
@@ -23,10 +23,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [code] = positionals;
 	const { repo = await getRepositoryName() } = values;
-
-	if (!code) {
-		throw new CommandError("Missing required argument: <code>");
-	}
 
 	const token = await getToken();
 	const host = await getHost();

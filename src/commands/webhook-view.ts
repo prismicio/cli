@@ -12,7 +12,7 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		url: { description: "Webhook URL" },
+		url: { description: "Webhook URL", required: true },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
@@ -22,10 +22,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
 	const { repo = await getRepositoryName() } = values;
-
-	if (!webhookUrl) {
-		throw new CommandError("Missing required argument: <url>");
-	}
 
 	const token = await getToken();
 	const host = await getHost();

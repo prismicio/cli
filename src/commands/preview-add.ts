@@ -13,7 +13,7 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		url: { description: "Preview URL (e.g. https://example.com/api/preview)" },
+		url: { description: "Preview URL (e.g. https://example.com/api/preview)", required: true },
 	},
 	options: {
 		name: { type: "string", short: "n", description: "Display name (defaults to hostname)" },
@@ -24,10 +24,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;
 	const { repo = await getRepositoryName(), name } = values;
-
-	if (!previewUrl) {
-		throw new CommandError("Missing required argument: <url>");
-	}
 
 	let parsed: URL;
 	try {

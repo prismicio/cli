@@ -13,7 +13,7 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		url: { description: "Webhook URL to receive events" },
+		url: { description: "Webhook URL to receive events", required: true },
 	},
 	options: {
 		name: { type: "string", short: "n", description: "Webhook name" },
@@ -43,10 +43,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
 	const { repo = await getRepositoryName(), name, secret, trigger = [] } = values;
-
-	if (!webhookUrl) {
-		throw new CommandError("Missing required argument: <url>");
-	}
 
 	// Validate triggers
 	for (const t of trigger) {

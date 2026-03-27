@@ -13,7 +13,7 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		code: { description: "Locale code (e.g. fr-fr, es-es)" },
+		code: { description: "Locale code (e.g. fr-fr, es-es)", required: true },
 	},
 	options: {
 		master: { type: "boolean", description: "Set as the master locale" },
@@ -25,10 +25,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [code] = positionals;
 	const { repo = await getRepositoryName(), master = false, name } = values;
-
-	if (!code) {
-		throw new CommandError("Missing required argument: <code>");
-	}
 
 	const token = await getToken();
 	const host = await getHost();

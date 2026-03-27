@@ -16,7 +16,7 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		url: { description: "Simulator URL (e.g. https://example.com/slice-simulator)" },
+		url: { description: "Simulator URL (e.g. https://example.com/slice-simulator)", required: true },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
@@ -26,10 +26,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [urlArg] = positionals;
 	const { repo = await getRepositoryName() } = values;
-
-	if (!urlArg) {
-		throw new CommandError("Missing required argument: <url>");
-	}
 
 	let parsed: URL;
 	try {
