@@ -22,16 +22,16 @@ export const TARGET_OPTIONS = {
 		description: "Relative path to the slice, page type, or custom type model",
 		required: true,
 	},
-	variation: { type: "string", description: "Slice variation ID" },
-	tab: { type: "string", description: "Page or custom type tab name" },
+	variation: { type: "string", description: 'Slice variation ID (default: "default")' },
+	tab: { type: "string", description: 'Page or custom type tab name (default: "Main")' },
 } satisfies CommandConfig["options"];
 
 export async function resolveModel(
 	values: { to: string; variation?: string; tab?: string },
-	config: { adapter: Adapter },
+	config: { adapter: Adapter; targetType?: "slice" | "customType" },
 ): Promise<Target> {
 	const { to = "", variation = "default", tab = "Main" } = values;
-	const { adapter } = config;
+	const { adapter, targetType } = config;
 
 	const resolvedTo = appendTrailingSlash(
 		new URL(to, appendTrailingSlash(pathToFileURL(process.cwd()))),
@@ -47,6 +47,11 @@ export async function resolveModel(
 		);
 	});
 	if (slice) {
+		if (targetType === "customType") {
+			throw new CommandError(
+				"This field can only be added to page types or custom types, not slices.",
+			);
+		}
 		if ("tab" in values) {
 			throw new CommandError("--tab is only valid for page or custom types.");
 		}
