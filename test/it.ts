@@ -1,3 +1,4 @@
+import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 import type { Result } from "tinyexec";
 
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -123,4 +124,36 @@ export function captureOutput(proc: Result): () => string {
 	proc.process?.stdout?.on("data", (c: Buffer) => (output += c.toString()));
 	proc.process?.stderr?.on("data", (c: Buffer) => (output += c.toString()));
 	return () => output;
+}
+
+export function buildCustomType(overrides?: Partial<CustomType>): CustomType {
+	const id = crypto.randomUUID().split("-")[0];
+	return {
+		id: `type-T${id}`,
+		label: `TypeT${id}`,
+		repeatable: true,
+		status: true,
+		json: { Main: {} },
+		...overrides,
+	};
+}
+
+export function buildSlice(overrides?: Partial<SharedSlice>): SharedSlice {
+	const id = crypto.randomUUID().split("-")[0];
+	return {
+		id: `slice-S${id}`,
+		type: "SharedSlice",
+		name: `SliceS${id}`,
+		variations: [
+			{
+				id: "default",
+				name: "Default",
+				docURL: "",
+				version: "initial",
+				description: "Default",
+				imageUrl: "",
+			},
+		],
+		...overrides,
+	};
 }

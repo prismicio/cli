@@ -105,14 +105,18 @@ export abstract class Adapter {
 
 	async createSlice(model: SharedSlice, library?: URL): Promise<void> {
 		library ??= await this.getDefaultSliceLibrary();
-		await upsertSliceModel(model, library);
+		const sliceDirectoryName = pascalCase(model.name);
+		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
+		const modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
+		await writeFileRecursive(modelPath, stringify(model));
 		await this.createSliceIndexFile(library);
 		await this.onSliceCreated(model, library);
 	}
 
 	async updateSlice(model: SharedSlice): Promise<void> {
 		const slice = await this.getSlice(model.id);
-		await upsertSliceModel(model, slice.library);
+		const modelPath = new URL("model.json", appendTrailingSlash(slice.directory));
+		await writeFileRecursive(modelPath, stringify(model));
 		await this.onSliceUpdated(model);
 	}
 
@@ -153,13 +157,18 @@ export abstract class Adapter {
 	}
 
 	async createCustomType(model: CustomType): Promise<void> {
-		await upsertCustomTypeModel(model);
+		const projectRoot = await findProjectRoot();
+		const customTypesDirectory = new URL("customtypes/", projectRoot);
+		const modelPath = new URL(`${model.id}/index.json`, customTypesDirectory);
+		await writeFileRecursive(modelPath, stringify(model));
 		if (model.format === "page") await addRoute(model);
 		await this.onCustomTypeCreated(model);
 	}
 
 	async updateCustomType(model: CustomType): Promise<void> {
-		await upsertCustomTypeModel(model);
+		const customType = await this.getCustomType(model.id);
+		const modelPath = new URL("index.json", appendTrailingSlash(customType.directory));
+		await writeFileRecursive(modelPath, stringify(model));
 		await updateRoute(model);
 		await this.onCustomTypeUpdated(model);
 	}
@@ -189,18 +198,4 @@ export abstract class Adapter {
 		await writeFileRecursive(output, types);
 		return output;
 	}
-}
-
-async function upsertSliceModel(model: SharedSlice, library: URL): Promise<void> {
-	const sliceDirectoryName = pascalCase(model.name);
-	const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
-	const modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
-	await writeFileRecursive(modelPath, stringify(model));
-}
-
-async function upsertCustomTypeModel(model: CustomType): Promise<void> {
-	const projectRoot = await findProjectRoot();
-	const customTypesDirectory = new URL("customtypes/", projectRoot);
-	const modelPath = new URL(`${model.id}/index.json`, customTypesDirectory);
-	await writeFileRecursive(modelPath, stringify(model));
 }

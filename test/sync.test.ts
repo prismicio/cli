@@ -1,8 +1,6 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
 import { writeFile, mkdir } from "node:fs/promises";
 
-import { captureOutput, it } from "./it";
+import { buildCustomType, buildSlice, captureOutput, it } from "./it";
 import { deleteCustomType, deleteSlice, insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -225,34 +223,3 @@ it("does not overwrite existing page file", async ({
 		contains: originalContent,
 	});
 });
-
-function buildCustomType(overrides?: Partial<CustomType>): CustomType {
-	const id = crypto.randomUUID().split("-")[0];
-	return {
-		id: `type-T${id}`,
-		label: `TypeT${id}`,
-		repeatable: true,
-		status: true,
-		json: {},
-		...overrides,
-	};
-}
-
-function buildSlice(): SharedSlice {
-	const id = crypto.randomUUID().split("-")[0];
-	return {
-		id: `slice-S${id}`,
-		type: "SharedSlice",
-		name: `SliceS${id}`,
-		variations: [
-			{
-				id: "default",
-				name: "Default",
-				docURL: "",
-				version: "initial",
-				description: "Default",
-				imageUrl: "",
-			},
-		],
-	};
-}
