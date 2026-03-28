@@ -1,6 +1,6 @@
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveModel, SOURCE_OPTIONS } from "../models";
+import { resolveFieldTarget, resolveModel, SOURCE_OPTIONS } from "../models";
 
 const config = {
 	name: "prismic field remove",
@@ -16,8 +16,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const adapter = await getAdapter();
 	const [fields, saveModel] = await resolveModel(values, { adapter });
-	if (!(id in fields)) throw new CommandError(`Field "${id}" does not exist.`);
-	delete fields[id];
+	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
+	if (!(fieldId in targetFields)) throw new CommandError(`Field "${id}" does not exist.`);
+	delete targetFields[fieldId];
 	await saveModel();
 	await adapter.generateTypes();
 

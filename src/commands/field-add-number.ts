@@ -55,7 +55,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 function parseNumber(value: string | undefined, optionName: string): number | undefined {
 	if (value === undefined) return undefined;
-	const number = Number.parseInt(value);
+	const number = Number(value);
 	if (Number.isNaN(number)) {
 		throw new CommandError(`--${optionName} must be a valid number, got "${value}"`);
 	}
