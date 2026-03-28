@@ -59,7 +59,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		},
 	};
 
-	if (fieldId in targetFields) throw new CommandError(`Field "${fieldId}" already exists.`);
+	if (fieldId in targetFields) throw new CommandError(`Field "${id}" already exists.`);
 	targetFields[fieldId] = field;
 	await saveModel();
 	await adapter.generateTypes();
