@@ -1,3 +1,5 @@
+import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
+
 import { pathToFileURL } from "node:url";
 
 import type { Adapter } from "./adapters";
@@ -7,12 +9,7 @@ import { CommandError } from "./lib/command";
 import { appendTrailingSlash, relativePathname } from "./lib/url";
 import { findProjectRoot } from "./project";
 
-type Field = {
-	type: string;
-	config?: {
-		label?: string | null;
-	};
-};
+type Field = DynamicWidget;
 type Fields = Record<string, Field>;
 type Target = [fields: Fields, save: () => Promise<void>];
 
@@ -94,4 +91,39 @@ export async function resolveModel(
 	const relativeTo = relativePathname(projectRoot, resolvedTo);
 
 	throw new CommandError(`There is no model at ${relativeTo}.`);
+}
+
+export function resolveFieldTarget(
+	fields: Fields,
+	id: string,
+): [targetFields: Fields, fieldId: string] {
+	if (!id.includes(".")) {
+		return [fields, id];
+	}
+
+	const segments = id.split(".");
+	const fieldId = segments.pop();
+	if (!fieldId) {
+		throw new Error("This is a bug. We cannot continue.");
+	}
+
+	let currentFields = fields;
+	for (const segment of segments) {
+		const field = currentFields[segment];
+
+		if (!field) {
+			throw new CommandError(`Field "${segment}" does not exist.`);
+		}
+
+		if (field.type !== "Group") {
+			throw new CommandError(`Field "${segment}" is not a group field.`);
+		}
+
+		field.config ??= {};
+		field.config.fields ??= {};
+
+		currentFields = field.config.fields;
+	}
+
+	return [currentFields, fieldId];
 }

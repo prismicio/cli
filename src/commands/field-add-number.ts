@@ -4,7 +4,7 @@ import { capitalCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveModel, TARGET_OPTIONS } from "../models";
+import { resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
 
 const config = {
 	name: "prismic field add number",
@@ -24,16 +24,20 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { label = capitalCase(id), placeholder } = values;
+	const { label, placeholder } = values;
 
 	const min = parseNumber(values.min, "min");
 	const max = parseNumber(values.max, "max");
 	const step = parseNumber(values.step, "step");
 
+	const adapter = await getAdapter();
+	const [fields, saveModel] = await resolveModel(values, { adapter });
+	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
+
 	const field: NumberField = {
 		type: "Number",
 		config: {
-			label,
+			label: label ?? capitalCase(fieldId),
 			placeholder,
 			min,
 			max,
@@ -41,10 +45,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		},
 	};
 
-	const adapter = await getAdapter();
-	const [fields, saveModel] = await resolveModel(values, { adapter });
-	if (id in fields) throw new CommandError(`Field "${id}" already exists.`);
-	fields[id] = field;
+	if (fieldId in targetFields) throw new CommandError(`Field "${fieldId}" already exists.`);
+	targetFields[fieldId] = field;
 	await saveModel();
 	await adapter.generateTypes();
 

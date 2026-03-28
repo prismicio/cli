@@ -152,6 +152,7 @@ export function buildSlice(overrides?: Partial<SharedSlice>): SharedSlice {
 				version: "initial",
 				description: "Default",
 				imageUrl: "",
+				primary: {},
 			},
 		],
 		...overrides,
