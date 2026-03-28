@@ -5,6 +5,7 @@ import fieldAddContentRelationship from "./field-add-content-relationship";
 import fieldAddDate from "./field-add-date";
 import fieldAddEmbed from "./field-add-embed";
 import fieldAddGeopoint from "./field-add-geopoint";
+import fieldAddGroup from "./field-add-group";
 import fieldAddImage from "./field-add-image";
 import fieldAddIntegration from "./field-add-integration";
 import fieldAddLink from "./field-add-link";
@@ -44,6 +45,10 @@ export default createCommandRouter({
 		geopoint: {
 			handler: fieldAddGeopoint,
 			description: "Add a geopoint field",
+		},
+		group: {
+			handler: fieldAddGroup,
+			description: "Add a group field",
 		},
 		image: {
 			handler: fieldAddImage,
