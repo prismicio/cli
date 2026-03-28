@@ -37,9 +37,7 @@ export async function resolveModel(
 	const path = to ?? from ?? "";
 	const { adapter, targetType } = config;
 
-	const resolvedTo = appendTrailingSlash(
-		new URL(path, appendTrailingSlash(pathToFileURL(process.cwd()))),
-	);
+	const resolvedTo = new URL(path, appendTrailingSlash(pathToFileURL(process.cwd())));
 
 	const slices = await adapter.getSlices();
 	const slice = slices.find((s) => {
@@ -47,7 +45,7 @@ export async function resolveModel(
 			new URL("model.json", s.directory).href ===
 			(resolvedTo.pathname.endsWith("/model.json")
 				? resolvedTo.href
-				: new URL("model.json", resolvedTo).href)
+				: new URL("model.json", appendTrailingSlash(resolvedTo)).href)
 		);
 	});
 	if (slice) {
@@ -77,7 +75,7 @@ export async function resolveModel(
 			new URL("index.json", c.directory).href ===
 			(resolvedTo.pathname.endsWith("/index.json")
 				? resolvedTo.href
-				: new URL("index.json", resolvedTo).href),
+				: new URL("index.json", appendTrailingSlash(resolvedTo)).href),
 	);
 	if (customType) {
 		if ("variation" in values) {
