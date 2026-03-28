@@ -6,6 +6,9 @@ import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
 
+const ALL_BLOCKS =
+	"paragraph,preformatted,heading1,heading2,heading3,heading4,heading5,heading6,strong,em,hyperlink,image,embed,list-item,o-list-item,rtl";
+
 const config = {
 	name: "prismic field add rich-text",
 	description: "Add a rich text field to a slice or custom type.",
@@ -13,7 +16,8 @@ const config = {
 		BLOCKS: `
 			heading1, heading2, heading3, heading4, heading5, heading6,
 			paragraph, strong, em, preformatted, hyperlink, image, embed,
-			list-item, o-list-item, rtl`,
+			list-item, o-list-item, rtl
+		`,
 	},
 	positionals: {
 		id: { description: "Field ID", required: true },
@@ -36,7 +40,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const {
 		label,
 		placeholder,
-		allow,
+		allow = ALL_BLOCKS,
 		single: isSingle,
 		"allow-target-blank": allowTargetBlank,
 	} = values;
