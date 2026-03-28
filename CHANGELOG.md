@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/prismicio/cli/compare/v1.3.0...v1.4.0) (2026-03-28)
+
+
+### Features
+
+* add field management commands ([#76](https://github.com/prismicio/cli/issues/76)) ([afd0e13](https://github.com/prismicio/cli/commit/afd0e135bc6be880702e3de316679b6307f3bc60))
+
 ## [1.3.0](https://github.com/prismicio/cli/compare/v1.2.1...v1.3.0) (2026-03-25)
 
 
