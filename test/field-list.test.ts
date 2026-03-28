@@ -18,7 +18,7 @@ it("lists fields in a slice", async ({ expect, project, prismic }) => {
 	await mkdir(new URL(".", modelPath), { recursive: true });
 	await writeFile(modelPath, JSON.stringify(slice));
 
-	const { stdout, exitCode } = await prismic("field", ["list", "--to", "slices/MySlice"]);
+	const { stdout, exitCode } = await prismic("field", ["list", "--from", "slices/MySlice"]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("title");
 	expect(stdout).toContain("StructuredText");
@@ -31,7 +31,7 @@ it("lists fields as JSON with --json", async ({ expect, project, prismic }) => {
 	await mkdir(new URL(".", modelPath), { recursive: true });
 	await writeFile(modelPath, JSON.stringify(slice));
 
-	const { stdout, exitCode } = await prismic("field", ["list", "--to", "slices/MySlice", "--json"]);
+	const { stdout, exitCode } = await prismic("field", ["list", "--from", "slices/MySlice", "--json"]);
 	expect(exitCode).toBe(0);
 
 	const fields = JSON.parse(stdout);
@@ -47,7 +47,7 @@ it("prints message when no fields exist", async ({ expect, project, prismic }) =
 	await mkdir(new URL(".", modelPath), { recursive: true });
 	await writeFile(modelPath, JSON.stringify(buildSlice()));
 
-	const { stdout, exitCode } = await prismic("field", ["list", "--to", "slices/MySlice"]);
+	const { stdout, exitCode } = await prismic("field", ["list", "--from", "slices/MySlice"]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("No fields found.");
 });

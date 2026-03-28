@@ -23,7 +23,7 @@ it("removes a field from a slice", async ({ expect, project, prismic }) => {
 	const { stdout, exitCode } = await prismic("field", [
 		"remove",
 		"my_field",
-		"--to",
+		"--from",
 		"slices/MySlice",
 	]);
 	expect(exitCode).toBe(0);
@@ -41,7 +41,7 @@ it("removes a field from a custom type", async ({ expect, project, prismic }) =>
 	const { stdout, exitCode } = await prismic("field", [
 		"remove",
 		"title",
-		"--to",
+		"--from",
 		"customtypes/my_type",
 	]);
 	expect(exitCode).toBe(0);

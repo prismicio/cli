@@ -1,13 +1,13 @@
 import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { resolveModel, TARGET_OPTIONS } from "../models";
+import { resolveModel, SOURCE_OPTIONS } from "../models";
 
 const config = {
 	name: "prismic field list",
 	description: "List fields in a slice or custom type.",
 	options: {
-		...TARGET_OPTIONS,
+		...SOURCE_OPTIONS,
 		json: { type: "boolean", description: "Output as JSON" },
 	},
 } satisfies CommandConfig;

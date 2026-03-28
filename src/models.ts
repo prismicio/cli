@@ -23,15 +23,22 @@ export const TARGET_OPTIONS = {
 	tab: { type: "string", description: 'Page or custom type tab name (default: "Main")' },
 } satisfies CommandConfig["options"];
 
+export const SOURCE_OPTIONS = {
+	from: TARGET_OPTIONS.to,
+	variation: TARGET_OPTIONS.variation,
+	tab: TARGET_OPTIONS.tab,
+} satisfies CommandConfig["options"];
+
 export async function resolveModel(
-	values: { to: string; variation?: string; tab?: string },
+	values: { to?: string; from?: string; variation?: string; tab?: string },
 	config: { adapter: Adapter; targetType?: "slice" | "customType" },
 ): Promise<Target> {
-	const { to = "", variation = "default", tab = "Main" } = values;
+	const { to, from, variation = "default", tab = "Main" } = values;
+	const path = to ?? from ?? "";
 	const { adapter, targetType } = config;
 
 	const resolvedTo = appendTrailingSlash(
-		new URL(to, appendTrailingSlash(pathToFileURL(process.cwd()))),
+		new URL(path, appendTrailingSlash(pathToFileURL(process.cwd()))),
 	);
 
 	const slices = await adapter.getSlices();
