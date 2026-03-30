@@ -6,14 +6,17 @@ import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
+import customType from "./commands/custom-type";
 import field from "./commands/field";
 import gen from "./commands/gen";
 import init from "./commands/init";
 import locale from "./commands/locale";
 import login from "./commands/login";
 import logout from "./commands/logout";
+import pageType from "./commands/page-type";
 import preview from "./commands/preview";
 import repo from "./commands/repo";
+import slice from "./commands/slice";
 import sync from "./commands/sync";
 import token from "./commands/token";
 import webhook from "./commands/webhook";
@@ -51,6 +54,18 @@ const router = createCommandRouter({
 		gen: {
 			handler: gen,
 			description: "Generate files from local models",
+		},
+		slice: {
+			handler: slice,
+			description: "Manage slices",
+		},
+		"page-type": {
+			handler: pageType,
+			description: "Manage page types",
+		},
+		"custom-type": {
+			handler: customType,
+			description: "Manage custom types",
 		},
 		field: {
 			handler: field,

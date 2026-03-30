@@ -15,8 +15,8 @@ import { findProjectRoot, getLibraries } from "../project";
 
 const TYPES_FILENAME = "prismicio-types.d.ts";
 
-type CustomTypeMeta = { model: CustomType; directory: URL };
-type SharedSliceMeta = { model: SharedSlice; directory: URL; library: URL };
+export type CustomTypeMeta = { model: CustomType; directory: URL };
+export type SharedSliceMeta = { model: SharedSlice; directory: URL; library: URL };
 
 export async function getAdapter(): Promise<Adapter> {
 	const { dependencies, devDependencies, peerDependencies } = await readPackageJson();

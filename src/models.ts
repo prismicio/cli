@@ -2,7 +2,7 @@ import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
 
 import { pathToFileURL } from "node:url";
 
-import type { Adapter } from "./adapters";
+import type { Adapter, CustomTypeMeta, SharedSliceMeta } from "./adapters";
 import type { CommandConfig } from "./lib/command";
 
 import { CommandError } from "./lib/command";
@@ -39,14 +39,8 @@ export async function resolveModel(
 
 	const resolvedTo = new URL(path, appendTrailingSlash(pathToFileURL(process.cwd())));
 
-	const slices = await adapter.getSlices();
-	const slice = slices.find((s) => {
-		return (
-			new URL("model.json", s.directory).href ===
-			(resolvedTo.pathname.endsWith("/model.json")
-				? resolvedTo.href
-				: new URL("model.json", appendTrailingSlash(resolvedTo)).href)
-		);
+	const slice = await resolveSlice(path, { adapter }).catch((error) => {
+		if (!(error instanceof CommandError)) throw error;
 	});
 	if (slice) {
 		if (targetType === "customType") {
@@ -69,15 +63,15 @@ export async function resolveModel(
 		return [newVariation.primary, () => adapter.updateSlice(newModel)];
 	}
 
-	const customTypes = await adapter.getCustomTypes();
-	const customType = customTypes.find(
-		(c) =>
-			new URL("index.json", c.directory).href ===
-			(resolvedTo.pathname.endsWith("/index.json")
-				? resolvedTo.href
-				: new URL("index.json", appendTrailingSlash(resolvedTo)).href),
-	);
+	const customType = await resolveCustomType(path, { adapter }).catch((error) => {
+		if (!(error instanceof CommandError)) throw error;
+	});
 	if (customType) {
+		if (targetType === "slice") {
+			throw new CommandError(
+				"This field can only be added to slices, not page types or custom types.",
+			);
+		}
 		if ("variation" in values) {
 			throw new CommandError("--variation is only valid for slices.");
 		}
@@ -94,6 +88,54 @@ export async function resolveModel(
 
 	const projectRoot = await findProjectRoot();
 	const relativeTo = relativePathname(projectRoot, resolvedTo);
+
+	throw new CommandError(`There is no model at ${relativeTo}.`);
+}
+
+export async function resolveCustomType(
+	path: string,
+	config: { adapter: Adapter },
+): Promise<CustomTypeMeta> {
+	const { adapter } = config;
+
+	const resolvedPath = new URL(path, appendTrailingSlash(pathToFileURL(process.cwd())));
+
+	const customTypes = await adapter.getCustomTypes();
+	const customType = customTypes.find(
+		(c) =>
+			new URL("index.json", c.directory).href ===
+			(resolvedPath.pathname.endsWith("/index.json")
+				? resolvedPath.href
+				: new URL("index.json", appendTrailingSlash(resolvedPath)).href),
+	);
+	if (customType) return customType;
+
+	const projectRoot = await findProjectRoot();
+	const relativeTo = relativePathname(projectRoot, resolvedPath);
+
+	throw new CommandError(`There is no model at ${relativeTo}.`);
+}
+
+export async function resolveSlice(
+	path: string,
+	config: { adapter: Adapter },
+): Promise<SharedSliceMeta> {
+	const { adapter } = config;
+
+	const resolvedPath = new URL(path, appendTrailingSlash(pathToFileURL(process.cwd())));
+
+	const slices = await adapter.getSlices();
+	const slice = slices.find(
+		(c) =>
+			new URL("model.json", c.directory).href ===
+			(resolvedPath.pathname.endsWith("/model.json")
+				? resolvedPath.href
+				: new URL("model.json", appendTrailingSlash(resolvedPath)).href),
+	);
+	if (slice) return slice;
+
+	const projectRoot = await findProjectRoot();
+	const relativeTo = relativePathname(projectRoot, resolvedPath);
 
 	throw new CommandError(`There is no model at ${relativeTo}.`);
 }
