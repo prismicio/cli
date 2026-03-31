@@ -32,7 +32,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 		status: true,
 		format: "page",
 		json: {
-			Main: {},
+			Main: {
+				slices: {
+					type: "Slices",
+					fieldset: "Slice Zone",
+					config: { choices: {} },
+				},
+			},
 			"SEO & Metadata": {
 				meta_title: {
 					type: "Text",
