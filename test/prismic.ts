@@ -1,3 +1,5 @@
+import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+
 const DEFAULT_HOST = "prismic.io";
 
 type HostConfig = { host?: string };
@@ -47,6 +49,19 @@ export async function deleteRepository(
 	}
 }
 
+export async function getCustomTypes(config: RepoConfig): Promise<CustomType[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("customtypes", `https://customtypes.${host}/`);
+	const res = await fetch(url, {
+		headers: {
+			Authorization: `Bearer ${config.token}`,
+			repository: config.repo,
+		},
+	});
+	if (!res.ok) throw new Error(`Failed to get custom types: ${res.status} ${await res.text()}`);
+	return await res.json();
+}
+
 export async function insertCustomType(customType: object, config: RepoConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("customtypes/insert", `https://customtypes.${host}/`);
@@ -73,6 +88,19 @@ export async function deleteCustomType(customTypeId: string, config: RepoConfig)
 		},
 	});
 	if (!res.ok) throw new Error(`Failed to delete custom type: ${res.status} ${await res.text()}`);
+}
+
+export async function getSlices(config: RepoConfig): Promise<SharedSlice[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("slices", `https://customtypes.${host}/`);
+	const res = await fetch(url, {
+		headers: {
+			Authorization: `Bearer ${config.token}`,
+			repository: config.repo,
+		},
+	});
+	if (!res.ok) throw new Error(`Failed to get slices: ${res.status} ${await res.text()}`);
+	return await res.json();
 }
 
 export async function insertSlice(slice: object, config: RepoConfig): Promise<void> {
