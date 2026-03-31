@@ -12,6 +12,7 @@ import locale from "./commands/locale";
 import login from "./commands/login";
 import logout from "./commands/logout";
 import customType from "./commands/custom-type";
+import field from "./commands/field";
 import pageType from "./commands/page-type";
 import preview from "./commands/preview";
 import repo from "./commands/repo";
@@ -69,6 +70,10 @@ const router = createCommandRouter({
 		"custom-type": {
 			handler: customType,
 			description: "Manage custom types",
+		},
+		field: {
+			handler: field,
+			description: "Manage fields",
 		},
 		"page-type": {
 			handler: pageType,
