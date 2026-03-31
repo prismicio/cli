@@ -11,8 +11,11 @@ import init from "./commands/init";
 import locale from "./commands/locale";
 import login from "./commands/login";
 import logout from "./commands/logout";
+import customType from "./commands/custom-type";
+import pageType from "./commands/page-type";
 import preview from "./commands/preview";
 import repo from "./commands/repo";
+import slice from "./commands/slice";
 import sync from "./commands/sync";
 import token from "./commands/token";
 import webhook from "./commands/webhook";
@@ -62,6 +65,18 @@ const router = createCommandRouter({
 		repo: {
 			handler: repo,
 			description: "Manage repositories",
+		},
+		"custom-type": {
+			handler: customType,
+			description: "Manage custom types",
+		},
+		"page-type": {
+			handler: pageType,
+			description: "Manage page types",
+		},
+		slice: {
+			handler: slice,
+			description: "Manage slices",
 		},
 		preview: {
 			handler: preview,

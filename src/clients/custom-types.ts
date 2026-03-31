@@ -16,6 +16,47 @@ export async function getCustomTypes(config: {
 	return response;
 }
 
+export async function insertCustomType(
+	model: CustomType,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const { repo, token, host } = config;
+	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
+	const url = new URL("customtypes", customTypesServiceUrl);
+	await request<CustomType[]>(url, {
+		method: "POST",
+		headers: { repository: repo, Authorization: `Bearer ${token}` },
+		body: model,
+	});
+}
+
+export async function updateCustomType(
+	model: CustomType,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const { repo, token, host } = config;
+	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
+	const url = new URL(`customtypes/${encodeURIComponent(model.id)}`, customTypesServiceUrl);
+	await request<void>(url, {
+		method: "PUT",
+		headers: { repository: repo, Authorization: `Bearer ${token}` },
+		body: model,
+	});
+}
+
+export async function removeCustomType(
+	id: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const { repo, token, host } = config;
+	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
+	const url = new URL(`customtypes/${encodeURIComponent(id)}`, customTypesServiceUrl);
+	await request<CustomType[]>(url, {
+		method: "DELETE",
+		headers: { repository: repo, Authorization: `Bearer ${token}` },
+	});
+}
+
 export async function getSlices(config: {
 	repo: string;
 	token: string | undefined;
@@ -28,6 +69,47 @@ export async function getSlices(config: {
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 	});
 	return response;
+}
+
+export async function insertSlice(
+	model: SharedSlice,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const { repo, token, host } = config;
+	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
+	const url = new URL("slices", customTypesServiceUrl);
+	await request<CustomType[]>(url, {
+		method: "POST",
+		headers: { repository: repo, Authorization: `Bearer ${token}` },
+		body: model,
+	});
+}
+
+export async function updateSlice(
+	model: SharedSlice,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const { repo, token, host } = config;
+	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
+	const url = new URL(`slices/${encodeURIComponent(model.id)}`, customTypesServiceUrl);
+	await request<void>(url, {
+		method: "PUT",
+		headers: { repository: repo, Authorization: `Bearer ${token}` },
+		body: model,
+	});
+}
+
+export async function removeSlice(
+	id: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const { repo, token, host } = config;
+	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
+	const url = new URL(`slices/${encodeURIComponent(id)}`, customTypesServiceUrl);
+	await request<CustomType[]>(url, {
+		method: "DELETE",
+		headers: { repository: repo, Authorization: `Bearer ${token}` },
+	});
 }
 
 function getCustomTypesServiceUrl(host: string): URL {
