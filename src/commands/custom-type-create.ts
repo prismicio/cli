@@ -2,6 +2,7 @@ import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
 import { snakeCase } from "change-case";
 
+import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { insertCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -36,6 +37,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		},
 	};
 
+	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 
@@ -48,6 +50,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 		throw error;
 	}
+
+	await adapter.syncModels({ repo, token, host });
 
 	console.info(`Created custom type "${name}" (id: "${id}")`);
 });

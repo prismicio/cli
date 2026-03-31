@@ -8,9 +8,9 @@ import { UnknownRequestError } from "./lib/request";
 
 type Field = DynamicWidget;
 type Fields = Record<string, Field>;
-type EntityType = "slice" | "customType";
+type ModelKind = "slice" | "customType";
 type ApiConfig = { repo: string; token: string | undefined; host: string };
-type Target = [fields: Fields, save: () => Promise<void>, entityType: EntityType];
+type Target = [fields: Fields, save: () => Promise<void>, modelKind: ModelKind];
 
 export const TARGET_OPTIONS = {
 	"to-slice": { type: "string", description: "Name of the target slice" },

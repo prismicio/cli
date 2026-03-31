@@ -1,3 +1,4 @@
+import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { resolveFieldContainer, resolveFieldTarget, SOURCE_OPTIONS } from "../models";
@@ -81,6 +82,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
 	const { repo = await getRepositoryName() } = values;
 
+	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 	const [fields, saveModel] = await resolveFieldContainer(id, values, { repo, token, host });
@@ -169,6 +171,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	await saveModel();
+
+	await adapter.syncModels({ repo, token, host });
 
 	console.info(`Field updated: ${id}`);
 });

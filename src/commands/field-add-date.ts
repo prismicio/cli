@@ -2,6 +2,7 @@ import type { Date as DateField } from "@prismicio/types-internal/lib/customtype
 
 import { capitalCase } from "change-case";
 
+import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
@@ -25,6 +26,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
 	const { label, placeholder, default: defaultValue, repo = await getRepositoryName() } = values;
 
+	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 	const [fields, saveModel] = await resolveModel(values, { repo, token, host });
@@ -42,6 +44,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	if (fieldId in targetFields) throw new CommandError(`Field "${id}" already exists.`);
 	targetFields[fieldId] = field;
 	await saveModel();
+
+	await adapter.syncModels({ repo, token, host });
 
 	console.info(`Field added: ${id}`);
 });

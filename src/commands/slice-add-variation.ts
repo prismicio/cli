@@ -2,6 +2,7 @@ import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { camelCase } from "change-case";
 
+import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getSlices, updateSlice } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -25,6 +26,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [name] = positionals;
 	const { to, id = camelCase(name), repo = await getRepositoryName() } = values;
 
+	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 	const slices = await getSlices({ repo, token, host });
@@ -63,6 +65,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 		throw error;
 	}
+
+	await adapter.syncModels({ repo, token, host });
 
 	console.info(`Added variation "${name}" (id: "${id}") to slice "${to}"`);
 });

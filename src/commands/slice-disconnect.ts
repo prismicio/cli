@@ -1,5 +1,6 @@
 import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
 
+import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices, updateCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -30,6 +31,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [name] = positionals;
 	const { from, "slice-zone": sliceZone = "slices", repo = await getRepositoryName() } = values;
 
+	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 	const apiConfig = { repo, token, host };
@@ -73,6 +75,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 		throw error;
 	}
+
+	await adapter.syncModels({ repo, token, host });
 
 	console.info(`Disconnected slice "${name}" from "${from}"`);
 });

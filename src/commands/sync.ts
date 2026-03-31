@@ -41,9 +41,9 @@ export default createCommand(config, async ({ values }) => {
 	if (watch) {
 		await watchForChanges(repo, adapter);
 	} else {
-		await syncSlices(repo, adapter);
-		await syncCustomTypes(repo, adapter);
-		await adapter.generateTypes();
+		const token = await getToken();
+		const host = await getHost();
+		await adapter.syncModels({ repo, token, host });
 		segmentTrackEnd("sync", { watch });
 
 		console.info("Sync complete");
@@ -57,9 +57,7 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 	const initialRemoteSlices = await getSlices({ repo, token, host });
 	const initialRemoteCustomTypes = await getCustomTypes({ repo, token, host });
 
-	await syncSlices(repo, adapter);
-	await syncCustomTypes(repo, adapter);
-	await adapter.generateTypes();
+	await adapter.syncModels({ repo, token, host });
 
 	console.info(dedent`
 		Initial sync completed!
@@ -98,17 +96,15 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 				const changed = [];
 
 				if (slicesChanged) {
-					await syncSlices(repo, adapter);
+					await adapter.syncSlices({ repo, token, host });
 					lastRemoteSlicesHash = remoteSlicesHash;
 					changed.push("slices");
 				}
 				if (customTypesChanged) {
-					await syncCustomTypes(repo, adapter);
+					await adapter.syncCustomTypes({ repo, token, host });
 					lastRemoteCustomTypesHash = remoteCustomTypesHash;
 					changed.push("custom types");
 				}
-
-				await adapter.generateTypes();
 
 				const timestamp = new Date().toLocaleTimeString();
 				console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
@@ -131,77 +127,6 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 			if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
 				throw new Error(`Too many consecutive errors (${MAX_CONSECUTIVE_ERRORS}), stopping watch.`);
 			}
-		}
-	}
-}
-
-export async function syncSlices(repo: string, adapter: Adapter): Promise<void> {
-	const token = await getToken();
-	const host = await getHost();
-
-	const remoteSlices = await getSlices({ repo, token, host });
-	const localSlices = await adapter.getSlices();
-
-	// Handle slices update
-	for (const remoteSlice of remoteSlices) {
-		const localSlice = localSlices.find((slice) => slice.model.id === remoteSlice.id);
-		if (localSlice) {
-			await adapter.updateSlice(remoteSlice);
-		}
-	}
-
-	// Handle slices deletion
-	for (const localSlice of localSlices) {
-		const existsRemotely = remoteSlices.some((slice) => slice.id === localSlice.model.id);
-		if (!existsRemotely) {
-			await adapter.deleteSlice(localSlice.model.id);
-		}
-	}
-
-	// Handle slices creation
-	const defaultLibrary = await adapter.getDefaultSliceLibrary();
-	for (const remoteSlice of remoteSlices) {
-		const existsLocally = localSlices.some((slice) => slice.model.id === remoteSlice.id);
-		if (!existsLocally) {
-			await adapter.createSlice(remoteSlice, defaultLibrary);
-		}
-	}
-}
-
-export async function syncCustomTypes(repo: string, adapter: Adapter): Promise<void> {
-	const token = await getToken();
-	const host = await getHost();
-
-	const remoteCustomTypes = await getCustomTypes({ repo, token, host });
-	const localCustomTypes = await adapter.getCustomTypes();
-
-	// Handle custom types update
-	for (const remoteCustomType of remoteCustomTypes) {
-		const localCustomType = localCustomTypes.find(
-			(customType) => customType.model.id === remoteCustomType.id,
-		);
-		if (localCustomType) {
-			await adapter.updateCustomType(remoteCustomType);
-		}
-	}
-
-	// Handle custom types deletion
-	for (const localCustomType of localCustomTypes) {
-		const existsRemotely = remoteCustomTypes.some(
-			(customType) => customType.id === localCustomType.model.id,
-		);
-		if (!existsRemotely) {
-			await adapter.deleteCustomType(localCustomType.model.id);
-		}
-	}
-
-	// Handle custom types creation
-	for (const remoteCustomType of remoteCustomTypes) {
-		const existsLocally = localCustomTypes.some(
-			(customType) => customType.model.id === remoteCustomType.id,
-		);
-		if (!existsLocally) {
-			await adapter.createCustomType(remoteCustomType);
 		}
 	}
 }

@@ -17,7 +17,6 @@ import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
-import { syncCustomTypes, syncSlices } from "./sync";
 
 const config = {
 	name: "prismic init",
@@ -69,7 +68,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Validate repo membership
-	const token = await getToken();
+	let token = await getToken();
 	const host = await getHost();
 	let profile: Profile;
 	try {
@@ -89,7 +88,7 @@ export default createCommand(config, async ({ values }) => {
 				},
 			});
 			console.info(`Logged in as ${email}`);
-			const token = await getToken();
+			token = await getToken();
 			profile = await getProfile({ token, host });
 		} else {
 			throw error;
@@ -144,12 +143,8 @@ export default createCommand(config, async ({ values }) => {
 		);
 	}
 
-	// Sync models from remote
-	await syncSlices(repo, adapter);
-	await syncCustomTypes(repo, adapter);
-
-	// Generate TypeScript types from synced models
-	await adapter.generateTypes();
+	// Sync models from remote and generate types
+	await adapter.syncModels({ repo, token, host });
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 });

@@ -2,6 +2,7 @@ import type { Link } from "@prismicio/types-internal/lib/customtypes";
 
 import { capitalCase } from "change-case";
 
+import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
@@ -17,19 +18,19 @@ const config = {
 		...TARGET_OPTIONS,
 		label: { type: "string", description: "Field label" },
 		tag: { type: "string", multiple: true, description: "Allowed tag (can be repeated)" },
-		"custom-type": { type: "string", multiple: true, description: "Allowed custom type (can be repeated)" },
+		"custom-type": {
+			type: "string",
+			multiple: true,
+			description: "Allowed custom type (can be repeated)",
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const {
-		label,
-		tag: tags,
-		"custom-type": customtypes,
-		repo = await getRepositoryName(),
-	} = values;
+	const { label, tag: tags, "custom-type": customtypes, repo = await getRepositoryName() } = values;
 
+	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 	const [fields, saveModel] = await resolveModel(values, { repo, token, host });
@@ -48,6 +49,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	if (fieldId in targetFields) throw new CommandError(`Field "${id}" already exists.`);
 	targetFields[fieldId] = field;
 	await saveModel();
+
+	await adapter.syncModels({ repo, token, host });
 
 	console.info(`Field added: ${id}`);
 });

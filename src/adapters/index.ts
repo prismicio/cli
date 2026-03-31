@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
+import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { addRoute, removeRoute, updateRoute } from "../config";
 import { readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
@@ -178,6 +179,89 @@ export abstract class Adapter {
 		await rm(customType.directory, { recursive: true });
 		await removeRoute(id);
 		await this.onCustomTypeDeleted(id);
+	}
+
+	async syncModels(config: {
+		repo: string;
+		token: string | undefined;
+		host: string;
+	}): Promise<void> {
+		const { repo, token, host } = config;
+		await Promise.all([
+			this.syncSlices({ repo, token, host, generateTypes: false }),
+			this.syncCustomTypes({ repo, token, host, generateTypes: false }),
+		]);
+		await this.generateTypes();
+	}
+
+	async syncSlices(config: {
+		repo: string;
+		token: string | undefined;
+		host: string;
+		generateTypes?: boolean;
+	}): Promise<void> {
+		const { repo, token, host, generateTypes = true } = config;
+
+		const remoteSlices = await getSlices({ repo, token, host });
+		const localSlices = await this.getSlices();
+
+		// Handle slices update
+		for (const remoteSlice of remoteSlices) {
+			const localSlice = localSlices.find((slice) => slice.model.id === remoteSlice.id);
+			if (localSlice) await this.updateSlice(remoteSlice);
+		}
+
+		// Handle slices deletion
+		for (const localSlice of localSlices) {
+			const existsRemotely = remoteSlices.some((slice) => slice.id === localSlice.model.id);
+			if (!existsRemotely) await this.deleteSlice(localSlice.model.id);
+		}
+
+		// Handle slices creation
+		for (const remoteSlice of remoteSlices) {
+			const existsLocally = localSlices.some((slice) => slice.model.id === remoteSlice.id);
+			if (!existsLocally) await this.createSlice(remoteSlice);
+		}
+
+		if (generateTypes) await this.generateTypes();
+	}
+
+	async syncCustomTypes(config: {
+		repo: string;
+		token: string | undefined;
+		host: string;
+		generateTypes?: boolean;
+	}): Promise<void> {
+		const { repo, token, host, generateTypes = true } = config;
+
+		const remoteCustomTypes = await getCustomTypes({ repo, token, host });
+		const localCustomTypes = await this.getCustomTypes();
+
+		// Handle custom types update
+		for (const remoteCustomType of remoteCustomTypes) {
+			const localCustomType = localCustomTypes.find(
+				(customType) => customType.model.id === remoteCustomType.id,
+			);
+			if (localCustomType) await this.updateCustomType(remoteCustomType);
+		}
+
+		// Handle custom types deletion
+		for (const localCustomType of localCustomTypes) {
+			const existsRemotely = remoteCustomTypes.some(
+				(customType) => customType.id === localCustomType.model.id,
+			);
+			if (!existsRemotely) await this.deleteCustomType(localCustomType.model.id);
+		}
+
+		// Handle custom types creation
+		for (const remoteCustomType of remoteCustomTypes) {
+			const existsLocally = localCustomTypes.some(
+				(customType) => customType.model.id === remoteCustomType.id,
+			);
+			if (!existsLocally) await this.createCustomType(remoteCustomType);
+		}
+
+		if (generateTypes) await this.generateTypes();
 	}
 
 	async generateTypes(): Promise<URL> {
