@@ -6,7 +6,6 @@ import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
-import field from "./commands/field";
 import gen from "./commands/gen";
 import init from "./commands/init";
 import locale from "./commands/locale";
@@ -51,10 +50,6 @@ const router = createCommandRouter({
 		gen: {
 			handler: gen,
 			description: "Generate files from local models",
-		},
-		field: {
-			handler: field,
-			description: "Manage fields",
 		},
 		sync: {
 			handler: sync,
