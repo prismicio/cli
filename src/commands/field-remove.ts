@@ -1,6 +1,6 @@
 import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveFieldTarget, resolveModel, SOURCE_OPTIONS } from "../models";
+import { resolveFieldContainer, resolveFieldTarget, SOURCE_OPTIONS } from "../models";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -18,7 +18,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const [fields, saveModel] = await resolveModel(values, { repo, token, host });
+	const [fields, saveModel] = await resolveFieldContainer(id, values, { repo, token, host });
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 	if (!(fieldId in targetFields)) throw new CommandError(`Field "${id}" does not exist.`);
 	delete targetFields[fieldId];

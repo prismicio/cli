@@ -2,12 +2,7 @@ import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
 
 import type { CommandConfig } from "./lib/command";
 
-import {
-	getCustomTypes,
-	getSlices,
-	updateCustomType,
-	updateSlice,
-} from "./clients/custom-types";
+import { getCustomTypes, getSlices, updateCustomType, updateSlice } from "./clients/custom-types";
 import { CommandError } from "./lib/command";
 import { UnknownRequestError } from "./lib/request";
 
@@ -34,6 +29,73 @@ export const SOURCE_OPTIONS = {
 	tab: TARGET_OPTIONS.tab,
 	repo: TARGET_OPTIONS.repo,
 } satisfies CommandConfig["options"];
+
+export async function resolveFieldContainer(
+	id: string,
+	values: {
+		"from-slice"?: string;
+		"from-page-type"?: string;
+		"from-custom-type"?: string;
+		variation?: string;
+	},
+	apiConfig: ApiConfig,
+): Promise<Target> {
+	const {
+		"from-slice": fromSlice,
+		"from-page-type": fromPageType,
+		"from-custom-type": fromCustomType,
+		variation: variationId = "default",
+	} = values;
+
+	const providedCount = [fromSlice, fromPageType, fromCustomType].filter(Boolean).length;
+	if (providedCount === 0) {
+		throw new CommandError(
+			"Specify a target with --from-slice, --from-page-type, or --from-custom-type.",
+		);
+	}
+	if (providedCount > 1) {
+		throw new CommandError(
+			"Only one of --from-slice, --from-page-type, or --from-custom-type can be specified.",
+		);
+	}
+
+	if (fromSlice) {
+		const slices = await getSlices(apiConfig);
+		const slice = slices.find((s) => s.name === fromSlice);
+		if (!slice) {
+			throw new CommandError(`Slice not found: ${fromSlice}`);
+		}
+		const variation = slice.variations.find((v) => v.id === variationId);
+		if (!variation) {
+			const variationIds = slice.variations?.map((v) => v.id).join(", ") || "(none)";
+			throw new CommandError(`Variation "${variation}" not found. Available: ${variationIds}`);
+		}
+		variation.primary ??= {};
+		resolveFieldTarget(variation.primary, id);
+		return [variation.primary, () => updateSlice(slice, apiConfig), "slice"];
+	}
+
+	const fromType = fromPageType || fromCustomType;
+	const entityLabel = fromPageType ? "Page type" : "Custom type";
+	const customTypes = await getCustomTypes(apiConfig);
+	const customType = customTypes.find((ct) => {
+		if (ct.label !== fromType) return false;
+		return fromPageType ? ct.format === "page" : ct.format !== "page";
+	});
+	if (!customType) {
+		throw new CommandError(`${entityLabel} not found: ${fromType}`);
+	}
+	let tab: Record<string, DynamicWidget> | undefined;
+	for (const tabName in customType.json) {
+		if (id in customType.json[tabName]) tab = customType.json[tabName];
+	}
+	if (!tab) {
+		const fieldIds = Object.keys(Object.assign({}, ...Object.values(customType.json))) || "(none)";
+		throw new CommandError(`Field "${id}" not found. Available: ${fieldIds}`);
+	}
+	resolveFieldTarget(tab, id);
+	return [tab, () => updateCustomType(customType, apiConfig), "customType"];
+}
 
 export async function resolveModel(
 	values: {
