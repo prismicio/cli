@@ -33,7 +33,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
-			throw new CommandError(`Failed to remove custom type: ${message}`);
+			throw new CommandError(`Failed to remove slice: ${message}`);
 		}
 		throw error;
 	}

@@ -22,7 +22,7 @@ export async function insertCustomType(
 ): Promise<void> {
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL("customtypes", customTypesServiceUrl);
+	const url = new URL("customtypes/insert", customTypesServiceUrl);
 	await request<CustomType[]>(url, {
 		method: "POST",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
@@ -36,9 +36,9 @@ export async function updateCustomType(
 ): Promise<void> {
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL(`customtypes/${encodeURIComponent(model.id)}`, customTypesServiceUrl);
+	const url = new URL("customtypes/update", customTypesServiceUrl);
 	await request<void>(url, {
-		method: "PUT",
+		method: "POST",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 		body: model,
 	});
@@ -77,7 +77,7 @@ export async function insertSlice(
 ): Promise<void> {
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL("slices", customTypesServiceUrl);
+	const url = new URL("slices/insert", customTypesServiceUrl);
 	await request<CustomType[]>(url, {
 		method: "POST",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
@@ -91,9 +91,9 @@ export async function updateSlice(
 ): Promise<void> {
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL(`slices/${encodeURIComponent(model.id)}`, customTypesServiceUrl);
+	const url = new URL("slices/update", customTypesServiceUrl);
 	await request<void>(url, {
-		method: "PUT",
+		method: "POST",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 		body: model,
 	});

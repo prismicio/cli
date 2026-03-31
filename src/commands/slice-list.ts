@@ -1,6 +1,6 @@
 import { getHost, getToken } from "../auth";
 import { getSlices } from "../clients/custom-types";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getRepositoryName } from "../project";
 
@@ -33,6 +33,4 @@ export default createCommand(config, async ({ values }) => {
 	for (const slice of slices) {
 		console.info(`${slice.name} (id: ${slice.id})`);
 	}
-
-	throw new CommandError("Not implemented.");
 });

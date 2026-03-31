@@ -49,10 +49,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
-			throw new CommandError(`Failed to create page type: ${message}`);
+			throw new CommandError(`Failed to create slice: ${message}`);
 		}
 		throw error;
 	}
 
-	console.info(`Created page type "${name}" (id: "${id}")`);
+	console.info(`Created slice "${name}" (id: "${id}")`);
 });
