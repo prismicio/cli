@@ -170,7 +170,7 @@ export async function deleteLegacySliceMachineConfig(): Promise<void> {
 	await rm(configPath);
 }
 
-async function findLegacySliceMachineConfigPath(): Promise<URL> {
+export async function findLegacySliceMachineConfigPath(): Promise<URL> {
 	const configPath = await findUpward(LEGACY_SLICE_MACHINE_CONFIG_FILENAME, {
 		stop: "package.json",
 	});
