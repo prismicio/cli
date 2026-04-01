@@ -1,6 +1,5 @@
 import type { UID } from "@prismicio/types-internal/lib/customtypes";
 
-import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { resolveModel } from "../models";
@@ -22,7 +21,6 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { label = "UID", placeholder, repo = await getRepositoryName() } = values;
 
-	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 	const [fields, saveModel] = await resolveModel(values, { repo, token, host });
@@ -38,8 +36,6 @@ export default createCommand(config, async ({ values }) => {
 	if ("uid" in fields) throw new CommandError('Field "uid" already exists.');
 	fields.uid = field;
 	await saveModel();
-
-	await adapter.syncModels({ repo, token, host });
 
 	console.info("Field added: uid");
 });

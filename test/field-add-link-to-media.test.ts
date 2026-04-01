@@ -27,7 +27,13 @@ it("adds a link to media field to a slice", async ({ expect, prismic, repo, toke
 	expect(field).toMatchObject({ type: "Link", config: { select: "media" } });
 });
 
-it("adds a link to media field to a custom type", async ({ expect, prismic, repo, token, host }) => {
+it("adds a link to media field to a custom type", async ({
+	expect,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
 	const customType = buildCustomType();
 	await insertCustomType(customType, { repo, token, host });
 

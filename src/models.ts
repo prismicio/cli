@@ -2,6 +2,7 @@ import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
 
 import type { CommandConfig } from "./lib/command";
 
+import { getAdapter } from "./adapters";
 import { getCustomTypes, getSlices, updateCustomType, updateSlice } from "./clients/custom-types";
 import { CommandError } from "./lib/command";
 import { UnknownRequestError } from "./lib/request";
@@ -40,6 +41,7 @@ export async function resolveFieldContainer(
 	},
 	apiConfig: ApiConfig,
 ): Promise<Target> {
+	const adapter = await getAdapter();
 	const {
 		"from-slice": fromSlice,
 		"from-page-type": fromPageType,
@@ -72,7 +74,19 @@ export async function resolveFieldContainer(
 		}
 		variation.primary ??= {};
 		resolveFieldTarget(variation.primary, id);
-		return [variation.primary, () => updateSlice(slice, apiConfig), "slice"];
+		return [
+			variation.primary,
+			async () => {
+				await updateSlice(slice, apiConfig);
+				try {
+					await adapter.updateSlice(slice);
+				} catch {
+					await adapter.createSlice(slice);
+				}
+				await adapter.generateTypes();
+			},
+			"slice",
+		];
 	}
 
 	const fromType = fromPageType || fromCustomType;
@@ -94,7 +108,19 @@ export async function resolveFieldContainer(
 		throw new CommandError(`Field "${id}" not found. Available: ${fieldIds}`);
 	}
 	resolveFieldTarget(tab, id);
-	return [tab, () => updateCustomType(customType, apiConfig), "customType"];
+	return [
+		tab,
+		async () => {
+			await updateCustomType(customType, apiConfig);
+			try {
+				await adapter.updateCustomType(customType);
+			} catch {
+				await adapter.createCustomType(customType);
+			}
+			await adapter.generateTypes();
+		},
+		"customType",
+	];
 }
 
 export async function resolveModel(
@@ -110,6 +136,7 @@ export async function resolveModel(
 	},
 	apiConfig: ApiConfig,
 ): Promise<Target> {
+	const adapter = await getAdapter();
 	const sliceName = values["to-slice"] ?? values["from-slice"];
 	const pageTypeName = values["to-page-type"] ?? values["from-page-type"];
 	const customTypeName = values["to-custom-type"] ?? values["from-custom-type"];
@@ -158,6 +185,12 @@ export async function resolveModel(
 					}
 					throw error;
 				}
+				try {
+					await adapter.updateSlice(newModel);
+				} catch {
+					await adapter.createSlice(newModel);
+				}
+				await adapter.generateTypes();
 			},
 			"slice",
 		];
@@ -200,6 +233,12 @@ export async function resolveModel(
 				}
 				throw error;
 			}
+			try {
+				await adapter.updateCustomType(newModel);
+			} catch {
+				await adapter.createCustomType(newModel);
+			}
+			await adapter.generateTypes();
 		},
 		"customType",
 	];

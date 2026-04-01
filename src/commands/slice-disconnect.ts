@@ -76,7 +76,12 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw error;
 	}
 
-	await adapter.syncModels({ repo, token, host });
+	try {
+		await adapter.updateCustomType(customType);
+	} catch {
+		await adapter.createCustomType(customType);
+	}
+	await adapter.generateTypes();
 
 	console.info(`Disconnected slice "${name}" from "${from}"`);
 });

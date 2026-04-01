@@ -1,5 +1,4 @@
 import { createCommandRouter } from "../lib/command";
-
 import pageTypeCreate from "./page-type-create";
 import pageTypeList from "./page-type-list";
 import pageTypeRemove from "./page-type-remove";

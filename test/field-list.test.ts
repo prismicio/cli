@@ -26,11 +26,7 @@ it("lists fields in a slice", async ({ expect, prismic, repo, token, host }) => 
 	});
 	await insertSlice(slice, { repo, token, host });
 
-	const { stdout, exitCode } = await prismic("field", [
-		"list",
-		"--from-slice",
-		slice.name,
-	]);
+	const { stdout, exitCode } = await prismic("field", ["list", "--from-slice", slice.name]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("title");
 	expect(stdout).toContain("StructuredText");
@@ -76,11 +72,7 @@ it("prints message when no fields exist", async ({ expect, prismic, repo, token,
 	const slice = buildSlice();
 	await insertSlice(slice, { repo, token, host });
 
-	const { stdout, exitCode } = await prismic("field", [
-		"list",
-		"--from-slice",
-		slice.name,
-	]);
+	const { stdout, exitCode } = await prismic("field", ["list", "--from-slice", slice.name]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("No fields found.");
 });

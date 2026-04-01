@@ -23,7 +23,5 @@ it("lists slices as JSON", async ({ expect, prismic, repo, token, host }) => {
 	const { stdout, exitCode } = await prismic("slice", ["list", "--json"]);
 	expect(exitCode).toBe(0);
 	const parsed = JSON.parse(stdout);
-	expect(parsed).toEqual(
-		expect.arrayContaining([expect.objectContaining({ id: slice.id })]),
-	);
+	expect(parsed).toEqual(expect.arrayContaining([expect.objectContaining({ id: slice.id })]));
 });

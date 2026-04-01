@@ -56,7 +56,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw error;
 	}
 
-	await adapter.syncModels({ repo, token, host });
+	await adapter.createSlice(model);
+	await adapter.generateTypes();
 
 	console.info(`Created slice "${name}" (id: "${id}")`);
 });

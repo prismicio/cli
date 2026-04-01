@@ -54,7 +54,12 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw error;
 	}
 
-	await adapter.syncModels({ repo, token, host });
+	try {
+		await adapter.updateSlice(updatedSlice);
+	} catch {
+		await adapter.createSlice(updatedSlice);
+	}
+	await adapter.generateTypes();
 
 	console.info(`Removed variation "${name}" from slice "${from}"`);
 });

@@ -81,7 +81,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw error;
 	}
 
-	await adapter.syncModels({ repo, token, host });
+	await adapter.createCustomType(model);
+	await adapter.generateTypes();
 
 	console.info(`Created page type "${name}" (id: "${id}")`);
 });

@@ -7,7 +7,13 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic field add content-relationship <id> [options]");
 });
 
-it("adds a content relationship field to a slice", async ({ expect, prismic, repo, token, host }) => {
+it("adds a content relationship field to a slice", async ({
+	expect,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
 	const slice = buildSlice();
 	await insertSlice(slice, { repo, token, host });
 
@@ -27,7 +33,13 @@ it("adds a content relationship field to a slice", async ({ expect, prismic, rep
 	expect(field).toMatchObject({ type: "Link", config: { select: "document" } });
 });
 
-it("adds a content relationship field to a custom type", async ({ expect, prismic, repo, token, host }) => {
+it("adds a content relationship field to a custom type", async ({
+	expect,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
 	const customType = buildCustomType();
 	await insertCustomType(customType, { repo, token, host });
 

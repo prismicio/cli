@@ -40,7 +40,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw error;
 	}
 
-	await adapter.syncModels({ repo, token, host });
+	try {
+		await adapter.deleteSlice(slice.id);
+	} catch {}
+	await adapter.generateTypes();
 
 	console.info(`Slice removed: "${name}" (id: ${slice.id})`);
 });

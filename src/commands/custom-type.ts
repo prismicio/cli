@@ -1,5 +1,4 @@
 import { createCommandRouter } from "../lib/command";
-
 import customTypeCreate from "./custom-type-create";
 import customTypeList from "./custom-type-list";
 import customTypeRemove from "./custom-type-remove";
