@@ -8,6 +8,7 @@ import {
 	readConfig,
 	readLegacySliceMachineConfig,
 } from "./config";
+import { env } from "./env";
 import { evaluateFlag } from "./lib/amplitude";
 import { exists } from "./lib/file";
 import { appendTrailingSlash } from "./lib/url";
@@ -79,10 +80,10 @@ export async function checkIsTypeBuilderEnabled(
 	repo: string,
 	config: { token: string | undefined; host: string },
 ): Promise<boolean> {
+	if (env.TEST) return true;
+
 	const { token, host } = config;
-
 	const profile = await getProfile({ token, host });
-
 	const [flagEnabled, repository] = await Promise.all([
 		evaluateFlag("dev-tools-types-builder-cloud", {
 			userId: profile.shortId,
@@ -90,7 +91,6 @@ export async function checkIsTypeBuilderEnabled(
 		}),
 		getRepository({ repo, token, host }),
 	]);
-
 	return flagEnabled && repository.quotas?.sliceMachineEnabled === true;
 }
 
