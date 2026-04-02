@@ -90,6 +90,7 @@ export const it = test.extend<Fixtures>({
 		await use((command, args = [], options) => {
 			const env = {
 				...process.env,
+				PRISMIC_TYPE_BUILDER_ENABLED: "true",
 				...options?.nodeOptions?.env,
 				PATH: `${fileURLToPath(binDir)}:${process.env.PATH}`,
 				HOME: fileURLToPath(home),

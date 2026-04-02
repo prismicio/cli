@@ -82,7 +82,7 @@ export async function checkIsTypeBuilderEnabled(
 	repo: string,
 	config: { token: string | undefined; host: string },
 ): Promise<boolean> {
-	if (env.TEST) return true;
+	if (env.PRISMIC_TYPE_BUILDER_ENABLED !== undefined) return env.PRISMIC_TYPE_BUILDER_ENABLED;
 
 	const { token, host } = config;
 	const profile = await getProfile({ token, host });
