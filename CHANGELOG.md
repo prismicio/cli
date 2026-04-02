@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/prismicio/cli/compare/v1.3.0...v1.4.0) (2026-04-02)
+
+
+### Features
+
+* support Slice Machine projects ([#84](https://github.com/prismicio/cli/issues/84)) ([6daa538](https://github.com/prismicio/cli/commit/6daa538b614298bc9c280eab9b6ec948ae0bcb0d))
+
 ## [1.3.0](https://github.com/prismicio/cli/compare/v1.2.1...v1.3.0) (2026-03-25)
 
 
