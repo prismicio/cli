@@ -34,7 +34,8 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { safeGetRepositoryName } from "./project";
+import { dedent } from "./lib/string";
+import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
 const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync"];
 const SKIP_REFRESH_COMMANDS = ["login", "logout"];
@@ -178,6 +179,19 @@ async function main(): Promise<void> {
 
 		if (error instanceof MissingPrismicConfig) {
 			console.error(`${error.message} Run \`prismic init\` to create a config.`);
+			return;
+		}
+
+		if (error instanceof TypeBuilderRequiredError) {
+			console.error(dedent`
+				This command requires the Type Builder in your repository.
+
+				As of March 2026, the Type Builder is rolling out incrementally as Slice
+				Machine's replacement. Your repository may not have access yet. Continue using
+				Slice Machine until your repository can upgrade.
+
+				Learn more at https://prismic.io/docs/type-builder
+			`);
 			return;
 		}
 

@@ -17,6 +17,7 @@ import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
 
 const config = {
@@ -69,7 +70,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Validate repo membership
-	const token = await getToken();
+	let token = await getToken();
 	const host = await getHost();
 	let profile: Profile;
 	try {
@@ -89,7 +90,7 @@ export default createCommand(config, async ({ values }) => {
 				},
 			});
 			console.info(`Logged in as ${email}`);
-			const token = await getToken();
+			token = await getToken();
 			profile = await getProfile({ token, host });
 		} else {
 			throw error;
@@ -101,6 +102,11 @@ export default createCommand(config, async ({ values }) => {
 		throw new CommandError(
 			`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
 		);
+	}
+
+	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+	if (!isTypeBuilderEnabled) {
+		throw new TypeBuilderRequiredError();
 	}
 
 	const adapter = await getAdapter();

@@ -9,27 +9,44 @@ import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { exists } from "./lib/file";
 import { stringify } from "./lib/json";
 import { appendTrailingSlash } from "./lib/url";
+import { checkIsSliceMachineProject } from "./project";
 
 const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
 const LOGIN_SOURCE = "prismic-cli";
 
-const AuthFileSchema = z.object({
+const AuthFileSchema = z.looseObject({
 	token: z.optional(z.string().check(z.minLength(1))),
 	host: z.optional(z.string().check(z.minLength(1))),
+
+	// Backward compatibility with Slice Machine's .prismic
+	base: z.optional(z.string()),
+	cookies: z.optional(z.string()),
 });
 type AuthFile = z.infer<typeof AuthFileSchema>;
 
 export async function getToken(): Promise<string | undefined> {
 	const auth = await readAuthFile();
+	const isSliceMachineProject = await checkIsSliceMachineProject();
+	if (isSliceMachineProject && auth?.cookies) {
+		for (const cookie of auth.cookies.split("; ")) {
+			if (cookie.startsWith("prismic-auth=")) return cookie.replace(/^prismic-auth=/, "");
+		}
+	}
 	return auth?.token;
 }
 
 export async function getHost(): Promise<string> {
 	if (env.PRISMIC_HOST) return env.PRISMIC_HOST;
 	const auth = await readAuthFile();
-	return auth?.host ?? DEFAULT_PRISMIC_HOST;
+	const isSliceMachineProject = await checkIsSliceMachineProject();
+	if (isSliceMachineProject && auth?.base) {
+		try {
+			return new URL(auth.base).host || DEFAULT_PRISMIC_HOST;
+		} catch {}
+	}
+	return auth?.host || DEFAULT_PRISMIC_HOST;
 }
 
 export async function refreshToken(): Promise<string | undefined> {
@@ -64,7 +81,15 @@ async function readAuthFile(): Promise<AuthFile | undefined> {
 }
 
 async function saveAuthFile(auth: AuthFile): Promise<void> {
-	await writeFile(AUTH_FILE_PATH, stringify(auth));
+	const existingAuthFile = await readAuthFile();
+	const newAuthFile: AuthFile = { ...existingAuthFile, ...auth };
+	const isSliceMachineProject = await checkIsSliceMachineProject();
+	if (isSliceMachineProject) {
+		if (newAuthFile.host) newAuthFile.base = `https://${newAuthFile.host}/`;
+		if (newAuthFile.token)
+			newAuthFile.cookies = `prismic-auth=${newAuthFile.token}; Path=/; SameSite=none; SESSION=fake_session; Path=/; SameSite=none`;
+	}
+	await writeFile(AUTH_FILE_PATH, stringify(newAuthFile));
 }
 
 export async function createLoginSession(options?: {
