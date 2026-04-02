@@ -31,8 +31,7 @@ export async function getToken(): Promise<string | undefined> {
 	const isSliceMachineProject = await checkIsSliceMachineProject();
 	if (isSliceMachineProject && auth?.cookies) {
 		for (const cookie of auth.cookies.split("; ")) {
-			const [key, value] = cookie.split("=", 2);
-			if (key === "prismic-auth") return value;
+			if (cookie.startsWith("prismic-auth=")) return cookie.replace(/^prismic-auth=/, "");
 		}
 	}
 	return auth?.token;
@@ -44,10 +43,10 @@ export async function getHost(): Promise<string> {
 	const isSliceMachineProject = await checkIsSliceMachineProject();
 	if (isSliceMachineProject && auth?.base) {
 		try {
-			return new URL(auth.base).host ?? DEFAULT_PRISMIC_HOST;
+			return new URL(auth.base).host || DEFAULT_PRISMIC_HOST;
 		} catch {}
 	}
-	return auth?.host ?? DEFAULT_PRISMIC_HOST;
+	return auth?.host || DEFAULT_PRISMIC_HOST;
 }
 
 export async function refreshToken(): Promise<string | undefined> {

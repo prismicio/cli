@@ -42,8 +42,10 @@ export async function getRepositoryName(): Promise<string> {
 		return config.repositoryName;
 	} catch (error) {
 		if (error instanceof MissingPrismicConfig) {
-			const legacySliceMachineConfig = await readLegacySliceMachineConfig();
-			return legacySliceMachineConfig.repositoryName;
+			try {
+				const legacySliceMachineConfig = await readLegacySliceMachineConfig();
+				return legacySliceMachineConfig.repositoryName;
+			} catch {}
 		}
 		throw error;
 	}

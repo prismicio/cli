@@ -70,7 +70,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Validate repo membership
-	const token = await getToken();
+	let token = await getToken();
 	const host = await getHost();
 	let profile: Profile;
 	try {
@@ -90,7 +90,7 @@ export default createCommand(config, async ({ values }) => {
 				},
 			});
 			console.info(`Logged in as ${email}`);
-			const token = await getToken();
+			token = await getToken();
 			profile = await getProfile({ token, host });
 		} else {
 			throw error;
