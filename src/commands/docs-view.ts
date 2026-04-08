@@ -1,7 +1,7 @@
+import { getDocsPageContent } from "../clients/docs";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-
-const DOCS_BASE_URL = new URL("https://prismic.io/docs/");
+import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
 
 const config = {
 	name: "prismic docs view",
@@ -29,16 +29,19 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const path = hashIndex >= 0 ? rawPath.slice(0, hashIndex) : rawPath;
 	const anchor = hashIndex >= 0 ? rawPath.slice(hashIndex + 1) : undefined;
 
-	const url = new URL(path, DOCS_BASE_URL);
-	const response = await fetch(url, {
-		headers: { Accept: "text/markdown" },
-	});
-
-	if (!response.ok) {
-		throw new CommandError(`Failed to fetch documentation page: ${response.statusText}`);
+	let markdown: string;
+	try {
+		markdown = await getDocsPageContent(path);
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Documentation page not found: ${path}`);
+		}
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to fetch documentation page: ${message}`);
+		}
+		throw error;
 	}
-
-	let markdown = await response.text();
 
 	if (anchor) {
 		const section = extractSection(markdown, anchor);

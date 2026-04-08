@@ -1,7 +1,7 @@
+import { getDocsIndex, getDocsPageIndex } from "../clients/docs";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-
-const DOCS_INDEX_URL = new URL("https://prismic.io/docs/api/index/");
+import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
 
 const config = {
 	name: "prismic docs list",
@@ -21,32 +21,25 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-type IndexPage = {
-	path: string;
-	title: string;
-	description: string;
-};
-
-type IndexPageWithAnchors = IndexPage & {
-	anchors: { slug: string; excerpt: string }[];
-};
-
 export default createCommand(config, async ({ positionals, values }) => {
 	const [path] = positionals;
 	const { json } = values;
 
 	if (path) {
-		const url = new URL(path, DOCS_INDEX_URL);
-		const response = await fetch(url);
-
-		if (!response.ok) {
-			if (response.status === 404) {
+		let entry;
+		try {
+			entry = await getDocsPageIndex(path);
+		} catch (error) {
+			if (error instanceof NotFoundRequestError) {
 				throw new CommandError(`Documentation page not found: ${path}`);
 			}
-			throw new CommandError(`Failed to fetch documentation index: ${response.statusText}`);
+			if (error instanceof UnknownRequestError) {
+				const message = await error.text();
+				throw new CommandError(`Failed to fetch documentation index: ${message}`);
+			}
+			throw error;
 		}
 
-		const entry: IndexPageWithAnchors = await response.json();
 		entry.anchors.sort((a, b) => a.slug.localeCompare(b.slug));
 
 		if (json) {
@@ -63,13 +56,17 @@ export default createCommand(config, async ({ positionals, values }) => {
 			console.info(`${path}#${anchor.slug}: ${anchor.excerpt}`);
 		}
 	} else {
-		const response = await fetch(DOCS_INDEX_URL);
-
-		if (!response.ok) {
-			throw new CommandError(`Failed to fetch documentation index: ${response.statusText}`);
+		let pages;
+		try {
+			pages = await getDocsIndex();
+		} catch (error) {
+			if (error instanceof UnknownRequestError) {
+				const message = await error.text();
+				throw new CommandError(`Failed to fetch documentation index: ${message}`);
+			}
+			throw error;
 		}
 
-		const pages: IndexPage[] = await response.json();
 		pages.sort((a, b) => a.path.localeCompare(b.path));
 
 		if (json) {
@@ -83,7 +80,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 
 		for (const page of pages) {
-			console.info(`${page.path}: ${page.title} — ${page.description}`);
+			const description = page.description ? ` — ${page.description}` : "";
+			console.info(`${page.path}: ${page.title}${description}`);
 		}
 	}
 });
