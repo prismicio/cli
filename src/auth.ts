@@ -11,7 +11,7 @@ import { stringify } from "./lib/json";
 import { appendTrailingSlash } from "./lib/url";
 import { checkIsSliceMachineProject } from "./project";
 
-const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
+export const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
 const LOGIN_SOURCE = "prismic-cli";

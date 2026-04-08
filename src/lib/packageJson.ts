@@ -46,13 +46,9 @@ export async function addDependencies(dependencies: Record<string, string>): Pro
 	await writeFile(packageJsonPath, newContents);
 }
 
-export async function getNpmPackageVersion(
-	name: string,
-	tag = "latest",
-	options?: { signal?: AbortSignal },
-): Promise<string> {
+export async function getNpmPackageVersion(name: string, tag = "latest"): Promise<string> {
 	const url = new URL(`${name}/${tag}`, "https://registry.npmjs.org/");
-	const res = await fetch(url, { signal: options?.signal });
+	const res = await fetch(url);
 	const { version } = await res.json();
 	return version;
 }

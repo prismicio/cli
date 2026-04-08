@@ -1,26 +1,27 @@
-import packageJson from "../../package.json" with { type: "json" };
+import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
-import { getNpmPackageVersion } from "./packageJson";
+import packageJson from "../../package.json" with { type: "json" };
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 2000;
 
-export type UpdateNotifierState = {
+type UpdateNotifierState = {
 	latestKnownVersion?: string;
 	lastUpdateCheckAt?: number;
 };
 
 export type UpdateNotifierOptions = {
 	npmPackageName: string;
-	getState: () => Promise<UpdateNotifierState | undefined>;
-	updateState: (state: UpdateNotifierState) => Promise<void>;
+	statePath: URL;
 };
 
 export async function initUpdateNotifier(options: UpdateNotifierOptions): Promise<void> {
 	try {
 		if (shouldSkip()) return;
 
-		const state = await options.getState();
+		const state = await readState(options.statePath);
 		const currentVersion = packageJson.version;
 
 		if (state?.latestKnownVersion && isNewer(state.latestKnownVersion, currentVersion)) {
@@ -35,7 +36,9 @@ export async function initUpdateNotifier(options: UpdateNotifierOptions): Promis
 		const isStale =
 			!state?.lastUpdateCheckAt || Date.now() - state.lastUpdateCheckAt > CHECK_INTERVAL_MS;
 		if (isStale) {
-			void backgroundCheck(options.npmPackageName, options.updateState);
+			process.on("exit", () => {
+				spawnBackgroundCheck(options.npmPackageName, options.statePath);
+			});
 		}
 	} catch {
 		// Never throw.
@@ -46,8 +49,23 @@ function shouldSkip(): boolean {
 	if (process.env.NO_UPDATE_NOTIFIER === "0") return false;
 	if (process.env.NO_UPDATE_NOTIFIER === "1") return true;
 	if (process.env.CI) return true;
-	if (!process.stdout.isTTY) return true;
+	if (!process.stderr.isTTY) return true;
 	return false;
+}
+
+async function readState(statePath: URL): Promise<UpdateNotifierState | undefined> {
+	try {
+		const contents = await readFile(statePath, "utf-8");
+		const json = JSON.parse(contents) as Record<string, unknown>;
+		return {
+			latestKnownVersion:
+				typeof json.latestKnownVersion === "string" ? json.latestKnownVersion : undefined,
+			lastUpdateCheckAt:
+				typeof json.lastUpdateCheckAt === "number" ? json.lastUpdateCheckAt : undefined,
+		};
+	} catch {
+		return undefined;
+	}
 }
 
 function isNewer(latest: string, current: string): boolean {
@@ -66,20 +84,48 @@ function isNewer(latest: string, current: string): boolean {
 	return false;
 }
 
-async function backgroundCheck(
-	name: string,
-	updateState: (state: UpdateNotifierState) => Promise<void>,
-): Promise<void> {
+/**
+ * Spawns a detached subprocess to fetch the latest version from the npm
+ * registry and persist it to the state file. The main process exits
+ * immediately; the subprocess handles HTTP delivery and the file write.
+ */
+function spawnBackgroundCheck(npmPackageName: string, statePath: URL): void {
 	try {
-		const latest = await getNpmPackageVersion(name, "latest", {
-			signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-		});
-		if (!latest) return;
-		await updateState({
-			latestKnownVersion: latest,
-			lastUpdateCheckAt: Date.now(),
-		});
+		const payload = Buffer.from(
+			JSON.stringify({
+				npmPackageName,
+				statePath: fileURLToPath(statePath),
+				timeoutMs: FETCH_TIMEOUT_MS,
+			}),
+		).toString("base64");
+
+		const child = spawn(
+			process.execPath,
+			["--input-type=module", "-e", BACKGROUND_CHECK_SCRIPT, payload],
+			{ detached: true, stdio: "ignore" },
+		);
+		child.unref();
 	} catch {
-		// Never throw.
+		// Silent failure — never breaks the CLI.
 	}
 }
+
+const BACKGROUND_CHECK_SCRIPT = `
+const {npmPackageName, statePath, timeoutMs} = JSON.parse(Buffer.from(process.argv[1], "base64").toString());
+try {
+	const url = \`https://registry.npmjs.org/\${npmPackageName}/latest\`;
+	const res = await fetch(url, {signal: AbortSignal.timeout(timeoutMs)});
+	if (!res.ok) process.exit(0);
+	const {version} = await res.json();
+	if (typeof version !== "string") process.exit(0);
+	const fs = await import("node:fs/promises");
+	let existing = {};
+	try {
+		const parsed = JSON.parse(await fs.readFile(statePath, "utf-8"));
+		if (parsed && typeof parsed === "object") existing = parsed;
+	} catch {}
+	existing.latestKnownVersion = version;
+	existing.lastUpdateCheckAt = Date.now();
+	await fs.writeFile(statePath, JSON.stringify(existing, null, 2));
+} catch {}
+`;
