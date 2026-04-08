@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
-import { getHost, refreshToken } from "./auth";
+import { AUTH_FILE_PATH, getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
 import gen from "./commands/gen";
 import init from "./commands/init";
@@ -35,6 +35,7 @@ import {
 	setupSentry,
 } from "./lib/sentry";
 import { dedent } from "./lib/string";
+import { initUpdateNotifier } from "./lib/update-notifier";
 import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
 const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync"];
@@ -94,6 +95,11 @@ const router = createCommandRouter({
 await main();
 
 async function main(): Promise<void> {
+	await initUpdateNotifier({
+		npmPackageName: packageJson.name,
+		statePath: AUTH_FILE_PATH,
+	});
+
 	let {
 		positionals: [command],
 		values: { version, help, repo = await safeGetRepositoryName() },
