@@ -45,7 +45,7 @@ export function sliceTemplate(args: { name: string; id: string; typescript: bool
 
 	const JS = dedent`
 		/**
-		 * @typedef {import("@prismicio/client").Content.${pascalName}Slice} ${pascalName}Slice
+		 * @typedef {import("@prismicio/client").Content.${pascalId}Slice} ${pascalName}Slice
 		 * @typedef {import("@prismicio/react").SliceComponentProps<${pascalName}Slice>} ${pascalName}Props
 		 * @type {import("react").FC<${pascalName}Props>}
 		 */
