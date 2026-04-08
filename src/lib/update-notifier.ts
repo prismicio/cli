@@ -1,16 +1,18 @@
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import * as z from "zod/mini";
 
 import packageJson from "../../package.json" with { type: "json" };
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 2000;
 
-type UpdateNotifierState = {
-	latestKnownVersion?: string;
-	lastUpdateCheckAt?: number;
-};
+const UpdateNotifierStateSchema = z.looseObject({
+	latestKnownVersion: z.optional(z.string()),
+	lastUpdateCheckAt: z.optional(z.number()),
+});
+type UpdateNotifierState = z.infer<typeof UpdateNotifierStateSchema>;
 
 export type UpdateNotifierOptions = {
 	npmPackageName: string;
@@ -56,13 +58,8 @@ function shouldSkip(): boolean {
 async function readState(statePath: URL): Promise<UpdateNotifierState | undefined> {
 	try {
 		const contents = await readFile(statePath, "utf-8");
-		const json = JSON.parse(contents) as Record<string, unknown>;
-		return {
-			latestKnownVersion:
-				typeof json.latestKnownVersion === "string" ? json.latestKnownVersion : undefined,
-			lastUpdateCheckAt:
-				typeof json.lastUpdateCheckAt === "number" ? json.lastUpdateCheckAt : undefined,
-		};
+		const json = JSON.parse(contents);
+		return z.parse(UpdateNotifierStateSchema, json);
 	} catch {
 		return undefined;
 	}
