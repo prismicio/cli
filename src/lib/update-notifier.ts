@@ -24,7 +24,7 @@ export async function initUpdateNotifier(options: UpdateNotifierOptions): Promis
 		const currentVersion = packageJson.version;
 
 		if (state?.latestKnownVersion && isNewer(state.latestKnownVersion, currentVersion)) {
-			const message = `Update available: ${currentVersion} → ${state.latestKnownVersion}. Run \`npx ${options.npmPackageName}@latest\` to update.`;
+			const message = `Update available: ${currentVersion} → ${state.latestKnownVersion}. Run \`npx ${options.npmPackageName}@latest --version\` to update.`;
 			process.on("exit", () => {
 				try {
 					console.error(message);
