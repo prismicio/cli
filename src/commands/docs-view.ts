@@ -1,3 +1,5 @@
+import GithubSlugger from "github-slugger";
+
 import { getDocsPageContent } from "../clients/docs";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
@@ -34,11 +36,11 @@ export default createCommand(config, async ({ positionals, values }) => {
 		markdown = await getDocsPageContent(path);
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Documentation page not found: ${path}`);
+			throw new CommandError(`Page not found: ${path}`);
 		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
-			throw new CommandError(`Failed to fetch documentation page: ${message}`);
+			throw new CommandError(`Failed to fetch page: ${message}`);
 		}
 		throw error;
 	}
@@ -61,56 +63,44 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 function extractSection(markdown: string, anchor: string): string | undefined {
 	const lines = markdown.split("\n");
-	let startIndex = -1;
-	let headingLevel = 0;
-	let fence: string | null = null;
+	const slugger = new GithubSlugger();
+
+	let currentFence: string | undefined;
+	let startIndex: number | undefined;
+	let endIndex: number | undefined;
+	let headingLevel: number | undefined;
 
 	for (let i = 0; i < lines.length; i++) {
-		const fenceMatch = lines[i].match(/^(`{3,}|~{3,})(.*)$/);
-		if (fenceMatch) {
-			const run = fenceMatch[1];
-			const rest = fenceMatch[2];
-			if (fence === null) {
-				fence = run;
-				continue;
+		const line = lines[i];
+
+		const fenceMatch = line.match(/^(?<fence>`{3,}|~{3,})/);
+		const fence = fenceMatch?.groups?.fence;
+		if (currentFence) {
+			if (fence?.startsWith(currentFence)) currentFence = undefined;
+			continue;
+		} else if (fence) {
+			currentFence = fence;
+			continue;
+		}
+
+		const headingMatch = line.match(/^(?<level>#{1,6})\s+(?<text>.*)/);
+		if (headingMatch?.groups?.level && headingMatch?.groups?.text) {
+			if (startIndex !== undefined && headingLevel !== undefined) {
+				if (headingMatch.groups.level.length <= headingLevel) {
+					endIndex = i;
+					break;
+				}
 			}
-			if (run.startsWith(fence) && rest.trim() === "") {
-				fence = null;
+
+			const headingAnchor = slugger.slug(headingMatch.groups.text);
+			if (headingAnchor === anchor) {
+				startIndex = i;
+				headingLevel = headingMatch.groups.level.length;
 			}
-			continue;
-		}
-		if (fence !== null) {
-			continue;
-		}
-
-		const match = lines[i].match(/^(#{1,6})\s+(.*)/);
-		if (!match) {
-			continue;
-		}
-
-		const level = match[1].length;
-		const text = match[2];
-
-		if (startIndex >= 0 && level <= headingLevel) {
-			return lines.slice(startIndex, i).join("\n").trimEnd();
-		}
-
-		if (kebabCase(text) === anchor) {
-			startIndex = i;
-			headingLevel = level;
 		}
 	}
 
-	if (startIndex >= 0) {
-		return lines.slice(startIndex).join("\n").trimEnd();
-	}
+	if (startIndex === undefined) return;
 
-	return undefined;
-}
-
-function kebabCase(text: string): string {
-	return text
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-|-$/g, "");
+	return lines.slice(startIndex, endIndex).join("\n").trim();
 }
