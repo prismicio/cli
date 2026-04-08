@@ -60,8 +60,17 @@ function extractSection(markdown: string, anchor: string): string | undefined {
 	const lines = markdown.split("\n");
 	let startIndex = -1;
 	let headingLevel = 0;
+	let inFence = false;
 
 	for (let i = 0; i < lines.length; i++) {
+		if (/^(```|~~~)/.test(lines[i])) {
+			inFence = !inFence;
+			continue;
+		}
+		if (inFence) {
+			continue;
+		}
+
 		const match = lines[i].match(/^(#{1,6})\s+(.*)/);
 		if (!match) {
 			continue;
