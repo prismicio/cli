@@ -6,6 +6,7 @@ import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { AUTH_FILE_PATH, getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
+import docs from "./commands/docs";
 import gen from "./commands/gen";
 import init from "./commands/init";
 import locale from "./commands/locale";
@@ -38,7 +39,7 @@ import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
-const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync"];
+const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs"];
 const SKIP_REFRESH_COMMANDS = ["login", "logout"];
 
 const router = createCommandRouter({
@@ -48,6 +49,10 @@ const router = createCommandRouter({
 		init: {
 			handler: init,
 			description: "Initialize a Prismic project",
+		},
+		docs: {
+			handler: docs,
+			description: "Browse Prismic documentation",
 		},
 		gen: {
 			handler: gen,
