@@ -28,7 +28,7 @@ export async function initUpdateNotifier(options: UpdateNotifierOptions): Promis
 			const message = `Update available: ${currentVersion} → ${state.latestKnownVersion}. Run \`npx ${options.npmPackageName}@latest --version\` to update.`;
 			process.on("exit", () => {
 				try {
-					console.error(message);
+					console.error(`\n${message}`);
 				} catch {}
 			});
 		}
