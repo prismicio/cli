@@ -26,7 +26,7 @@ export async function evaluateFlag(
 
 	const encodedUser = btoa(JSON.stringify(user)).replace(/\+/g, "-").replace(/\//g, "_");
 
-	const url = new URL("sdk/v2/vardata?v=0", AMPLITUDE_SERVER_URL);
+	const url = new URL("api/sdk/v2/vardata?v=0", AMPLITUDE_SERVER_URL);
 	const response = await fetch(url, {
 		headers: {
 			Authorization: `Api-Key ${AMPLITUDE_API_KEY}`,

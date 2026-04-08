@@ -91,6 +91,7 @@ export const it = test.extend<Fixtures>({
 			const env = {
 				...process.env,
 				PRISMIC_TYPE_BUILDER_ENABLED: "true",
+				NO_UPDATE_NOTIFIER: "1",
 				...options?.nodeOptions?.env,
 				PATH: `${fileURLToPath(binDir)}:${process.env.PATH}`,
 				HOME: fileURLToPath(home),

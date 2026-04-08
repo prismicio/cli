@@ -11,7 +11,7 @@ import { stringify } from "./lib/json";
 import { appendTrailingSlash } from "./lib/url";
 import { checkIsSliceMachineProject } from "./project";
 
-const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
+export const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
 const LOGIN_SOURCE = "prismic-cli";
@@ -19,6 +19,10 @@ const LOGIN_SOURCE = "prismic-cli";
 const AuthFileSchema = z.looseObject({
 	token: z.optional(z.string().check(z.minLength(1))),
 	host: z.optional(z.string().check(z.minLength(1))),
+
+	// Update notifier state
+	latestKnownVersion: z.optional(z.string()),
+	lastUpdateCheckAt: z.optional(z.number()),
 
 	// Backward compatibility with Slice Machine's .prismic
 	base: z.optional(z.string()),
@@ -70,7 +74,7 @@ export async function logout(): Promise<boolean> {
 	}
 }
 
-async function readAuthFile(): Promise<AuthFile | undefined> {
+export async function readAuthFile(): Promise<AuthFile | undefined> {
 	try {
 		const contents = await readFile(AUTH_FILE_PATH, "utf-8");
 		const json = JSON.parse(contents);
@@ -80,7 +84,7 @@ async function readAuthFile(): Promise<AuthFile | undefined> {
 	}
 }
 
-async function saveAuthFile(auth: AuthFile): Promise<void> {
+export async function saveAuthFile(auth: AuthFile): Promise<void> {
 	const existingAuthFile = await readAuthFile();
 	const newAuthFile: AuthFile = { ...existingAuthFile, ...auth };
 	const isSliceMachineProject = await checkIsSliceMachineProject();
