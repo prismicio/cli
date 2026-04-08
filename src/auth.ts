@@ -30,11 +30,6 @@ const AuthFileSchema = z.looseObject({
 });
 type AuthFile = z.infer<typeof AuthFileSchema>;
 
-export type UpdateNotifierState = {
-	latestKnownVersion?: string;
-	lastUpdateCheckAt?: number;
-};
-
 export async function getToken(): Promise<string | undefined> {
 	const auth = await readAuthFile();
 	const isSliceMachineProject = await checkIsSliceMachineProject();
@@ -79,7 +74,7 @@ export async function logout(): Promise<boolean> {
 	}
 }
 
-async function readAuthFile(): Promise<AuthFile | undefined> {
+export async function readAuthFile(): Promise<AuthFile | undefined> {
 	try {
 		const contents = await readFile(AUTH_FILE_PATH, "utf-8");
 		const json = JSON.parse(contents);
@@ -89,7 +84,7 @@ async function readAuthFile(): Promise<AuthFile | undefined> {
 	}
 }
 
-async function saveAuthFile(auth: AuthFile): Promise<void> {
+export async function saveAuthFile(auth: AuthFile): Promise<void> {
 	const existingAuthFile = await readAuthFile();
 	const newAuthFile: AuthFile = { ...existingAuthFile, ...auth };
 	const isSliceMachineProject = await checkIsSliceMachineProject();
@@ -99,19 +94,6 @@ async function saveAuthFile(auth: AuthFile): Promise<void> {
 			newAuthFile.cookies = `prismic-auth=${newAuthFile.token}; Path=/; SameSite=none; SESSION=fake_session; Path=/; SameSite=none`;
 	}
 	await writeFile(AUTH_FILE_PATH, stringify(newAuthFile));
-}
-
-export async function readUpdateState(): Promise<UpdateNotifierState | undefined> {
-	const auth = await readAuthFile();
-	if (!auth) return undefined;
-	return {
-		latestKnownVersion: auth.latestKnownVersion,
-		lastUpdateCheckAt: auth.lastUpdateCheckAt,
-	};
-}
-
-export async function saveUpdateState(state: UpdateNotifierState): Promise<void> {
-	await saveAuthFile(state);
 }
 
 export async function createLoginSession(options?: {

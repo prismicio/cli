@@ -1,8 +1,9 @@
 import packageJson from "../../package.json" with { type: "json" };
 
+import { getNpmPackageVersion } from "./packageJson";
+
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 2000;
-const NPM_REGISTRY = "https://registry.npmjs.org";
 
 export type UpdateNotifierState = {
 	latestKnownVersion?: string;
@@ -12,7 +13,7 @@ export type UpdateNotifierState = {
 export type UpdateNotifierOptions = {
 	npmPackageName: string;
 	getState: () => Promise<UpdateNotifierState | undefined>;
-	onUpdateState: (state: UpdateNotifierState) => Promise<void>;
+	updateState: (state: UpdateNotifierState) => Promise<void>;
 };
 
 export async function initUpdateNotifier(options: UpdateNotifierOptions): Promise<void> {
@@ -23,7 +24,7 @@ export async function initUpdateNotifier(options: UpdateNotifierOptions): Promis
 		const currentVersion = packageJson.version;
 
 		if (state?.latestKnownVersion && isNewer(state.latestKnownVersion, currentVersion)) {
-			const message = formatMessage(currentVersion, state.latestKnownVersion, options.npmPackageName);
+			const message = `Update available: ${currentVersion} → ${state.latestKnownVersion}. Run \`npx ${options.npmPackageName}@latest\` to update.`;
 			process.on("exit", () => {
 				try {
 					console.error(message);
@@ -34,7 +35,7 @@ export async function initUpdateNotifier(options: UpdateNotifierOptions): Promis
 		const isStale =
 			!state?.lastUpdateCheckAt || Date.now() - state.lastUpdateCheckAt > CHECK_INTERVAL_MS;
 		if (isStale) {
-			void backgroundCheck(options.npmPackageName, options.onUpdateState);
+			void backgroundCheck(options.npmPackageName, options.updateState);
 		}
 	} catch {
 		// Never throw.
@@ -50,6 +51,9 @@ function shouldSkip(): boolean {
 }
 
 function isNewer(latest: string, current: string): boolean {
+	// Skip pre-release versions (e.g. "1.0.0-beta.1"). Comparing them
+	// correctly requires full semver logic, and missing an update is safer
+	// than showing a wrong one.
 	if (latest.includes("-") || current.includes("-")) return false;
 	const a = latest.split(".").map(Number);
 	const b = current.split(".").map(Number);
@@ -62,31 +66,16 @@ function isNewer(latest: string, current: string): boolean {
 	return false;
 }
 
-function formatMessage(current: string, latest: string, npmPackageName: string): string {
-	return `Update available: ${current} → ${latest}. Run \`npx ${npmPackageName}@latest\` to update.`;
-}
-
-async function fetchLatestVersion(name: string): Promise<string | undefined> {
-	try {
-		const url = new URL(`${name}/latest`, `${NPM_REGISTRY}/`);
-		const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-		if (!res.ok) return undefined;
-		const json = await res.json();
-		const version = (json as { version?: unknown }).version;
-		return typeof version === "string" ? version : undefined;
-	} catch {
-		return undefined;
-	}
-}
-
 async function backgroundCheck(
 	name: string,
-	onUpdateState: (state: UpdateNotifierState) => Promise<void>,
+	updateState: (state: UpdateNotifierState) => Promise<void>,
 ): Promise<void> {
 	try {
-		const latest = await fetchLatestVersion(name);
+		const latest = await getNpmPackageVersion(name, "latest", {
+			signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+		});
 		if (!latest) return;
-		await onUpdateState({
+		await updateState({
 			latestKnownVersion: latest,
 			lastUpdateCheckAt: Date.now(),
 		});

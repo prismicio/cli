@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
-import { getHost, readUpdateState, refreshToken, saveUpdateState } from "./auth";
+import { getHost, readAuthFile, refreshToken, saveAuthFile } from "./auth";
 import { getProfile } from "./clients/user";
 import gen from "./commands/gen";
 import init from "./commands/init";
@@ -96,9 +96,18 @@ await main();
 
 async function main(): Promise<void> {
 	await initUpdateNotifier({
-		npmPackageName: "prismic",
-		getState: readUpdateState,
-		onUpdateState: saveUpdateState,
+		npmPackageName: packageJson.name,
+		getState: async () => {
+			const auth = await readAuthFile();
+			if (!auth) return;
+			return {
+				latestKnownVersion: auth.latestKnownVersion,
+				lastUpdateCheckAt: auth.lastUpdateCheckAt,
+			};
+		},
+		updateState: async (state) => {
+			await saveAuthFile(state);
+		},
 	});
 
 	let {
