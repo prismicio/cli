@@ -74,7 +74,7 @@ export async function logout(): Promise<boolean> {
 	}
 }
 
-export async function readAuthFile(): Promise<AuthFile | undefined> {
+async function readAuthFile(): Promise<AuthFile | undefined> {
 	try {
 		const contents = await readFile(AUTH_FILE_PATH, "utf-8");
 		const json = JSON.parse(contents);
@@ -84,7 +84,7 @@ export async function readAuthFile(): Promise<AuthFile | undefined> {
 	}
 }
 
-export async function saveAuthFile(auth: AuthFile): Promise<void> {
+async function saveAuthFile(auth: AuthFile): Promise<void> {
 	const existingAuthFile = await readAuthFile();
 	const newAuthFile: AuthFile = { ...existingAuthFile, ...auth };
 	const isSliceMachineProject = await checkIsSliceMachineProject();
