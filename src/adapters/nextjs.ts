@@ -48,6 +48,7 @@ export class NextJsAdapter extends Adapter {
 		const componentPath = new URL(`index.${extension}x`, appendTrailingSlash(sliceDirectory));
 		const contents = sliceTemplate({
 			name: model.name,
+			id: model.id,
 			typescript: await checkIsTypeScriptProject(),
 		});
 		await writeFileRecursive(componentPath, contents);
