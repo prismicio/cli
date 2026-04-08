@@ -17,10 +17,11 @@ const SLICE_MARKUP = dedent`
 	)
 `;
 
-export function sliceTemplate(args: { name: string; typescript: boolean }): string {
-	const { name, typescript } = args;
+export function sliceTemplate(args: { name: string; id: string; typescript: boolean }): string {
+	const { name, id, typescript } = args;
 
 	const pascalName = pascalCase(name);
+	const pascalId = pascalCase(id);
 
 	const TS = dedent`
 		import { FC } from "react";
@@ -30,7 +31,7 @@ export function sliceTemplate(args: { name: string; typescript: boolean }): stri
 		/**
 		 * Props for \`${pascalName}\`.
 		 */
-		export type ${pascalName}Props = SliceComponentProps<Content.${pascalName}Slice>;
+		export type ${pascalName}Props = SliceComponentProps<Content.${pascalId}Slice>;
 
 		/**
 		 * Component for "${name}" Slices.
