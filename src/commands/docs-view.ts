@@ -63,14 +63,23 @@ function extractSection(markdown: string, anchor: string): string | undefined {
 	const lines = markdown.split("\n");
 	let startIndex = -1;
 	let headingLevel = 0;
-	let inFence = false;
+	let fence: string | null = null;
 
 	for (let i = 0; i < lines.length; i++) {
-		if (/^(```|~~~)/.test(lines[i])) {
-			inFence = !inFence;
+		const fenceMatch = lines[i].match(/^(`{3,}|~{3,})(.*)$/);
+		if (fenceMatch) {
+			const run = fenceMatch[1];
+			const rest = fenceMatch[2];
+			if (fence === null) {
+				fence = run;
+				continue;
+			}
+			if (run.startsWith(fence) && rest.trim() === "") {
+				fence = null;
+			}
 			continue;
 		}
-		if (inFence) {
+		if (fence !== null) {
 			continue;
 		}
 
