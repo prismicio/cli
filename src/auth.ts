@@ -20,11 +20,20 @@ const AuthFileSchema = z.looseObject({
 	token: z.optional(z.string().check(z.minLength(1))),
 	host: z.optional(z.string().check(z.minLength(1))),
 
+	// Update notifier state
+	latestKnownVersion: z.optional(z.string()),
+	lastUpdateCheckAt: z.optional(z.number()),
+
 	// Backward compatibility with Slice Machine's .prismic
 	base: z.optional(z.string()),
 	cookies: z.optional(z.string()),
 });
 type AuthFile = z.infer<typeof AuthFileSchema>;
+
+export type UpdateNotifierState = {
+	latestKnownVersion?: string;
+	lastUpdateCheckAt?: number;
+};
 
 export async function getToken(): Promise<string | undefined> {
 	const auth = await readAuthFile();
@@ -90,6 +99,19 @@ async function saveAuthFile(auth: AuthFile): Promise<void> {
 			newAuthFile.cookies = `prismic-auth=${newAuthFile.token}; Path=/; SameSite=none; SESSION=fake_session; Path=/; SameSite=none`;
 	}
 	await writeFile(AUTH_FILE_PATH, stringify(newAuthFile));
+}
+
+export async function readUpdateState(): Promise<UpdateNotifierState | undefined> {
+	const auth = await readAuthFile();
+	if (!auth) return undefined;
+	return {
+		latestKnownVersion: auth.latestKnownVersion,
+		lastUpdateCheckAt: auth.lastUpdateCheckAt,
+	};
+}
+
+export async function saveUpdateState(state: UpdateNotifierState): Promise<void> {
+	await saveAuthFile(state);
 }
 
 export async function createLoginSession(options?: {
