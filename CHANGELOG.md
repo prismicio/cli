@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.0](https://github.com/prismicio/cli/compare/v1.4.0...v1.5.0) (2026-04-08)
+
+
+### Features
+
+* add `docs` command for browsing Prismic documentation ([#85](https://github.com/prismicio/cli/issues/85)) ([787a9c1](https://github.com/prismicio/cli/commit/787a9c186a2e13ed34f39d37cdfd04a1a498d718))
+* notify when a newer CLI version is available ([#87](https://github.com/prismicio/cli/issues/87)) ([4025179](https://github.com/prismicio/cli/commit/4025179a7d6bc22a5cb2374eb2d864d15a003695))
+
+
+### Bug Fixes
+
+* use correct Amplitude vardata path ([#88](https://github.com/prismicio/cli/issues/88)) ([e7aa64c](https://github.com/prismicio/cli/commit/e7aa64c0ac49f2e25b33fa3c1e4fb272c5a5a744))
+* use slice `id` instead of `name` for generated TypeScript types ([#90](https://github.com/prismicio/cli/issues/90)) ([d6f53e4](https://github.com/prismicio/cli/commit/d6f53e473a6527d6588ec64af3e37dc81e7c7605))
+
 ## [1.4.0](https://github.com/prismicio/cli/compare/v1.3.0...v1.4.0) (2026-04-02)
 
 
