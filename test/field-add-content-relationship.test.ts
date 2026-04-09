@@ -47,7 +47,7 @@ it("adds a content relationship field to a custom type", async ({
 		"add",
 		"content-relationship",
 		"my_link",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

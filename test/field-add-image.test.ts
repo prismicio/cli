@@ -35,7 +35,7 @@ it("adds an image field to a custom type", async ({ expect, prismic, repo, token
 		"add",
 		"image",
 		"my_image",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

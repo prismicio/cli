@@ -41,7 +41,7 @@ it("adds a link to media field to a custom type", async ({
 		"add",
 		"link-to-media",
 		"my_media",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

@@ -35,7 +35,7 @@ it("adds a geopoint field to a custom type", async ({ expect, prismic, repo, tok
 		"add",
 		"geopoint",
 		"my_location",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

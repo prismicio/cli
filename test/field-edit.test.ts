@@ -45,7 +45,7 @@ it("edits a field label on a custom type", async ({ expect, prismic, repo, token
 	const { stdout, exitCode } = await prismic("field", [
 		"edit",
 		"title",
-		"--from-custom-type",
+		"--from-type",
 		customType.label!,
 		"--label",
 		"Page Title",

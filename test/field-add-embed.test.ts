@@ -35,7 +35,7 @@ it("adds an embed field to a custom type", async ({ expect, prismic, repo, token
 		"add",
 		"embed",
 		"my_embed",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

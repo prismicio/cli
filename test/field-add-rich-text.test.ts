@@ -35,7 +35,7 @@ it("adds a rich text field to a custom type", async ({ expect, prismic, repo, to
 		"add",
 		"rich-text",
 		"my_content",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

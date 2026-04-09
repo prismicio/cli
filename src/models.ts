@@ -15,17 +15,15 @@ type Target = [fields: Fields, save: () => Promise<void>, modelKind: ModelKind];
 
 export const TARGET_OPTIONS = {
 	"to-slice": { type: "string", description: "Name of the target slice" },
-	"to-page-type": { type: "string", description: "Name of the target page type" },
-	"to-custom-type": { type: "string", description: "Name of the target custom type" },
+	"to-type": { type: "string", description: "Name of the target type" },
 	variation: { type: "string", description: 'Slice variation ID (default: "default")' },
-	tab: { type: "string", description: 'Custom type tab name (default: "Main")' },
+	tab: { type: "string", description: 'Type tab name (default: "Main")' },
 	repo: { type: "string", short: "r", description: "Repository domain" },
 } satisfies CommandConfig["options"];
 
 export const SOURCE_OPTIONS = {
 	"from-slice": { type: "string", description: "Name of the source slice" },
-	"from-page-type": { type: "string", description: "Name of the source page type" },
-	"from-custom-type": { type: "string", description: "Name of the source custom type" },
+	"from-type": { type: "string", description: "Name of the source type" },
 	variation: TARGET_OPTIONS.variation,
 	tab: TARGET_OPTIONS.tab,
 	repo: TARGET_OPTIONS.repo,
@@ -35,8 +33,7 @@ export async function resolveFieldContainer(
 	id: string,
 	values: {
 		"from-slice"?: string;
-		"from-page-type"?: string;
-		"from-custom-type"?: string;
+		"from-type"?: string;
 		variation?: string;
 	},
 	apiConfig: ApiConfig,
@@ -44,21 +41,16 @@ export async function resolveFieldContainer(
 	const adapter = await getAdapter();
 	const {
 		"from-slice": fromSlice,
-		"from-page-type": fromPageType,
-		"from-custom-type": fromCustomType,
+		"from-type": fromType,
 		variation: variationId = "default",
 	} = values;
 
-	const providedCount = [fromSlice, fromPageType, fromCustomType].filter(Boolean).length;
+	const providedCount = [fromSlice, fromType].filter(Boolean).length;
 	if (providedCount === 0) {
-		throw new CommandError(
-			"Specify a target with --from-slice, --from-page-type, or --from-custom-type.",
-		);
+		throw new CommandError("Specify a target with --from-slice or --from-type.");
 	}
 	if (providedCount > 1) {
-		throw new CommandError(
-			"Only one of --from-slice, --from-page-type, or --from-custom-type can be specified.",
-		);
+		throw new CommandError("Only one of --from-slice or --from-type can be specified.");
 	}
 
 	if (fromSlice) {
@@ -89,15 +81,10 @@ export async function resolveFieldContainer(
 		];
 	}
 
-	const fromType = fromPageType || fromCustomType;
-	const entityLabel = fromPageType ? "Page type" : "Custom type";
 	const customTypes = await getCustomTypes(apiConfig);
-	const customType = customTypes.find((ct) => {
-		if (ct.label !== fromType) return false;
-		return fromPageType ? ct.format === "page" : ct.format !== "page";
-	});
+	const customType = customTypes.find((ct) => ct.label === fromType);
 	if (!customType) {
-		throw new CommandError(`${entityLabel} not found: ${fromType}`);
+		throw new CommandError(`Type not found: ${fromType}`);
 	}
 	let tab: Record<string, DynamicWidget> | undefined;
 	for (const tabName in customType.json) {
@@ -126,11 +113,9 @@ export async function resolveFieldContainer(
 export async function resolveModel(
 	values: {
 		"to-slice"?: string;
-		"to-page-type"?: string;
-		"to-custom-type"?: string;
+		"to-type"?: string;
 		"from-slice"?: string;
-		"from-page-type"?: string;
-		"from-custom-type"?: string;
+		"from-type"?: string;
 		variation?: string;
 		tab?: string;
 	},
@@ -138,24 +123,19 @@ export async function resolveModel(
 ): Promise<Target> {
 	const adapter = await getAdapter();
 	const sliceName = values["to-slice"] ?? values["from-slice"];
-	const pageTypeName = values["to-page-type"] ?? values["from-page-type"];
-	const customTypeName = values["to-custom-type"] ?? values["from-custom-type"];
+	const typeName = values["to-type"] ?? values["from-type"];
 
-	const providedCount = [sliceName, pageTypeName, customTypeName].filter(Boolean).length;
+	const providedCount = [sliceName, typeName].filter(Boolean).length;
 	if (providedCount === 0) {
-		throw new CommandError(
-			"Specify a target with --to-slice, --to-page-type, or --to-custom-type.",
-		);
+		throw new CommandError("Specify a target with --to-slice or --to-type.");
 	}
 	if (providedCount > 1) {
-		throw new CommandError(
-			"Only one of --to-slice, --to-page-type, or --to-custom-type can be specified.",
-		);
+		throw new CommandError("Only one of --to-slice or --to-type can be specified.");
 	}
 
 	if (sliceName) {
 		if ("tab" in values) {
-			throw new CommandError("--tab is only valid for page types or custom types.");
+			throw new CommandError("--tab is only valid for types.");
 		}
 
 		const variation = values.variation ?? "default";
@@ -196,22 +176,15 @@ export async function resolveModel(
 		];
 	}
 
-	// Page type or custom type
-	const name = pageTypeName ?? customTypeName;
-	const entityLabel = pageTypeName ? "Page type" : "Custom type";
-
 	if ("variation" in values) {
 		throw new CommandError("--variation is only valid for slices.");
 	}
 
 	const tab = values.tab ?? "Main";
 	const customTypes = await getCustomTypes(apiConfig);
-	const customType = customTypes.find((ct) => {
-		if (ct.label !== name) return false;
-		return pageTypeName ? ct.format === "page" : ct.format !== "page";
-	});
+	const customType = customTypes.find((ct) => ct.label === typeName);
 	if (!customType) {
-		throw new CommandError(`${entityLabel} not found: ${name}`);
+		throw new CommandError(`Type not found: ${typeName}`);
 	}
 
 	const newModel = structuredClone(customType);
@@ -229,7 +202,7 @@ export async function resolveModel(
 			} catch (error) {
 				if (error instanceof UnknownRequestError) {
 					const message = await error.text();
-					throw new CommandError(`Failed to update ${entityLabel.toLowerCase()}: ${message}`);
+					throw new CommandError(`Failed to update type: ${message}`);
 				}
 				throw error;
 			}

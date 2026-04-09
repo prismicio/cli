@@ -14,7 +14,7 @@ it("adds a uid field to a custom type", async ({ expect, prismic, repo, token, h
 	const { stdout, exitCode } = await prismic("field", [
 		"add",
 		"uid",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);
@@ -33,7 +33,7 @@ it("adds a uid field to a page type", async ({ expect, prismic, repo, token, hos
 	const { stdout, exitCode } = await prismic("field", [
 		"add",
 		"uid",
-		"--to-page-type",
+		"--to-type",
 		pageType.label!,
 	]);
 	expect(exitCode).toBe(0);

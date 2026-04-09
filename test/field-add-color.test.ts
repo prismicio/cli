@@ -35,7 +35,7 @@ it("adds a color field to a custom type", async ({ expect, prismic, repo, token,
 		"add",
 		"color",
 		"my_color",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

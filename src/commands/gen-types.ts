@@ -5,7 +5,7 @@ import { findProjectRoot } from "../project";
 
 const config = {
 	name: "prismic gen types",
-	description: "Generate TypeScript types for slices, page types, and custom types.",
+	description: "Generate TypeScript types for slices and types.",
 } satisfies CommandConfig;
 
 export default createCommand(config, async () => {

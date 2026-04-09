@@ -17,7 +17,7 @@ const config = {
 		from: {
 			type: "string",
 			required: true,
-			description: "Name of the page type or custom type",
+			description: "Name of the type",
 		},
 		"slice-zone": {
 			type: "string",

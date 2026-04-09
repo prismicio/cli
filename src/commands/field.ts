@@ -6,7 +6,7 @@ import fieldRemove from "./field-remove";
 
 export default createCommandRouter({
 	name: "prismic field",
-	description: "Manage fields in slices and custom types.",
+	description: "Manage fields in slices and types.",
 	commands: {
 		add: {
 			handler: fieldAdd,

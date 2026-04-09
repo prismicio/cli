@@ -35,7 +35,7 @@ it("adds a date field to a custom type", async ({ expect, prismic, repo, token, 
 		"add",
 		"date",
 		"my_date",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

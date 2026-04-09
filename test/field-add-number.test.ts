@@ -35,7 +35,7 @@ it("adds a number field to a custom type", async ({ expect, prismic, repo, token
 		"add",
 		"number",
 		"my_number",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);
