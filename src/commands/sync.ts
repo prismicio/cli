@@ -8,7 +8,7 @@ import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { dedent } from "../lib/string";
-import { getRepositoryName } from "../project";
+import { checkIsTypeBuilderEnabled, getRepositoryName, TypeBuilderRequiredError } from "../project";
 
 // 5 seconds balances responsiveness with API load
 const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
@@ -31,6 +31,13 @@ const config = {
 
 export default createCommand(config, async ({ values }) => {
 	const { repo = await getRepositoryName(), watch } = values;
+
+	const token = await getToken();
+	const host = await getHost();
+	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+	if (!isTypeBuilderEnabled) {
+		throw new TypeBuilderRequiredError();
+	}
 
 	const adapter = await getAdapter();
 

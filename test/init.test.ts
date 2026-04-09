@@ -93,6 +93,15 @@ it("migrates slicemachine.config.json", async ({ expect, project, prismic, repo 
 	await expect(access(new URL("slicemachine.config.json", project))).rejects.toThrow();
 });
 
+it("fails when Type Builder is not enabled", async ({ expect, project, prismic, repo }) => {
+	await rm(new URL("prismic.config.json", project));
+	const { exitCode, stderr } = await prismic("init", ["--repo", repo], {
+		nodeOptions: { env: { PRISMIC_TYPE_BUILDER_ENABLED: "false" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Type Builder");
+});
+
 it("installs dependencies", async ({ expect, project, prismic, repo }) => {
 	await rm(new URL("prismic.config.json", project));
 

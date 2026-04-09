@@ -9,6 +9,14 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic sync [options]");
 });
 
+it("fails when Type Builder is not enabled", async ({ expect, prismic }) => {
+	const { exitCode, stderr } = await prismic("sync", [], {
+		nodeOptions: { env: { PRISMIC_TYPE_BUILDER_ENABLED: "false" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Type Builder");
+});
+
 it("syncs slices and custom types from remote", async ({
 	expect,
 	project,

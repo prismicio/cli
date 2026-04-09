@@ -4,9 +4,10 @@ import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
-import { getHost, refreshToken } from "./auth";
+import { AUTH_FILE_PATH, getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
 import customType from "./commands/custom-type";
+import docs from "./commands/docs";
 import field from "./commands/field";
 import gen from "./commands/gen";
 import init from "./commands/init";
@@ -38,9 +39,11 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { safeGetRepositoryName } from "./project";
+import { dedent } from "./lib/string";
+import { initUpdateNotifier } from "./lib/update-notifier";
+import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
-const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync"];
+const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs"];
 const SKIP_REFRESH_COMMANDS = ["login", "logout"];
 
 const router = createCommandRouter({
@@ -50,6 +53,10 @@ const router = createCommandRouter({
 		init: {
 			handler: init,
 			description: "Initialize a Prismic project",
+		},
+		docs: {
+			handler: docs,
+			description: "Browse Prismic documentation",
 		},
 		gen: {
 			handler: gen,
@@ -113,6 +120,11 @@ const router = createCommandRouter({
 await main();
 
 async function main(): Promise<void> {
+	await initUpdateNotifier({
+		npmPackageName: packageJson.name,
+		statePath: AUTH_FILE_PATH,
+	});
+
 	let {
 		positionals: [command],
 		values: { version, help, repo = await safeGetRepositoryName() },
@@ -198,6 +210,19 @@ async function main(): Promise<void> {
 
 		if (error instanceof MissingPrismicConfig) {
 			console.error(`${error.message} Run \`prismic init\` to create a config.`);
+			return;
+		}
+
+		if (error instanceof TypeBuilderRequiredError) {
+			console.error(dedent`
+				This command requires the Type Builder in your repository.
+
+				As of March 2026, the Type Builder is rolling out incrementally as Slice
+				Machine's replacement. Your repository may not have access yet. Continue using
+				Slice Machine until your repository can upgrade.
+
+				Learn more at https://prismic.io/docs/type-builder
+			`);
 			return;
 		}
 

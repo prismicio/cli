@@ -17,6 +17,7 @@ import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 
 const config = {
 	name: "prismic init",
@@ -100,6 +101,11 @@ export default createCommand(config, async ({ values }) => {
 		throw new CommandError(
 			`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
 		);
+	}
+
+	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+	if (!isTypeBuilderEnabled) {
+		throw new TypeBuilderRequiredError();
 	}
 
 	const adapter = await getAdapter();
