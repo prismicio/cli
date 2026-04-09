@@ -10,19 +10,19 @@ export default createCommandRouter({
 	commands: {
 		create: {
 			handler: typeCreate,
-			description: "Create a new type",
+			description: "Create a new content type",
 		},
 		remove: {
 			handler: typeRemove,
-			description: "Remove a type",
+			description: "Remove a content type",
 		},
 		list: {
 			handler: typeList,
-			description: "List types",
+			description: "List content types",
 		},
 		view: {
 			handler: typeView,
-			description: "View a type",
+			description: "View a content type",
 		},
 	},
 });

@@ -7,9 +7,9 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic type remove",
-	description: "Remove a type.",
+	description: "Remove a content type.",
 	positionals: {
-		name: { description: "Name of the type", required: true },
+		name: { description: "Name of the content type", required: true },
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },

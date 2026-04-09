@@ -6,7 +6,7 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic type list",
-	description: "List all types.",
+	description: "List all content types.",
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
 		repo: { type: "string", short: "r", description: "Repository domain" },

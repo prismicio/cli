@@ -18,7 +18,7 @@ const MAX_CONSECUTIVE_ERRORS = 10;
 const config = {
 	name: "prismic sync",
 	description: `
-		Sync types and slices from Prismic to local files.
+		Sync content types and slices from Prismic to local files.
 
 		Remote models are the source of truth. Local files are created, updated,
 		or deleted to match.

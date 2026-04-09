@@ -15,15 +15,15 @@ type Target = [fields: Fields, save: () => Promise<void>, modelKind: ModelKind];
 
 export const TARGET_OPTIONS = {
 	"to-slice": { type: "string", description: "Name of the target slice" },
-	"to-type": { type: "string", description: "Name of the target type" },
+	"to-type": { type: "string", description: "Name of the target content type" },
 	variation: { type: "string", description: 'Slice variation ID (default: "default")' },
-	tab: { type: "string", description: 'Type tab name (default: "Main")' },
+	tab: { type: "string", description: 'Content type tab name (default: "Main")' },
 	repo: { type: "string", short: "r", description: "Repository domain" },
 } satisfies CommandConfig["options"];
 
 export const SOURCE_OPTIONS = {
 	"from-slice": { type: "string", description: "Name of the source slice" },
-	"from-type": { type: "string", description: "Name of the source type" },
+	"from-type": { type: "string", description: "Name of the source content type" },
 	variation: TARGET_OPTIONS.variation,
 	tab: TARGET_OPTIONS.tab,
 	repo: TARGET_OPTIONS.repo,
@@ -135,7 +135,7 @@ export async function resolveModel(
 
 	if (sliceName) {
 		if ("tab" in values) {
-			throw new CommandError("--tab is only valid for types.");
+			throw new CommandError("--tab is only valid for content types.");
 		}
 
 		const variation = values.variation ?? "default";

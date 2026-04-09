@@ -11,14 +11,14 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic type create",
-	description: "Create a new type.",
+	description: "Create a new content type.",
 	positionals: {
-		name: { description: "Name of the type", required: true },
+		name: { description: "Name of the content type", required: true },
 	},
 	options: {
 		format: { type: "string", short: "f", description: 'Type format: "custom" (default) or "page"' },
-		single: { type: "boolean", short: "s", description: "Allow only one of this type" },
-		id: { type: "string", description: "Custom ID for the type" },
+		single: { type: "boolean", short: "s", description: "Allow only one document of this type" },
+		id: { type: "string", description: "Custom ID for the content type" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 	sections: {
