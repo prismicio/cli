@@ -9,19 +9,39 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field add content-relationship",
-	description:
-		"Add a content relationship field to a slice or custom type. Use for querying and displaying data from related documents (e.g. an author or category). For navigational links, use link instead.",
+	description: `
+		Add a content relationship field to a slice or custom type.
+
+		Content relationships fetch and display data from related documents
+		(e.g. an author's name, a category's label). They are not navigational
+		links -- use the link field type for URLs, documents, or media that
+		the user clicks to visit.
+
+		Use --custom-type and --tag to restrict which documents can be
+		selected. These filters define exactly which documents are queryable
+		through this field. If neither is specified, all documents are allowed.
+	`,
+	sections: {
+		"FIELD CONSTRAINTS": `
+			--custom-type and --tag narrow which documents editors can select
+			and which documents the API returns for this field. Adding or
+			removing a custom type or tag that is referenced by an existing
+			content relationship changes which documents are queryable -- any
+			code that depends on a specific document type being returned may
+			break if that type is removed from the constraint list.
+		`,
+	},
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},
 	options: {
 		...TARGET_OPTIONS,
 		label: { type: "string", description: "Field label" },
-		tag: { type: "string", multiple: true, description: "Allowed tag (can be repeated)" },
+		tag: { type: "string", multiple: true, description: "Restrict to documents with this tag (can be repeated)" },
 		"custom-type": {
 			type: "string",
 			multiple: true,
-			description: "Allowed custom type (can be repeated)",
+			description: "Restrict to documents of this type (can be repeated)",
 		},
 	},
 } satisfies CommandConfig;
