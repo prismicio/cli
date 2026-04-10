@@ -16,7 +16,6 @@ const config = {
 	options: {
 		in: { type: "string", required: true, description: "Name of the slice" },
 		name: { type: "string", short: "n", description: "New name for the variation" },
-		description: { type: "string", short: "d", description: "New description for the variation" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
@@ -42,7 +41,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	if ("name" in values) variation.name = values.name!;
-	if ("description" in values) variation.description = values.description!;
 
 	const updatedSlice: SharedSlice = { ...slice };
 
