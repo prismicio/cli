@@ -31,7 +31,7 @@ export default createCommandRouter({
 		},
 		"content-relationship": {
 			handler: fieldAddContentRelationship,
-			description: "Add a content relationship field for querying linked documents (e.g. author, category)",
+			description: "Add a content relationship field for fetching data from related documents (not for navigation -- use link)",
 		},
 		date: {
 			handler: fieldAddDate,
