@@ -2,6 +2,7 @@ import { createCommandRouter } from "../lib/command";
 import fieldAdd from "./field-add";
 import fieldEdit from "./field-edit";
 import fieldRemove from "./field-remove";
+import fieldView from "./field-view";
 
 export default createCommandRouter({
 	name: "prismic field",
@@ -18,6 +19,10 @@ export default createCommandRouter({
 		remove: {
 			handler: fieldRemove,
 			description: "Remove a field",
+		},
+		view: {
+			handler: fieldView,
+			description: "View details of a field",
 		},
 	},
 });
