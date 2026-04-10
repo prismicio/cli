@@ -21,7 +21,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const [currentId] = positionals;
+	const [id] = positionals;
 	const { "from-slice": sliceId, repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
@@ -34,10 +34,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError(`Slice not found: ${sliceId}`);
 	}
 
-	const variation = slice.variations.find((v) => v.id === currentId);
+	const variation = slice.variations.find((v) => v.id === id);
 
 	if (!variation) {
-		throw new CommandError(`Variation "${currentId}" not found in slice "${sliceId}".`);
+		throw new CommandError(`Variation "${id}" not found in slice "${sliceId}".`);
 	}
 
 	if ("name" in values) variation.name = values.name!;
@@ -61,5 +61,5 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 	await adapter.generateTypes();
 
-	console.info(`Variation updated: "${currentId}" in slice "${sliceId}"`);
+	console.info(`Variation updated: "${id}" in slice "${sliceId}"`);
 });
