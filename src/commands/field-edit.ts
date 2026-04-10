@@ -47,7 +47,7 @@ const config = {
 		},
 		"allow-text": {
 			type: "boolean",
-			description: "Allow custom link text (link/link-to-media)",
+			description: "Allow custom link text (link)",
 		},
 		repeatable: { type: "boolean", description: "Allow multiple links (link)" },
 		variant: {
@@ -147,23 +147,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 			break;
 		}
 		case "Link": {
-			if (field.config.select === "document") {
-				// Content relationship
-				if ("tag" in values) field.config.tags = values.tag;
-				if ("custom-type" in values) field.config.customtypes = values["custom-type"];
-			} else if (field.config.select === "media") {
-				// Link to media
-				if ("allow-text" in values) field.config.allowText = values["allow-text"];
-				if ("variant" in values) field.config.variants = values.variant;
-			} else {
-				// Generic link
-				if ("allow-target-blank" in values) {
-					field.config.allowTargetBlank = values["allow-target-blank"];
-				}
-				if ("allow-text" in values) field.config.allowText = values["allow-text"];
-				if ("repeatable" in values) field.config.repeat = values.repeatable;
-				if ("variant" in values) field.config.variants = values.variant;
+			if ("allow-target-blank" in values) {
+				field.config.allowTargetBlank = values["allow-target-blank"];
 			}
+			if ("allow-text" in values) field.config.allowText = values["allow-text"];
+			if ("repeatable" in values) field.config.repeat = values.repeatable;
+			if ("variant" in values) field.config.variants = values.variant;
+			if ("tag" in values) field.config.tags = values.tag;
+			if ("custom-type" in values) field.config.customtypes = values["custom-type"];
 			break;
 		}
 	}

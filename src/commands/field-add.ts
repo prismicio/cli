@@ -9,7 +9,6 @@ import fieldAddGroup from "./field-add-group";
 import fieldAddImage from "./field-add-image";
 import fieldAddIntegration from "./field-add-integration";
 import fieldAddLink from "./field-add-link";
-import fieldAddLinkToMedia from "./field-add-link-to-media";
 import fieldAddNumber from "./field-add-number";
 import fieldAddRichText from "./field-add-rich-text";
 import fieldAddSelect from "./field-add-select";
@@ -32,7 +31,7 @@ export default createCommandRouter({
 		},
 		"content-relationship": {
 			handler: fieldAddContentRelationship,
-			description: "Add a content relationship field",
+			description: "Add a content relationship field for querying linked documents (e.g. author, category)",
 		},
 		date: {
 			handler: fieldAddDate,
@@ -60,11 +59,7 @@ export default createCommandRouter({
 		},
 		link: {
 			handler: fieldAddLink,
-			description: "Add a link field",
-		},
-		"link-to-media": {
-			handler: fieldAddLinkToMedia,
-			description: "Add a link to media field",
+			description: "Add a link field for URLs, documents, or media (navigational)",
 		},
 		number: {
 			handler: fieldAddNumber,

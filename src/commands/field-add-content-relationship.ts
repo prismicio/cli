@@ -9,7 +9,8 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field add content-relationship",
-	description: "Add a content relationship field to a slice or custom type.",
+	description:
+		"Add a content relationship field to a slice or custom type. Use for querying and displaying data from related documents (e.g. an author or category). For navigational links, use link instead.",
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},
