@@ -6,7 +6,7 @@ import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { AUTH_FILE_PATH, getHost, refreshToken } from "./auth";
 import { getProfile } from "./clients/user";
-import customType from "./commands/custom-type";
+import type_ from "./commands/type";
 import docs from "./commands/docs";
 import field from "./commands/field";
 import gen from "./commands/gen";
@@ -14,7 +14,6 @@ import init from "./commands/init";
 import locale from "./commands/locale";
 import login from "./commands/login";
 import logout from "./commands/logout";
-import pageType from "./commands/page-type";
 import preview from "./commands/preview";
 import repo from "./commands/repo";
 import slice from "./commands/slice";
@@ -74,17 +73,13 @@ const router = createCommandRouter({
 			handler: repo,
 			description: "Manage repositories",
 		},
-		"custom-type": {
-			handler: customType,
-			description: "Manage custom types",
+		type: {
+			handler: type_,
+			description: "Manage content types",
 		},
 		field: {
 			handler: field,
 			description: "Manage fields",
-		},
-		"page-type": {
-			handler: pageType,
-			description: "Manage page types",
 		},
 		slice: {
 			handler: slice,

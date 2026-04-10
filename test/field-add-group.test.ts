@@ -37,7 +37,7 @@ it("adds a group field to a custom type", async ({ expect, prismic, repo, token,
 		"add",
 		"group",
 		"my_group",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

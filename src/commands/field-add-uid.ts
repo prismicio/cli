@@ -7,11 +7,10 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field add uid",
-	description: "Add a UID field to a custom type.",
+	description: "Add a UID field to a content type.",
 	options: {
-		"to-page-type": { type: "string", description: "Name of the target page type" },
-		"to-custom-type": { type: "string", description: "Name of the target custom type" },
-		tab: { type: "string", description: 'Custom type tab name (default: "Main")' },
+		"to-type": { type: "string", description: "Name of the target content type" },
+		tab: { type: "string", description: 'Content type tab name (default: "Main")' },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 		label: { type: "string", description: "Field label" },
 		placeholder: { type: "string", description: "Placeholder text" },

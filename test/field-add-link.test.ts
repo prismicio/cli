@@ -35,7 +35,7 @@ it("adds a link field to a custom type", async ({ expect, prismic, repo, token, 
 		"add",
 		"link",
 		"my_link",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

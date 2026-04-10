@@ -54,7 +54,7 @@ it("removes a field from a custom type", async ({ expect, prismic, repo, token, 
 	const { stdout, exitCode } = await prismic("field", [
 		"remove",
 		"title",
-		"--from-custom-type",
+		"--from-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

@@ -35,7 +35,7 @@ it("adds an integration field to a custom type", async ({ expect, prismic, repo,
 		"add",
 		"integration",
 		"my_integration",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

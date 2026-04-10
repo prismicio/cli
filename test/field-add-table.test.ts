@@ -35,7 +35,7 @@ it("adds a table field to a custom type", async ({ expect, prismic, repo, token,
 		"add",
 		"table",
 		"my_table",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

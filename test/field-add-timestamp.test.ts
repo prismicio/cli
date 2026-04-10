@@ -35,7 +35,7 @@ it("adds a timestamp field to a custom type", async ({ expect, prismic, repo, to
 		"add",
 		"timestamp",
 		"my_timestamp",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

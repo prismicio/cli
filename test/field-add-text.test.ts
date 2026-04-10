@@ -35,7 +35,7 @@ it("adds a text field to a custom type", async ({ expect, prismic, repo, token, 
 		"add",
 		"text",
 		"subtitle",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);
@@ -55,7 +55,7 @@ it("adds a text field to a page type", async ({ expect, prismic, repo, token, ho
 		"add",
 		"text",
 		"subtitle",
-		"--to-page-type",
+		"--to-type",
 		pageType.label!,
 	]);
 	expect(exitCode).toBe(0);

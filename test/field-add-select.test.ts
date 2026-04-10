@@ -35,7 +35,7 @@ it("adds a select field to a custom type", async ({ expect, prismic, repo, token
 		"add",
 		"select",
 		"my_select",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);

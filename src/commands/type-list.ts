@@ -5,8 +5,8 @@ import { stringify } from "../lib/json";
 import { getRepositoryName } from "../project";
 
 const config = {
-	name: "prismic custom-type list",
-	description: "List all custom types.",
+	name: "prismic type list",
+	description: "List all content types.",
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
@@ -19,8 +19,7 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const types = customTypes.filter((customType) => customType.format !== "page");
+	const types = await getCustomTypes({ repo, token, host });
 
 	if (json) {
 		console.info(stringify(types));
@@ -28,12 +27,12 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (types.length === 0) {
-		console.info("No custom types found.");
+		console.info("No types found.");
 		return;
 	}
 
 	for (const type of types) {
 		const label = type.label || "(no name)";
-		console.info(`${label} (id: ${type.id})`);
+		console.info(`${label} (id: ${type.id}, format: ${type.format})`);
 	}
 });

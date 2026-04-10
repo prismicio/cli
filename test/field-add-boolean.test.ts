@@ -35,7 +35,7 @@ it("adds a boolean field to a custom type", async ({ expect, prismic, repo, toke
 		"add",
 		"boolean",
 		"is_active",
-		"--to-custom-type",
+		"--to-type",
 		customType.label!,
 	]);
 	expect(exitCode).toBe(0);
