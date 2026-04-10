@@ -11,33 +11,33 @@ const config = {
 	name: "prismic slice edit-variation",
 	description: "Edit a variation of a slice.",
 	positionals: {
-		name: { description: "Name of the variation", required: true },
+		id: { description: "ID of the variation", required: true },
 	},
 	options: {
-		"from-slice": { type: "string", required: true, description: "Name of the slice" },
+		"from-slice": { type: "string", required: true, description: "ID of the slice" },
 		name: { type: "string", short: "n", description: "New name for the variation" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const [currentName] = positionals;
-	const { "from-slice": sliceName, repo = await getRepositoryName() } = values;
+	const [currentId] = positionals;
+	const { "from-slice": sliceId, repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 	const slices = await getSlices({ repo, token, host });
-	const slice = slices.find((s) => s.name === sliceName);
+	const slice = slices.find((s) => s.id === sliceId);
 
 	if (!slice) {
-		throw new CommandError(`Slice not found: ${sliceName}`);
+		throw new CommandError(`Slice not found: ${sliceId}`);
 	}
 
-	const variation = slice.variations.find((v) => v.name === currentName);
+	const variation = slice.variations.find((v) => v.id === currentId);
 
 	if (!variation) {
-		throw new CommandError(`Variation "${currentName}" not found in slice "${sliceName}".`);
+		throw new CommandError(`Variation "${currentId}" not found in slice "${sliceId}".`);
 	}
 
 	if ("name" in values) variation.name = values.name!;
@@ -61,5 +61,5 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 	await adapter.generateTypes();
 
-	console.info(`Variation updated: "${variation.name}" in slice "${sliceName}"`);
+	console.info(`Variation updated: "${currentId}" in slice "${sliceId}"`);
 });

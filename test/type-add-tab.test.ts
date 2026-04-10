@@ -17,10 +17,10 @@ it("adds a tab to a type", async ({ expect, prismic, repo, token, host }) => {
 		"add-tab",
 		tabName,
 		"--to",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain(`Added tab "${tabName}" to "${customType.label}"`);
+	expect(stdout).toContain(`Added tab "${tabName}" to "${customType.id}"`);
 
 	const customTypes = await getCustomTypes({ repo, token, host });
 	const updated = customTypes.find((ct) => ct.id === customType.id);
@@ -38,11 +38,11 @@ it("adds a tab with a slice zone", async ({ expect, prismic, repo, token, host }
 		"add-tab",
 		tabName,
 		"--to",
-		customType.label!,
+		customType.id,
 		"--with-slice-zone",
 	]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain(`Added tab "${tabName}" to "${customType.label}"`);
+	expect(stdout).toContain(`Added tab "${tabName}" to "${customType.id}"`);
 
 	const customTypes = await getCustomTypes({ repo, token, host });
 	const updated = customTypes.find((ct) => ct.id === customType.id);

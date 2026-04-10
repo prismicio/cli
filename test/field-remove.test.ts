@@ -31,7 +31,7 @@ it("removes a field from a slice", async ({ expect, prismic, repo, token, host }
 		"remove",
 		"my_field",
 		"--from-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field removed: my_field");
@@ -55,7 +55,7 @@ it("removes a field from a custom type", async ({ expect, prismic, repo, token, 
 		"remove",
 		"title",
 		"--from-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field removed: title");
@@ -95,7 +95,7 @@ it("removes a nested field using dot notation", async ({ expect, prismic, repo, 
 		"remove",
 		"my_group.subtitle",
 		"--from-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field removed: my_group.subtitle");

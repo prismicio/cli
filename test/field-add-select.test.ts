@@ -16,7 +16,7 @@ it("adds a select field to a slice", async ({ expect, prismic, repo, token, host
 		"select",
 		"my_select",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_select");
@@ -36,7 +36,7 @@ it("adds a select field to a custom type", async ({ expect, prismic, repo, token
 		"select",
 		"my_select",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_select");

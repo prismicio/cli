@@ -16,7 +16,7 @@ it("adds an integration field to a slice", async ({ expect, prismic, repo, token
 		"integration",
 		"my_integration",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_integration");
@@ -36,7 +36,7 @@ it("adds an integration field to a custom type", async ({ expect, prismic, repo,
 		"integration",
 		"my_integration",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_integration");

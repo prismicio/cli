@@ -16,7 +16,7 @@ it("adds a geopoint field to a slice", async ({ expect, prismic, repo, token, ho
 		"geopoint",
 		"my_location",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_location");
@@ -36,7 +36,7 @@ it("adds a geopoint field to a custom type", async ({ expect, prismic, repo, tok
 		"geopoint",
 		"my_location",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_location");

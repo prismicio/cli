@@ -11,13 +11,13 @@ const config = {
 	name: "prismic slice connect",
 	description: "Connect a slice to a type's slice zone.",
 	positionals: {
-		name: { description: "Name of the slice", required: true },
+		id: { description: "ID of the slice", required: true },
 	},
 	options: {
 		to: {
 			type: "string",
 			required: true,
-			description: "Name of the content type",
+			description: "ID of the content type",
 		},
 		"slice-zone": {
 			type: "string",
@@ -28,7 +28,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const [name] = positionals;
+	const [id] = positionals;
 	const { to, "slice-zone": sliceZone = "slices", repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
@@ -37,13 +37,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const apiConfig = { repo, token, host };
 
 	const slices = await getSlices(apiConfig);
-	const slice = slices.find((s) => s.name === name);
+	const slice = slices.find((s) => s.id === id);
 	if (!slice) {
-		throw new CommandError(`Slice not found: ${name}`);
+		throw new CommandError(`Slice not found: ${id}`);
 	}
 
 	const customTypes = await getCustomTypes(apiConfig);
-	const customType = customTypes.find((ct) => ct.label === to);
+	const customType = customTypes.find((ct) => ct.id === to);
 	if (!customType) {
 		throw new CommandError(`Type not found: ${to}`);
 	}
@@ -86,5 +86,5 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 	await adapter.generateTypes();
 
-	console.info(`Connected slice "${name}" to "${to}"`);
+	console.info(`Connected slice "${id}" to "${to}"`);
 });

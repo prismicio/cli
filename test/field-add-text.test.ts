@@ -16,7 +16,7 @@ it("adds a text field to a slice", async ({ expect, prismic, repo, token, host }
 		"text",
 		"subtitle",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: subtitle");
@@ -36,7 +36,7 @@ it("adds a text field to a custom type", async ({ expect, prismic, repo, token, 
 		"text",
 		"subtitle",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: subtitle");
@@ -56,7 +56,7 @@ it("adds a text field to a page type", async ({ expect, prismic, repo, token, ho
 		"text",
 		"subtitle",
 		"--to-type",
-		pageType.label!,
+		pageType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: subtitle");

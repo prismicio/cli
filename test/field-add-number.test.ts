@@ -16,7 +16,7 @@ it("adds a number field to a slice", async ({ expect, prismic, repo, token, host
 		"number",
 		"my_number",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_number");
@@ -36,7 +36,7 @@ it("adds a number field to a custom type", async ({ expect, prismic, repo, token
 		"number",
 		"my_number",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_number");

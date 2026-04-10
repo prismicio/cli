@@ -16,7 +16,7 @@ it("adds a date field to a slice", async ({ expect, prismic, repo, token, host }
 		"date",
 		"my_date",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_date");
@@ -36,7 +36,7 @@ it("adds a date field to a custom type", async ({ expect, prismic, repo, token, 
 		"date",
 		"my_date",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_date");

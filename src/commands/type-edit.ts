@@ -9,7 +9,7 @@ const config = {
 	name: "prismic type edit",
 	description: "Edit a content type.",
 	positionals: {
-		name: { description: "Name of the content type", required: true },
+		id: { description: "ID of the content type", required: true },
 	},
 	options: {
 		name: { type: "string", short: "n", description: "New name for the type" },
@@ -19,7 +19,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const [currentName] = positionals;
+	const [id] = positionals;
 	const { repo = await getRepositoryName() } = values;
 
 	if ("format" in values && values.format !== "custom" && values.format !== "page") {
@@ -30,10 +30,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 	const customTypes = await getCustomTypes({ repo, token, host });
-	const type = customTypes.find((ct) => ct.label === currentName);
+	const type = customTypes.find((ct) => ct.id === id);
 
 	if (!type) {
-		throw new CommandError(`Type not found: ${currentName}`);
+		throw new CommandError(`Type not found: ${id}`);
 	}
 
 	if ("name" in values) type.label = values.name;

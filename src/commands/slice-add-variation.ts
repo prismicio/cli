@@ -16,7 +16,7 @@ const config = {
 		name: { description: "Name of the variation", required: true },
 	},
 	options: {
-		to: { type: "string", required: true, description: "Name of the slice" },
+		to: { type: "string", required: true, description: "ID of the slice" },
 		id: { type: "string", description: "Custom ID for the variation" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
@@ -30,7 +30,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 	const slices = await getSlices({ repo, token, host });
-	const slice = slices.find((s) => s.name === to);
+	const slice = slices.find((s) => s.id === to);
 
 	if (!slice) {
 		throw new CommandError(`Slice not found: ${to}`);

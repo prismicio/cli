@@ -14,7 +14,7 @@ const config = {
 		name: { description: "Current name of the tab", required: true },
 	},
 	options: {
-		"from-type": { type: "string", required: true, description: "Name of the content type" },
+		"from-type": { type: "string", required: true, description: "ID of the content type" },
 		name: { type: "string", short: "n", description: "New name for the tab" },
 		"with-slice-zone": { type: "boolean", description: "Add a slice zone to the tab" },
 		"without-slice-zone": { type: "boolean", description: "Remove the slice zone from the tab" },
@@ -24,20 +24,20 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [currentName] = positionals;
-	const { "from-type": typeName, repo = await getRepositoryName() } = values;
+	const { "from-type": typeId, repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 	const customTypes = await getCustomTypes({ repo, token, host });
-	const type = customTypes.find((ct) => ct.label === typeName);
+	const type = customTypes.find((ct) => ct.id === typeId);
 
 	if (!type) {
-		throw new CommandError(`Type not found: ${typeName}`);
+		throw new CommandError(`Type not found: ${typeId}`);
 	}
 
 	if (!(currentName in type.json)) {
-		throw new CommandError(`Tab "${currentName}" not found in "${typeName}".`);
+		throw new CommandError(`Tab "${currentName}" not found in "${typeId}".`);
 	}
 
 	if ("with-slice-zone" in values && "without-slice-zone" in values) {
@@ -82,7 +82,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	if ("name" in values) {
 		if (values.name! in type.json) {
-			throw new CommandError(`Tab "${values.name}" already exists in "${typeName}".`);
+			throw new CommandError(`Tab "${values.name}" already exists in "${typeId}".`);
 		}
 
 		const newJson: CustomType["json"] = {};
@@ -109,5 +109,5 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 	await adapter.generateTypes();
 
-	console.info(`Tab updated: "${currentName}" in "${typeName}"`);
+	console.info(`Tab updated: "${currentName}" in "${typeId}"`);
 });

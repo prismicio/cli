@@ -14,16 +14,16 @@ type ApiConfig = { repo: string; token: string | undefined; host: string };
 type Target = [fields: Fields, save: () => Promise<void>, modelKind: ModelKind];
 
 export const TARGET_OPTIONS = {
-	"to-slice": { type: "string", description: "Name of the target slice" },
-	"to-type": { type: "string", description: "Name of the target content type" },
+	"to-slice": { type: "string", description: "ID of the target slice" },
+	"to-type": { type: "string", description: "ID of the target content type" },
 	variation: { type: "string", description: 'Slice variation ID (default: "default")' },
 	tab: { type: "string", description: 'Content type tab name (default: "Main")' },
 	repo: { type: "string", short: "r", description: "Repository domain" },
 } satisfies CommandConfig["options"];
 
 export const SOURCE_OPTIONS = {
-	"from-slice": { type: "string", description: "Name of the source slice" },
-	"from-type": { type: "string", description: "Name of the source content type" },
+	"from-slice": { type: "string", description: "ID of the source slice" },
+	"from-type": { type: "string", description: "ID of the source content type" },
 	variation: TARGET_OPTIONS.variation,
 	tab: TARGET_OPTIONS.tab,
 	repo: TARGET_OPTIONS.repo,
@@ -55,7 +55,7 @@ export async function resolveFieldContainer(
 
 	if (fromSlice) {
 		const slices = await getSlices(apiConfig);
-		const slice = slices.find((s) => s.name === fromSlice);
+		const slice = slices.find((s) => s.id === fromSlice);
 		if (!slice) {
 			throw new CommandError(`Slice not found: ${fromSlice}`);
 		}
@@ -82,7 +82,7 @@ export async function resolveFieldContainer(
 	}
 
 	const customTypes = await getCustomTypes(apiConfig);
-	const customType = customTypes.find((ct) => ct.label === fromType);
+	const customType = customTypes.find((ct) => ct.id === fromType);
 	if (!customType) {
 		throw new CommandError(`Type not found: ${fromType}`);
 	}
@@ -122,10 +122,10 @@ export async function resolveModel(
 	apiConfig: ApiConfig,
 ): Promise<Target> {
 	const adapter = await getAdapter();
-	const sliceName = values["to-slice"] ?? values["from-slice"];
-	const typeName = values["to-type"] ?? values["from-type"];
+	const sliceId = values["to-slice"] ?? values["from-slice"];
+	const typeId = values["to-type"] ?? values["from-type"];
 
-	const providedCount = [sliceName, typeName].filter(Boolean).length;
+	const providedCount = [sliceId, typeId].filter(Boolean).length;
 	if (providedCount === 0) {
 		throw new CommandError("Specify a target with --to-slice or --to-type.");
 	}
@@ -133,16 +133,16 @@ export async function resolveModel(
 		throw new CommandError("Only one of --to-slice or --to-type can be specified.");
 	}
 
-	if (sliceName) {
+	if (sliceId) {
 		if ("tab" in values) {
 			throw new CommandError("--tab is only valid for content types.");
 		}
 
 		const variation = values.variation ?? "default";
 		const slices = await getSlices(apiConfig);
-		const slice = slices.find((s) => s.name === sliceName);
+		const slice = slices.find((s) => s.id === sliceId);
 		if (!slice) {
-			throw new CommandError(`Slice not found: ${sliceName}`);
+			throw new CommandError(`Slice not found: ${sliceId}`);
 		}
 
 		const newModel = structuredClone(slice);
@@ -182,9 +182,9 @@ export async function resolveModel(
 
 	const tab = values.tab ?? "Main";
 	const customTypes = await getCustomTypes(apiConfig);
-	const customType = customTypes.find((ct) => ct.label === typeName);
+	const customType = customTypes.find((ct) => ct.id === typeId);
 	if (!customType) {
-		throw new CommandError(`Type not found: ${typeName}`);
+		throw new CommandError(`Type not found: ${typeId}`);
 	}
 
 	const newModel = structuredClone(customType);

@@ -12,7 +12,7 @@ const config = {
 		name: { description: "Name of the tab", required: true },
 	},
 	options: {
-		from: { type: "string", required: true, description: "Name of the content type" },
+		from: { type: "string", required: true, description: "ID of the content type" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
@@ -25,7 +25,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 	const customTypes = await getCustomTypes({ repo, token, host });
-	const type = customTypes.find((ct) => ct.label === from);
+	const type = customTypes.find((ct) => ct.id === from);
 
 	if (!type) {
 		throw new CommandError(`Type not found: ${from}`);

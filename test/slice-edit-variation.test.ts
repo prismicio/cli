@@ -4,7 +4,7 @@ import { getSlices, insertSlice } from "./prismic";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("slice", ["edit-variation", "--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic slice edit-variation <name> [options]");
+	expect(stdout).toContain("prismic slice edit-variation <id> [options]");
 });
 
 it("edits a variation name", async ({ expect, prismic, repo, token, host }) => {
@@ -32,14 +32,14 @@ it("edits a variation name", async ({ expect, prismic, repo, token, host }) => {
 
 	const { stdout, exitCode } = await prismic("slice", [
 		"edit-variation",
-		variationName,
+		variationId,
 		"--from-slice",
-		slice.name,
+		slice.id,
 		"--name",
 		newName,
 	]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain(`Variation updated: "${newName}" in slice "${slice.name}"`);
+	expect(stdout).toContain(`Variation updated: "${variationId}" in slice "${slice.id}"`);
 
 	const slices = await getSlices({ repo, token, host });
 	const updated = slices.find((s) => s.id === slice.id);

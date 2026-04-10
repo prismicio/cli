@@ -11,7 +11,7 @@ const config = {
 	name: "prismic slice edit",
 	description: "Edit a slice.",
 	positionals: {
-		name: { description: "Name of the slice", required: true },
+		id: { description: "ID of the slice", required: true },
 	},
 	options: {
 		name: { type: "string", short: "n", description: "New name for the slice" },
@@ -20,17 +20,17 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const [currentName] = positionals;
+	const [id] = positionals;
 	const { repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 	const slices = await getSlices({ repo, token, host });
-	const slice = slices.find((s) => s.name === currentName);
+	const slice = slices.find((s) => s.id === id);
 
 	if (!slice) {
-		throw new CommandError(`Slice not found: ${currentName}`);
+		throw new CommandError(`Slice not found: ${id}`);
 	}
 
 	const updatedSlice: SharedSlice = { ...slice };

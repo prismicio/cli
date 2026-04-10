@@ -19,7 +19,7 @@ it("views a field in a slice", async ({ expect, prismic, repo, token, host }) =>
 		"view",
 		"title",
 		"--from-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Type: StructuredText");
@@ -39,7 +39,7 @@ it("views a field in a custom type", async ({ expect, prismic, repo, token, host
 		"view",
 		"count",
 		"--from-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Type: Number");
@@ -60,7 +60,7 @@ it("outputs JSON with --json", async ({ expect, prismic, repo, token, host }) =>
 		"view",
 		"is_active",
 		"--from-slice",
-		slice.name,
+		slice.id,
 		"--json",
 	]);
 	expect(exitCode).toBe(0);
@@ -79,7 +79,7 @@ it("errors for non-existent field", async ({ expect, prismic, repo, token, host 
 		"view",
 		"nonexistent",
 		"--from-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).not.toBe(0);
 	expect(stderr).toContain("nonexistent");

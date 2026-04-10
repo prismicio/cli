@@ -6,7 +6,7 @@ import { getCustomTypes, insertCustomType, insertSlice } from "./prismic";
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("slice", ["connect", "--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic slice connect <name> [options]");
+	expect(stdout).toContain("prismic slice connect <id> [options]");
 });
 
 it("connects a slice to a type", async ({ expect, prismic, repo, token, host }) => {
@@ -29,12 +29,12 @@ it("connects a slice to a type", async ({ expect, prismic, repo, token, host }) 
 
 	const { stdout, exitCode } = await prismic("slice", [
 		"connect",
-		slice.name,
+		slice.id,
 		"--to",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain(`Connected slice "${slice.name}" to "${customType.label}"`);
+	expect(stdout).toContain(`Connected slice "${slice.id}" to "${customType.id}"`);
 
 	const customTypes = await getCustomTypes({ repo, token, host });
 	const updated = customTypes.find((ct) => ct.id === customType.id);
