@@ -57,7 +57,11 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw error;
 	}
 
-	await adapter.updateCustomType(type);
+	try {
+		await adapter.updateCustomType(type);
+	} catch {
+		await adapter.createCustomType(type);
+	}
 	await adapter.generateTypes();
 
 	console.info(`Type updated: "${type.label}" (id: ${type.id})`);
