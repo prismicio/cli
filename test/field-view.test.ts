@@ -8,24 +8,11 @@ it("supports --help", async ({ expect, prismic }) => {
 });
 
 it("views a field in a slice", async ({ expect, prismic, repo, token, host }) => {
-	const slice = buildSlice({
-		variations: [
-			{
-				id: "default",
-				name: "Default",
-				docURL: "",
-				version: "initial",
-				description: "Default",
-				imageUrl: "",
-				primary: {
-					title: {
-						type: "StructuredText",
-						config: { label: "Title", placeholder: "Enter title" },
-					},
-				},
-			},
-		],
-	});
+	const slice = buildSlice();
+	slice.variations[0].primary!.title = {
+		type: "StructuredText",
+		config: { label: "Title", placeholder: "Enter title" },
+	};
 	await insertSlice(slice, { repo, token, host });
 
 	const { stdout, exitCode } = await prismic("field", [
@@ -41,16 +28,11 @@ it("views a field in a slice", async ({ expect, prismic, repo, token, host }) =>
 });
 
 it("views a field in a custom type", async ({ expect, prismic, repo, token, host }) => {
-	const customType = buildCustomType({
-		json: {
-			Main: {
-				count: {
-					type: "Number",
-					config: { label: "Count", placeholder: "Enter number", min: 0, max: 100 },
-				},
-			},
-		},
-	});
+	const customType = buildCustomType();
+	customType.json.Main.count = {
+		type: "Number",
+		config: { label: "Count", placeholder: "Enter number", min: 0, max: 100 },
+	};
 	await insertCustomType(customType, { repo, token, host });
 
 	const { stdout, exitCode } = await prismic("field", [
@@ -67,24 +49,11 @@ it("views a field in a custom type", async ({ expect, prismic, repo, token, host
 });
 
 it("outputs JSON with --json", async ({ expect, prismic, repo, token, host }) => {
-	const slice = buildSlice({
-		variations: [
-			{
-				id: "default",
-				name: "Default",
-				docURL: "",
-				version: "initial",
-				description: "Default",
-				imageUrl: "",
-				primary: {
-					is_active: {
-						type: "Boolean",
-						config: { label: "Is Active", default_value: true },
-					},
-				},
-			},
-		],
-	});
+	const slice = buildSlice();
+	slice.variations[0].primary!.is_active = {
+		type: "Boolean",
+		config: { label: "Is Active", default_value: true },
+	};
 	await insertSlice(slice, { repo, token, host });
 
 	const { stdout, exitCode } = await prismic("field", [
