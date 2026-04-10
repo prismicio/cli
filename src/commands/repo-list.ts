@@ -55,5 +55,5 @@ export default createCommand(config, async ({ values }) => {
 		const name = repo.name || "(no name)";
 		return [repo.domain, name, repo.role ?? ""];
 	});
-	console.info(formatTable(rows));
+	console.info(formatTable(rows, { headers: ["DOMAIN", "NAME", "ROLE"] }));
 });

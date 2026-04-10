@@ -41,5 +41,5 @@ export default createCommand(config, async ({ values }) => {
 		const name = webhook.config.name ? ` (${webhook.config.name})` : "";
 		return [`${webhook.config.url}${name}`, `[${status}]`];
 	});
-	console.info(formatTable(rows));
+	console.info(formatTable(rows, { headers: ["URL", "STATUS"] }));
 });

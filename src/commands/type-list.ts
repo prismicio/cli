@@ -36,5 +36,5 @@ export default createCommand(config, async ({ values }) => {
 		const label = type.label || "(no name)";
 		return [label, type.id, type.format ?? ""];
 	});
-	console.info(formatTable(rows));
+	console.info(formatTable(rows, { headers: ["NAME", "ID", "FORMAT"] }));
 });

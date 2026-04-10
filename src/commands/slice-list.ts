@@ -32,5 +32,5 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const rows = slices.map((slice) => [slice.name, slice.id]);
-	console.info(formatTable(rows));
+	console.info(formatTable(rows, { headers: ["NAME", "ID"] }));
 });

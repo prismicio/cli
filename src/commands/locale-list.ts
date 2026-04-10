@@ -41,5 +41,5 @@ export default createCommand(config, async ({ values }) => {
 		const masterLabel = locale.isMaster ? " (master)" : "";
 		return [locale.id, `${locale.label}${masterLabel}`];
 	});
-	console.info(formatTable(rows));
+	console.info(formatTable(rows, { headers: ["ID", "LABEL"] }));
 });

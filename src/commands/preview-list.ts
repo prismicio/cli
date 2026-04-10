@@ -46,7 +46,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const rows = previews.map((preview) => [preview.url, preview.label]);
-	console.info(formatTable(rows));
+	console.info(formatTable(rows, { headers: ["URL", "LABEL"] }));
 
 	if (simulatorUrl) {
 		console.info(`\nSimulator: ${simulatorUrl}`);

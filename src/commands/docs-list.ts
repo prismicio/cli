@@ -54,7 +54,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 
 		const rows = entry.anchors.map((anchor) => [`${path}#${anchor.slug}`, anchor.excerpt]);
-		console.info(formatTable(rows));
+		console.info(formatTable(rows, { headers: ["PATH", "EXCERPT"] }));
 	} else {
 		let pages;
 		try {
@@ -80,6 +80,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 
 		const rows = pages.map((page) => [page.path, page.title, page.description ?? ""]);
-		console.info(formatTable(rows));
+		console.info(formatTable(rows, { headers: ["PATH", "TITLE", "DESCRIPTION"] }));
 	}
 });
