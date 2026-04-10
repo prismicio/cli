@@ -16,7 +16,7 @@ it("edits a tab name", async ({ expect, prismic, repo, token, host }) => {
 	const { stdout, exitCode } = await prismic("type", [
 		"edit-tab",
 		"OldName",
-		"--in",
+		"--from-type",
 		customType.label!,
 		"--name",
 		newName,
@@ -37,7 +37,7 @@ it("adds a slice zone to a tab", async ({ expect, prismic, repo, token, host }) 
 	const { stdout, exitCode } = await prismic("type", [
 		"edit-tab",
 		"Main",
-		"--in",
+		"--from-type",
 		customType.label!,
 		"--with-slice-zone",
 	]);
@@ -67,7 +67,7 @@ it("removes a slice zone from a tab", async ({ expect, prismic, repo, token, hos
 	const { stdout, exitCode } = await prismic("type", [
 		"edit-tab",
 		"Main",
-		"--in",
+		"--from-type",
 		customType.label!,
 		"--without-slice-zone",
 	]);

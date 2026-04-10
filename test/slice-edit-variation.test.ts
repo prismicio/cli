@@ -33,7 +33,7 @@ it("edits a variation name", async ({ expect, prismic, repo, token, host }) => {
 	const { stdout, exitCode } = await prismic("slice", [
 		"edit-variation",
 		variationName,
-		"--in",
+		"--from-slice",
 		slice.name,
 		"--name",
 		newName,
