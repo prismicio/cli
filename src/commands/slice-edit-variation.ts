@@ -14,7 +14,7 @@ const config = {
 		name: { description: "Name of the variation", required: true },
 	},
 	options: {
-		in: { type: "string", required: true, description: "Name of the slice" },
+		"from-slice": { type: "string", required: true, description: "Name of the slice" },
 		name: { type: "string", short: "n", description: "New name for the variation" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
@@ -22,7 +22,7 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [currentName] = positionals;
-	const { in: sliceName, repo = await getRepositoryName() } = values;
+	const { "from-slice": sliceName, repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
 	const token = await getToken();
