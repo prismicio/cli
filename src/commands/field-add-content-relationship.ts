@@ -21,16 +21,6 @@ const config = {
 		selected. These filters define exactly which documents are queryable
 		through this field. If neither is specified, all documents are allowed.
 	`,
-	sections: {
-		"FIELD CONSTRAINTS": `
-			--custom-type and --tag narrow which documents editors can select
-			and which documents the API returns for this field. Adding or
-			removing a custom type or tag that is referenced by an existing
-			content relationship changes which documents are queryable -- any
-			code that depends on a specific document type being returned may
-			break if that type is removed from the constraint list.
-		`,
-	},
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},
