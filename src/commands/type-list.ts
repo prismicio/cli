@@ -2,6 +2,7 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes } from "../clients/custom-types";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -31,8 +32,9 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	for (const type of types) {
+	const rows = types.map((type) => {
 		const label = type.label || "(no name)";
-		console.info(`${label} (id: ${type.id}, format: ${type.format})`);
-	}
+		return [label, type.id, type.format ?? ""];
+	});
+	console.info(formatTable(rows, { headers: ["NAME", "ID", "FORMAT"] }));
 });

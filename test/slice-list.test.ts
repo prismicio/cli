@@ -13,7 +13,7 @@ it("lists slices", async ({ expect, prismic, repo, token, host }) => {
 
 	const { stdout, exitCode } = await prismic("slice", ["list"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain(`${slice.name} (id: ${slice.id})`);
+	expect(stdout).toMatch(new RegExp(`${slice.name}\\s+${slice.id}`));
 });
 
 it("lists slices as JSON", async ({ expect, prismic, repo, token, host }) => {

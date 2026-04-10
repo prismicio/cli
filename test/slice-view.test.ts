@@ -51,11 +51,10 @@ it("shows fields per variation", async ({ expect, prismic, repo, token, host }) 
 	const { stdout, exitCode } = await prismic("slice", ["view", slice.name]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("default:");
-	expect(stdout).toContain("title  StructuredText  Title");
-	expect(stdout).toContain('"Enter title"');
-	expect(stdout).toContain("is_active  Boolean  Is Active");
+	expect(stdout).toMatch(/title\s+StructuredText\s+Title\s+"Enter title"/);
+	expect(stdout).toMatch(/is_active\s+Boolean\s+Is Active/);
 	expect(stdout).toContain("withImage:");
-	expect(stdout).toContain("image  Image  Image");
+	expect(stdout).toMatch(/image\s+Image\s+Image/);
 });
 
 it("views a slice as JSON", async ({ expect, prismic, repo, token, host }) => {

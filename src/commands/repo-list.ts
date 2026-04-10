@@ -3,6 +3,7 @@ import { getProfile } from "../clients/user";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
+import { formatTable } from "../lib/string";
 
 const config = {
 	name: "prismic repo list",
@@ -50,9 +51,9 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	for (const repo of repos) {
+	const rows = repos.map((repo) => {
 		const name = repo.name || "(no name)";
-		const role = repo.role ? `  ${repo.role}` : "";
-		console.info(`${repo.domain}  ${name}${role}`);
-	}
+		return [repo.domain, name, repo.role ?? ""];
+	});
+	console.info(formatTable(rows, { headers: ["DOMAIN", "NAME", "ROLE"] }));
 });
