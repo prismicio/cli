@@ -15,8 +15,8 @@ it("lists all types", async ({ expect, prismic, repo, token, host }) => {
 
 	const { stdout, exitCode } = await prismic("type", ["list"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain(`${customType.label} (id: ${customType.id}, format: custom)`);
-	expect(stdout).toContain(`${pageType.label} (id: ${pageType.id}, format: page)`);
+	expect(stdout).toMatch(new RegExp(`${customType.label}\\s+${customType.id}\\s+custom`));
+	expect(stdout).toMatch(new RegExp(`${pageType.label}\\s+${pageType.id}\\s+page`));
 });
 
 it("lists types as JSON", async ({ expect, prismic, repo, token, host }) => {

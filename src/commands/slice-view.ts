@@ -2,6 +2,7 @@ import { getHost, getToken } from "../auth";
 import { getSlices } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -44,12 +45,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 		if (entries.length === 0) {
 			console.info("  (no fields)");
 		} else {
-			for (const [id, field] of entries) {
+			const rows = entries.map(([id, field]) => {
 				const config = field.config as Record<string, unknown> | undefined;
 				const label = (config?.label as string) || "";
 				const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
-				console.info(`  ${[id, field.type, label, placeholder].filter(Boolean).join("  ")}`);
-			}
+				return [`  ${id}`, field.type, label, placeholder];
+			});
+			console.info(formatTable(rows));
 		}
 	}
 });

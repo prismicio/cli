@@ -37,11 +37,10 @@ it("shows fields per tab", async ({ expect, prismic, repo, token, host }) => {
 	const { stdout, exitCode } = await prismic("type", ["view", customType.label!]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Main:");
-	expect(stdout).toContain("title  StructuredText  Title");
-	expect(stdout).toContain('"Enter title"');
-	expect(stdout).toContain("is_active  Boolean  Is Active");
+	expect(stdout).toMatch(/title\s+StructuredText\s+Title\s+"Enter title"/);
+	expect(stdout).toMatch(/is_active\s+Boolean\s+Is Active/);
 	expect(stdout).toContain("SEO:");
-	expect(stdout).toContain("meta_title  Text  Meta Title");
+	expect(stdout).toMatch(/meta_title\s+Text\s+Meta Title/);
 });
 
 it("views a type as JSON", async ({ expect, prismic, repo, token, host }) => {

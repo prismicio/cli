@@ -2,6 +2,7 @@ import { getHost, getToken } from "../auth";
 import { getSlices } from "../clients/custom-types";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -30,7 +31,6 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	for (const slice of slices) {
-		console.info(`${slice.name} (id: ${slice.id})`);
-	}
+	const rows = slices.map((slice) => [slice.name, slice.id]);
+	console.info(formatTable(rows));
 });

@@ -2,6 +2,7 @@ import { getHost, getToken } from "../auth";
 import { getPreviews, getSimulatorUrl } from "../clients/core";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -44,9 +45,8 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	for (const preview of previews) {
-		console.info(`${preview.url}  ${preview.label}`);
-	}
+	const rows = previews.map((preview) => [preview.url, preview.label]);
+	console.info(formatTable(rows));
 
 	if (simulatorUrl) {
 		console.info(`\nSimulator: ${simulatorUrl}`);
