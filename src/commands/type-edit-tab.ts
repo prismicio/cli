@@ -40,6 +40,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError(`Tab "${currentName}" not found in "${typeName}".`);
 	}
 
+	if ("with-slice-zone" in values && "without-slice-zone" in values) {
+		throw new CommandError("Cannot use --with-slice-zone and --without-slice-zone together.");
+	}
+
 	if ("with-slice-zone" in values) {
 		const tab = type.json[currentName];
 		const hasSliceZone = Object.values(tab).some((field) => field.type === "Slices");
