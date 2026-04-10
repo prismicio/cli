@@ -1,5 +1,6 @@
 import { createCommandRouter } from "../lib/command";
 import typeCreate from "./type-create";
+import typeEdit from "./type-edit";
 import typeList from "./type-list";
 import typeRemove from "./type-remove";
 import typeView from "./type-view";
@@ -11,6 +12,10 @@ export default createCommandRouter({
 		create: {
 			handler: typeCreate,
 			description: "Create a new content type",
+		},
+		edit: {
+			handler: typeEdit,
+			description: "Edit a content type",
 		},
 		remove: {
 			handler: typeRemove,
