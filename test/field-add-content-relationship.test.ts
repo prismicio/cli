@@ -22,7 +22,7 @@ it("adds a content relationship field to a slice", async ({
 		"content-relationship",
 		"my_link",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_link");
@@ -48,7 +48,7 @@ it("adds a content relationship field to a custom type", async ({
 		"content-relationship",
 		"my_link",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_link");

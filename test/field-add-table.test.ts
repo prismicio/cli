@@ -16,7 +16,7 @@ it("adds a table field to a slice", async ({ expect, prismic, repo, token, host 
 		"table",
 		"my_table",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_table");
@@ -36,7 +36,7 @@ it("adds a table field to a custom type", async ({ expect, prismic, repo, token,
 		"table",
 		"my_table",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_table");

@@ -16,7 +16,7 @@ it("adds a boolean field to a slice", async ({ expect, prismic, repo, token, hos
 		"boolean",
 		"my_field",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_field");
@@ -36,7 +36,7 @@ it("adds a boolean field to a custom type", async ({ expect, prismic, repo, toke
 		"boolean",
 		"is_active",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: is_active");

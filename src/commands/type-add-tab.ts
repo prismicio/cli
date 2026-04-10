@@ -12,7 +12,7 @@ const config = {
 		name: { description: "Name of the tab", required: true },
 	},
 	options: {
-		to: { type: "string", required: true, description: "Name of the content type" },
+		to: { type: "string", required: true, description: "ID of the content type" },
 		"with-slice-zone": { type: "boolean", description: "Add a slice zone to the tab" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
@@ -26,7 +26,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 	const customTypes = await getCustomTypes({ repo, token, host });
-	const type = customTypes.find((ct) => ct.label === to);
+	const type = customTypes.find((ct) => ct.id === to);
 
 	if (!type) {
 		throw new CommandError(`Type not found: ${to}`);

@@ -21,7 +21,7 @@ it("adds a link field to a slice", async ({ expect, prismic, repo, token, host }
 		"link",
 		"my_link",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_link");
@@ -41,7 +41,7 @@ it("adds a link field to a custom type", async ({ expect, prismic, repo, token, 
 		"link",
 		"my_link",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_link");
@@ -61,7 +61,7 @@ it("adds a media link field with --allow media", async ({ expect, prismic, repo,
 		"link",
 		"my_media",
 		"--to-slice",
-		slice.name,
+		slice.id,
 		"--allow",
 		"media",
 	]);

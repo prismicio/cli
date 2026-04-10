@@ -17,12 +17,12 @@ it("edits a tab name", async ({ expect, prismic, repo, token, host }) => {
 		"edit-tab",
 		"OldName",
 		"--from-type",
-		customType.label!,
+		customType.id,
 		"--name",
 		newName,
 	]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain(`Tab updated: "OldName" in "${customType.label}"`);
+	expect(stdout).toContain(`Tab updated: "OldName" in "${customType.id}"`);
 
 	const customTypes = await getCustomTypes({ repo, token, host });
 	const updated = customTypes.find((ct) => ct.id === customType.id);
@@ -38,11 +38,11 @@ it("adds a slice zone to a tab", async ({ expect, prismic, repo, token, host }) 
 		"edit-tab",
 		"Main",
 		"--from-type",
-		customType.label!,
+		customType.id,
 		"--with-slice-zone",
 	]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain(`Tab updated: "Main" in "${customType.label}"`);
+	expect(stdout).toContain(`Tab updated: "Main" in "${customType.id}"`);
 
 	const customTypes = await getCustomTypes({ repo, token, host });
 	const updated = customTypes.find((ct) => ct.id === customType.id);
@@ -68,11 +68,11 @@ it("removes a slice zone from a tab", async ({ expect, prismic, repo, token, hos
 		"edit-tab",
 		"Main",
 		"--from-type",
-		customType.label!,
+		customType.id,
 		"--without-slice-zone",
 	]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain(`Tab updated: "Main" in "${customType.label}"`);
+	expect(stdout).toContain(`Tab updated: "Main" in "${customType.id}"`);
 
 	const customTypes = await getCustomTypes({ repo, token, host });
 	const updated = customTypes.find((ct) => ct.id === customType.id);

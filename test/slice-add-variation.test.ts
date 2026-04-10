@@ -17,11 +17,11 @@ it("adds a variation to a slice", async ({ expect, prismic, repo, token, host })
 		"add-variation",
 		variationName,
 		"--to",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Added variation "${variationName}"`);
-	expect(stdout).toContain(`to slice "${slice.name}"`);
+	expect(stdout).toContain(`to slice "${slice.id}"`);
 
 	const slices = await getSlices({ repo, token, host });
 	const updated = slices.find((s) => s.id === slice.id);

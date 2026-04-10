@@ -16,7 +16,7 @@ it("edits a field label on a slice", async ({ expect, prismic, repo, token, host
 		"edit",
 		"my_field",
 		"--from-slice",
-		slice.name,
+		slice.id,
 		"--label",
 		"New Label",
 	]);
@@ -46,7 +46,7 @@ it("edits a field label on a custom type", async ({ expect, prismic, repo, token
 		"edit",
 		"title",
 		"--from-type",
-		customType.label!,
+		customType.id,
 		"--label",
 		"Page Title",
 	]);
@@ -70,7 +70,7 @@ it("edits boolean field options", async ({ expect, prismic, repo, token, host })
 		"edit",
 		"is_active",
 		"--from-slice",
-		slice.name,
+		slice.id,
 		"--default-value",
 		"true",
 		"--true-label",
@@ -103,7 +103,7 @@ it("edits number field options", async ({ expect, prismic, repo, token, host }) 
 		"edit",
 		"quantity",
 		"--from-slice",
-		slice.name,
+		slice.id,
 		"--min",
 		"0",
 		"--max",
@@ -133,7 +133,7 @@ it("edits select field options", async ({ expect, prismic, repo, token, host }) 
 		"edit",
 		"color",
 		"--from-slice",
-		slice.name,
+		slice.id,
 		"--default-value",
 		"green",
 		"--option",
@@ -170,7 +170,7 @@ it("edits link field options", async ({ expect, prismic, repo, token, host }) =>
 		"edit",
 		"cta_link",
 		"--from-slice",
-		slice.name,
+		slice.id,
 		"--allow-target-blank",
 	]);
 	expect(exitCode).toBe(0);

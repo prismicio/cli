@@ -16,7 +16,7 @@ it("adds an embed field to a slice", async ({ expect, prismic, repo, token, host
 		"embed",
 		"my_embed",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_embed");
@@ -36,7 +36,7 @@ it("adds an embed field to a custom type", async ({ expect, prismic, repo, token
 		"embed",
 		"my_embed",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_embed");

@@ -16,7 +16,7 @@ it("adds a color field to a slice", async ({ expect, prismic, repo, token, host 
 		"color",
 		"my_color",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_color");
@@ -36,7 +36,7 @@ it("adds a color field to a custom type", async ({ expect, prismic, repo, token,
 		"color",
 		"my_color",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_color");

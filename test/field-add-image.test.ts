@@ -16,7 +16,7 @@ it("adds an image field to a slice", async ({ expect, prismic, repo, token, host
 		"image",
 		"my_image",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_image");
@@ -36,7 +36,7 @@ it("adds an image field to a custom type", async ({ expect, prismic, repo, token
 		"image",
 		"my_image",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_image");

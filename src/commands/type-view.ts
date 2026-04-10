@@ -9,7 +9,7 @@ const config = {
 	name: "prismic type view",
 	description: "View details of a content type.",
 	positionals: {
-		name: { description: "Name of the content type", required: true },
+		id: { description: "ID of the content type", required: true },
 	},
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
@@ -18,16 +18,16 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const [name] = positionals;
+	const [id] = positionals;
 	const { json, repo = await getRepositoryName() } = values;
 
 	const token = await getToken();
 	const host = await getHost();
 	const customTypes = await getCustomTypes({ repo, token, host });
-	const type = customTypes.find((ct) => ct.label === name);
+	const type = customTypes.find((ct) => ct.id === id);
 
 	if (!type) {
-		throw new CommandError(`Type not found: ${name}`);
+		throw new CommandError(`Type not found: ${id}`);
 	}
 
 	if (json) {

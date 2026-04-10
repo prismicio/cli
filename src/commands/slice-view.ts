@@ -9,7 +9,7 @@ const config = {
 	name: "prismic slice view",
 	description: "View details of a slice.",
 	positionals: {
-		name: { description: "Name of the slice", required: true },
+		id: { description: "ID of the slice", required: true },
 	},
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
@@ -18,16 +18,16 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const [name] = positionals;
+	const [id] = positionals;
 	const { json, repo = await getRepositoryName() } = values;
 
 	const token = await getToken();
 	const host = await getHost();
 	const slices = await getSlices({ repo, token, host });
-	const slice = slices.find((slice) => slice.name === name);
+	const slice = slices.find((slice) => slice.id === id);
 
 	if (!slice) {
-		throw new CommandError(`Slice not found: ${name}`);
+		throw new CommandError(`Slice not found: ${id}`);
 	}
 
 	if (json) {

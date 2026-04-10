@@ -11,32 +11,32 @@ const config = {
 	name: "prismic slice remove-variation",
 	description: "Remove a variation from a slice.",
 	positionals: {
-		name: { description: "Name of the variation", required: true },
+		id: { description: "ID of the variation", required: true },
 	},
 	options: {
-		from: { type: "string", required: true, description: "Name of the slice" },
+		from: { type: "string", required: true, description: "ID of the slice" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const [name] = positionals;
+	const [id] = positionals;
 	const { from, repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
 	const slices = await getSlices({ repo, token, host });
-	const slice = slices.find((s) => s.name === from);
+	const slice = slices.find((s) => s.id === from);
 
 	if (!slice) {
 		throw new CommandError(`Slice not found: ${from}`);
 	}
 
-	const variation = slice.variations.find((v) => v.name === name);
+	const variation = slice.variations.find((v) => v.id === id);
 
 	if (!variation) {
-		throw new CommandError(`Variation "${name}" not found in slice "${from}".`);
+		throw new CommandError(`Variation "${id}" not found in slice "${from}".`);
 	}
 
 	const updatedSlice: SharedSlice = {
@@ -61,5 +61,5 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 	await adapter.generateTypes();
 
-	console.info(`Removed variation "${name}" from slice "${from}"`);
+	console.info(`Removed variation "${id}" from slice "${from}"`);
 });

@@ -18,7 +18,7 @@ it("adds a group field to a slice", async ({ expect, prismic, repo, token, host 
 		"group",
 		"my_group",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_group");
@@ -38,7 +38,7 @@ it("adds a group field to a custom type", async ({ expect, prismic, repo, token,
 		"group",
 		"my_group",
 		"--to-type",
-		customType.label!,
+		customType.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_group");
@@ -65,7 +65,7 @@ it("adds a field inside a group using dot syntax", async ({
 		"text",
 		"my_group.subtitle",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_group.subtitle");
@@ -93,7 +93,7 @@ it("errors when dot syntax targets a non-existent field", async ({
 		"text",
 		"nonexistent.subtitle",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain('Field "nonexistent" does not exist.');
@@ -115,7 +115,7 @@ it("errors when dot syntax targets a non-group field", async ({
 		"text",
 		"my_text.subtitle",
 		"--to-slice",
-		slice.name,
+		slice.id,
 	]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain('Field "my_text" is not a group field.');
