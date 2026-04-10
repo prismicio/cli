@@ -1,5 +1,6 @@
 import { writeFile, mkdir } from "node:fs/promises";
 
+import { getCustomTypes, getSlices } from "../src/clients/custom-types";
 import { buildCustomType, buildSlice, captureOutput, it } from "./it";
 import { deleteCustomType, deleteSlice, insertCustomType, insertSlice } from "./prismic";
 
@@ -82,6 +83,10 @@ it("adds new slice to existing library on re-sync", async ({
 	// Insert a second slice remotely
 	const sliceB = buildSlice();
 	await insertSlice(sliceB, { repo, token, host });
+	await expect.poll(
+		async () => (await getSlices({ repo, token, host })).map((s) => s.id),
+		{ timeout: 5_000 },
+	).toContain(sliceB.id);
 
 	// Second sync — should add slice B without breaking slice A
 	const second = await prismic("sync", ["--repo", repo]);
@@ -114,6 +119,10 @@ it("removes deleted slice and updates index on re-sync", async ({
 
 	// Delete slice B from remote
 	await deleteSlice(sliceB.id, { repo, token, host });
+	await expect.poll(
+		async () => (await getSlices({ repo, token, host })).map((s) => s.id),
+		{ timeout: 5_000 },
+	).not.toContain(sliceB.id);
 
 	// Second sync — should remove slice B and update the index
 	const second = await prismic("sync", ["--repo", repo]);
@@ -199,6 +208,10 @@ it("removes route when page type is deleted", async ({
 	await expect(project).toHaveRoute({ type: customType.id });
 
 	await deleteCustomType(customType.id, { repo, token, host });
+	await expect.poll(
+		async () => (await getCustomTypes({ repo, token, host })).map((ct) => ct.id),
+		{ timeout: 5_000 },
+	).not.toContain(customType.id);
 
 	// Second sync — removes the route
 	const second = await prismic("sync", ["--repo", repo]);
