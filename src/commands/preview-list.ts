@@ -45,10 +45,15 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const rows = previews.map((preview) => [preview.url, preview.label]);
-	console.info(formatTable(rows, { headers: ["URL", "LABEL"] }));
+	if (previews.length > 0) {
+		const rows = previews.map((preview) => [preview.url, preview.label]);
+		console.info(formatTable(rows, { headers: ["URL", "LABEL"] }));
+	}
 
 	if (simulatorUrl) {
-		console.info(`\nSimulator: ${simulatorUrl}`);
+		if (previews.length > 0) {
+			console.info("");
+		}
+		console.info(`Simulator: ${simulatorUrl}`);
 	}
 });
