@@ -14,8 +14,6 @@ const config = {
 	options: {
 		name: { type: "string", short: "n", description: "New name for the type" },
 		format: { type: "string", short: "f", description: 'Type format: "custom" or "page"' },
-		repeatable: { type: "boolean", description: "Allow multiple documents of this type" },
-		single: { type: "boolean", short: "s", description: "Restrict to a single document" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
@@ -23,10 +21,6 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [currentName] = positionals;
 	const { repo = await getRepositoryName() } = values;
-
-	if ("repeatable" in values && "single" in values) {
-		throw new CommandError("Cannot use both --repeatable and --single");
-	}
 
 	if ("format" in values && values.format !== "custom" && values.format !== "page") {
 		throw new CommandError(`Invalid format: "${values.format}". Use "custom" or "page".`);
@@ -44,8 +38,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	if ("name" in values) type.label = values.name;
 	if ("format" in values) type.format = values.format as "custom" | "page";
-	if ("repeatable" in values) type.repeatable = true;
-	if ("single" in values) type.repeatable = false;
 
 	try {
 		await updateCustomType(type, { repo, host, token });
@@ -57,7 +49,11 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw error;
 	}
 
-	await adapter.updateCustomType(type);
+	try {
+		await adapter.updateCustomType(type);
+	} catch {
+		await adapter.createCustomType(type);
+	}
 	await adapter.generateTypes();
 
 	console.info(`Type updated: "${type.label}" (id: ${type.id})`);

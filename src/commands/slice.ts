@@ -3,6 +3,8 @@ import sliceAddVariation from "./slice-add-variation";
 import sliceConnect from "./slice-connect";
 import sliceCreate from "./slice-create";
 import sliceDisconnect from "./slice-disconnect";
+import sliceEdit from "./slice-edit";
+import sliceEditVariation from "./slice-edit-variation";
 import sliceList from "./slice-list";
 import sliceRemove from "./slice-remove";
 import sliceRemoveVariation from "./slice-remove-variation";
@@ -15,6 +17,10 @@ export default createCommandRouter({
 		create: {
 			handler: sliceCreate,
 			description: "Create a new slice",
+		},
+		edit: {
+			handler: sliceEdit,
+			description: "Edit a slice",
 		},
 		remove: {
 			handler: sliceRemove,
@@ -39,6 +45,10 @@ export default createCommandRouter({
 		"add-variation": {
 			handler: sliceAddVariation,
 			description: "Add a variation to a slice",
+		},
+		"edit-variation": {
+			handler: sliceEditVariation,
+			description: "Edit a variation of a slice",
 		},
 		"remove-variation": {
 			handler: sliceRemoveVariation,
