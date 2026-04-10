@@ -1,8 +1,14 @@
 import { writeFile, mkdir } from "node:fs/promises";
 
-import { getCustomTypes, getSlices } from "../src/clients/custom-types";
 import { buildCustomType, buildSlice, captureOutput, it } from "./it";
-import { deleteCustomType, deleteSlice, insertCustomType, insertSlice } from "./prismic";
+import {
+	deleteCustomType,
+	deleteSlice,
+	getCustomTypes,
+	getSlices,
+	insertCustomType,
+	insertSlice,
+} from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("sync", ["--help"]);
