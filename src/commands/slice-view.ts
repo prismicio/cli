@@ -36,6 +36,20 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	console.info(`ID: ${slice.id}`);
 	console.info(`Name: ${slice.name}`);
-	const variations = slice.variations?.map((v) => v.id).join(", ") || "(none)";
-	console.info(`Variations: ${variations}`);
+
+	for (const variation of slice.variations ?? []) {
+		console.info("");
+		console.info(`${variation.id}:`);
+		const entries = Object.entries(variation.primary ?? {});
+		if (entries.length === 0) {
+			console.info("  (no fields)");
+		} else {
+			for (const [id, field] of entries) {
+				const config = field.config as Record<string, unknown> | undefined;
+				const label = (config?.label as string) || "";
+				const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
+				console.info(`  ${[id, field.type, label, placeholder].filter(Boolean).join("  ")}`);
+			}
+		}
+	}
 });

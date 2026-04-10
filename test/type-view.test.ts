@@ -17,7 +17,31 @@ it("views a type", async ({ expect, prismic, repo, token, host }) => {
 	expect(stdout).toContain(`Name: ${customType.label}`);
 	expect(stdout).toContain("Format: custom");
 	expect(stdout).toContain("Repeatable: true");
-	expect(stdout).toContain("Tabs: Main");
+	expect(stdout).toContain("Main:");
+});
+
+it("shows fields per tab", async ({ expect, prismic, repo, token, host }) => {
+	const customType = buildCustomType({
+		json: {
+			Main: {
+				title: { type: "StructuredText", config: { label: "Title", placeholder: "Enter title" } },
+				is_active: { type: "Boolean", config: { label: "Is Active" } },
+			},
+			SEO: {
+				meta_title: { type: "Text", config: { label: "Meta Title" } },
+			},
+		},
+	});
+	await insertCustomType(customType, { repo, token, host });
+
+	const { stdout, exitCode } = await prismic("type", ["view", customType.label!]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain("Main:");
+	expect(stdout).toContain("title  StructuredText  Title");
+	expect(stdout).toContain('"Enter title"');
+	expect(stdout).toContain("is_active  Boolean  Is Active");
+	expect(stdout).toContain("SEO:");
+	expect(stdout).toContain("meta_title  Text  Meta Title");
 });
 
 it("views a type as JSON", async ({ expect, prismic, repo, token, host }) => {
