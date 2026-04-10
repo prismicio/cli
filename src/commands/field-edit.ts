@@ -147,19 +147,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 			break;
 		}
 		case "Link": {
-			if (field.config.select === "document") {
-				// Content relationship
-				if ("tag" in values) field.config.tags = values.tag;
-				if ("custom-type" in values) field.config.customtypes = values["custom-type"];
-			} else {
-				// Link (generic, media, or web)
-				if ("allow-target-blank" in values) {
-					field.config.allowTargetBlank = values["allow-target-blank"];
-				}
-				if ("allow-text" in values) field.config.allowText = values["allow-text"];
-				if ("repeatable" in values) field.config.repeat = values.repeatable;
-				if ("variant" in values) field.config.variants = values.variant;
+			if ("allow-target-blank" in values) {
+				field.config.allowTargetBlank = values["allow-target-blank"];
 			}
+			if ("allow-text" in values) field.config.allowText = values["allow-text"];
+			if ("repeatable" in values) field.config.repeat = values.repeatable;
+			if ("variant" in values) field.config.variants = values.variant;
+			if ("tag" in values) field.config.tags = values.tag;
+			if ("custom-type" in values) field.config.customtypes = values["custom-type"];
 			break;
 		}
 	}
