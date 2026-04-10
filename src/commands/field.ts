@@ -1,7 +1,6 @@
 import { createCommandRouter } from "../lib/command";
 import fieldAdd from "./field-add";
 import fieldEdit from "./field-edit";
-import fieldList from "./field-list";
 import fieldRemove from "./field-remove";
 
 export default createCommandRouter({
@@ -15,10 +14,6 @@ export default createCommandRouter({
 		edit: {
 			handler: fieldEdit,
 			description: "Edit a field",
-		},
-		list: {
-			handler: fieldList,
-			description: "List fields",
 		},
 		remove: {
 			handler: fieldRemove,

@@ -38,6 +38,20 @@ export default createCommand(config, async ({ positionals, values }) => {
 	console.info(`Name: ${type.label || "(no name)"}`);
 	console.info(`Format: ${type.format}`);
 	console.info(`Repeatable: ${type.repeatable}`);
-	const tabs = Object.keys(type.json).join(", ") || "(none)";
-	console.info(`Tabs: ${tabs}`);
+
+	for (const [tabName, fields] of Object.entries(type.json)) {
+		console.info("");
+		console.info(`${tabName}:`);
+		const entries = Object.entries(fields);
+		if (entries.length === 0) {
+			console.info("  (no fields)");
+		} else {
+			for (const [id, field] of entries) {
+				const config = field.config as Record<string, unknown> | undefined;
+				const label = (config?.label as string) || "";
+				const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
+				console.info(`  ${[id, field.type, label, placeholder].filter(Boolean).join("  ")}`);
+			}
+		}
+	}
 });
