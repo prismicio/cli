@@ -14,7 +14,7 @@ const config = {
 		name: { description: "Current name of the tab", required: true },
 	},
 	options: {
-		in: { type: "string", required: true, description: "Name of the content type" },
+		"from-type": { type: "string", required: true, description: "Name of the content type" },
 		name: { type: "string", short: "n", description: "New name for the tab" },
 		"with-slice-zone": { type: "boolean", description: "Add a slice zone to the tab" },
 		"without-slice-zone": { type: "boolean", description: "Remove the slice zone from the tab" },
@@ -24,7 +24,7 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [currentName] = positionals;
-	const { in: typeName, repo = await getRepositoryName() } = values;
+	const { "from-type": typeName, repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
 	const token = await getToken();
