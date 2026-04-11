@@ -6,7 +6,7 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { env } from "../env";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { NotFoundRequestError } from "../lib/request";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { dedent } from "../lib/string";
 import { checkIsTypeBuilderEnabled, getRepositoryName, TypeBuilderRequiredError } from "../project";
@@ -54,26 +54,15 @@ export default createCommand(config, async ({ values }) => {
 
 	segmentTrackStart("sync", { watch });
 
-	try {
-		if (watch) {
-			await watchForChanges(repo, adapter);
-		} else {
-			await syncSlices(repo, adapter);
-			await syncCustomTypes(repo, adapter);
-			await adapter.generateTypes();
-			segmentTrackEnd("sync", { watch });
+	if (watch) {
+		await watchForChanges(repo, adapter);
+	} else {
+		await syncSlices(repo, adapter);
+		await syncCustomTypes(repo, adapter);
+		await adapter.generateTypes();
+		segmentTrackEnd("sync", { watch });
 
-			console.info("Sync complete");
-		}
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Repository not found: ${repo}`);
-		}
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to sync: ${message}`);
-		}
-		throw error;
+		console.info("Sync complete");
 	}
 });
 

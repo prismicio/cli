@@ -163,15 +163,8 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Sync models from remote
-	try {
-		await syncSlices(repo, adapter);
-		await syncCustomTypes(repo, adapter);
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Repository not found: ${repo}`);
-		}
-		throw error;
-	}
+	await syncSlices(repo, adapter);
+	await syncCustomTypes(repo, adapter);
 
 	// Generate TypeScript types from synced models
 	await adapter.generateTypes();
