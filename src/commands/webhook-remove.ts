@@ -26,19 +26,32 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
+	let webhooks;
 	try {
-		const webhooks = await getWebhooks({ repo, token, host });
-		const webhook = webhooks.find((w) => w.config.url === webhookUrl);
-		if (!webhook) {
-			throw new CommandError(`Webhook not found: ${webhookUrl}`);
-		}
-
-		const id = webhook.config._id;
-
-		await deleteWebhook(id, { repo, token, host });
+		webhooks = await getWebhooks({ repo, token, host });
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
 			throw new CommandError(`Repository not found: ${repo}`);
+		}
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to remove webhook: ${message}`);
+		}
+		throw error;
+	}
+
+	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
+	if (!webhook) {
+		throw new CommandError(`Webhook not found: ${webhookUrl}`);
+	}
+
+	const id = webhook.config._id;
+
+	try {
+		await deleteWebhook(id, { repo, token, host });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Webhook not found: ${webhookUrl}`);
 		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();

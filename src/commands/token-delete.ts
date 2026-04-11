@@ -32,30 +32,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
+	let apps;
+	let writeTokensInfo;
 	try {
-		const [apps, writeTokensInfo] = await Promise.all([
+		[apps, writeTokensInfo] = await Promise.all([
 			getOAuthApps({ repo, token, host }),
 			getWriteTokens({ repo, token, host }),
 		]);
-
-		// Search access tokens
-		const accessTokenAuths = apps.flatMap((app) => app.wroom_auths);
-		const accessToken = accessTokenAuths.find((auth) => auth.token === tokenValue);
-		if (accessToken) {
-			await deleteOAuthAuthorization(accessToken.id, { repo, token, host });
-			console.info("Token deleted");
-			return;
-		}
-
-		// Search write tokens
-		const writeToken = writeTokensInfo.tokens.find((t) => t.token === tokenValue);
-		if (writeToken) {
-			await deleteWriteToken(writeToken.token, { repo, token, host });
-			console.info("Token deleted");
-			return;
-		}
-
-		throw new CommandError(`Token not found: ${tokenValue}`);
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
 			throw new CommandError(`Repository not found: ${repo}`);
@@ -66,4 +49,45 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 		throw error;
 	}
+
+	// Search access tokens
+	const accessTokenAuths = apps.flatMap((app) => app.wroom_auths);
+	const accessToken = accessTokenAuths.find((auth) => auth.token === tokenValue);
+	if (accessToken) {
+		try {
+			await deleteOAuthAuthorization(accessToken.id, { repo, token, host });
+		} catch (error) {
+			if (error instanceof NotFoundRequestError) {
+				throw new CommandError(`Token not found: ${tokenValue}`);
+			}
+			if (error instanceof UnknownRequestError) {
+				const message = await error.text();
+				throw new CommandError(`Failed to delete token: ${message}`);
+			}
+			throw error;
+		}
+		console.info("Token deleted");
+		return;
+	}
+
+	// Search write tokens
+	const writeToken = writeTokensInfo.tokens.find((t) => t.token === tokenValue);
+	if (writeToken) {
+		try {
+			await deleteWriteToken(writeToken.token, { repo, token, host });
+		} catch (error) {
+			if (error instanceof NotFoundRequestError) {
+				throw new CommandError(`Token not found: ${tokenValue}`);
+			}
+			if (error instanceof UnknownRequestError) {
+				const message = await error.text();
+				throw new CommandError(`Failed to delete token: ${message}`);
+			}
+			throw error;
+		}
+		console.info("Token deleted");
+		return;
+	}
+
+	throw new CommandError(`Token not found: ${tokenValue}`);
 });

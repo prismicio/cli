@@ -26,27 +26,40 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
+	let webhooks;
 	try {
-		const webhooks = await getWebhooks({ repo, token, host });
-		const webhook = webhooks.find((w) => w.config.url === webhookUrl);
-		if (!webhook) {
-			throw new CommandError(`Webhook not found: ${webhookUrl}`);
-		}
-
-		if (webhook.config.active) {
-			console.info(`Webhook already enabled: ${webhookUrl}`);
-			return;
-		}
-
-		const id = webhook.config._id;
-
-		const updatedConfig = structuredClone(webhook.config);
-		updatedConfig.active = true;
-
-		await updateWebhook(id, updatedConfig, { repo, token, host });
+		webhooks = await getWebhooks({ repo, token, host });
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
 			throw new CommandError(`Repository not found: ${repo}`);
+		}
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to enable webhook: ${message}`);
+		}
+		throw error;
+	}
+
+	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
+	if (!webhook) {
+		throw new CommandError(`Webhook not found: ${webhookUrl}`);
+	}
+
+	if (webhook.config.active) {
+		console.info(`Webhook already enabled: ${webhookUrl}`);
+		return;
+	}
+
+	const id = webhook.config._id;
+
+	const updatedConfig = structuredClone(webhook.config);
+	updatedConfig.active = true;
+
+	try {
+		await updateWebhook(id, updatedConfig, { repo, token, host });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Webhook not found: ${webhookUrl}`);
 		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();

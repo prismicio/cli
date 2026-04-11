@@ -27,17 +27,30 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
+	let previews;
 	try {
-		const previews = await getPreviews({ repo, token, host });
-		const preview = previews.find((p) => p.url === previewUrl);
-		if (!preview) {
-			throw new CommandError(`Preview not found: ${previewUrl}`);
-		}
-
-		await removePreview(preview.id, { repo, token, host });
+		previews = await getPreviews({ repo, token, host });
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
 			throw new CommandError(`Repository not found: ${repo}`);
+		}
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to remove preview: ${message}`);
+		}
+		throw error;
+	}
+
+	const preview = previews.find((p) => p.url === previewUrl);
+	if (!preview) {
+		throw new CommandError(`Preview not found: ${previewUrl}`);
+	}
+
+	try {
+		await removePreview(preview.id, { repo, token, host });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Preview not found: ${previewUrl}`);
 		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();

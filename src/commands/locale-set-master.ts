@@ -27,27 +27,40 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
+	let locales;
 	try {
-		const locales = await getLocales({ repo, token, host });
-		const locale = locales.find((l) => l.id === code);
-
-		if (!locale) {
-			throw new CommandError(
-				`Locale "${code}" not found. Available locales: ${locales.map((l) => l.id).join(", ")}`,
-			);
+		locales = await getLocales({ repo, token, host });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Repository not found: ${repo}`);
 		}
-
-		if (locale.isMaster) {
-			throw new CommandError(`Locale "${code}" is already the master.`);
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to set master locale: ${message}`);
 		}
+		throw error;
+	}
 
+	const locale = locales.find((l) => l.id === code);
+
+	if (!locale) {
+		throw new CommandError(
+			`Locale "${code}" not found. Available locales: ${locales.map((l) => l.id).join(", ")}`,
+		);
+	}
+
+	if (locale.isMaster) {
+		throw new CommandError(`Locale "${code}" is already the master.`);
+	}
+
+	try {
 		await upsertLocale(
 			{ id: locale.id, isMaster: true, customName: locale.customName ?? undefined },
 			{ repo, token, host },
 		);
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Repository not found: ${repo}`);
+			throw new CommandError(`Locale not found: ${code}`);
 		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
