@@ -35,7 +35,15 @@ export default createCommand(config, async ({ values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+	let isTypeBuilderEnabled;
+	try {
+		isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Repository not found: ${repo}`);
+		}
+		throw error;
+	}
 	if (!isTypeBuilderEnabled) {
 		throw new TypeBuilderRequiredError();
 	}

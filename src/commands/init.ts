@@ -16,7 +16,11 @@ import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { installDependencies } from "../lib/packageJson";
-import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import {
+	ForbiddenRequestError,
+	NotFoundRequestError,
+	UnauthorizedRequestError,
+} from "../lib/request";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 import { syncCustomTypes, syncSlices } from "./sync";
 
@@ -104,7 +108,15 @@ export default createCommand(config, async ({ values }) => {
 		);
 	}
 
-	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+	let isTypeBuilderEnabled;
+	try {
+		isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Repository not found: ${repo}`);
+		}
+		throw error;
+	}
 	if (!isTypeBuilderEnabled) {
 		throw new TypeBuilderRequiredError();
 	}
@@ -151,8 +163,15 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Sync models from remote
-	await syncSlices(repo, adapter);
-	await syncCustomTypes(repo, adapter);
+	try {
+		await syncSlices(repo, adapter);
+		await syncCustomTypes(repo, adapter);
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Repository not found: ${repo}`);
+		}
+		throw error;
+	}
 
 	// Generate TypeScript types from synced models
 	await adapter.generateTypes();
