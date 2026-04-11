@@ -2,7 +2,7 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { checkIsDomainAvailable, createRepository } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
 
 const MAX_DOMAIN_TRIES = 5;
 
@@ -31,6 +31,9 @@ export default createCommand(config, async ({ values }) => {
 	try {
 		await createRepository({ domain, name: name ?? domain, framework, token, host });
 	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Repository not found: ${domain}`);
+		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to create repository: ${message}`);

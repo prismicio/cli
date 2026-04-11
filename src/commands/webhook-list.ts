@@ -1,7 +1,8 @@
 import { getHost, getToken } from "../auth";
 import { getWebhooks } from "../clients/wroom";
-import { createCommand, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -23,7 +24,19 @@ export default createCommand(config, async ({ values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const webhooks = await getWebhooks({ repo, token, host });
+	let webhooks;
+	try {
+		webhooks = await getWebhooks({ repo, token, host });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Repository not found: ${repo}`);
+		}
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to list webhooks: ${message}`);
+		}
+		throw error;
+	}
 
 	if (json) {
 		console.info(stringify(webhooks.map((webhook) => webhook.config)));

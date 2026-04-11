@@ -1,7 +1,7 @@
 import { getHost, getToken } from "../auth";
 import { getWebhooks, updateWebhook } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -26,25 +26,28 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const webhooks = await getWebhooks({ repo, token, host });
-	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
-	if (!webhook) {
-		throw new CommandError(`Webhook not found: ${webhookUrl}`);
-	}
-
-	if (webhook.config.active) {
-		console.info(`Webhook already enabled: ${webhookUrl}`);
-		return;
-	}
-
-	const id = webhook.config._id;
-
-	const updatedConfig = structuredClone(webhook.config);
-	updatedConfig.active = true;
-
 	try {
+		const webhooks = await getWebhooks({ repo, token, host });
+		const webhook = webhooks.find((w) => w.config.url === webhookUrl);
+		if (!webhook) {
+			throw new CommandError(`Webhook not found: ${webhookUrl}`);
+		}
+
+		if (webhook.config.active) {
+			console.info(`Webhook already enabled: ${webhookUrl}`);
+			return;
+		}
+
+		const id = webhook.config._id;
+
+		const updatedConfig = structuredClone(webhook.config);
+		updatedConfig.active = true;
+
 		await updateWebhook(id, updatedConfig, { repo, token, host });
 	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Repository not found: ${repo}`);
+		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to enable webhook: ${message}`);

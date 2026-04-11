@@ -6,6 +6,7 @@ import {
 	getWriteTokens,
 } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -31,27 +32,38 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	const [apps, writeTokensInfo] = await Promise.all([
-		getOAuthApps({ repo, token, host }),
-		getWriteTokens({ repo, token, host }),
-	]);
+	try {
+		const [apps, writeTokensInfo] = await Promise.all([
+			getOAuthApps({ repo, token, host }),
+			getWriteTokens({ repo, token, host }),
+		]);
 
-	// Search access tokens
-	const accessTokenAuths = apps.flatMap((app) => app.wroom_auths);
-	const accessToken = accessTokenAuths.find((auth) => auth.token === tokenValue);
-	if (accessToken) {
-		await deleteOAuthAuthorization(accessToken.id, { repo, token, host });
-		console.info("Token deleted");
-		return;
+		// Search access tokens
+		const accessTokenAuths = apps.flatMap((app) => app.wroom_auths);
+		const accessToken = accessTokenAuths.find((auth) => auth.token === tokenValue);
+		if (accessToken) {
+			await deleteOAuthAuthorization(accessToken.id, { repo, token, host });
+			console.info("Token deleted");
+			return;
+		}
+
+		// Search write tokens
+		const writeToken = writeTokensInfo.tokens.find((t) => t.token === tokenValue);
+		if (writeToken) {
+			await deleteWriteToken(writeToken.token, { repo, token, host });
+			console.info("Token deleted");
+			return;
+		}
+
+		throw new CommandError(`Token not found: ${tokenValue}`);
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Repository not found: ${repo}`);
+		}
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to delete token: ${message}`);
+		}
+		throw error;
 	}
-
-	// Search write tokens
-	const writeToken = writeTokensInfo.tokens.find((t) => t.token === tokenValue);
-	if (writeToken) {
-		await deleteWriteToken(writeToken.token, { repo, token, host });
-		console.info("Token deleted");
-		return;
-	}
-
-	throw new CommandError(`Token not found: ${tokenValue}`);
 });

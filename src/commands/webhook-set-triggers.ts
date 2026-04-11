@@ -1,7 +1,7 @@
 import { getHost, getToken } from "../auth";
 import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -52,15 +52,15 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const webhooks = await getWebhooks({ repo, token, host });
-	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
-	if (!webhook) {
-		throw new CommandError(`Webhook not found: ${webhookUrl}`);
-	}
-
-	const id = webhook.config._id;
-
 	try {
+		const webhooks = await getWebhooks({ repo, token, host });
+		const webhook = webhooks.find((w) => w.config.url === webhookUrl);
+		if (!webhook) {
+			throw new CommandError(`Webhook not found: ${webhookUrl}`);
+		}
+
+		const id = webhook.config._id;
+
 		await updateWebhook(
 			id,
 			{
@@ -75,6 +75,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 			{ repo, token, host },
 		);
 	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Repository not found: ${repo}`);
+		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to update webhook triggers: ${message}`);

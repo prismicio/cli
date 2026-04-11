@@ -1,7 +1,8 @@
 import { getHost, getToken } from "../auth";
 import { getLocales } from "../clients/locale";
-import { createCommand, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -24,7 +25,19 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	const locales = await getLocales({ repo, token, host });
+	let locales;
+	try {
+		locales = await getLocales({ repo, token, host });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError(`Repository not found: ${repo}`);
+		}
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to list locales: ${message}`);
+		}
+		throw error;
+	}
 
 	if (json) {
 		console.info(stringify(locales));
