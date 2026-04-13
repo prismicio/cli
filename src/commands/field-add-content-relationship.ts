@@ -65,7 +65,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	if (fieldSelection && customtypes) {
 		const targetType = await getCustomType(customtypes[0], { repo, token, host });
 		const resolvedFields = await resolveFieldSelection(fieldSelection, targetType, { repo, token, host });
-		resolvedCustomTypes = [{ id: customtypes[0], fields: resolvedFields }];
+		resolvedCustomTypes = [{ id: customtypes[0], fields: resolvedFields }] as typeof resolvedCustomTypes;
 	}
 
 	const field: Link = {
