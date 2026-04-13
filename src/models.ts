@@ -3,9 +3,9 @@ import type { CustomType, DynamicWidget, Link } from "@prismicio/types-internal/
 import type { CommandConfig } from "./lib/command";
 
 import { getAdapter } from "./adapters";
-import { getCustomType, getCustomTypes, getSlices, updateCustomType, updateSlice } from "./clients/custom-types";
+import { getCustomType, getSlices, updateCustomType, updateSlice } from "./clients/custom-types";
 import { CommandError } from "./lib/command";
-import { UnknownRequestError } from "./lib/request";
+import { NotFoundRequestError, UnknownRequestError } from "./lib/request";
 
 type Field = DynamicWidget;
 type Fields = Record<string, Field>;
@@ -81,10 +81,12 @@ export async function resolveFieldContainer(
 		];
 	}
 
-	const customTypes = await getCustomTypes(apiConfig);
-	const customType = customTypes.find((ct) => ct.id === fromType);
-	if (!customType) {
-		throw new CommandError(`Type not found: ${fromType}`);
+	let customType;
+	try {
+		customType = await getCustomType(fromType!, apiConfig);
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) throw new CommandError(`Type not found: ${fromType}`);
+		throw error;
 	}
 	let tab: Record<string, DynamicWidget> | undefined;
 	for (const tabName in customType.json) {
@@ -181,10 +183,12 @@ export async function resolveModel(
 	}
 
 	const tab = values.tab ?? "Main";
-	const customTypes = await getCustomTypes(apiConfig);
-	const customType = customTypes.find((ct) => ct.id === typeId);
-	if (!customType) {
-		throw new CommandError(`Type not found: ${typeId}`);
+	let customType;
+	try {
+		customType = await getCustomType(typeId!, apiConfig);
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) throw new CommandError(`Type not found: ${typeId}`);
+		throw error;
 	}
 
 	const newModel = structuredClone(customType);

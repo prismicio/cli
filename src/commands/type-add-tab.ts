@@ -1,8 +1,8 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getCustomTypes, updateCustomType } from "../clients/custom-types";
+import { getCustomType, updateCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -25,18 +25,19 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const type = customTypes.find((ct) => ct.id === to);
-
-	if (!type) {
-		throw new CommandError(`Type not found: ${to}`);
+	let customType;
+	try {
+		customType = await getCustomType(to, { repo, token, host });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) throw new CommandError(`Type not found: ${to}`);
+		throw error;
 	}
 
-	if (name in type.json) {
+	if (name in customType.json) {
 		throw new CommandError(`Tab "${name}" already exists in "${to}".`);
 	}
 
-	type.json[name] = withSliceZone
+	customType.json[name] = withSliceZone
 		? {
 				slices: {
 					type: "Slices",
@@ -47,7 +48,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		: {};
 
 	try {
-		await updateCustomType(type, { repo, host, token });
+		await updateCustomType(customType, { repo, host, token });
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
@@ -57,9 +58,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	try {
-		await adapter.updateCustomType(type);
+		await adapter.updateCustomType(customType);
 	} catch {
-		await adapter.createCustomType(type);
+		await adapter.createCustomType(customType);
 	}
 	await adapter.generateTypes();
 

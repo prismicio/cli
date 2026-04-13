@@ -1,8 +1,8 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getCustomTypes, removeCustomType } from "../clients/custom-types";
+import { getCustomType, removeCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -23,15 +23,16 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const type = customTypes.find((ct) => ct.id === id);
-
-	if (!type) {
-		throw new CommandError(`Type not found: ${id}`);
+	let customType;
+	try {
+		customType = await getCustomType(id, { repo, token, host });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) throw new CommandError(`Type not found: ${id}`);
+		throw error;
 	}
 
 	try {
-		await removeCustomType(type.id, { repo, host, token });
+		await removeCustomType(customType.id, { repo, host, token });
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
@@ -41,7 +42,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	try {
-		await adapter.deleteCustomType(type.id);
+		await adapter.deleteCustomType(customType.id);
 	} catch {}
 	await adapter.generateTypes();
 
