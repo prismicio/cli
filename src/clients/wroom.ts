@@ -40,7 +40,7 @@ export async function getWebhooks(config: {
 		});
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+			error.message = `Repository not found: ${repo}`;
 		}
 		throw error;
 	}
@@ -73,7 +73,7 @@ export async function createWebhook(
 		});
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+			error.message = `Repository not found: ${repo}`;
 		}
 		throw error;
 	}
@@ -160,7 +160,7 @@ export async function getOAuthApps(config: {
 		});
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${config.repo}`);
+			error.message = `Repository not found: ${config.repo}`;
 		}
 		throw error;
 	}
@@ -180,7 +180,7 @@ export async function createOAuthApp(
 		});
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${config.repo}`);
+			error.message = `Repository not found: ${config.repo}`;
 		}
 		throw error;
 	}
@@ -201,7 +201,7 @@ export async function createOAuthAuthorization(
 		});
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${config.repo}`);
+			error.message = `Repository not found: ${config.repo}`;
 		}
 		throw error;
 	}
@@ -234,7 +234,7 @@ export async function getWriteTokens(config: {
 		});
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${config.repo}`);
+			error.message = `Repository not found: ${config.repo}`;
 		}
 		throw error;
 	}
@@ -254,7 +254,7 @@ export async function createWriteToken(
 		});
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${config.repo}`);
+			error.message = `Repository not found: ${config.repo}`;
 		}
 		throw error;
 	}
@@ -325,7 +325,7 @@ export async function getRepositoryAccess(config: {
 		return response.repository.api_access;
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+			error.message = `Repository not found: ${repo}`;
 		}
 		throw error;
 	}
@@ -347,7 +347,7 @@ export async function setRepositoryAccess(
 		});
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+			error.message = `Repository not found: ${repo}`;
 		}
 		throw error;
 	}
@@ -377,7 +377,7 @@ export async function setRepositoryName(
 		return response.repository.name;
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+			error.message = `Repository not found: ${repo}`;
 		}
 		throw error;
 	}

@@ -33,7 +33,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		await upsertLocale({ id: code, isMaster: master, customName: name }, { repo, token, host });
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+			error.message = `Repository not found: ${repo}`;
+			throw error;
 		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();

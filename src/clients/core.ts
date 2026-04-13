@@ -32,7 +32,7 @@ export async function getPreviews(config: {
 		return response.results;
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+			error.message = `Repository not found: ${repo}`;
 		}
 		throw error;
 	}
@@ -60,7 +60,7 @@ export async function addPreview(
 		});
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+			error.message = `Repository not found: ${repo}`;
 		}
 		throw error;
 	}
@@ -101,7 +101,7 @@ export async function getSimulatorUrl(config: {
 		return response.simulator_url;
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+			error.message = `Repository not found: ${repo}`;
 		}
 		throw error;
 	}
@@ -121,7 +121,7 @@ export async function setSimulatorUrl(
 		});
 	} catch (error) {
 		if (error instanceof NotFoundRequestError) {
-			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+			error.message = `Repository not found: ${repo}`;
 		}
 		throw error;
 	}
