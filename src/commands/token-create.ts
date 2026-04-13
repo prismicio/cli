@@ -6,7 +6,7 @@ import {
 	getOAuthApps,
 } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const CLI_APP_NAME = "Prismic CLI";
@@ -55,9 +55,6 @@ export default createCommand(config, async ({ values }) => {
 			console.info(`Token created: ${accessToken.token}`);
 		}
 	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Repository not found: ${repo}`);
-		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to create token: ${message}`);

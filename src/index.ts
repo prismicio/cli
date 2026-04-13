@@ -188,7 +188,7 @@ async function main(): Promise<void> {
 		}
 
 		if (error instanceof NotFoundRequestError) {
-			console.error("Not found. Verify the repository and any specified identifiers exist.");
+			console.error(error.message || "Not found. Verify the repository and any specified identifiers exist.");
 			return;
 		}
 

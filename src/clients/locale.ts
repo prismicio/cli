@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { request } from "../lib/request";
+import { NotFoundRequestError, request } from "../lib/request";
 
 const LocaleSchema = z.object({
 	id: z.string(),
@@ -19,11 +19,18 @@ export async function getLocales(config: {
 	const { repo, token, host } = config;
 	const url = new URL("repository/locales", getLocaleServiceUrl(host));
 	url.searchParams.set("repository", repo);
-	const response = await request(url, {
-		headers: { Authorization: `Bearer ${token}` },
-		schema: z.object({ results: z.array(LocaleSchema) }),
-	});
-	return response.results;
+	try {
+		const response = await request(url, {
+			headers: { Authorization: `Bearer ${token}` },
+			schema: z.object({ results: z.array(LocaleSchema) }),
+		});
+		return response.results;
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			throw new NotFoundRequestError(error.response, `Repository not found: ${repo}`);
+		}
+		throw error;
+	}
 }
 
 export async function upsertLocale(

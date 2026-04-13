@@ -2,7 +2,7 @@ import { getHost, getToken } from "../auth";
 import { getPreviews, getSimulatorUrl } from "../clients/core";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -33,9 +33,6 @@ export default createCommand(config, async ({ values }) => {
 			getSimulatorUrl({ repo, token, host }),
 		]);
 	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Repository not found: ${repo}`);
-		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to list previews: ${message}`);

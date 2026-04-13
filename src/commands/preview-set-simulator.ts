@@ -1,7 +1,7 @@
 import { getHost, getToken } from "../auth";
 import { setSimulatorUrl } from "../clients/core";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -45,9 +45,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	try {
 		await setSimulatorUrl(simulatorUrl, { repo, token, host });
 	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Repository not found: ${repo}`);
-		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to set simulator URL: ${message}`);

@@ -18,7 +18,6 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 import { installDependencies } from "../lib/packageJson";
 import {
 	ForbiddenRequestError,
-	NotFoundRequestError,
 	UnauthorizedRequestError,
 } from "../lib/request";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
@@ -108,15 +107,7 @@ export default createCommand(config, async ({ values }) => {
 		);
 	}
 
-	let isTypeBuilderEnabled;
-	try {
-		isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Repository not found: ${repo}`);
-		}
-		throw error;
-	}
+	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
 	if (!isTypeBuilderEnabled) {
 		throw new TypeBuilderRequiredError();
 	}

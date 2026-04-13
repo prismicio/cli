@@ -40,9 +40,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 			getWriteTokens({ repo, token, host }),
 		]);
 	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Repository not found: ${repo}`);
-		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to delete token: ${message}`);

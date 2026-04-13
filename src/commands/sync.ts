@@ -5,8 +5,7 @@ import { getAdapter, type Adapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { env } from "../env";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { NotFoundRequestError } from "../lib/request";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { dedent } from "../lib/string";
 import { checkIsTypeBuilderEnabled, getRepositoryName, TypeBuilderRequiredError } from "../project";
@@ -35,15 +34,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	let isTypeBuilderEnabled;
-	try {
-		isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Repository not found: ${repo}`);
-		}
-		throw error;
-	}
+	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
 	if (!isTypeBuilderEnabled) {
 		throw new TypeBuilderRequiredError();
 	}
