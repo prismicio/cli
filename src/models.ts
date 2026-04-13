@@ -1,9 +1,9 @@
-import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
+import type { CustomType, DynamicWidget, Link } from "@prismicio/types-internal/lib/customtypes";
 
 import type { CommandConfig } from "./lib/command";
 
 import { getAdapter } from "./adapters";
-import { getCustomTypes, getSlices, updateCustomType, updateSlice } from "./clients/custom-types";
+import { getCustomType, getCustomTypes, getSlices, updateCustomType, updateSlice } from "./clients/custom-types";
 import { CommandError } from "./lib/command";
 import { UnknownRequestError } from "./lib/request";
 
@@ -250,4 +250,162 @@ export function resolveFieldTarget(
 	}
 
 	return [currentFields, fieldId];
+}
+
+const EXCLUDED_FIELD_TYPES = ["Slices", "UID", "Choice"];
+
+function flattenTypeFields(type: CustomType): Record<string, Field> {
+	const fields: Record<string, Field> = {};
+	for (const tab of Object.values(type.json)) {
+		Object.assign(fields, tab);
+	}
+	return fields;
+}
+
+function validateLeafField(id: string, fields: Record<string, Field>, typeId: string): void {
+	if (!(id in fields)) {
+		throw new CommandError(`Field "${id}" not found on type "${typeId}".`);
+	}
+	if (EXCLUDED_FIELD_TYPES.includes(fields[id].type) || id === "uid") {
+		throw new CommandError(`Field "${id}" cannot be fetched from a content relationship.`);
+	}
+	if (fields[id].type === "Group") {
+		throw new CommandError(`Field "${id}" is a group. Select specific sub-fields with --field ${id}.<sub-field>.`);
+	}
+}
+
+function isContentRelationship(field: Field): field is Link {
+	return field.type === "Link" && field.config?.select === "document";
+}
+
+function getCRTargetTypeId(field: Link, fieldId: string): string {
+	const cts = field.config?.customtypes;
+	if (!cts || cts.length !== 1) {
+		throw new CommandError(
+			`Field "${fieldId}" must be restricted to a single custom type to select fields from it.`,
+		);
+	}
+	return typeof cts[0] === "string" ? cts[0] : cts[0].id;
+}
+
+function groupByFirstSegment(paths: string[]): { leaves: string[]; nested: Map<string, string[]> } {
+	const leaves: string[] = [];
+	const nested = new Map<string, string[]>();
+	for (const path of paths) {
+		const dot = path.indexOf(".");
+		if (dot === -1) {
+			leaves.push(path);
+		} else {
+			const first = path.slice(0, dot);
+			const rest = path.slice(dot + 1);
+			if (!nested.has(first)) nested.set(first, []);
+			nested.get(first)!.push(rest);
+		}
+	}
+	return { leaves, nested };
+}
+
+// Level 2: fields on a CR's target type. Only leaves and groups (with leaf-only sub-fields).
+function resolveLevel2Fields(
+	paths: string[],
+	targetType: CustomType,
+): (string | { id: string; fields: string[] })[] {
+	const fields = flattenTypeFields(targetType);
+	const { leaves, nested } = groupByFirstSegment(paths);
+
+	for (const id of leaves) {
+		validateLeafField(id, fields, targetType.id);
+	}
+
+	const result: (string | { id: string; fields: string[] })[] = [...leaves];
+
+	for (const [groupId, subPaths] of nested) {
+		if (!(groupId in fields)) {
+			throw new CommandError(`Field "${groupId}" not found on type "${targetType.id}".`);
+		}
+		if (fields[groupId].type !== "Group") {
+			throw new CommandError(`Field "${groupId}" is not a group field.`);
+		}
+		const groupFields = fields[groupId].config?.fields ?? {};
+		for (const subId of subPaths) {
+			if (subId.includes(".")) {
+				throw new CommandError(`Cannot nest deeper than --field group.cr.group.leaf.`);
+			}
+			if (!(subId in groupFields)) {
+				throw new CommandError(`Field "${subId}" not found in group "${groupId}".`);
+			}
+		}
+		result.push({ id: groupId, fields: subPaths });
+	}
+
+	return result;
+}
+
+// Level 1: fields on the --custom-type target. Leaves, groups, and CR fields (which cross into level 2).
+export async function resolveFieldSelection(
+	fieldSelection: string[],
+	targetType: CustomType,
+	apiConfig: ApiConfig,
+): Promise<
+	(
+		| string
+		| { id: string; fields: (string | { id: string; customtypes: { id: string; fields: (string | { id: string; fields: string[] })[] }[] })[] }
+		| { id: string; customtypes: { id: string; fields: (string | { id: string; fields: string[] })[] }[] }
+	)[]
+> {
+	const fields = flattenTypeFields(targetType);
+	const { leaves, nested } = groupByFirstSegment(fieldSelection);
+
+	for (const id of leaves) {
+		validateLeafField(id, fields, targetType.id);
+	}
+
+	const result: Awaited<ReturnType<typeof resolveFieldSelection>> = [...leaves];
+
+	for (const [id, subPaths] of nested) {
+		if (!(id in fields)) {
+			throw new CommandError(`Field "${id}" not found on type "${targetType.id}".`);
+		}
+		const field = fields[id];
+
+		if (field.type === "Group") {
+			const groupFields = field.config?.fields ?? {};
+			const { leaves: groupLeaves, nested: groupNested } = groupByFirstSegment(subPaths);
+
+			for (const subId of groupLeaves) {
+				validateLeafField(subId, groupFields, targetType.id);
+			}
+
+			const groupResult: (string | { id: string; customtypes: { id: string; fields: (string | { id: string; fields: string[] })[] }[] })[] = [
+				...groupLeaves,
+			];
+
+			for (const [crId, crSubPaths] of groupNested) {
+				if (!(crId in groupFields)) {
+					throw new CommandError(`Field "${crId}" not found in group "${id}".`);
+				}
+				const crField = groupFields[crId];
+				if (!isContentRelationship(crField)) {
+					throw new CommandError(`Field "${crId}" in group "${id}" is not a content relationship.`);
+				}
+				const ctId = getCRTargetTypeId(crField, crId);
+				const nestedType = await getCustomType(ctId, apiConfig);
+				const nestedFields = resolveLevel2Fields(crSubPaths, nestedType);
+				groupResult.push({ id: crId, customtypes: [{ id: ctId, fields: nestedFields }] });
+			}
+
+			result.push({ id, fields: groupResult });
+		} else if (isContentRelationship(field)) {
+			const ctId = getCRTargetTypeId(field, id);
+			const nestedType = await getCustomType(ctId, apiConfig);
+			const nestedFields = resolveLevel2Fields(subPaths, nestedType);
+			result.push({ id, customtypes: [{ id: ctId, fields: nestedFields }] });
+		} else {
+			throw new CommandError(
+				`Field "${id}" is not a group or content relationship field.`,
+			);
+		}
+	}
+
+	return result;
 }

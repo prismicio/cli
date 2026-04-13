@@ -1,6 +1,7 @@
 import { getHost, getToken } from "../auth";
+import { getCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveFieldContainer, resolveFieldTarget, SOURCE_OPTIONS } from "../models";
+import { resolveFieldContainer, resolveFieldSelection, resolveFieldTarget, SOURCE_OPTIONS } from "../models";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -65,6 +66,11 @@ const config = {
 			type: "string",
 			multiple: true,
 			description: "Allowed custom type (content-relationship, can be repeated)",
+		},
+		field: {
+			type: "string",
+			multiple: true,
+			description: "Fetch this field from the related document (content-relationship, can be repeated)",
 		},
 		// Rich Text
 		allow: {
@@ -154,7 +160,23 @@ export default createCommand(config, async ({ positionals, values }) => {
 			if ("repeatable" in values) field.config.repeat = values.repeatable;
 			if ("variant" in values) field.config.variants = values.variant;
 			if ("tag" in values) field.config.tags = values.tag;
-			if ("custom-type" in values) field.config.customtypes = values["custom-type"];
+			if ("field" in values) {
+				const cts = "custom-type" in values ? values["custom-type"] : field.config.customtypes;
+				if (!cts || cts.length === 0) {
+					throw new CommandError(
+						"--field requires the field to be restricted to a custom type. Use --custom-type to specify one.",
+					);
+				}
+				if (cts.length > 1) {
+					throw new CommandError("--field requires the field to be restricted to a single custom type.");
+				}
+				const ctId = typeof cts[0] === "string" ? cts[0] : cts[0].id;
+				const targetType = await getCustomType(ctId, { repo, token, host });
+				const resolvedFields = await resolveFieldSelection(values.field!, targetType, { repo, token, host });
+				field.config.customtypes = [{ id: ctId, fields: resolvedFields }] as typeof field.config.customtypes;
+			} else if ("custom-type" in values) {
+				field.config.customtypes = values["custom-type"];
+			}
 			break;
 		}
 	}

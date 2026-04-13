@@ -58,3 +58,44 @@ it("adds a content relationship field to a custom type", async ({
 	const field = updated!.json.Main.my_link;
 	expect(field).toMatchObject({ type: "Link", config: { select: "document" } });
 });
+
+it("adds a content relationship field with --field", async ({
+	expect,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const target = buildCustomType({
+		json: { Main: { title: { type: "Text", config: { label: "Title" } } } },
+	});
+	await insertCustomType(target, { repo, token, host });
+
+	const owner = buildCustomType();
+	await insertCustomType(owner, { repo, token, host });
+
+	const { stdout, exitCode } = await prismic("field", [
+		"add",
+		"content-relationship",
+		"my_link",
+		"--to-type",
+		owner.id,
+		"--custom-type",
+		target.id,
+		"--field",
+		"title",
+	]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain("Field added: my_link");
+
+	const customTypes = await getCustomTypes({ repo, token, host });
+	const updated = customTypes.find((ct) => ct.id === owner.id);
+	const field = updated!.json.Main.my_link;
+	expect(field).toMatchObject({
+		type: "Link",
+		config: {
+			select: "document",
+			customtypes: [{ id: target.id, fields: ["title"] }],
+		},
+	});
+});

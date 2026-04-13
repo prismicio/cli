@@ -16,6 +16,18 @@ export async function getCustomTypes(config: {
 	return response;
 }
 
+export async function getCustomType(
+	id: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<CustomType> {
+	const { repo, token, host } = config;
+	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
+	const url = new URL(`customtypes/${encodeURIComponent(id)}`, customTypesServiceUrl);
+	return await request<CustomType>(url, {
+		headers: { repository: repo, Authorization: `Bearer ${token}` },
+	});
+}
+
 export async function insertCustomType(
 	model: CustomType,
 	config: { repo: string; token: string | undefined; host: string },
