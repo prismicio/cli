@@ -281,8 +281,8 @@ export async function resolveFieldSelection(
 }
 
 /**
- * Recursive workhorse. Splits paths by their first segment, validates leaves,
- * and recurses into groups and content relationships.
+ * Splits paths by their first segment, validates leaves, and recurses into
+ * groups and content relationships.
  *
  * @param crDepth - How many more CR boundaries we can cross. The API supports
  *   at most: type → CR → group → leaf, so the entry point passes 1.
