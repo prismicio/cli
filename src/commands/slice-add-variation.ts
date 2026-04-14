@@ -4,7 +4,7 @@ import { camelCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getSlice, updateSlice } from "../clients/custom-types";
+import { getSlice, updateSlice, uploadScreenshot } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -18,6 +18,7 @@ const config = {
 	options: {
 		to: { type: "string", required: true, description: "ID of the slice" },
 		id: { type: "string", description: "Custom ID for the variation" },
+		screenshot: { type: "string", short: "s", description: "Screenshot image file path or URL" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
@@ -35,6 +36,15 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError(`Variation "${id}" already exists in slice "${to}".`);
 	}
 
+	let imageUrl = "";
+	if (values.screenshot) {
+		imageUrl = await uploadScreenshot(values.screenshot, {
+			repo,
+			sliceId: to,
+			variationId: id,
+		});
+	}
+
 	const updatedSlice: SharedSlice = {
 		...slice,
 		variations: [
@@ -44,7 +54,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 				name,
 				description: name,
 				docURL: "",
-				imageUrl: "",
+				imageUrl,
 				version: "",
 				primary: {},
 			},

@@ -46,3 +46,25 @@ it("edits a variation name", async ({ expect, prismic, repo, token, host }) => {
 	const variation = updated?.variations.find((v) => v.id === variationId);
 	expect(variation?.name).toBe(newName);
 });
+
+it("sets a screenshot on a variation", async ({ expect, prismic, repo, token, host }) => {
+	const slice = buildSlice();
+	await insertSlice(slice, { repo, token, host });
+
+	const { stdout, exitCode } = await prismic("slice", [
+		"edit-variation",
+		"default",
+		"--from-slice",
+		slice.id,
+		"--screenshot",
+		"https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png?auto=compress,format",
+	]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain(`Variation updated: "default" in slice "${slice.id}"`);
+
+	const slices = await getSlices({ repo, token, host });
+	const updated = slices.find((s) => s.id === slice.id);
+	const variation = updated?.variations.find((v) => v.id === "default");
+	expect(variation?.imageUrl).toContain("https://");
+	expect(variation?.imageUrl).toContain(".png");
+});

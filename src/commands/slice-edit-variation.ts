@@ -2,7 +2,7 @@ import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getSlice, updateSlice } from "../clients/custom-types";
+import { getSlice, updateSlice, uploadScreenshot } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -16,6 +16,7 @@ const config = {
 	options: {
 		"from-slice": { type: "string", required: true, description: "ID of the slice" },
 		name: { type: "string", short: "n", description: "New name for the variation" },
+		screenshot: { type: "string", short: "s", description: "Screenshot image file path or URL" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
@@ -36,6 +37,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	if ("name" in values) variation.name = values.name!;
+
+	if (values.screenshot) {
+		variation.imageUrl = await uploadScreenshot(values.screenshot, {
+			repo,
+			sliceId: sliceId,
+			variationId: id,
+		});
+	}
 
 	const updatedSlice: SharedSlice = { ...slice };
 

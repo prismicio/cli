@@ -1,5 +1,12 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
+import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { extname } from "node:path";
+
+import * as z from "zod/mini";
+
+import { CommandError } from "../lib/command";
 import { NotFoundRequestError, request } from "../lib/request";
 
 export async function getCustomTypes(config: {
@@ -162,6 +169,106 @@ export async function removeSlice(
 		method: "DELETE",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 	});
+}
+
+const ACL_PROVIDER_URL = "https://acl-provider.prismic.io/create";
+
+const AclCreateResponseSchema = z.object({
+	uploadEndpoint: z.string(),
+	requiredFormDataFields: z.record(z.string(), z.string()),
+	imgixEndpoint: z.string(),
+});
+
+const MIME_TYPES: Record<string, string> = {
+	".png": "image/png",
+	".jpg": "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif": "image/gif",
+	".webp": "image/webp",
+};
+
+export async function uploadScreenshot(
+	source: string,
+	config: { repo: string; sliceId: string; variationId: string },
+): Promise<string> {
+	const { repo, sliceId, variationId } = config;
+
+	const { data, ext } = await resolveScreenshotSource(source);
+
+	const mimeType = MIME_TYPES[ext];
+	if (!mimeType) {
+		throw new CommandError(
+			`Unsupported screenshot format "${ext}". Supported: png, jpg, jpeg, gif, webp`,
+		);
+	}
+
+	const digest = createHash("md5").update(data).digest("hex");
+	const key = `${repo}/shared-slices/${sliceId}/${variationId}/${digest}${ext}`;
+
+	const acl = await request(ACL_PROVIDER_URL, {
+		method: "POST",
+		body: {},
+		schema: AclCreateResponseSchema,
+	});
+
+	const formData = new FormData();
+	for (const [field, value] of Object.entries(acl.requiredFormDataFields)) {
+		formData.append(field, value);
+	}
+	formData.append("key", key);
+	formData.append("Content-Type", mimeType);
+	formData.append("file", new Blob([data.buffer as ArrayBuffer], { type: mimeType }));
+
+	const uploadResponse = await fetch(acl.uploadEndpoint, {
+		method: "POST",
+		body: formData,
+	});
+	if (!uploadResponse.ok) {
+		throw new CommandError(
+			`Failed to upload screenshot (HTTP ${uploadResponse.status}).`,
+		);
+	}
+
+	return `${acl.imgixEndpoint}/${key}?auto=compress,format`;
+}
+
+async function resolveScreenshotSource(
+	source: string,
+): Promise<{ data: Uint8Array; ext: string }> {
+	if (URL.canParse(source)) {
+		const url = new URL(source);
+		if (url.protocol === "http:" || url.protocol === "https:") {
+			const response = await fetch(source);
+			if (!response.ok) {
+				throw new CommandError(
+					`Failed to download screenshot from "${source}" (HTTP ${response.status}).`,
+				);
+			}
+
+			let ext = extname(url.pathname).toLowerCase();
+			if (!MIME_TYPES[ext]) {
+				const contentType = response.headers.get("content-type")?.split(";")[0].trim();
+				const match = Object.entries(MIME_TYPES).find(([, mime]) => mime === contentType);
+				ext = match?.[0] ?? ext;
+			}
+
+			const data = new Uint8Array(await response.arrayBuffer());
+			return { data, ext };
+		}
+	}
+
+	let data: Uint8Array;
+	try {
+		data = await readFile(source);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+			throw new CommandError(`Screenshot file not found: ${source}`);
+		}
+		throw error;
+	}
+
+	const ext = extname(source).toLowerCase();
+	return { data, ext };
 }
 
 function getCustomTypesServiceUrl(host: string): URL {
