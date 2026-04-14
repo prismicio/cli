@@ -102,6 +102,93 @@ export async function resolveFieldContainer(
 	];
 }
 
+export async function resolveFieldPair(
+	sourceId: string,
+	anchorId: string,
+	values: {
+		"from-slice"?: string;
+		"from-type"?: string;
+		variation?: string;
+	},
+	apiConfig: ApiConfig,
+): Promise<[sourceFields: Fields, anchorFields: Fields, save: () => Promise<void>, modelKind: ModelKind]> {
+	const adapter = await getAdapter();
+	const {
+		"from-slice": fromSlice,
+		"from-type": fromType,
+		variation: variationId = "default",
+	} = values;
+
+	const providedCount = [fromSlice, fromType].filter(Boolean).length;
+	if (providedCount === 0) {
+		throw new CommandError("Specify a target with --from-slice or --from-type.");
+	}
+	if (providedCount > 1) {
+		throw new CommandError("Only one of --from-slice or --from-type can be specified.");
+	}
+
+	if (fromSlice) {
+		const slice = await getSlice(fromSlice, apiConfig);
+		const variation = slice.variations.find((v) => v.id === variationId);
+		if (!variation) {
+			const variationIds = slice.variations?.map((v) => v.id).join(", ") || "(none)";
+			throw new CommandError(`Variation "${variationId}" not found. Available: ${variationIds}`);
+		}
+		variation.primary ??= {};
+		return [
+			variation.primary,
+			variation.primary,
+			async () => {
+				await updateSlice(slice, apiConfig);
+				try {
+					await adapter.updateSlice(slice);
+				} catch {
+					await adapter.createSlice(slice);
+				}
+				await adapter.generateTypes();
+			},
+			"slice",
+		];
+	}
+
+	const customType = await getCustomType(fromType!, apiConfig);
+
+	const sourceRoot = sourceId.includes(".") ? sourceId.split(".")[0] : sourceId;
+	const anchorRoot = anchorId.includes(".") ? anchorId.split(".")[0] : anchorId;
+
+	let sourceTab: Record<string, DynamicWidget> | undefined;
+	let anchorTab: Record<string, DynamicWidget> | undefined;
+	for (const tabName in customType.json) {
+		const tab = customType.json[tabName];
+		if (sourceRoot in tab) sourceTab = tab;
+		if (anchorRoot in tab) anchorTab = tab;
+	}
+
+	const allFieldIds = Object.keys(Object.assign({}, ...Object.values(customType.json)));
+	const available = allFieldIds.join(", ") || "(none)";
+	if (!sourceTab) {
+		throw new CommandError(`Field "${sourceId}" not found. Available: ${available}`);
+	}
+	if (!anchorTab) {
+		throw new CommandError(`Field "${anchorId}" not found. Available: ${available}`);
+	}
+
+	return [
+		sourceTab,
+		anchorTab,
+		async () => {
+			await updateCustomType(customType, apiConfig);
+			try {
+				await adapter.updateCustomType(customType);
+			} catch {
+				await adapter.createCustomType(customType);
+			}
+			await adapter.generateTypes();
+		},
+		"customType",
+	];
+}
+
 export async function resolveModel(
 	values: {
 		"to-slice"?: string;
