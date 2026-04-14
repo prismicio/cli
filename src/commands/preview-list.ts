@@ -3,6 +3,7 @@ import { getPreviews, getSimulatorUrl } from "../clients/core";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
+import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -55,11 +56,15 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	for (const preview of previews) {
-		console.info(`${preview.url}  ${preview.label}`);
+	if (previews.length > 0) {
+		const rows = previews.map((preview) => [preview.url, preview.label]);
+		console.info(formatTable(rows, { headers: ["URL", "NAME"] }));
 	}
 
 	if (simulatorUrl) {
-		console.info(`\nSimulator: ${simulatorUrl}`);
+		if (previews.length > 0) {
+			console.info("");
+		}
+		console.info(`Simulator: ${simulatorUrl}`);
 	}
 });

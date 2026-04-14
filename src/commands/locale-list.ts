@@ -3,6 +3,7 @@ import { getLocales } from "../clients/locale";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
+import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -46,8 +47,9 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	for (const locale of locales) {
+	const rows = locales.map((locale) => {
 		const masterLabel = locale.isMaster ? " (master)" : "";
-		console.info(`${locale.id}  ${locale.label}${masterLabel}`);
-	}
+		return [locale.id, `${locale.label}${masterLabel}`];
+	});
+	console.info(formatTable(rows, { headers: ["ID", "LABEL"] }));
 });

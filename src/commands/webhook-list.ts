@@ -3,6 +3,7 @@ import { getWebhooks } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
+import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -45,9 +46,10 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	for (const webhook of webhooks) {
+	const rows = webhooks.map((webhook) => {
 		const status = webhook.config.active ? "enabled" : "disabled";
 		const name = webhook.config.name ? ` (${webhook.config.name})` : "";
-		console.info(`${webhook.config.url}${name}  [${status}]`);
-	}
+		return [`${webhook.config.url}${name}`, `[${status}]`];
+	});
+	console.info(formatTable(rows, { headers: ["URL", "STATUS"] }));
 });

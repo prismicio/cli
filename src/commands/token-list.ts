@@ -3,6 +3,7 @@ import { getOAuthApps, getWriteTokens } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
+import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -57,9 +58,8 @@ export default createCommand(config, async ({ values }) => {
 
 	if (accessTokens.length > 0) {
 		console.info("ACCESS TOKENS");
-		for (const accessToken of accessTokens) {
-			console.info(`  ${accessToken.name}  ${accessToken.scope}  ${accessToken.token}  ${accessToken.createdAt}`);
-		}
+		const rows = accessTokens.map((t) => [`  ${t.name}`, t.scope, t.token, t.createdAt]);
+		console.info(formatTable(rows));
 	} else {
 		console.info("ACCESS TOKENS  (none)");
 	}
@@ -68,10 +68,11 @@ export default createCommand(config, async ({ values }) => {
 
 	if (writeTokens.length > 0) {
 		console.info("WRITE TOKENS");
-		for (const writeToken of writeTokens) {
-			const date = new Date(writeToken.timestamp * 1000).toISOString().split("T")[0];
-			console.info(`  ${writeToken.app_name}  ${writeToken.token}  ${date}`);
-		}
+		const rows = writeTokens.map((t) => {
+			const date = new Date(t.timestamp * 1000).toISOString().split("T")[0];
+			return [`  ${t.app_name}`, t.token, date];
+		});
+		console.info(formatTable(rows));
 	} else {
 		console.info("WRITE TOKENS  (none)");
 	}

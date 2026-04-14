@@ -2,6 +2,7 @@ import { getDocsIndex, getDocsPageIndex } from "../clients/docs";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
+import { formatTable } from "../lib/string";
 
 const config = {
 	name: "prismic docs list",
@@ -49,9 +50,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 			return;
 		}
 
-		for (const anchor of entry.anchors) {
-			console.info(`${path}#${anchor.slug}: ${anchor.excerpt}`);
-		}
+		const rows = entry.anchors.map((anchor) => [`${path}#${anchor.slug}`, anchor.excerpt]);
+		console.info(formatTable(rows, { headers: ["PATH", "EXCERPT"] }));
 	} else {
 		let pages;
 		try {
@@ -76,9 +76,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			return;
 		}
 
-		for (const page of pages) {
-			const description = page.description ? ` — ${page.description}` : "";
-			console.info(`${page.path}: ${page.title}${description}`);
-		}
+		const rows = pages.map((page) => [page.path, page.title, page.description ?? ""]);
+		console.info(formatTable(rows, { headers: ["PATH", "TITLE", "DESCRIPTION"] }));
 	}
 });
