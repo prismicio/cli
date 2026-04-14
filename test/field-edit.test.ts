@@ -158,22 +158,23 @@ it("edits select field options", async ({ expect, prismic, repo, token, host }) 
 	});
 });
 
-it("edits content relationship field with --field", async ({ expect, prismic, repo, token, host }) => {
+it("edits content relationship field with --field", async ({
+	expect,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
 	const target = buildCustomType({
 		json: { Main: { title: { type: "Text", config: { label: "Title" } } } },
 	});
 	await insertCustomType(target, { repo, token, host });
 
-	const owner = buildCustomType({
-		json: {
-			Main: {
-				my_link: {
-					type: "Link",
-					config: { label: "My Link", select: "document", customtypes: [target.id] },
-				},
-			},
-		},
-	});
+	const owner = buildCustomType();
+	owner.json.Main.my_link = {
+		type: "Link",
+		config: { label: "My Link", select: "document", customtypes: [target.id] },
+	};
 	await insertCustomType(owner, { repo, token, host });
 
 	const { stdout, exitCode } = await prismic("field", [

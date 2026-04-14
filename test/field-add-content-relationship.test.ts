@@ -66,9 +66,8 @@ it("adds a content relationship field with --field", async ({
 	token,
 	host,
 }) => {
-	const target = buildCustomType({
-		json: { Main: { title: { type: "Text", config: { label: "Title" } } } },
-	});
+	const target = buildCustomType();
+	target.json.Main.title = { type: "Text", config: { label: "Title" } };
 	await insertCustomType(target, { repo, token, host });
 
 	const owner = buildCustomType();
