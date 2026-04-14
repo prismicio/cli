@@ -176,7 +176,7 @@ const AclCreateResponseSchema = z.object({
 	imgixEndpoint: z.string(),
 });
 
-const MIME_TYPE_EXTENSIONS: Record<string, string> = {
+const SUPPORTED_IMAGE_MIME_TYPES: Record<string, string> = {
 	"image/png": ".png",
 	"image/jpeg": ".jpg",
 	"image/gif": ".gif",
@@ -196,7 +196,7 @@ export async function uploadScreenshot(
 	const { sliceId, variationId, repo, token, host } = config;
 
 	const type = blob.type;
-	if (!(type in MIME_TYPE_EXTENSIONS)) {
+	if (!(type in SUPPORTED_IMAGE_MIME_TYPES)) {
 		throw new UnsupportedFileTypeError(type);
 	}
 
@@ -206,7 +206,7 @@ export async function uploadScreenshot(
 		schema: AclCreateResponseSchema,
 	});
 
-	const extension = MIME_TYPE_EXTENSIONS[type];
+	const extension = SUPPORTED_IMAGE_MIME_TYPES[type];
 	const digest = createHash("md5")
 		.update(new Uint8Array(await blob.arrayBuffer()))
 		.digest("hex");
@@ -232,7 +232,7 @@ export class UnsupportedFileTypeError extends Error {
 	name = "UnsupportedFileTypeError";
 
 	constructor(mimeType: string) {
-		const supportedTypes = Object.keys(MIME_TYPE_EXTENSIONS);
+		const supportedTypes = Object.keys(SUPPORTED_IMAGE_MIME_TYPES);
 		super(
 			`Unsupported file type: ${mimeType || "unknown"}. Supported: ${supportedTypes.join(", ")}`,
 		);

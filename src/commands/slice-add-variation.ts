@@ -45,7 +45,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	let imageUrl = "";
 	if (screenshot) {
-		const url = URL.canParse(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
+		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
 		const blob = await readURLFile(url);
 		let screenshotUrl;
 		try {
