@@ -30,6 +30,11 @@ export default createCommand(config, async ({ positionals, values }) => {
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
+			if (message.includes("associated documents")) {
+				throw new CommandError(
+					`Type "${id}" has documents. Delete its documents before removing the type.`,
+				);
+			}
 			throw new CommandError(`Failed to remove type: ${message}`);
 		}
 		throw error;
