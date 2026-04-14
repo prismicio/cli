@@ -94,7 +94,7 @@ export class NotFoundRequestError extends RequestError {
 
 	constructor(response: Response) {
 		super(response);
-		this.message = "Not found.";
+		this.message = `Not found: ${response.url}`;
 	}
 }
 export class ForbiddenRequestError extends RequestError {
