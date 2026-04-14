@@ -40,17 +40,24 @@ export async function upsertLocale(
 	const { repo, token, host } = config;
 	const url = new URL("repository/locales", getLocaleServiceUrl(host));
 	url.searchParams.set("repository", repo);
-	const response = await request(url, {
-		method: "POST",
-		body: {
-			id: locale.id,
-			isMaster: locale.isMaster ?? false,
-			...(locale.customName ? { customName: locale.customName } : {}),
-		},
-		headers: { Authorization: `Bearer ${token}` },
-		schema: LocaleSchema,
-	});
-	return response;
+	try {
+		const response = await request(url, {
+			method: "POST",
+			body: {
+				id: locale.id,
+				isMaster: locale.isMaster ?? false,
+				...(locale.customName ? { customName: locale.customName } : {}),
+			},
+			headers: { Authorization: `Bearer ${token}` },
+			schema: LocaleSchema,
+		});
+		return response;
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function removeLocale(

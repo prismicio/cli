@@ -1,7 +1,7 @@
 import { getHost, getToken } from "../auth";
 import { getPreviews, removePreview } from "../clients/core";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -46,9 +46,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	try {
 		await removePreview(preview.id, { repo, token, host });
 	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Preview not found: ${previewUrl}`);
-		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to remove preview: ${message}`);

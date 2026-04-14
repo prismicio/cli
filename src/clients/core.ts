@@ -75,11 +75,18 @@ export async function removePreview(
 		`previews/delete/${id}`,
 		getCoreBaseUrl(repo, host),
 	);
-	await request(url, {
-		method: "POST",
-		body: {},
-		credentials: { "prismic-auth": token },
-	});
+	try {
+		await request(url, {
+			method: "POST",
+			body: {},
+			credentials: { "prismic-auth": token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = "Preview not found";
+		}
+		throw error;
+	}
 }
 
 const RepositoryResponseSchema = z.object({

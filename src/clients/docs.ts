@@ -1,7 +1,7 @@
 import * as z from "zod/mini";
 
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
-import { request } from "../lib/request";
+import { NotFoundRequestError, request } from "../lib/request";
 
 const DocsIndexEntrySchema = z.object({
 	path: z.string(),
@@ -30,15 +30,29 @@ export async function getDocsIndex(): Promise<DocsIndexEntry[]> {
 
 export async function getDocsPageIndex(path: string): Promise<DocsPage> {
 	const url = new URL(`api/index/${path}`, getDocsBaseUrl());
-	return await request(url, { schema: DocsPageSchema });
+	try {
+		return await request(url, { schema: DocsPageSchema });
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Documentation page not found: ${path}`;
+		}
+		throw error;
+	}
 }
 
 export async function getDocsPageContent(path: string): Promise<string> {
 	const url = new URL(path, getDocsBaseUrl());
-	return await request(url, {
-		headers: { Accept: "text/markdown" },
-		schema: z.string(),
-	});
+	try {
+		return await request(url, {
+			headers: { Accept: "text/markdown" },
+			schema: z.string(),
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Page not found: ${path}`;
+		}
+		throw error;
+	}
 }
 
 function getDocsBaseUrl(): URL {

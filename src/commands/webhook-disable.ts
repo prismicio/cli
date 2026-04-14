@@ -1,7 +1,7 @@
 import { getHost, getToken } from "../auth";
 import { getWebhooks, updateWebhook } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -55,9 +55,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	try {
 		await updateWebhook(id, updatedConfig, { repo, token, host });
 	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Webhook not found: ${webhookUrl}`);
-		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to disable webhook: ${message}`);

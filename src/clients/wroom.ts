@@ -99,11 +99,18 @@ export async function updateWebhook(
 	body.set("releasesUpdated", webhookConfig.releasesUpdated.toString());
 	body.set("tagsCreated", webhookConfig.tagsCreated.toString());
 	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
-	await request(url, {
-		method: "POST",
-		body,
-		credentials: { "prismic-auth": token },
-	});
+	try {
+		await request(url, {
+			method: "POST",
+			body,
+			credentials: { "prismic-auth": token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = "Webhook not found";
+		}
+		throw error;
+	}
 }
 
 export async function deleteWebhook(
@@ -113,10 +120,17 @@ export async function deleteWebhook(
 	const { repo, token, host } = config;
 	const wroomUrl = getWroomUrl(repo, host);
 	const url = new URL(`app/settings/webhooks/${id}/delete`, wroomUrl);
-	await request(url, {
-		method: "POST",
-		credentials: { "prismic-auth": token },
-	});
+	try {
+		await request(url, {
+			method: "POST",
+			credentials: { "prismic-auth": token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = "Webhook not found";
+		}
+		throw error;
+	}
 }
 
 const AccessTokenSchema = z.object({
@@ -215,10 +229,17 @@ export async function deleteOAuthAuthorization(
 		`settings/security/authorizations/${encodeURIComponent(authId)}`,
 		getWroomUrl(config.repo, config.host),
 	);
-	await request(url, {
-		method: "DELETE",
-		credentials: { "prismic-auth": config.token },
-	});
+	try {
+		await request(url, {
+			method: "DELETE",
+			credentials: { "prismic-auth": config.token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = "Token not found";
+		}
+		throw error;
+	}
 }
 
 export async function getWriteTokens(config: {
@@ -268,10 +289,17 @@ export async function deleteWriteToken(
 		`settings/security/token/${encodeURIComponent(tokenValue)}`,
 		getWroomUrl(config.repo, config.host),
 	);
-	await request(url, {
-		method: "DELETE",
-		credentials: { "prismic-auth": config.token },
-	});
+	try {
+		await request(url, {
+			method: "DELETE",
+			credentials: { "prismic-auth": config.token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Token not found: ${tokenValue}`;
+		}
+		throw error;
+	}
 }
 
 export async function checkIsDomainAvailable(config: {

@@ -1,7 +1,7 @@
 import { getHost, getToken } from "../auth";
 import { getLocales, upsertLocale } from "../clients/locale";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -56,9 +56,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 			{ repo, token, host },
 		);
 	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Locale not found: ${code}`);
-		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to set master locale: ${message}`);

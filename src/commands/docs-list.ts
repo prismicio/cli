@@ -1,7 +1,7 @@
 import { getDocsIndex, getDocsPageIndex } from "../clients/docs";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { UnknownRequestError } from "../lib/request";
 
 const config = {
 	name: "prismic docs list",
@@ -30,9 +30,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 		try {
 			entry = await getDocsPageIndex(path);
 		} catch (error) {
-			if (error instanceof NotFoundRequestError) {
-				throw new CommandError(`Documentation page not found: ${path}`);
-			}
 			if (error instanceof UnknownRequestError) {
 				const message = await error.text();
 				throw new CommandError(`Failed to fetch documentation index: ${message}`);

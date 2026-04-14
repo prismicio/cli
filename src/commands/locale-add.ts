@@ -1,7 +1,7 @@
 import { getHost, getToken } from "../auth";
 import { upsertLocale } from "../clients/locale";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -32,10 +32,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	try {
 		await upsertLocale({ id: code, isMaster: master, customName: name }, { repo, token, host });
 	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-			throw error;
-		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to add locale: ${message}`);
