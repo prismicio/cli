@@ -1,3 +1,6 @@
+import { writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+
 import { buildSlice, it } from "./it";
 import { getSlices, insertSlice } from "./prismic";
 
@@ -58,6 +61,43 @@ it("sets a screenshot on a variation", async ({ expect, prismic, repo, token, ho
 		slice.id,
 		"--screenshot",
 		"https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png",
+	]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain(`Variation updated: "default" in slice "${slice.id}"`);
+
+	const slices = await getSlices({ repo, token, host });
+	const updated = slices.find((s) => s.id === slice.id);
+	const variation = updated?.variations.find((v) => v.id === "default");
+	expect(variation?.imageUrl).toContain("https://");
+	expect(variation?.imageUrl).toContain(".png");
+});
+
+it("sets a local screenshot file on a variation", async ({
+	expect,
+	prismic,
+	project,
+	repo,
+	token,
+	host,
+}) => {
+	const slice = buildSlice();
+	await insertSlice(slice, { repo, token, host });
+
+	const screenshotUrl =
+		"https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png";
+	const response = await fetch(screenshotUrl);
+	const data = new Uint8Array(await response.arrayBuffer());
+	const screenshotFileUrl = new URL("screenshot.png", project);
+	await writeFile(screenshotFileUrl, data);
+	const screenshotPath = fileURLToPath(screenshotFileUrl);
+
+	const { stdout, exitCode } = await prismic("slice", [
+		"edit-variation",
+		"default",
+		"--from-slice",
+		slice.id,
+		"--screenshot",
+		screenshotPath,
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Variation updated: "default" in slice "${slice.id}"`);
