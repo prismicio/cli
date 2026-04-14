@@ -1,6 +1,6 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getCustomTypes, updateCustomType } from "../clients/custom-types";
+import { getCustomType, updateCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -24,25 +24,20 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const type = customTypes.find((ct) => ct.id === from);
+	const customType = await getCustomType(from, { repo, token, host });
 
-	if (!type) {
-		throw new CommandError(`Type not found: ${from}`);
-	}
-
-	if (!(name in type.json)) {
+	if (!(name in customType.json)) {
 		throw new CommandError(`Tab "${name}" not found in "${from}".`);
 	}
 
-	if (Object.keys(type.json).length <= 1) {
+	if (Object.keys(customType.json).length <= 1) {
 		throw new CommandError(`Cannot remove the last tab from "${from}".`);
 	}
 
-	delete type.json[name];
+	delete customType.json[name];
 
 	try {
-		await updateCustomType(type, { repo, host, token });
+		await updateCustomType(customType, { repo, host, token });
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
@@ -52,9 +47,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	try {
-		await adapter.updateCustomType(type);
+		await adapter.updateCustomType(customType);
 	} catch {
-		await adapter.createCustomType(type);
+		await adapter.createCustomType(customType);
 	}
 	await adapter.generateTypes();
 

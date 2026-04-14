@@ -2,7 +2,7 @@ import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getCustomTypes, getSlices, updateCustomType } from "../clients/custom-types";
+import { getCustomType, getSlice, updateCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -36,17 +36,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const host = await getHost();
 	const apiConfig = { repo, token, host };
 
-	const slices = await getSlices(apiConfig);
-	const slice = slices.find((s) => s.id === id);
-	if (!slice) {
-		throw new CommandError(`Slice not found: ${id}`);
-	}
-
-	const customTypes = await getCustomTypes(apiConfig);
-	const customType = customTypes.find((ct) => ct.id === to);
-	if (!customType) {
-		throw new CommandError(`Type not found: ${to}`);
-	}
+	const slice = await getSlice(id, apiConfig);
+	const customType = await getCustomType(to, apiConfig);
 
 	const allFields: Record<string, DynamicWidget> = Object.assign(
 		{},
