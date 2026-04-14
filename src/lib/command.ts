@@ -2,7 +2,7 @@ import type { ParseArgsOptionDescriptor } from "node:util";
 
 import { parseArgs } from "node:util";
 
-import { dedent } from "./string";
+import { dedent, formatTable } from "./string";
 
 export type CommandConfig = {
 	name: string;
@@ -89,16 +89,13 @@ function buildCommandHelp(config: CommandConfig): string {
 	if (positionalNames.length > 0) {
 		lines.push("");
 		lines.push("ARGUMENTS");
-		const maxNameLength = Math.max(
-			...positionalNames.map((positionalName) => `<${positionalName}>`.length),
-		);
+		const rows: string[][] = [];
 		for (const positionalName in positionals) {
-			const formattedName = `<${positionalName}>`;
-			const paddedName = formattedName.padEnd(maxNameLength);
 			const positional = positionals[positionalName];
 			const description = positional.description + (positional.required ? " (required)" : "");
-			lines.push(`  ${paddedName}   ${description}`);
+			rows.push([`  <${positionalName}>`, description]);
 		}
+		lines.push(formatTable(rows));
 	}
 
 	lines.push("");
@@ -116,11 +113,8 @@ function buildCommandHelp(config: CommandConfig): string {
 		}
 	}
 	optionEntries.push({ left: "-h, --help", description: "Show help for command" });
-	const maxOptionLength = Math.max(...optionEntries.map((optionEntry) => optionEntry.left.length));
-	for (const optionEntry of optionEntries) {
-		const paddedLeft = optionEntry.left.padEnd(maxOptionLength);
-		lines.push(`  ${paddedLeft}   ${optionEntry.description}`);
-	}
+	const optionRows = optionEntries.map((entry) => [`  ${entry.left}`, entry.description]);
+	lines.push(formatTable(optionRows));
 
 	if (sections) {
 		for (const sectionName in sections) {
@@ -190,13 +184,8 @@ function buildRouterHelp(config: CreateCommandRouterConfig): string {
 
 	lines.push("");
 	lines.push("COMMANDS");
-	const commandNames = Object.keys(commands);
-	const maxNameLength = Math.max(...commandNames.map((commandName) => commandName.length));
-	for (const commandName of commandNames) {
-		const paddedName = commandName.padEnd(maxNameLength);
-		const description = commands[commandName].description;
-		lines.push(`  ${paddedName}   ${description}`);
-	}
+	const commandRows = Object.entries(commands).map(([name, cmd]) => [`  ${name}`, cmd.description]);
+	lines.push(formatTable(commandRows));
 
 	lines.push("");
 	lines.push("OPTIONS");
