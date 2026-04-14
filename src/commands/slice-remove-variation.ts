@@ -2,7 +2,7 @@ import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getSlices, updateSlice } from "../clients/custom-types";
+import { getSlice, updateSlice } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -26,12 +26,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
-	const slices = await getSlices({ repo, token, host });
-	const slice = slices.find((s) => s.id === from);
-
-	if (!slice) {
-		throw new CommandError(`Slice not found: ${from}`);
-	}
+	const slice = await getSlice(from, { repo, token, host });
 
 	const variation = slice.variations.find((v) => v.id === id);
 

@@ -1,6 +1,6 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { request } from "../lib/request";
+import { NotFoundRequestError, request } from "../lib/request";
 
 export async function getCustomTypes(config: {
 	repo: string;
@@ -23,9 +23,16 @@ export async function getCustomType(
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
 	const url = new URL(`customtypes/${encodeURIComponent(id)}`, customTypesServiceUrl);
-	return await request<CustomType>(url, {
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
-	});
+	try {
+		return await request<CustomType>(url, {
+			headers: { repository: repo, Authorization: `Bearer ${token}` },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Type not found: ${id}`;
+		}
+		throw error;
+	}
 }
 
 export async function insertCustomType(
@@ -81,6 +88,25 @@ export async function getSlices(config: {
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 	});
 	return response;
+}
+
+export async function getSlice(
+	id: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<SharedSlice> {
+	const { repo, token, host } = config;
+	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
+	const url = new URL(`slices/${encodeURIComponent(id)}`, customTypesServiceUrl);
+	try {
+		return await request<SharedSlice>(url, {
+			headers: { repository: repo, Authorization: `Bearer ${token}` },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Slice not found: ${id}`;
+		}
+		throw error;
+	}
 }
 
 export async function insertSlice(

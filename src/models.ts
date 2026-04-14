@@ -3,9 +3,9 @@ import type { CustomType, DynamicWidget, Link } from "@prismicio/types-internal/
 import type { CommandConfig } from "./lib/command";
 
 import { getAdapter } from "./adapters";
-import { getCustomType, getSlices, updateCustomType, updateSlice } from "./clients/custom-types";
+import { getCustomType, getSlice, updateCustomType, updateSlice } from "./clients/custom-types";
 import { CommandError } from "./lib/command";
-import { NotFoundRequestError, UnknownRequestError } from "./lib/request";
+import { UnknownRequestError } from "./lib/request";
 
 type Field = DynamicWidget;
 type Fields = Record<string, Field>;
@@ -54,11 +54,7 @@ export async function resolveFieldContainer(
 	}
 
 	if (fromSlice) {
-		const slices = await getSlices(apiConfig);
-		const slice = slices.find((s) => s.id === fromSlice);
-		if (!slice) {
-			throw new CommandError(`Slice not found: ${fromSlice}`);
-		}
+		const slice = await getSlice(fromSlice, apiConfig);
 		const variation = slice.variations.find((v) => v.id === variationId);
 		if (!variation) {
 			const variationIds = slice.variations?.map((v) => v.id).join(", ") || "(none)";
@@ -81,13 +77,7 @@ export async function resolveFieldContainer(
 		];
 	}
 
-	let customType;
-	try {
-		customType = await getCustomType(fromType!, apiConfig);
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) throw new CommandError(`Type not found: ${fromType}`);
-		throw error;
-	}
+	const customType = await getCustomType(fromType!, apiConfig);
 	let tab: Record<string, DynamicWidget> | undefined;
 	for (const tabName in customType.json) {
 		if (id in customType.json[tabName]) tab = customType.json[tabName];
@@ -141,11 +131,7 @@ export async function resolveModel(
 		}
 
 		const variation = values.variation ?? "default";
-		const slices = await getSlices(apiConfig);
-		const slice = slices.find((s) => s.id === sliceId);
-		if (!slice) {
-			throw new CommandError(`Slice not found: ${sliceId}`);
-		}
+		const slice = await getSlice(sliceId, apiConfig);
 
 		const newModel = structuredClone(slice);
 		const newVariation = newModel.variations?.find((v) => v.id === variation);
@@ -183,13 +169,7 @@ export async function resolveModel(
 	}
 
 	const tab = values.tab ?? "Main";
-	let customType;
-	try {
-		customType = await getCustomType(typeId!, apiConfig);
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) throw new CommandError(`Type not found: ${typeId}`);
-		throw error;
-	}
+	const customType = await getCustomType(typeId!, apiConfig);
 
 	const newModel = structuredClone(customType);
 	const newTab = newModel.json[tab];

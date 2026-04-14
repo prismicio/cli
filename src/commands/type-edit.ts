@@ -2,7 +2,7 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomType, updateCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -29,13 +29,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
-	let customType;
-	try {
-		customType = await getCustomType(id, { repo, token, host });
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) throw new CommandError(`Type not found: ${id}`);
-		throw error;
-	}
+	const customType = await getCustomType(id, { repo, token, host });
 
 	if ("name" in values) customType.label = values.name;
 	if ("format" in values) customType.format = values.format as "custom" | "page";

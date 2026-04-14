@@ -23,7 +23,11 @@ import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
 import { InvalidPrismicConfig, MissingPrismicConfig } from "./config";
 import { CommandError, createCommandRouter } from "./lib/command";
-import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
+import {
+	ForbiddenRequestError,
+	NotFoundRequestError,
+	UnauthorizedRequestError,
+} from "./lib/request";
 import {
 	initSegment,
 	segmentIdentify,
@@ -195,6 +199,11 @@ async function main(): Promise<void> {
 
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			console.error("Not logged in. Run `prismic login` first.");
+			return;
+		}
+
+		if (error instanceof NotFoundRequestError) {
+			console.error(error.message);
 			return;
 		}
 

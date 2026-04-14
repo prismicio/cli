@@ -1,6 +1,6 @@
 import { getHost, getToken } from "../auth";
-import { getSlices } from "../clients/custom-types";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { getSlice } from "../clients/custom-types";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
@@ -23,12 +23,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const slices = await getSlices({ repo, token, host });
-	const slice = slices.find((slice) => slice.id === id);
-
-	if (!slice) {
-		throw new CommandError(`Slice not found: ${id}`);
-	}
+	const slice = await getSlice(id, { repo, token, host });
 
 	if (json) {
 		console.info(stringify(slice));
