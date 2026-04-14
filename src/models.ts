@@ -1,4 +1,4 @@
-import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
+import type { CustomType, DynamicWidget, Link } from "@prismicio/types-internal/lib/customtypes";
 
 import type { CommandConfig } from "./lib/command";
 
@@ -234,4 +234,111 @@ export function resolveFieldTarget(
 	}
 
 	return [currentFields, fieldId];
+}
+
+// Mirrors the Prismic API's nested field selection format for content relationships.
+// A field is either a leaf (string), a group (with sub-fields), or a CR (with a target type).
+type ResolvedField =
+	| string
+	| { id: string; fields: ResolvedField[] }
+	| { id: string; customtypes: { id: string; fields: ResolvedField[] }[] };
+
+const UNFETCHABLE_FIELD_TYPES = ["Slices", "UID", "Choice"];
+
+/**
+ * Resolves user-provided dot-separated field paths (e.g. ["title", "group.cr.name"])
+ * against a custom type, producing the nested structure the Prismic API expects.
+ */
+export async function resolveFieldSelection(
+	fieldSelection: string[],
+	targetType: CustomType,
+	apiConfig: ApiConfig,
+): Promise<ResolvedField[]> {
+	// Merge all tabs into one flat field map.
+	const fields: Record<string, Field> = Object.assign({}, ...Object.values(targetType.json));
+
+	return resolveFields(fieldSelection, fields, targetType.id, apiConfig, 1);
+}
+
+/**
+ * Splits paths by their first segment, validates leaves, and recurses into
+ * groups and content relationships.
+ *
+ * @param crDepth - How many more CR boundaries we can cross. The API supports
+ *   at most: type → CR → group → leaf, so the entry point passes 1.
+ */
+async function resolveFields(
+	paths: string[],
+	fields: Record<string, Field>,
+	context: string,
+	apiConfig: ApiConfig,
+	crDepth: number,
+): Promise<ResolvedField[]> {
+	const result: ResolvedField[] = [];
+	const grouped = new Map<string, string[]>();
+
+	// Split each path into leaves (no dot) vs. prefixed groups (has dot).
+	for (const path of paths) {
+		const dot = path.indexOf(".");
+		if (dot === -1) {
+			validateLeafField(path, fields, context);
+			result.push(path);
+		} else {
+			const key = path.slice(0, dot);
+			const rest = path.slice(dot + 1);
+			if (!grouped.has(key)) grouped.set(key, []);
+			grouped.get(key)!.push(rest);
+		}
+	}
+
+	// Recurse into each prefixed group.
+	for (const [id, subPaths] of grouped) {
+		const field = fields[id];
+		if (!field) {
+			throw new CommandError(`Field "${id}" not found on type "${context}".`);
+		}
+
+		if (field.type === "Group") {
+			const groupFields = field.config?.fields ?? {};
+			const resolved = await resolveFields(subPaths, groupFields, context, apiConfig, crDepth);
+			result.push({ id, fields: resolved });
+
+		} else if (field.type === "Link" && field.config?.select === "document") {
+			if (crDepth <= 0) {
+				throw new CommandError("Cannot nest deeper than --field group.cr.group.leaf.");
+			}
+
+			// CR must target exactly one custom type so we know which schema to resolve against.
+			const cts = (field as Link).config?.customtypes;
+			if (!cts || cts.length !== 1) {
+				throw new CommandError(
+					`Field "${id}" must be restricted to a single custom type to select fields from it.`,
+				);
+			}
+			const ctId = typeof cts[0] === "string" ? cts[0] : cts[0].id;
+
+			// Cross the CR boundary: fetch the target type and resolve sub-paths against it.
+			const nestedType = await getCustomType(ctId, apiConfig);
+			const nestedFields: Record<string, Field> = Object.assign({}, ...Object.values(nestedType.json));
+			const resolved = await resolveFields(subPaths, nestedFields, ctId, apiConfig, crDepth - 1);
+			result.push({ id, customtypes: [{ id: ctId, fields: resolved }] });
+
+		} else {
+			throw new CommandError(`Field "${id}" is not a group or content relationship field.`);
+		}
+	}
+
+	return result;
+}
+
+function validateLeafField(id: string, fields: Record<string, Field>, context: string): void {
+	if (!(id in fields)) {
+		throw new CommandError(`Field "${id}" not found on type "${context}".`);
+	}
+	if (UNFETCHABLE_FIELD_TYPES.includes(fields[id].type) || id === "uid") {
+		throw new CommandError(`Field "${id}" cannot be fetched from a content relationship.`);
+	}
+	if (fields[id].type === "Group") {
+		throw new CommandError(`Field "${id}" is a group. Select specific sub-fields with --field ${id}.<sub-field>.`);
+	}
 }
