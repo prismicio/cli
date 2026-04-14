@@ -10,23 +10,10 @@ it("supports --help", async ({ expect, prismic }) => {
 });
 
 it("reorders a field in a slice", async ({ expect, prismic, repo, token, host }) => {
-	const slice = buildSlice({
-		variations: [
-			{
-				id: "default",
-				name: "Default",
-				docURL: "",
-				version: "initial",
-				description: "Default",
-				imageUrl: "",
-				primary: {
-					field_a: { type: "Boolean", config: { label: "A" } },
-					field_b: { type: "Boolean", config: { label: "B" } },
-					field_c: { type: "Boolean", config: { label: "C" } },
-				},
-			},
-		],
-	});
+	const slice = buildSlice();
+	slice.variations[0].primary!.field_a = { type: "Boolean", config: { label: "A" } };
+	slice.variations[0].primary!.field_b = { type: "Boolean", config: { label: "B" } };
+	slice.variations[0].primary!.field_c = { type: "Boolean", config: { label: "C" } };
 	await insertSlice(slice, { repo, token, host });
 
 	const { stdout, exitCode } = await prismic("field", [
@@ -46,15 +33,10 @@ it("reorders a field in a slice", async ({ expect, prismic, repo, token, host })
 });
 
 it("reorders a field in a custom type", async ({ expect, prismic, repo, token, host }) => {
-	const customType = buildCustomType({
-		json: {
-			Main: {
-				title: { type: "StructuredText", config: { label: "Title" } },
-				body: { type: "StructuredText", config: { label: "Body" } },
-				image: { type: "Image", config: { label: "Image" } },
-			},
-		},
-	});
+	const customType = buildCustomType();
+	customType.json.Main.title = { type: "StructuredText", config: { label: "Title" } };
+	customType.json.Main.body = { type: "StructuredText", config: { label: "Body" } };
+	customType.json.Main.image = { type: "Image", config: { label: "Image" } };
 	await insertCustomType(customType, { repo, token, host });
 
 	const { stdout, exitCode } = await prismic("field", [
@@ -74,18 +56,13 @@ it("reorders a field in a custom type", async ({ expect, prismic, repo, token, h
 });
 
 it("moves a field across tabs in a custom type", async ({ expect, prismic, repo, token, host }) => {
-	const customType = buildCustomType({
-		json: {
-			Main: {
-				title: { type: "StructuredText", config: { label: "Title" } },
-				body: { type: "StructuredText", config: { label: "Body" } },
-			},
-			SEO: {
-				meta_title: { type: "Text", config: { label: "Meta Title" } },
-				meta_desc: { type: "Text", config: { label: "Meta Description" } },
-			},
-		},
-	});
+	const customType = buildCustomType();
+	customType.json.Main.title = { type: "StructuredText", config: { label: "Title" } };
+	customType.json.Main.body = { type: "StructuredText", config: { label: "Body" } };
+	customType.json.SEO = {
+		meta_title: { type: "Text", config: { label: "Meta Title" } },
+		meta_desc: { type: "Text", config: { label: "Meta Description" } },
+	};
 	await insertCustomType(customType, { repo, token, host });
 
 	const { stdout, exitCode } = await prismic("field", [
@@ -106,31 +83,18 @@ it("moves a field across tabs in a custom type", async ({ expect, prismic, repo,
 });
 
 it("reorders a nested field in a group", async ({ expect, prismic, repo, token, host }) => {
-	const slice = buildSlice({
-		variations: [
-			{
-				id: "default",
-				name: "Default",
-				docURL: "",
-				version: "initial",
-				description: "Default",
-				imageUrl: "",
-				primary: {
-					my_group: {
-						type: "Group",
-						config: {
-							label: "My Group",
-							fields: {
-								sub_a: { type: "Boolean", config: { label: "A" } },
-								sub_b: { type: "Boolean", config: { label: "B" } },
-								sub_c: { type: "Boolean", config: { label: "C" } },
-							},
-						},
-					},
-				},
+	const slice = buildSlice();
+	slice.variations[0].primary!.my_group = {
+		type: "Group",
+		config: {
+			label: "My Group",
+			fields: {
+				sub_a: { type: "Boolean", config: { label: "A" } },
+				sub_b: { type: "Boolean", config: { label: "B" } },
+				sub_c: { type: "Boolean", config: { label: "C" } },
 			},
-		],
-	});
+		},
+	};
 	await insertSlice(slice, { repo, token, host });
 
 	const { stdout, exitCode } = await prismic("field", [
@@ -151,21 +115,8 @@ it("reorders a nested field in a group", async ({ expect, prismic, repo, token, 
 });
 
 it("errors when the field does not exist", async ({ expect, prismic, repo, token, host }) => {
-	const slice = buildSlice({
-		variations: [
-			{
-				id: "default",
-				name: "Default",
-				docURL: "",
-				version: "initial",
-				description: "Default",
-				imageUrl: "",
-				primary: {
-					field_a: { type: "Boolean", config: { label: "A" } },
-				},
-			},
-		],
-	});
+	const slice = buildSlice();
+	slice.variations[0].primary!.field_a = { type: "Boolean", config: { label: "A" } };
 	await insertSlice(slice, { repo, token, host });
 
 	const { stderr, exitCode } = await prismic("field", [
