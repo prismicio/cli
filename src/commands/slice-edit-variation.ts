@@ -1,9 +1,15 @@
-import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import { pathToFileURL } from "node:url";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getSlice, updateSlice } from "../clients/custom-types";
+import {
+	getSlice,
+	UnsupportedFileTypeError,
+	updateSlice,
+	uploadScreenshot,
+} from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { readURLFile } from "../lib/file";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
@@ -16,13 +22,14 @@ const config = {
 	options: {
 		"from-slice": { type: "string", required: true, description: "ID of the slice" },
 		name: { type: "string", short: "n", description: "New name for the variation" },
+		screenshot: { type: "string", short: "s", description: "Screenshot image file path or URL" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { "from-slice": sliceId, repo = await getRepositoryName() } = values;
+	const { "from-slice": sliceId, screenshot, repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
 	const token = await getToken();
@@ -30,17 +37,35 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const slice = await getSlice(sliceId, { repo, token, host });
 
 	const variation = slice.variations.find((v) => v.id === id);
-
 	if (!variation) {
 		throw new CommandError(`Variation "${id}" not found in slice "${sliceId}".`);
 	}
 
 	if ("name" in values) variation.name = values.name!;
 
-	const updatedSlice: SharedSlice = { ...slice };
+	if (screenshot) {
+		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
+		const blob = await readURLFile(url);
+		let screenshotUrl;
+		try {
+			screenshotUrl = await uploadScreenshot(blob, {
+				sliceId: slice.id,
+				variationId: variation.id,
+				repo,
+				token,
+				host,
+			});
+		} catch (error) {
+			if (error instanceof UnsupportedFileTypeError) {
+				throw new CommandError(error.message);
+			}
+			throw error;
+		}
+		variation.imageUrl = screenshotUrl.toString();
+	}
 
 	try {
-		await updateSlice(updatedSlice, { repo, host, token });
+		await updateSlice(slice, { repo, host, token });
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
@@ -50,9 +75,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	try {
-		await adapter.updateSlice(updatedSlice);
+		await adapter.updateSlice(slice);
 	} catch {
-		await adapter.createSlice(updatedSlice);
+		await adapter.createSlice(slice);
 	}
 	await adapter.generateTypes();
 

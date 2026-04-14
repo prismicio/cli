@@ -1,11 +1,18 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { camelCase } from "change-case";
+import { pathToFileURL } from "node:url";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getSlice, updateSlice } from "../clients/custom-types";
+import {
+	getSlice,
+	UnsupportedFileTypeError,
+	updateSlice,
+	uploadScreenshot,
+} from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { readURLFile } from "../lib/file";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
@@ -18,13 +25,14 @@ const config = {
 	options: {
 		to: { type: "string", required: true, description: "ID of the slice" },
 		id: { type: "string", description: "Custom ID for the variation" },
+		screenshot: { type: "string", short: "s", description: "Screenshot image file path or URL" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [name] = positionals;
-	const { to, id = camelCase(name), repo = await getRepositoryName() } = values;
+	const { to, id = camelCase(name), screenshot, repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
 	const token = await getToken();
@@ -33,6 +41,28 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	if (slice.variations.some((v) => v.id === id)) {
 		throw new CommandError(`Variation "${id}" already exists in slice "${to}".`);
+	}
+
+	let imageUrl = "";
+	if (screenshot) {
+		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
+		const blob = await readURLFile(url);
+		let screenshotUrl;
+		try {
+			screenshotUrl = await uploadScreenshot(blob, {
+				sliceId: slice.id,
+				variationId: id,
+				repo,
+				token,
+				host,
+			});
+		} catch (error) {
+			if (error instanceof UnsupportedFileTypeError) {
+				throw new CommandError(error.message);
+			}
+			throw error;
+		}
+		imageUrl = screenshotUrl.toString();
 	}
 
 	const updatedSlice: SharedSlice = {
@@ -44,7 +74,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 				name,
 				description: name,
 				docURL: "",
-				imageUrl: "",
+				imageUrl,
 				version: "",
 				primary: {},
 			},

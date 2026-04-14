@@ -1,6 +1,10 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
+import { createHash } from "node:crypto";
+import * as z from "zod/mini";
+
 import { NotFoundRequestError, request } from "../lib/request";
+import { appendTrailingSlash } from "../lib/url";
 
 export async function getCustomTypes(config: {
 	repo: string;
@@ -164,6 +168,81 @@ export async function removeSlice(
 	});
 }
 
+const AclCreateResponseSchema = z.object({
+	values: z.object({
+		url: z.string(),
+		fields: z.record(z.string(), z.string()),
+	}),
+	imgixEndpoint: z.string(),
+});
+
+const SUPPORTED_IMAGE_MIME_TYPES: Record<string, string> = {
+	"image/png": ".png",
+	"image/jpeg": ".jpg",
+	"image/gif": ".gif",
+	"image/webp": ".webp",
+};
+
+export async function uploadScreenshot(
+	blob: Blob,
+	config: {
+		sliceId: string;
+		variationId: string;
+		repo: string;
+		token: string | undefined;
+		host: string;
+	},
+): Promise<URL> {
+	const { sliceId, variationId, repo, token, host } = config;
+
+	const type = blob.type;
+	if (!(type in SUPPORTED_IMAGE_MIME_TYPES)) {
+		throw new UnsupportedFileTypeError(type);
+	}
+
+	const aclUrl = new URL("create", getAclProviderUrl(host));
+	const acl = await request(aclUrl, {
+		headers: { Repository: repo, Authorization: `Bearer ${token}` },
+		schema: AclCreateResponseSchema,
+	});
+
+	const extension = SUPPORTED_IMAGE_MIME_TYPES[type];
+	const digest = createHash("md5")
+		.update(new Uint8Array(await blob.arrayBuffer()))
+		.digest("hex");
+	const key = `${repo}/shared-slices/${sliceId}/${variationId}/${digest}${extension}`;
+
+	const formData = new FormData();
+	for (const [field, value] of Object.entries(acl.values.fields)) {
+		formData.append(field, value);
+	}
+	formData.append("key", key);
+	formData.append("Content-Type", type);
+	formData.append("file", blob);
+
+	await request(acl.values.url, { method: "POST", body: formData });
+
+	const url = new URL(key, appendTrailingSlash(acl.imgixEndpoint));
+	url.searchParams.set("auto", "compress,format");
+
+	return url;
+}
+
+export class UnsupportedFileTypeError extends Error {
+	name = "UnsupportedFileTypeError";
+
+	constructor(mimeType: string) {
+		const supportedTypes = Object.keys(SUPPORTED_IMAGE_MIME_TYPES);
+		super(
+			`Unsupported file type: ${mimeType || "unknown"}. Supported: ${supportedTypes.join(", ")}`,
+		);
+	}
+}
+
 function getCustomTypesServiceUrl(host: string): URL {
 	return new URL(`https://customtypes.${host}/`);
+}
+
+function getAclProviderUrl(host: string): URL {
+	return new URL(`https://acl-provider.${host}/`);
 }
