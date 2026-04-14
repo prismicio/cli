@@ -43,6 +43,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 			repo,
 			sliceId: sliceId,
 			variationId: id,
+			token,
+			host,
 		});
 	}
 

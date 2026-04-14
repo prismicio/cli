@@ -171,11 +171,11 @@ export async function removeSlice(
 	});
 }
 
-const ACL_PROVIDER_URL = "https://acl-provider.prismic.io/create";
-
 const AclCreateResponseSchema = z.object({
-	uploadEndpoint: z.string(),
-	requiredFormDataFields: z.record(z.string(), z.string()),
+	values: z.object({
+		url: z.string(),
+		fields: z.record(z.string(), z.string()),
+	}),
 	imgixEndpoint: z.string(),
 });
 
@@ -189,47 +189,43 @@ const MIME_TYPES: Record<string, string> = {
 
 export async function uploadScreenshot(
 	source: string,
-	config: { repo: string; sliceId: string; variationId: string },
+	config: { repo: string; sliceId: string; variationId: string; token: string | undefined; host: string },
 ): Promise<string> {
-	const { repo, sliceId, variationId } = config;
+	const { repo, sliceId, variationId, token, host } = config;
 
 	const { data, ext } = await resolveScreenshotSource(source);
 
 	const mimeType = MIME_TYPES[ext];
 	if (!mimeType) {
+		const supported = Object.keys(MIME_TYPES).join(", ");
 		throw new CommandError(
-			`Unsupported screenshot format "${ext}". Supported: png, jpg, jpeg, gif, webp`,
+			`Unsupported screenshot format "${ext}". Supported: ${supported}`,
 		);
 	}
 
 	const digest = createHash("md5").update(data).digest("hex");
 	const key = `${repo}/shared-slices/${sliceId}/${variationId}/${digest}${ext}`;
 
-	const acl = await request(ACL_PROVIDER_URL, {
-		method: "POST",
-		body: {},
+	const aclUrl = new URL("create", getAclProviderUrl(host));
+	const acl = await request(aclUrl, {
+		headers: { Repository: repo, Authorization: `Bearer ${token}` },
 		schema: AclCreateResponseSchema,
 	});
 
 	const formData = new FormData();
-	for (const [field, value] of Object.entries(acl.requiredFormDataFields)) {
+	for (const [field, value] of Object.entries(acl.values.fields)) {
 		formData.append(field, value);
 	}
 	formData.append("key", key);
 	formData.append("Content-Type", mimeType);
-	formData.append("file", new Blob([data.buffer as ArrayBuffer], { type: mimeType }));
+	const fileBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+	formData.append("file", new Blob([fileBuffer], { type: mimeType }));
 
-	const uploadResponse = await fetch(acl.uploadEndpoint, {
-		method: "POST",
-		body: formData,
-	});
-	if (!uploadResponse.ok) {
-		throw new CommandError(
-			`Failed to upload screenshot (HTTP ${uploadResponse.status}).`,
-		);
-	}
+	await request(acl.values.url, { method: "POST", body: formData });
 
-	return `${acl.imgixEndpoint}/${key}?auto=compress,format`;
+	const url = new URL(key, acl.imgixEndpoint);
+	url.searchParams.set("auto", "compress,format");
+	return url.toString();
 }
 
 async function resolveScreenshotSource(
@@ -273,4 +269,8 @@ async function resolveScreenshotSource(
 
 function getCustomTypesServiceUrl(host: string): URL {
 	return new URL(`https://customtypes.${host}/`);
+}
+
+function getAclProviderUrl(host: string): URL {
+	return new URL(`https://acl-provider.${host}/`);
 }
