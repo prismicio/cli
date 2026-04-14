@@ -2,7 +2,6 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { extname } from "node:path";
 
 import * as z from "zod/mini";
 
@@ -193,7 +192,7 @@ export async function uploadScreenshot(
 ): Promise<string> {
 	const { repo, sliceId, variationId, token, host } = config;
 
-	const { data, ext } = await resolveScreenshotSource(source);
+	const { blob, ext } = await resolveScreenshotSource(source);
 
 	const mimeType = MIME_TYPES[ext];
 	if (!mimeType) {
@@ -203,7 +202,9 @@ export async function uploadScreenshot(
 		);
 	}
 
-	const digest = createHash("md5").update(data).digest("hex");
+	const digest = createHash("md5")
+		.update(new Uint8Array(await blob.arrayBuffer()))
+		.digest("hex");
 	const key = `${repo}/shared-slices/${sliceId}/${variationId}/${digest}${ext}`;
 
 	const aclUrl = new URL("create", getAclProviderUrl(host));
@@ -218,8 +219,7 @@ export async function uploadScreenshot(
 	}
 	formData.append("key", key);
 	formData.append("Content-Type", mimeType);
-	const fileBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
-	formData.append("file", new Blob([fileBuffer], { type: mimeType }));
+	formData.append("file", new Blob([blob], { type: mimeType }));
 
 	await request(acl.values.url, { method: "POST", body: formData });
 
@@ -230,7 +230,7 @@ export async function uploadScreenshot(
 
 async function resolveScreenshotSource(
 	source: string,
-): Promise<{ data: Uint8Array; ext: string }> {
+): Promise<{ blob: Blob; ext: string }> {
 	if (URL.canParse(source)) {
 		const url = new URL(source);
 		if (url.protocol === "http:" || url.protocol === "https:") {
@@ -241,15 +241,14 @@ async function resolveScreenshotSource(
 				);
 			}
 
-			let ext = extname(url.pathname).toLowerCase();
+			let ext = extname(url.pathname);
 			if (!MIME_TYPES[ext]) {
 				const contentType = response.headers.get("content-type")?.split(";")[0].trim();
 				const match = Object.entries(MIME_TYPES).find(([, mime]) => mime === contentType);
 				ext = match?.[0] ?? ext;
 			}
 
-			const data = new Uint8Array(await response.arrayBuffer());
-			return { data, ext };
+			return { blob: await response.blob(), ext };
 		}
 	}
 
@@ -263,8 +262,13 @@ async function resolveScreenshotSource(
 		throw error;
 	}
 
-	const ext = extname(source).toLowerCase();
-	return { data, ext };
+	const ext = extname(source);
+	return { blob: new Blob([data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer]), ext };
+}
+
+function extname(path: string): string {
+	const match = path.match(/\.\w+$/);
+	return match ? match[0].toLowerCase() : "";
 }
 
 function getCustomTypesServiceUrl(host: string): URL {

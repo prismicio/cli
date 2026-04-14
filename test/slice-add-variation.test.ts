@@ -1,5 +1,4 @@
 import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buildSlice, it } from "./it";
@@ -65,8 +64,9 @@ it("adds a variation with a local screenshot file", async ({ expect, prismic, pr
 	const screenshotUrl = "https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png?auto=compress,format";
 	const response = await fetch(screenshotUrl);
 	const data = new Uint8Array(await response.arrayBuffer());
-	const screenshotPath = join(fileURLToPath(project), "screenshot.png");
-	await writeFile(screenshotPath, data);
+	const screenshotUrl2 = new URL("screenshot.png", project);
+	await writeFile(screenshotUrl2, data);
+	const screenshotPath = fileURLToPath(screenshotUrl2);
 
 	const variationName = `Variation${crypto.randomUUID().split("-")[0]}`;
 
