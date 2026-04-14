@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { request } from "../lib/request";
+import { NotFoundRequestError, request } from "../lib/request";
 
 const WebhookTriggersSchema = z.object({
 	documentsPublished: z.boolean(),
@@ -33,11 +33,17 @@ export async function getWebhooks(config: {
 	const { repo, token, host } = config;
 	const wroomUrl = getWroomUrl(repo, host);
 	const url = new URL("app/settings/webhooks", wroomUrl);
-	const response = await request(url, {
-		credentials: { "prismic-auth": token },
-		schema: z.array(WebhookSchema),
-	});
-	return response;
+	try {
+		return await request(url, {
+			credentials: { "prismic-auth": token },
+			schema: z.array(WebhookSchema),
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function createWebhook(
@@ -59,11 +65,18 @@ export async function createWebhook(
 	body.set("releasesUpdated", webhookConfig.releasesUpdated.toString());
 	body.set("tagsCreated", webhookConfig.tagsCreated.toString());
 	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
-	await request(url, {
-		method: "POST",
-		body,
-		credentials: { "prismic-auth": token },
-	});
+	try {
+		await request(url, {
+			method: "POST",
+			body,
+			credentials: { "prismic-auth": token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function updateWebhook(
@@ -86,11 +99,18 @@ export async function updateWebhook(
 	body.set("releasesUpdated", webhookConfig.releasesUpdated.toString());
 	body.set("tagsCreated", webhookConfig.tagsCreated.toString());
 	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
-	await request(url, {
-		method: "POST",
-		body,
-		credentials: { "prismic-auth": token },
-	});
+	try {
+		await request(url, {
+			method: "POST",
+			body,
+			credentials: { "prismic-auth": token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = "Webhook not found";
+		}
+		throw error;
+	}
 }
 
 export async function deleteWebhook(
@@ -100,10 +120,17 @@ export async function deleteWebhook(
 	const { repo, token, host } = config;
 	const wroomUrl = getWroomUrl(repo, host);
 	const url = new URL(`app/settings/webhooks/${id}/delete`, wroomUrl);
-	await request(url, {
-		method: "POST",
-		credentials: { "prismic-auth": token },
-	});
+	try {
+		await request(url, {
+			method: "POST",
+			credentials: { "prismic-auth": token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = "Webhook not found";
+		}
+		throw error;
+	}
 }
 
 const AccessTokenSchema = z.object({
@@ -140,10 +167,17 @@ export async function getOAuthApps(config: {
 	host: string;
 }): Promise<OAuthApp[]> {
 	const url = new URL("settings/security/contentapi", getWroomUrl(config.repo, config.host));
-	return await request(url, {
-		credentials: { "prismic-auth": config.token },
-		schema: z.array(OAuthAppSchema),
-	});
+	try {
+		return await request(url, {
+			credentials: { "prismic-auth": config.token },
+			schema: z.array(OAuthAppSchema),
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${config.repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function createOAuthApp(
@@ -151,12 +185,19 @@ export async function createOAuthApp(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<OAuthApp> {
 	const url = new URL("settings/security/oauthapp", getWroomUrl(config.repo, config.host));
-	return await request(url, {
-		method: "POST",
-		body: { app_name: name },
-		credentials: { "prismic-auth": config.token },
-		schema: OAuthAppSchema,
-	});
+	try {
+		return await request(url, {
+			method: "POST",
+			body: { app_name: name },
+			credentials: { "prismic-auth": config.token },
+			schema: OAuthAppSchema,
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${config.repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function createOAuthAuthorization(
@@ -165,12 +206,19 @@ export async function createOAuthAuthorization(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<AccessToken> {
 	const url = new URL("settings/security/authorizations", getWroomUrl(config.repo, config.host));
-	return await request(url, {
-		method: "POST",
-		body: { app: appId, scope },
-		credentials: { "prismic-auth": config.token },
-		schema: AccessTokenSchema,
-	});
+	try {
+		return await request(url, {
+			method: "POST",
+			body: { app: appId, scope },
+			credentials: { "prismic-auth": config.token },
+			schema: AccessTokenSchema,
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${config.repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function deleteOAuthAuthorization(
@@ -181,10 +229,17 @@ export async function deleteOAuthAuthorization(
 		`settings/security/authorizations/${encodeURIComponent(authId)}`,
 		getWroomUrl(config.repo, config.host),
 	);
-	await request(url, {
-		method: "DELETE",
-		credentials: { "prismic-auth": config.token },
-	});
+	try {
+		await request(url, {
+			method: "DELETE",
+			credentials: { "prismic-auth": config.token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = "Token not found";
+		}
+		throw error;
+	}
 }
 
 export async function getWriteTokens(config: {
@@ -193,10 +248,17 @@ export async function getWriteTokens(config: {
 	host: string;
 }): Promise<WriteTokensInfo> {
 	const url = new URL("settings/security/customtypesapi", getWroomUrl(config.repo, config.host));
-	return await request(url, {
-		credentials: { "prismic-auth": config.token },
-		schema: WriteTokensInfoSchema,
-	});
+	try {
+		return await request(url, {
+			credentials: { "prismic-auth": config.token },
+			schema: WriteTokensInfoSchema,
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${config.repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function createWriteToken(
@@ -204,12 +266,19 @@ export async function createWriteToken(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<WriteToken> {
 	const url = new URL("settings/security/token", getWroomUrl(config.repo, config.host));
-	return await request(url, {
-		method: "POST",
-		body: { app_name: name },
-		credentials: { "prismic-auth": config.token },
-		schema: WriteTokenSchema,
-	});
+	try {
+		return await request(url, {
+			method: "POST",
+			body: { app_name: name },
+			credentials: { "prismic-auth": config.token },
+			schema: WriteTokenSchema,
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${config.repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function deleteWriteToken(
@@ -220,10 +289,17 @@ export async function deleteWriteToken(
 		`settings/security/token/${encodeURIComponent(tokenValue)}`,
 		getWroomUrl(config.repo, config.host),
 	);
-	await request(url, {
-		method: "DELETE",
-		credentials: { "prismic-auth": config.token },
-	});
+	try {
+		await request(url, {
+			method: "DELETE",
+			credentials: { "prismic-auth": config.token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Token not found: ${tokenValue}`;
+		}
+		throw error;
+	}
 }
 
 export async function checkIsDomainAvailable(config: {
@@ -269,11 +345,18 @@ export async function getRepositoryAccess(config: {
 }): Promise<string> {
 	const { repo, token, host } = config;
 	const url = new URL("syncState", getWroomUrl(repo, host));
-	const response = await request(url, {
-		credentials: { "prismic-auth": token },
-		schema: SyncStateSchema,
-	});
-	return response.repository.api_access;
+	try {
+		const response = await request(url, {
+			credentials: { "prismic-auth": token },
+			schema: SyncStateSchema,
+		});
+		return response.repository.api_access;
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 export type RepositoryAccessLevel = "private" | "public" | "open";
@@ -284,11 +367,18 @@ export async function setRepositoryAccess(
 ): Promise<void> {
 	const { repo, token, host } = config;
 	const url = new URL("settings/security/apiaccess", getWroomUrl(repo, host));
-	await request(url, {
-		method: "POST",
-		body: { api_access: level },
-		credentials: { "prismic-auth": token },
-	});
+	try {
+		await request(url, {
+			method: "POST",
+			body: { api_access: level },
+			credentials: { "prismic-auth": token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 const SetNameResponseSchema = z.object({
@@ -305,13 +395,20 @@ export async function setRepositoryName(
 	const url = new URL("app/settings/repository", getWroomUrl(repo, host));
 	const formData = new FormData();
 	formData.set("displayname", name);
-	const response = await request(url, {
-		method: "POST",
-		body: formData,
-		credentials: { "prismic-auth": token },
-		schema: SetNameResponseSchema,
-	});
-	return response.repository.name;
+	try {
+		const response = await request(url, {
+			method: "POST",
+			body: formData,
+			credentials: { "prismic-auth": token },
+			schema: SetNameResponseSchema,
+		});
+		return response.repository.name;
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 function getDashboardUrl(host: string): URL {

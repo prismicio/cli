@@ -91,6 +91,11 @@ export class UnknownRequestError extends RequestError {
 }
 export class NotFoundRequestError extends RequestError {
 	name = "NotFoundRequestError";
+
+	constructor(response: Response) {
+		super(response);
+		this.message = "";
+	}
 }
 export class ForbiddenRequestError extends RequestError {
 	name = "ForbiddenRequestError";

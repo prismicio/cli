@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { request } from "../lib/request";
+import { NotFoundRequestError, request } from "../lib/request";
 
 const RepositorySchema = z.object({
 	quotas: z.optional(
@@ -20,14 +20,21 @@ export async function getRepository(config: {
 	const { repo, token, host } = config;
 	const url = getRepositoryServiceUrl(host);
 	url.searchParams.set("repository", repo);
-	const response = await request(url, {
-		headers: {
-			Authorization: `Bearer ${token}`,
-			repository: repo,
-		},
-		schema: RepositorySchema,
-	});
-	return response;
+	try {
+		const response = await request(url, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+				repository: repo,
+			},
+			schema: RepositorySchema,
+		});
+		return response;
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 function getRepositoryServiceUrl(host: string): URL {

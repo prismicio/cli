@@ -1,7 +1,8 @@
 import { getHost, getToken } from "../auth";
 import { getPreviews, getSimulatorUrl } from "../clients/core";
-import { createCommand, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
@@ -25,10 +26,20 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	const [previews, simulatorUrl] = await Promise.all([
-		getPreviews({ repo, token, host }),
-		getSimulatorUrl({ repo, token, host }),
-	]);
+	let previews;
+	let simulatorUrl;
+	try {
+		[previews, simulatorUrl] = await Promise.all([
+			getPreviews({ repo, token, host }),
+			getSimulatorUrl({ repo, token, host }),
+		]);
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to list previews: ${message}`);
+		}
+		throw error;
+	}
 
 	if (json) {
 		console.info(

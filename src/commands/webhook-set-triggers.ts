@@ -52,7 +52,17 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const webhooks = await getWebhooks({ repo, token, host });
+	let webhooks;
+	try {
+		webhooks = await getWebhooks({ repo, token, host });
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to update webhook triggers: ${message}`);
+		}
+		throw error;
+	}
+
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
 		throw new CommandError(`Webhook not found: ${webhookUrl}`);

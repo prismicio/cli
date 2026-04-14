@@ -6,6 +6,7 @@ import {
 	getOAuthApps,
 } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const CLI_APP_NAME = "Prismic CLI";
@@ -38,18 +39,26 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	if (write) {
-		const writeToken = await createWriteToken(CLI_APP_NAME, { repo, token, host });
-		console.info(`Token created: ${writeToken.token}`);
-	} else {
-		const scope = allowReleases ? "master+releases" : "master";
+	try {
+		if (write) {
+			const writeToken = await createWriteToken(CLI_APP_NAME, { repo, token, host });
+			console.info(`Token created: ${writeToken.token}`);
+		} else {
+			const scope = allowReleases ? "master+releases" : "master";
 
-		// Find or create the CLI OAuth app.
-		const apps = await getOAuthApps({ repo, token, host });
-		let app = apps.find((a) => a.name === CLI_APP_NAME);
-		if (!app) app = await createOAuthApp(CLI_APP_NAME, { repo, token, host });
+			// Find or create the CLI OAuth app.
+			const apps = await getOAuthApps({ repo, token, host });
+			let app = apps.find((a) => a.name === CLI_APP_NAME);
+			if (!app) app = await createOAuthApp(CLI_APP_NAME, { repo, token, host });
 
-		const accessToken = await createOAuthAuthorization(app.id, scope, { repo, token, host });
-		console.info(`Token created: ${accessToken.token}`);
+			const accessToken = await createOAuthAuthorization(app.id, scope, { repo, token, host });
+			console.info(`Token created: ${accessToken.token}`);
+		}
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to create token: ${message}`);
+		}
+		throw error;
 	}
 });

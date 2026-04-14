@@ -3,7 +3,7 @@ import GithubSlugger from "github-slugger";
 import { getDocsPageContent } from "../clients/docs";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { NotFoundRequestError, UnknownRequestError } from "../lib/request";
+import { UnknownRequestError } from "../lib/request";
 
 const config = {
 	name: "prismic docs view",
@@ -35,9 +35,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	try {
 		markdown = await getDocsPageContent(path);
 	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			throw new CommandError(`Page not found: ${path}`);
-		}
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to fetch page: ${message}`);
