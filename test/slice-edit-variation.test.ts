@@ -57,7 +57,7 @@ it("sets a screenshot on a variation", async ({ expect, prismic, repo, token, ho
 		"--from-slice",
 		slice.id,
 		"--screenshot",
-		"https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png?auto=compress,format",
+		"https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png",
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Variation updated: "default" in slice "${slice.id}"`);

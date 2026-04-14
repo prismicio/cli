@@ -1,12 +1,10 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-
 import * as z from "zod/mini";
 
-import { CommandError } from "../lib/command";
 import { NotFoundRequestError, request } from "../lib/request";
+import { appendTrailingSlash } from "../lib/url";
 
 export async function getCustomTypes(config: {
 	repo: string;
@@ -178,34 +176,29 @@ const AclCreateResponseSchema = z.object({
 	imgixEndpoint: z.string(),
 });
 
-const MIME_TYPES: Record<string, string> = {
-	".png": "image/png",
-	".jpg": "image/jpeg",
-	".jpeg": "image/jpeg",
-	".gif": "image/gif",
-	".webp": "image/webp",
+const MIME_TYPE_EXTENSIONS: Record<string, string> = {
+	"image/png": ".png",
+	"image/jpeg": ".jpg",
+	"image/gif": ".gif",
+	"image/webp": ".webp",
 };
 
 export async function uploadScreenshot(
-	source: string,
-	config: { repo: string; sliceId: string; variationId: string; token: string | undefined; host: string },
-): Promise<string> {
-	const { repo, sliceId, variationId, token, host } = config;
+	blob: Blob,
+	config: {
+		sliceId: string;
+		variationId: string;
+		repo: string;
+		token: string | undefined;
+		host: string;
+	},
+): Promise<URL> {
+	const { sliceId, variationId, repo, token, host } = config;
 
-	const { blob, ext } = await resolveScreenshotSource(source);
-
-	const mimeType = MIME_TYPES[ext];
-	if (!mimeType) {
-		const supported = Object.keys(MIME_TYPES).join(", ");
-		throw new CommandError(
-			`Unsupported screenshot format "${ext}". Supported: ${supported}`,
-		);
+	const type = blob.type;
+	if (!(type in MIME_TYPE_EXTENSIONS)) {
+		throw new UnsupportedFileTypeError(type);
 	}
-
-	const digest = createHash("md5")
-		.update(new Uint8Array(await blob.arrayBuffer()))
-		.digest("hex");
-	const key = `${repo}/shared-slices/${sliceId}/${variationId}/${digest}${ext}`;
 
 	const aclUrl = new URL("create", getAclProviderUrl(host));
 	const acl = await request(aclUrl, {
@@ -213,62 +206,37 @@ export async function uploadScreenshot(
 		schema: AclCreateResponseSchema,
 	});
 
+	const extension = MIME_TYPE_EXTENSIONS[type];
+	const digest = createHash("md5")
+		.update(new Uint8Array(await blob.arrayBuffer()))
+		.digest("hex");
+	const key = `${repo}/shared-slices/${sliceId}/${variationId}/${digest}${extension}`;
+
 	const formData = new FormData();
 	for (const [field, value] of Object.entries(acl.values.fields)) {
 		formData.append(field, value);
 	}
 	formData.append("key", key);
-	formData.append("Content-Type", mimeType);
-	formData.append("file", new Blob([blob], { type: mimeType }));
+	formData.append("Content-Type", type);
+	formData.append("file", blob);
 
 	await request(acl.values.url, { method: "POST", body: formData });
 
-	const url = new URL(key, acl.imgixEndpoint);
+	const url = new URL(key, appendTrailingSlash(acl.imgixEndpoint));
 	url.searchParams.set("auto", "compress,format");
-	return url.toString();
+
+	return url;
 }
 
-async function resolveScreenshotSource(
-	source: string,
-): Promise<{ blob: Blob; ext: string }> {
-	if (URL.canParse(source)) {
-		const url = new URL(source);
-		if (url.protocol === "http:" || url.protocol === "https:") {
-			const response = await fetch(source);
-			if (!response.ok) {
-				throw new CommandError(
-					`Failed to download screenshot from "${source}" (HTTP ${response.status}).`,
-				);
-			}
+export class UnsupportedFileTypeError extends Error {
+	name = "UnsupportedFileTypeError";
 
-			let ext = extname(url.pathname);
-			if (!MIME_TYPES[ext]) {
-				const contentType = response.headers.get("content-type")?.split(";")[0].trim();
-				const match = Object.entries(MIME_TYPES).find(([, mime]) => mime === contentType);
-				ext = match?.[0] ?? ext;
-			}
-
-			return { blob: await response.blob(), ext };
-		}
+	constructor(mimeType: string) {
+		const supportedTypes = Object.keys(MIME_TYPE_EXTENSIONS);
+		super(
+			`Unsupported file type: ${mimeType || "unknown"}. Supported: ${supportedTypes.join(", ")}`,
+		);
 	}
-
-	let data: Uint8Array;
-	try {
-		data = await readFile(source);
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-			throw new CommandError(`Screenshot file not found: ${source}`);
-		}
-		throw error;
-	}
-
-	const ext = extname(source);
-	return { blob: new Blob([data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer]), ext };
-}
-
-function extname(path: string): string {
-	const match = path.match(/\.\w+$/);
-	return match ? match[0].toLowerCase() : "";
 }
 
 function getCustomTypesServiceUrl(host: string): URL {

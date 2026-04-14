@@ -44,7 +44,7 @@ it("adds a variation with a screenshot URL", async ({ expect, prismic, repo, tok
 		"--to",
 		slice.id,
 		"--screenshot",
-		"https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png?auto=compress,format",
+		"https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png",
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Added variation "${variationName}"`);
@@ -57,16 +57,24 @@ it("adds a variation with a screenshot URL", async ({ expect, prismic, repo, tok
 	expect(variation?.imageUrl).toContain(".png");
 });
 
-it("adds a variation with a local screenshot file", async ({ expect, prismic, project, repo, token, host }) => {
+it("adds a variation with a local screenshot file", async ({
+	expect,
+	prismic,
+	project,
+	repo,
+	token,
+	host,
+}) => {
 	const slice = buildSlice();
 	await insertSlice(slice, { repo, token, host });
 
-	const screenshotUrl = "https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png?auto=compress,format";
+	const screenshotUrl =
+		"https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png";
 	const response = await fetch(screenshotUrl);
 	const data = new Uint8Array(await response.arrayBuffer());
-	const screenshotUrl2 = new URL("screenshot.png", project);
-	await writeFile(screenshotUrl2, data);
-	const screenshotPath = fileURLToPath(screenshotUrl2);
+	const screenshotFileUrl = new URL("screenshot.png", project);
+	await writeFile(screenshotFileUrl, data);
+	const screenshotPath = fileURLToPath(screenshotFileUrl);
 
 	const variationName = `Variation${crypto.randomUUID().split("-")[0]}`;
 

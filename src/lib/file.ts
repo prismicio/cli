@@ -2,7 +2,7 @@ import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
-import { appendTrailingSlash } from "./url";
+import { appendTrailingSlash, getExtension } from "./url";
 
 export async function findUpward(
 	name: string,
@@ -67,4 +67,35 @@ export async function readJsonFile<T = unknown>(
 	const json = JSON.parse(file);
 	if (schema) return z.parse(schema, json);
 	return json;
+}
+
+const MIME_TYPES: Record<string, string> = {
+	png: "image/png",
+	jpg: "image/jpeg",
+	jpeg: "image/jpeg",
+	gif: "image/gif",
+	webp: "image/webp",
+};
+
+export async function readURLFile(url: URL): Promise<Blob> {
+	if (url.protocol === "http:" || url.protocol === "https:") {
+		const response = await fetch(url);
+		if (!response.ok) {
+			throw new Error(
+				`Failed to download file from "${url.toString()}" (HTTP ${response.status}).`,
+			);
+		}
+		return await response.blob();
+	}
+
+	if (url.protocol === "file:") {
+		const buffer = await readFile(url);
+		const extension = getExtension(url);
+		const type = extension
+			? MIME_TYPES[extension] || "application/octet-stream"
+			: "application/octet-stream";
+		return new Blob([buffer], { type });
+	}
+
+	throw new Error(`Unsupported file protocol: ${url.protocol}`);
 }

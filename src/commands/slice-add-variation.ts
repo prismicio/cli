@@ -1,11 +1,18 @@
 import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { camelCase } from "change-case";
+import { pathToFileURL } from "node:url";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getSlice, updateSlice, uploadScreenshot } from "../clients/custom-types";
+import {
+	getSlice,
+	UnsupportedFileTypeError,
+	updateSlice,
+	uploadScreenshot,
+} from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { readURLFile } from "../lib/file";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
@@ -25,7 +32,7 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [name] = positionals;
-	const { to, id = camelCase(name), repo = await getRepositoryName() } = values;
+	const { to, id = camelCase(name), screenshot, repo = await getRepositoryName() } = values;
 
 	const adapter = await getAdapter();
 	const token = await getToken();
@@ -37,14 +44,25 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	let imageUrl = "";
-	if (values.screenshot) {
-		imageUrl = await uploadScreenshot(values.screenshot, {
-			repo,
-			sliceId: to,
-			variationId: id,
-			token,
-			host,
-		});
+	if (screenshot) {
+		const url = URL.canParse(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
+		const blob = await readURLFile(url);
+		let screenshotUrl;
+		try {
+			screenshotUrl = await uploadScreenshot(blob, {
+				sliceId: slice.id,
+				variationId: id,
+				repo,
+				token,
+				host,
+			});
+		} catch (error) {
+			if (error instanceof UnsupportedFileTypeError) {
+				throw new CommandError(error.message);
+			}
+			throw error;
+		}
+		imageUrl = screenshotUrl.toString();
 	}
 
 	const updatedSlice: SharedSlice = {
