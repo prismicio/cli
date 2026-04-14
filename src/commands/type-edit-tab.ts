@@ -2,7 +2,7 @@ import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getCustomTypes, updateCustomType } from "../clients/custom-types";
+import { getCustomType, updateCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -29,14 +29,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const adapter = await getAdapter();
 	const token = await getToken();
 	const host = await getHost();
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const type = customTypes.find((ct) => ct.id === typeId);
+	const customType = await getCustomType(typeId, { repo, token, host });
 
-	if (!type) {
-		throw new CommandError(`Type not found: ${typeId}`);
-	}
-
-	if (!(currentName in type.json)) {
+	if (!(currentName in customType.json)) {
 		throw new CommandError(`Tab "${currentName}" not found in "${typeId}".`);
 	}
 
@@ -45,7 +40,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	if ("with-slice-zone" in values) {
-		const tab = type.json[currentName];
+		const tab = customType.json[currentName];
 		const hasSliceZone = Object.values(tab).some((field) => field.type === "Slices");
 
 		if (hasSliceZone) {
@@ -60,7 +55,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	if ("without-slice-zone" in values) {
-		const tab = type.json[currentName];
+		const tab = customType.json[currentName];
 		const sliceZoneEntry = Object.entries(tab).find(([, field]) => field.type === "Slices");
 
 		if (!sliceZoneEntry) {
@@ -81,19 +76,19 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	if ("name" in values) {
-		if (values.name! in type.json) {
+		if (values.name! in customType.json) {
 			throw new CommandError(`Tab "${values.name}" already exists in "${typeId}".`);
 		}
 
 		const newJson: CustomType["json"] = {};
-		for (const [key, value] of Object.entries(type.json)) {
+		for (const [key, value] of Object.entries(customType.json)) {
 			newJson[key === currentName ? values.name! : key] = value;
 		}
-		type.json = newJson;
+		customType.json = newJson;
 	}
 
 	try {
-		await updateCustomType(type, { repo, host, token });
+		await updateCustomType(customType, { repo, host, token });
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
@@ -103,9 +98,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	try {
-		await adapter.updateCustomType(type);
+		await adapter.updateCustomType(customType);
 	} catch {
-		await adapter.createCustomType(type);
+		await adapter.createCustomType(customType);
 	}
 	await adapter.generateTypes();
 
