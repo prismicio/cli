@@ -2,7 +2,6 @@ import { getRepository } from "./clients/repository";
 import { getProfile } from "./clients/user";
 import {
 	findConfigPath,
-	findLegacySliceMachineConfigPath,
 	findSuggestedConfigPath,
 	MissingPrismicConfig,
 	readConfig,
@@ -67,15 +66,6 @@ export async function checkIsTypeScriptProject(): Promise<boolean> {
 	const tsconfigPath = new URL("tsconfig.json", projectRoot);
 	const isTypeScriptProject = await exists(tsconfigPath);
 	return isTypeScriptProject;
-}
-
-export async function checkIsSliceMachineProject(): Promise<boolean> {
-	try {
-		await findLegacySliceMachineConfigPath();
-		return true;
-	} catch {
-		return false;
-	}
 }
 
 export async function checkIsTypeBuilderEnabled(

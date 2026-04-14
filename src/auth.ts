@@ -1,56 +1,37 @@
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
-import { homedir } from "node:os";
-import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
 import { refreshToken as baseRefreshToken } from "./clients/auth";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
-import { exists } from "./lib/file";
+import { getConfigDir } from "./lib/config-dir";
+import { exists, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
-import { appendTrailingSlash } from "./lib/url";
-import { checkIsSliceMachineProject } from "./project";
 
-export const AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
+const CONFIG_DIR = getConfigDir("prismic", env.PRISMIC_CONFIG_DIR);
+
+export const CREDENTIALS_PATH = new URL("credentials.json", CONFIG_DIR);
+export const UPDATE_NOTIFIER_STATE_PATH = new URL("update-notifier.json", CONFIG_DIR);
+
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
 const LOGIN_SOURCE = "prismic-cli";
 
-const AuthFileSchema = z.looseObject({
+const CredentialsSchema = z.looseObject({
 	token: z.optional(z.string().check(z.minLength(1))),
 	host: z.optional(z.string().check(z.minLength(1))),
-
-	// Update notifier state
-	latestKnownVersion: z.optional(z.string()),
-	lastUpdateCheckAt: z.optional(z.number()),
-
-	// Backward compatibility with Slice Machine's .prismic
-	base: z.optional(z.string()),
-	cookies: z.optional(z.string()),
 });
-type AuthFile = z.infer<typeof AuthFileSchema>;
+type Credentials = z.infer<typeof CredentialsSchema>;
 
 export async function getToken(): Promise<string | undefined> {
-	const auth = await readAuthFile();
-	const isSliceMachineProject = await checkIsSliceMachineProject();
-	if (isSliceMachineProject && auth?.cookies) {
-		for (const cookie of auth.cookies.split("; ")) {
-			if (cookie.startsWith("prismic-auth=")) return cookie.replace(/^prismic-auth=/, "");
-		}
-	}
-	return auth?.token;
+	const credentials = await readCredentials();
+	return credentials?.token;
 }
 
 export async function getHost(): Promise<string> {
 	if (env.PRISMIC_HOST) return env.PRISMIC_HOST;
-	const auth = await readAuthFile();
-	const isSliceMachineProject = await checkIsSliceMachineProject();
-	if (isSliceMachineProject && auth?.base) {
-		try {
-			return new URL(auth.base).host || DEFAULT_PRISMIC_HOST;
-		} catch {}
-	}
-	return auth?.host || DEFAULT_PRISMIC_HOST;
+	const credentials = await readCredentials();
+	return credentials?.host || DEFAULT_PRISMIC_HOST;
 }
 
 export async function refreshToken(): Promise<string | undefined> {
@@ -58,42 +39,34 @@ export async function refreshToken(): Promise<string | undefined> {
 	if (!token) return;
 	const host = await getHost();
 	const newToken = await baseRefreshToken(token, { host });
-	await saveAuthFile({ token: newToken, host });
+	await saveCredentials({ token: newToken, host });
 	return newToken;
 }
 
 export async function logout(): Promise<boolean> {
-	const authFileExists = await exists(AUTH_FILE_PATH);
-	if (!authFileExists) return true;
+	const credentialsExist = await exists(CREDENTIALS_PATH);
+	if (!credentialsExist) return true;
 
 	try {
-		await rm(AUTH_FILE_PATH, { force: true });
+		await rm(CREDENTIALS_PATH, { force: true });
 		return true;
 	} catch {
 		return false;
 	}
 }
 
-export async function readAuthFile(): Promise<AuthFile | undefined> {
+async function readCredentials(): Promise<Credentials | undefined> {
 	try {
-		const contents = await readFile(AUTH_FILE_PATH, "utf-8");
+		const contents = await readFile(CREDENTIALS_PATH, "utf-8");
 		const json = JSON.parse(contents);
-		return z.parse(AuthFileSchema, json);
+		return z.parse(CredentialsSchema, json);
 	} catch {
 		return undefined;
 	}
 }
 
-export async function saveAuthFile(auth: AuthFile): Promise<void> {
-	const existingAuthFile = await readAuthFile();
-	const newAuthFile: AuthFile = { ...existingAuthFile, ...auth };
-	const isSliceMachineProject = await checkIsSliceMachineProject();
-	if (isSliceMachineProject) {
-		if (newAuthFile.host) newAuthFile.base = `https://${newAuthFile.host}/`;
-		if (newAuthFile.token)
-			newAuthFile.cookies = `prismic-auth=${newAuthFile.token}; Path=/; SameSite=none; SESSION=fake_session; Path=/; SameSite=none`;
-	}
-	await writeFile(AUTH_FILE_PATH, stringify(newAuthFile));
+async function saveCredentials(credentials: Credentials): Promise<void> {
+	await writeFileRecursive(CREDENTIALS_PATH, stringify(credentials));
 }
 
 export async function createLoginSession(options?: {
@@ -139,7 +112,7 @@ export async function createLoginSession(options?: {
 							return;
 						}
 
-						await saveAuthFile({ token, host });
+						await saveCredentials({ token, host });
 
 						res.writeHead(200, {
 							"Access-Control-Allow-Origin": corsOrigin,
