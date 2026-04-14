@@ -47,6 +47,32 @@ export async function deleteRepository(
 	}
 }
 
+export async function getCustomTypes(config: RepoConfig): Promise<{ id: string }[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("customtypes", `https://customtypes.${host}/`);
+	const res = await fetch(url, {
+		headers: {
+			Authorization: `Bearer ${config.token}`,
+			repository: config.repo,
+		},
+	});
+	if (!res.ok) throw new Error(`Failed to get custom types: ${res.status} ${await res.text()}`);
+	return await res.json();
+}
+
+export async function getSlices(config: RepoConfig): Promise<{ id: string }[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("slices", `https://customtypes.${host}/`);
+	const res = await fetch(url, {
+		headers: {
+			Authorization: `Bearer ${config.token}`,
+			repository: config.repo,
+		},
+	});
+	if (!res.ok) throw new Error(`Failed to get slices: ${res.status} ${await res.text()}`);
+	return await res.json();
+}
+
 export async function insertCustomType(customType: object, config: RepoConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("customtypes/insert", `https://customtypes.${host}/`);
