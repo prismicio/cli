@@ -1,7 +1,8 @@
 import { getHost, getToken } from "../auth";
 import { getOAuthApps, getWriteTokens } from "../clients/wroom";
-import { createCommand, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
@@ -25,10 +26,20 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	const [apps, writeTokensInfo] = await Promise.all([
-		getOAuthApps({ repo, token, host }),
-		getWriteTokens({ repo, token, host }),
-	]);
+	let apps;
+	let writeTokensInfo;
+	try {
+		[apps, writeTokensInfo] = await Promise.all([
+			getOAuthApps({ repo, token, host }),
+			getWriteTokens({ repo, token, host }),
+		]);
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to list tokens: ${message}`);
+		}
+		throw error;
+	}
 
 	const accessTokens = apps.flatMap((app) =>
 		app.wroom_auths.map((auth) => ({

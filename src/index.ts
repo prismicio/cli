@@ -203,7 +203,7 @@ async function main(): Promise<void> {
 		}
 
 		if (error instanceof NotFoundRequestError) {
-			console.error(error.message);
+			console.error(error.message || "Not found. Verify the repository and any specified identifiers exist.");
 			return;
 		}
 

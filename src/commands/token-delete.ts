@@ -6,6 +6,7 @@ import {
 	getWriteTokens,
 } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -31,16 +32,34 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	const [apps, writeTokensInfo] = await Promise.all([
-		getOAuthApps({ repo, token, host }),
-		getWriteTokens({ repo, token, host }),
-	]);
+	let apps;
+	let writeTokensInfo;
+	try {
+		[apps, writeTokensInfo] = await Promise.all([
+			getOAuthApps({ repo, token, host }),
+			getWriteTokens({ repo, token, host }),
+		]);
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to delete token: ${message}`);
+		}
+		throw error;
+	}
 
 	// Search access tokens
 	const accessTokenAuths = apps.flatMap((app) => app.wroom_auths);
 	const accessToken = accessTokenAuths.find((auth) => auth.token === tokenValue);
 	if (accessToken) {
-		await deleteOAuthAuthorization(accessToken.id, { repo, token, host });
+		try {
+			await deleteOAuthAuthorization(accessToken.id, { repo, token, host });
+		} catch (error) {
+			if (error instanceof UnknownRequestError) {
+				const message = await error.text();
+				throw new CommandError(`Failed to delete token: ${message}`);
+			}
+			throw error;
+		}
 		console.info("Token deleted");
 		return;
 	}
@@ -48,7 +67,15 @@ export default createCommand(config, async ({ positionals, values }) => {
 	// Search write tokens
 	const writeToken = writeTokensInfo.tokens.find((t) => t.token === tokenValue);
 	if (writeToken) {
-		await deleteWriteToken(writeToken.token, { repo, token, host });
+		try {
+			await deleteWriteToken(writeToken.token, { repo, token, host });
+		} catch (error) {
+			if (error instanceof UnknownRequestError) {
+				const message = await error.text();
+				throw new CommandError(`Failed to delete token: ${message}`);
+			}
+			throw error;
+		}
 		console.info("Token deleted");
 		return;
 	}

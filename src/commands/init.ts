@@ -16,7 +16,10 @@ import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { installDependencies } from "../lib/packageJson";
-import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import {
+	ForbiddenRequestError,
+	UnauthorizedRequestError,
+} from "../lib/request";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 
 const config = {

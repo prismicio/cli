@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { request } from "../lib/request";
+import { NotFoundRequestError, request } from "../lib/request";
 
 const PreviewSchema = z.object({
 	id: z.string(),
@@ -24,11 +24,18 @@ export async function getPreviews(config: {
 		"core/repository/preview_configs",
 		getCoreBaseUrl(repo, host),
 	);
-	const response = await request(url, {
-		credentials: { "prismic-auth": token },
-		schema: GetPreviewsResponseSchema,
-	});
-	return response.results;
+	try {
+		const response = await request(url, {
+			credentials: { "prismic-auth": token },
+			schema: GetPreviewsResponseSchema,
+		});
+		return response.results;
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function addPreview(
@@ -41,15 +48,22 @@ export async function addPreview(
 ): Promise<void> {
 	const { repo, token, host } = config;
 	const url = new URL("previews/new", getCoreBaseUrl(repo, host));
-	await request(url, {
-		method: "POST",
-		body: {
-			name: previewConfig.name,
-			websiteURL: previewConfig.websiteURL,
-			resolverPath: previewConfig.resolverPath,
-		},
-		credentials: { "prismic-auth": token },
-	});
+	try {
+		await request(url, {
+			method: "POST",
+			body: {
+				name: previewConfig.name,
+				websiteURL: previewConfig.websiteURL,
+				resolverPath: previewConfig.resolverPath,
+			},
+			credentials: { "prismic-auth": token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function removePreview(
@@ -61,11 +75,18 @@ export async function removePreview(
 		`previews/delete/${id}`,
 		getCoreBaseUrl(repo, host),
 	);
-	await request(url, {
-		method: "POST",
-		body: {},
-		credentials: { "prismic-auth": token },
-	});
+	try {
+		await request(url, {
+			method: "POST",
+			body: {},
+			credentials: { "prismic-auth": token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = "Preview not found";
+		}
+		throw error;
+	}
 }
 
 const RepositoryResponseSchema = z.object({
@@ -79,11 +100,18 @@ export async function getSimulatorUrl(config: {
 }): Promise<string | undefined> {
 	const { repo, token, host } = config;
 	const url = new URL("core/repository", getCoreBaseUrl(repo, host));
-	const response = await request(url, {
-		credentials: { "prismic-auth": token },
-		schema: RepositoryResponseSchema,
-	});
-	return response.simulator_url;
+	try {
+		const response = await request(url, {
+			credentials: { "prismic-auth": token },
+			schema: RepositoryResponseSchema,
+		});
+		return response.simulator_url;
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function setSimulatorUrl(
@@ -92,11 +120,18 @@ export async function setSimulatorUrl(
 ): Promise<void> {
 	const { repo, token, host } = config;
 	const url = new URL("core/repository", getCoreBaseUrl(repo, host));
-	await request(url, {
-		method: "PATCH",
-		body: { simulator_url: simulatorUrl },
-		credentials: { "prismic-auth": token },
-	});
+	try {
+		await request(url, {
+			method: "PATCH",
+			body: { simulator_url: simulatorUrl },
+			credentials: { "prismic-auth": token },
+		});
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 function getCoreBaseUrl(repo: string, host: string): URL {

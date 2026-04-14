@@ -27,7 +27,17 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	const previews = await getPreviews({ repo, token, host });
+	let previews;
+	try {
+		previews = await getPreviews({ repo, token, host });
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to remove preview: ${message}`);
+		}
+		throw error;
+	}
+
 	const preview = previews.find((p) => p.url === previewUrl);
 	if (!preview) {
 		throw new CommandError(`Preview not found: ${previewUrl}`);

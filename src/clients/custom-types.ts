@@ -10,10 +10,17 @@ export async function getCustomTypes(config: {
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
 	const url = new URL("customtypes", customTypesServiceUrl);
-	const response = await request<CustomType[]>(url, {
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
-	});
-	return response;
+	try {
+		const response = await request<CustomType[]>(url, {
+			headers: { repository: repo, Authorization: `Bearer ${token}` },
+		});
+		return response;
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function getCustomType(
@@ -84,10 +91,17 @@ export async function getSlices(config: {
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
 	const url = new URL("slices", customTypesServiceUrl);
-	const response = await request<SharedSlice[]>(url, {
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
-	});
-	return response;
+	try {
+		const response = await request<SharedSlice[]>(url, {
+			headers: { repository: repo, Authorization: `Bearer ${token}` },
+		});
+		return response;
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
 }
 
 export async function getSlice(

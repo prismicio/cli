@@ -27,7 +27,17 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	const locales = await getLocales({ repo, token, host });
+	let locales;
+	try {
+		locales = await getLocales({ repo, token, host });
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to set master locale: ${message}`);
+		}
+		throw error;
+	}
+
 	const locale = locales.find((l) => l.id === code);
 
 	if (!locale) {
