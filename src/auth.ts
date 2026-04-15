@@ -3,15 +3,10 @@ import { createServer } from "node:http";
 import * as z from "zod/mini";
 
 import { refreshToken as baseRefreshToken } from "./clients/auth";
+import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
-import { getConfigDir } from "./lib/config-dir";
 import { exists, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
-
-const CONFIG_DIR = getConfigDir("prismic", env.PRISMIC_CONFIG_DIR);
-
-export const CREDENTIALS_PATH = new URL("credentials.json", CONFIG_DIR);
-export const UPDATE_NOTIFIER_STATE_PATH = new URL("update-notifier.json", CONFIG_DIR);
 
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;

@@ -11,7 +11,7 @@ import {
 	readConfig,
 	readLegacySliceMachineConfig,
 	UnknownProjectRoot,
-} from "../config";
+} from "../project";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
