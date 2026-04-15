@@ -93,6 +93,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	const field = targetFields[fieldId];
+	if (!field) {
+		throw new CommandError(`Field "${id}" does not exist.`);
+	}
 	field.config ??= {};
 
 	if ("label" in values) field.config.label = values.label;

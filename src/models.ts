@@ -78,9 +78,10 @@ export async function resolveFieldContainer(
 	}
 
 	const customType = await getCustomType(fromType!, apiConfig);
+	const root = id.includes(".") ? id.split(".")[0] : id;
 	let tab: Record<string, DynamicWidget> | undefined;
 	for (const tabName in customType.json) {
-		if (id in customType.json[tabName]) tab = customType.json[tabName];
+		if (root in customType.json[tabName]) tab = customType.json[tabName];
 	}
 	if (!tab) {
 		const fieldIds = Object.keys(Object.assign({}, ...Object.values(customType.json))) || "(none)";
