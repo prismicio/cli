@@ -8,7 +8,6 @@ export function getConfigDir(appName: string, override?: string): URL {
 		return appendTrailingSlash(pathToFileURL(override));
 	}
 
-
 	if (process.platform === "win32") {
 		const appData = process.env.APPDATA;
 		if (appData) {

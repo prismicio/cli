@@ -1,5 +1,7 @@
 import { readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
+import { homedir } from "node:os";
+import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
 import { refreshToken as baseRefreshToken } from "./clients/auth";
@@ -7,6 +9,7 @@ import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { exists, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
+import { appendTrailingSlash } from "./lib/url";
 
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
@@ -163,6 +166,33 @@ export async function createLoginSession(options?: {
 
 		server.listen(PREFERRED_PORT, "0.0.0.0", onListening);
 	});
+}
+
+const LEGACY_AUTH_FILE_PATH = new URL(
+	".prismic",
+	appendTrailingSlash(pathToFileURL(homedir())),
+);
+
+export async function cleanupLegacyAuthFile(): Promise<void> {
+	let contents: string;
+	try {
+		contents = await readFile(LEGACY_AUTH_FILE_PATH, "utf-8");
+	} catch {
+		return;
+	}
+
+	try {
+		const json = JSON.parse(contents);
+		if (!json || (json.latestKnownVersion === undefined && json.lastUpdateCheckAt === undefined)) {
+			return;
+		}
+	} catch {
+		return;
+	}
+
+	try {
+		await rm(LEGACY_AUTH_FILE_PATH, { force: true });
+	} catch {}
 }
 
 async function buildLoginUrl(host: string, port: number): Promise<URL> {

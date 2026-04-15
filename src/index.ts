@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
-import { getHost, refreshToken } from "./auth";
+import { cleanupLegacyAuthFile, getHost, refreshToken } from "./auth";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { getProfile } from "./clients/user";
 import docs from "./commands/docs";
@@ -109,6 +109,8 @@ async function main(): Promise<void> {
 		npmPackageName: packageJson.name,
 		statePath: UPDATE_NOTIFIER_STATE_PATH,
 	});
+
+	cleanupLegacyAuthFile().catch(() => {});
 
 	let {
 		positionals: [command],
