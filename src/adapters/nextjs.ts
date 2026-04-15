@@ -6,7 +6,7 @@ import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
-import { buildRoutePath } from "../config";
+import { buildRoutePath } from "../project";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";

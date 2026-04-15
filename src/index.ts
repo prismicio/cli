@@ -4,7 +4,8 @@ import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
-import { AUTH_FILE_PATH, getHost, refreshToken } from "./auth";
+import { cleanupLegacyAuthFile, getHost, refreshToken } from "./auth";
+import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { getProfile } from "./clients/user";
 import docs from "./commands/docs";
 import gen from "./commands/gen";
@@ -18,7 +19,7 @@ import sync from "./commands/sync";
 import token from "./commands/token";
 import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
-import { InvalidPrismicConfig, MissingPrismicConfig } from "./config";
+import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
 import { CommandError, createCommandRouter } from "./lib/command";
 import {
 	ForbiddenRequestError,
@@ -106,8 +107,10 @@ await main();
 async function main(): Promise<void> {
 	await initUpdateNotifier({
 		npmPackageName: packageJson.name,
-		statePath: AUTH_FILE_PATH,
+		statePath: UPDATE_NOTIFIER_STATE_PATH,
 	});
+
+	cleanupLegacyAuthFile().catch(() => {});
 
 	let {
 		positionals: [command],
@@ -188,16 +191,18 @@ async function main(): Promise<void> {
 		}
 
 		if (error instanceof NotFoundRequestError) {
-			console.error(error.message || "Not found. Verify the repository and any specified identifiers exist.");
+			console.error(
+				error.message || "Not found. Verify the repository and any specified identifiers exist.",
+			);
 			return;
 		}
 
-		if (error instanceof InvalidPrismicConfig) {
+		if (error instanceof InvalidPrismicConfigError) {
 			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
 			return;
 		}
 
-		if (error instanceof MissingPrismicConfig) {
+		if (error instanceof MissingPrismicConfigError) {
 			console.error(`${error.message} Run \`prismic init\` to create a config.`);
 			return;
 		}

@@ -12,7 +12,9 @@ it("logs out and deletes auth file", async ({ expect, home, prismic }) => {
 	const { stdout, exitCode } = await prismic("logout");
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Logged out of Prismic");
-	await expect(readFile(new URL(".prismic", home), "utf-8")).rejects.toThrow();
+	await expect(
+		readFile(new URL(".config/prismic/credentials.json", home), "utf-8"),
+	).rejects.toThrow();
 });
 
 it("succeeds when not logged in", async ({ expect, prismic, logout }) => {

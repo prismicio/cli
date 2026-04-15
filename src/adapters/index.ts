@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { addRoute, removeRoute, updateRoute } from "../config";
+import { addRoute, removeRoute, updateRoute } from "../project";
 import { readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";

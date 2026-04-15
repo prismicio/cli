@@ -116,13 +116,8 @@ try {
 	const {version} = await res.json();
 	if (typeof version !== "string") process.exit(0);
 	const fs = await import("node:fs/promises");
-	let existing = {};
-	try {
-		const parsed = JSON.parse(await fs.readFile(statePath, "utf-8"));
-		if (parsed && typeof parsed === "object") existing = parsed;
-	} catch {}
-	existing.latestKnownVersion = version;
-	existing.lastUpdateCheckAt = Date.now();
-	await fs.writeFile(statePath, JSON.stringify(existing, null, 2));
+	const {dirname} = await import("node:path");
+	await fs.mkdir(dirname(statePath), {recursive: true});
+	await fs.writeFile(statePath, JSON.stringify({latestKnownVersion: version, lastUpdateCheckAt: Date.now()}, null, 2));
 } catch {}
 `;

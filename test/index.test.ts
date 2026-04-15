@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 
 import packageJson from "../package.json" with { type: "json" };
 import { it } from "./it";
@@ -20,8 +20,10 @@ it("prints an update notification when a newer version is cached", async ({
 	home,
 	prismic,
 }) => {
+	const configDir = new URL(".config/prismic/", home);
+	await mkdir(configDir, { recursive: true });
 	await writeFile(
-		new URL(".prismic", home),
+		new URL("update-notifier.json", configDir),
 		JSON.stringify({
 			latestKnownVersion: "99.0.0",
 			lastUpdateCheckAt: Date.now(),

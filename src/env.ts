@@ -15,6 +15,7 @@ const Env = z.object({
 	PRISMIC_SENTRY_ENABLED: z.optional(z.stringbool()),
 	PRISMIC_HOST: z.optional(z.string()),
 	PRISMIC_DOCS_HOST: z.optional(z.string()),
+	PRISMIC_CONFIG_DIR: z.optional(z.string()),
 	PRISMIC_TYPE_BUILDER_ENABLED: z.optional(z.stringbool()),
 });
 
