@@ -202,7 +202,7 @@ async function buildLoginUrl(host: string, port: number): Promise<URL> {
 
 export function spawnTokenRefresh(): void {
 	try {
-		const script = fileURLToPath(new URL("./subprocesses/refresh-token.mjs", import.meta.url));
+		const script = fileURLToPath(new URL("./subprocesses/refreshToken.mjs", import.meta.url));
 		const child = spawn(process.execPath, [script], { detached: true, stdio: "ignore" });
 		child.unref();
 	} catch {

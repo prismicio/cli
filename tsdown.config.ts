@@ -6,9 +6,9 @@ const TEST = MODE === "test";
 export default defineConfig({
 	entry: {
 		index: "./src/index.ts",
-		"subprocesses/refresh-token": "./src/subprocesses/refresh-token.ts",
-		"subprocesses/flush-telemetry": "./src/subprocesses/flush-telemetry.ts",
-		"subprocesses/update-check": "./src/subprocesses/update-check.ts",
+		"subprocesses/refreshToken": "./src/subprocesses/refreshToken.ts",
+		"subprocesses/sendSegmentEvents": "./src/subprocesses/sendSegmentEvents.ts",
+		"subprocesses/updateVersionState": "./src/subprocesses/updateVersionState.ts",
 	},
 	format: "esm",
 	platform: "node",

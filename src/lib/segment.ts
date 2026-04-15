@@ -8,6 +8,14 @@ import { fileURLToPath } from "node:url";
 import packageJson from "../../package.json" with { type: "json" };
 import { env } from "../env";
 
+const SEGMENT_WRITE_KEY =
+	process.env.PRISMIC_ENV && process.env.PRISMIC_ENV !== "production"
+		? "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG"
+		: "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
+
+const SEGMENT_TRACK_URL = "https://api.segment.io/v1/track";
+const SEGMENT_IDENTIFY_URL = "https://api.segment.io/v1/identify";
+
 let enabled = false;
 let anonymousId = "";
 let userId: string | undefined;
@@ -136,7 +144,7 @@ function flushTelemetry(): void {
 		).toString("base64");
 
 		const script = fileURLToPath(
-			new URL("./subprocesses/flush-telemetry.mjs", import.meta.url),
+			new URL("./subprocesses/sendSegmentEvents.mjs", import.meta.url),
 		);
 		const child = spawn(process.execPath, [script, payload], {
 			detached: true,
@@ -149,6 +157,29 @@ function flushTelemetry(): void {
 
 	trackQueue.length = 0;
 	identifyQueue.length = 0;
+}
+
+export async function sendSegmentEvents(
+	trackEvents: unknown[],
+	identifyEvents: unknown[],
+): Promise<void> {
+	const headers = {
+		"Content-Type": "application/json",
+		Authorization: `Basic ${btoa(SEGMENT_WRITE_KEY + ":")}`,
+	};
+
+	await Promise.allSettled([
+		...trackEvents.map((e) =>
+			fetch(SEGMENT_TRACK_URL, { method: "POST", headers, body: JSON.stringify(e) }).catch(
+				() => {},
+			),
+		),
+		...identifyEvents.map((e) =>
+			fetch(SEGMENT_IDENTIFY_URL, { method: "POST", headers, body: JSON.stringify(e) }).catch(
+				() => {},
+			),
+		),
+	]);
 }
 
 async function isTelemetryEnabled(): Promise<boolean> {

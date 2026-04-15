@@ -1,9 +1,12 @@
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
 
 import packageJson from "../../package.json" with { type: "json" };
+import { stringify } from "./json";
+import { getNpmPackageVersion } from "./packageJson";
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -80,15 +83,23 @@ function isNewer(latest: string, current: string): boolean {
 	return false;
 }
 
-/**
- * Spawns a detached subprocess to fetch the latest version from the npm
- * registry and persist it to the state file. The main process exits
- * immediately; the subprocess handles HTTP delivery and the file write.
- */
+export async function updateVersionState(
+	npmPackageName: string,
+	statePath: URL,
+): Promise<void> {
+	const version = await getNpmPackageVersion(npmPackageName);
+	const filePath = fileURLToPath(statePath);
+	await mkdir(dirname(filePath), { recursive: true });
+	await writeFile(
+		filePath,
+		stringify({ latestKnownVersion: version, lastUpdateCheckAt: Date.now() }),
+	);
+}
+
 function spawnBackgroundCheck(): void {
 	try {
 		const script = fileURLToPath(
-			new URL("./subprocesses/update-check.mjs", import.meta.url),
+			new URL("./subprocesses/updateVersionState.mjs", import.meta.url),
 		);
 		const child = spawn(process.execPath, [script], { detached: true, stdio: "ignore" });
 		child.unref();
