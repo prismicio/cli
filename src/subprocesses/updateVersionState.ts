@@ -1,7 +1,7 @@
-import packageJson from "../../package.json" with { type: "json" };
-import { UPDATE_NOTIFIER_STATE_PATH } from "../config";
 import { updateVersionState } from "../lib/update-notifier";
 
+const [npmPackageName, statePathHref] = process.argv.slice(2);
+
 try {
-	await updateVersionState(packageJson.name, UPDATE_NOTIFIER_STATE_PATH);
+	await updateVersionState(npmPackageName, new URL(statePathHref));
 } catch {}

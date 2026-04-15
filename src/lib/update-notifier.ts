@@ -41,7 +41,7 @@ export async function initUpdateNotifier(options: UpdateNotifierOptions): Promis
 			!state?.lastUpdateCheckAt || Date.now() - state.lastUpdateCheckAt > CHECK_INTERVAL_MS;
 		if (isStale) {
 			process.on("exit", () => {
-				spawnBackgroundCheck();
+				spawnBackgroundCheck(options.npmPackageName, options.statePath);
 			});
 		}
 	} catch {
@@ -96,12 +96,15 @@ export async function updateVersionState(
 	);
 }
 
-function spawnBackgroundCheck(): void {
+function spawnBackgroundCheck(npmPackageName: string, statePath: URL): void {
 	try {
 		const script = fileURLToPath(
 			new URL("./subprocesses/updateVersionState.mjs", import.meta.url),
 		);
-		const child = spawn(process.execPath, [script], { detached: true, stdio: "ignore" });
+		const child = spawn(process.execPath, [script, npmPackageName, statePath.href], {
+			detached: true,
+			stdio: "ignore",
+		});
 		child.unref();
 	} catch {
 		// Silent failure — never breaks the CLI.
