@@ -83,7 +83,8 @@ export async function resolveFieldContainer(
 		if (root in customType.json[tabName]) tab = customType.json[tabName];
 	}
 	if (!tab) {
-		const fieldIds = Object.keys(Object.assign({}, ...Object.values(customType.json))).join(", ") || "(none)";
+		const fieldIds =
+			Object.keys(Object.assign({}, ...Object.values(customType.json))).join(", ") || "(none)";
 		throw new CommandError(`Field "${id}" not found. Available: ${fieldIds}`);
 	}
 	resolveFieldTarget(tab, id);
@@ -111,7 +112,9 @@ export async function resolveFieldPair(
 		variation?: string;
 	},
 	apiConfig: ApiConfig,
-): Promise<[sourceFields: Fields, anchorFields: Fields, save: () => Promise<void>, modelKind: ModelKind]> {
+): Promise<
+	[sourceFields: Fields, anchorFields: Fields, save: () => Promise<void>, modelKind: ModelKind]
+> {
 	const adapter = await getAdapter();
 	const {
 		"from-slice": fromSlice,
@@ -389,7 +392,6 @@ async function resolveFields(
 			const groupFields = field.config?.fields ?? {};
 			const resolved = await resolveFields(subPaths, groupFields, context, apiConfig, crDepth);
 			result.push({ id, fields: resolved });
-
 		} else if (field.type === "Link" && field.config?.select === "document") {
 			if (crDepth <= 0) {
 				throw new CommandError("Cannot nest deeper than --field group.cr.group.leaf.");
@@ -406,10 +408,12 @@ async function resolveFields(
 
 			// Cross the CR boundary: fetch the target type and resolve sub-paths against it.
 			const nestedType = await getCustomType(ctId, apiConfig);
-			const nestedFields: Record<string, Field> = Object.assign({}, ...Object.values(nestedType.json));
+			const nestedFields: Record<string, Field> = Object.assign(
+				{},
+				...Object.values(nestedType.json),
+			);
 			const resolved = await resolveFields(subPaths, nestedFields, ctId, apiConfig, crDepth - 1);
 			result.push({ id, customtypes: [{ id: ctId, fields: resolved }] });
-
 		} else {
 			throw new CommandError(`Field "${id}" is not a group or content relationship field.`);
 		}
@@ -426,6 +430,8 @@ function validateLeafField(id: string, fields: Record<string, Field>, context: s
 		throw new CommandError(`Field "${id}" cannot be fetched from a content relationship.`);
 	}
 	if (fields[id].type === "Group") {
-		throw new CommandError(`Field "${id}" is a group. Select specific sub-fields with --field ${id}.<sub-field>.`);
+		throw new CommandError(
+			`Field "${id}" is a group. Select specific sub-fields with --field ${id}.<sub-field>.`,
+		);
 	}
 }

@@ -1,10 +1,5 @@
 import { buildCustomType, buildSlice, it } from "./it";
-import {
-	getCustomTypes,
-	getSlices,
-	insertCustomType,
-	insertSlice,
-} from "./prismic";
+import { getCustomTypes, getSlices, insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("field", ["add", "link", "--help"]);

@@ -13,7 +13,12 @@ it("edits a type name", async ({ expect, prismic, repo, token, host }) => {
 
 	const newName = `TypeT${crypto.randomUUID().split("-")[0]}`;
 
-	const { stdout, stderr, exitCode } = await prismic("type", ["edit", customType.id, "--name", newName]);
+	const { stdout, stderr, exitCode } = await prismic("type", [
+		"edit",
+		customType.id,
+		"--name",
+		newName,
+	]);
 	expect(stderr).toBe("");
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Type updated: "${newName}" (id: ${customType.id})`);

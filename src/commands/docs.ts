@@ -1,5 +1,4 @@
 import { createCommandRouter } from "../lib/command";
-
 import docsList from "./docs-list";
 import docsView from "./docs-view";
 

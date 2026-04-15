@@ -63,8 +63,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 
 		const [sliceZoneId, sliceZoneField] = sliceZoneEntry;
-		const choices =
-			sliceZoneField.type === "Slices" ? (sliceZoneField.config?.choices ?? {}) : {};
+		const choices = sliceZoneField.type === "Slices" ? (sliceZoneField.config?.choices ?? {}) : {};
 
 		if (Object.keys(choices).length > 0) {
 			throw new CommandError(

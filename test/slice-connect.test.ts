@@ -27,12 +27,7 @@ it("connects a slice to a type", async ({ expect, prismic, repo, token, host }) 
 	await insertSlice(slice, { repo, token, host });
 	await insertCustomType(customType, { repo, token, host });
 
-	const { stdout, exitCode } = await prismic("slice", [
-		"connect",
-		slice.id,
-		"--to",
-		customType.id,
-	]);
+	const { stdout, exitCode } = await prismic("slice", ["connect", slice.id, "--to", customType.id]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Connected slice "${slice.id}" to "${customType.id}"`);
 

@@ -7,11 +7,11 @@ import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
-import { buildRoutePath, readConfig, updateConfig } from "../project";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import { appendTrailingSlash } from "../lib/url";
+import { buildRoutePath, readConfig, updateConfig } from "../project";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import { pageTemplate, sliceSimulatorPageTemplate, sliceTemplate } from "./nuxt.templates";
 

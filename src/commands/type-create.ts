@@ -16,7 +16,11 @@ const config = {
 		name: { description: "Name of the content type", required: true },
 	},
 	options: {
-		format: { type: "string", short: "f", description: 'Type format: "custom" (default) or "page"' },
+		format: {
+			type: "string",
+			short: "f",
+			description: 'Type format: "custom" (default) or "page"',
+		},
 		single: { type: "boolean", short: "s", description: "Allow only one document of this type" },
 		id: { type: "string", description: "Custom ID for the content type" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
