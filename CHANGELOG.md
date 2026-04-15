@@ -13,7 +13,6 @@
 ### Bug Fixes
 
 * handle 404 errors with contextual messages ([#121](https://github.com/prismicio/cli/issues/121)) ([7f75f97](https://github.com/prismicio/cli/commit/7f75f978ca6509eac7572b78dac30754a4f30609))
-* poll CT API for consistency in sync tests ([#120](https://github.com/prismicio/cli/issues/120)) ([876512e](https://github.com/prismicio/cli/commit/876512e8f5f9a7456050613cbc90c8bb10d4cec1))
 
 ## [1.5.0](https://github.com/prismicio/cli/compare/v1.4.0...v1.5.0) (2026-04-08)
 
