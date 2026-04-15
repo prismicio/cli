@@ -8,14 +8,8 @@ import { fileURLToPath } from "node:url";
 import packageJson from "../../package.json" with { type: "json" };
 import { env } from "../env";
 
-const SEGMENT_WRITE_KEY =
-	process.env.PRISMIC_ENV && process.env.PRISMIC_ENV !== "production"
-		? "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG"
-		: "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
-
 let enabled = false;
 let anonymousId = "";
-let authorization = "";
 let userId: string | undefined;
 let globalRepository: string | undefined;
 const appContext = { app: { name: packageJson.name, version: packageJson.version } };
@@ -37,7 +31,6 @@ export async function initSegment(): Promise<void> {
 		}
 
 		anonymousId = randomUUID();
-		authorization = `Basic ${btoa(SEGMENT_WRITE_KEY + ":")}`;
 		process.on("exit", flushTelemetry);
 	} catch {
 		enabled = false;
@@ -130,7 +123,6 @@ function flushTelemetry(): void {
 	try {
 		const payload = Buffer.from(
 			JSON.stringify({
-				authorization,
 				trackEvents: trackQueue.map((e) => ({
 					...(userId ? { userId } : {}),
 					anonymousId,

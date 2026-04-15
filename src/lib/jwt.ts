@@ -1,13 +1,7 @@
 import * as z from "zod/mini";
 
 const JWTPayloadSchema = z.looseObject({
-	iss: z.optional(z.string()),
-	sub: z.optional(z.string()),
-	aud: z.optional(z.string()),
 	exp: z.optional(z.number()),
-	nbf: z.optional(z.number()),
-	iat: z.optional(z.number()),
-	jti: z.optional(z.string()),
 });
 export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
 
