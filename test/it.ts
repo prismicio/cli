@@ -88,12 +88,14 @@ export const it = test.extend<Fixtures>({
 	prismic: async ({ home, project, login }, use) => {
 		await login();
 		const binDir = new URL("bin/", home);
+		const configDir = new URL(".config/prismic/", home);
 		const procs: Result[] = [];
 		await use((command, args = [], options) => {
 			const env = {
 				...process.env,
 				PRISMIC_TYPE_BUILDER_ENABLED: "true",
 				NO_UPDATE_NOTIFIER: "1",
+				PRISMIC_CONFIG_DIR: fileURLToPath(configDir),
 				...options?.nodeOptions?.env,
 				PATH: `${fileURLToPath(binDir)}:${process.env.PATH}`,
 				HOME: fileURLToPath(home),

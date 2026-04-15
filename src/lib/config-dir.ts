@@ -8,7 +8,6 @@ export function getConfigDir(appName: string, override?: string): URL {
 		return appendTrailingSlash(pathToFileURL(override));
 	}
 
-	const home = appendTrailingSlash(pathToFileURL(homedir()));
 
 	if (process.platform === "win32") {
 		const appData = process.env.APPDATA;
@@ -23,6 +22,8 @@ export function getConfigDir(appName: string, override?: string): URL {
 			return new URL(`${appName}/`, appendTrailingSlash(pathToFileURL(xdgConfigHome)));
 		}
 	}
+
+	const home = appendTrailingSlash(pathToFileURL(homedir()));
 
 	return new URL(`.config/${appName}/`, home);
 }
