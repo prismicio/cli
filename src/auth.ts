@@ -5,7 +5,6 @@ import { homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
-import { refreshToken as baseRefreshToken } from "./clients/auth";
 import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { exists, writeFileRecursive } from "./lib/file";
@@ -31,15 +30,6 @@ export async function getHost(): Promise<string> {
 	if (env.PRISMIC_HOST) return env.PRISMIC_HOST;
 	const credentials = await readCredentials();
 	return credentials?.host || DEFAULT_PRISMIC_HOST;
-}
-
-export async function refreshToken(): Promise<string | undefined> {
-	const token = await getToken();
-	if (!token) return;
-	const host = await getHost();
-	const newToken = await baseRefreshToken(token, { host });
-	await saveCredentials({ token: newToken, host });
-	return newToken;
 }
 
 export async function logout(): Promise<boolean> {
@@ -228,7 +218,7 @@ try {
 	const raw = await fs.readFile(credentialsPath, "utf-8");
 	const creds = JSON.parse(raw);
 	if (!creds.token) process.exit(0);
-	const host = creds.host || defaultHost;
+	const host = process.env.PRISMIC_HOST || creds.host || defaultHost;
 	const url = new URL("refreshtoken", \`https://auth.\${host}/\`);
 	url.searchParams.set("token", creds.token);
 	const res = await fetch(url, {headers: {"User-Agent": "prismic-cli"}});
