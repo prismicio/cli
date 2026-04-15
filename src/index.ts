@@ -5,9 +5,7 @@ import { parseArgs } from "node:util";
 import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { cleanupLegacyAuthFile, getHost, refreshToken } from "./auth";
-import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { getProfile } from "./clients/user";
-import type_ from "./commands/type";
 import docs from "./commands/docs";
 import field from "./commands/field";
 import gen from "./commands/gen";
@@ -20,9 +18,10 @@ import repo from "./commands/repo";
 import slice from "./commands/slice";
 import sync from "./commands/sync";
 import token from "./commands/token";
+import type_ from "./commands/type";
 import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
-import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
+import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { CommandError, createCommandRouter } from "./lib/command";
 import {
 	ForbiddenRequestError,
@@ -45,6 +44,7 @@ import {
 } from "./lib/sentry";
 import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
+import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
 import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
 const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs"];

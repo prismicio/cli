@@ -168,10 +168,7 @@ export async function createLoginSession(options?: {
 	});
 }
 
-const LEGACY_AUTH_FILE_PATH = new URL(
-	".prismic",
-	appendTrailingSlash(pathToFileURL(homedir())),
-);
+const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 
 export async function cleanupLegacyAuthFile(): Promise<void> {
 	let contents: string;

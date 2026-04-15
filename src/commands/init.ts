@@ -3,6 +3,11 @@ import type { Profile } from "../clients/user";
 import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
 import { getProfile } from "../clients/user";
+import { DEFAULT_PRISMIC_HOST } from "../env";
+import { openBrowser } from "../lib/browser";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { installDependencies } from "../lib/packageJson";
+import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
 	createConfig,
 	deleteLegacySliceMachineConfig,
@@ -12,14 +17,6 @@ import {
 	readLegacySliceMachineConfig,
 	UnknownProjectRootError,
 } from "../project";
-import { DEFAULT_PRISMIC_HOST } from "../env";
-import { openBrowser } from "../lib/browser";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { installDependencies } from "../lib/packageJson";
-import {
-	ForbiddenRequestError,
-	UnauthorizedRequestError,
-} from "../lib/request";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 
 const config = {

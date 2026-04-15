@@ -28,7 +28,11 @@ const config = {
 	options: {
 		...TARGET_OPTIONS,
 		label: { type: "string", description: "Field label" },
-		tag: { type: "string", multiple: true, description: "Restrict to documents with this tag (can be repeated)" },
+		tag: {
+			type: "string",
+			multiple: true,
+			description: "Restrict to documents with this tag (can be repeated)",
+		},
 		"custom-type": {
 			type: "string",
 			multiple: true,
@@ -37,7 +41,8 @@ const config = {
 		field: {
 			type: "string",
 			multiple: true,
-			description: "Fetch this field from the related document (can be repeated, requires one --custom-type)",
+			description:
+				"Fetch this field from the related document (can be repeated, requires one --custom-type)",
 		},
 	},
 } satisfies CommandConfig;
@@ -64,8 +69,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 	let resolvedCustomTypes: NonNullable<Link["config"]>["customtypes"] = customtypes;
 	if (fieldSelection && customtypes) {
 		const targetType = await getCustomType(customtypes[0], { repo, token, host });
-		const resolvedFields = await resolveFieldSelection(fieldSelection, targetType, { repo, token, host });
-		resolvedCustomTypes = [{ id: customtypes[0], fields: resolvedFields }] as typeof resolvedCustomTypes;
+		const resolvedFields = await resolveFieldSelection(fieldSelection, targetType, {
+			repo,
+			token,
+			host,
+		});
+		resolvedCustomTypes = [
+			{ id: customtypes[0], fields: resolvedFields },
+		] as typeof resolvedCustomTypes;
 	}
 
 	const field: Link = {

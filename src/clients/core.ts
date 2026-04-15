@@ -20,10 +20,7 @@ export async function getPreviews(config: {
 	host: string;
 }): Promise<Preview[]> {
 	const { repo, token, host } = config;
-	const url = new URL(
-		"core/repository/preview_configs",
-		getCoreBaseUrl(repo, host),
-	);
+	const url = new URL("core/repository/preview_configs", getCoreBaseUrl(repo, host));
 	try {
 		const response = await request(url, {
 			credentials: { "prismic-auth": token },
@@ -71,10 +68,7 @@ export async function removePreview(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	const { repo, token, host } = config;
-	const url = new URL(
-		`previews/delete/${id}`,
-		getCoreBaseUrl(repo, host),
-	);
+	const url = new URL(`previews/delete/${id}`, getCoreBaseUrl(repo, host));
 	try {
 		await request(url, {
 			method: "POST",

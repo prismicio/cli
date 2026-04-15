@@ -15,12 +15,7 @@ it("views a field in a slice", async ({ expect, prismic, repo, token, host }) =>
 	};
 	await insertSlice(slice, { repo, token, host });
 
-	const { stdout, exitCode } = await prismic("field", [
-		"view",
-		"title",
-		"--from-slice",
-		slice.id,
-	]);
+	const { stdout, exitCode } = await prismic("field", ["view", "title", "--from-slice", slice.id]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Type: StructuredText");
 	expect(stdout).toContain("Label: Title");

@@ -16,7 +16,10 @@ const config = {
 		project root.
 	`,
 	positionals: {
-		url: { description: "Simulator URL (e.g. https://example.com/slice-simulator)", required: true },
+		url: {
+			description: "Simulator URL (e.g. https://example.com/slice-simulator)",
+			required: true,
+		},
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },

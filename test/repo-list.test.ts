@@ -16,7 +16,5 @@ it("lists repositories as JSON", async ({ expect, prismic, repo }) => {
 	const { stdout, exitCode } = await prismic("repo", ["list", "--json"]);
 	expect(exitCode).toBe(0);
 	const parsed = JSON.parse(stdout);
-	expect(parsed).toEqual(
-		expect.arrayContaining([expect.objectContaining({ domain: repo })]),
-	);
+	expect(parsed).toEqual(expect.arrayContaining([expect.objectContaining({ domain: repo })]));
 });

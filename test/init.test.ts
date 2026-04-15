@@ -42,13 +42,7 @@ it("initializes a project with --repo when logged in", async ({
 	expect(config.repositoryName).toBe(repo);
 }, 60_000);
 
-it("triggers login flow when not logged in", async ({
-	expect,
-	project,
-	prismic,
-	logout,
-	repo,
-}) => {
+it("triggers login flow when not logged in", async ({ expect, project, prismic, logout, repo }) => {
 	await rm(new URL("prismic.config.json", project));
 	await logout();
 
