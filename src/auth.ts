@@ -1,7 +1,8 @@
+import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
 import { refreshToken as baseRefreshToken } from "./clients/auth";
@@ -198,3 +199,46 @@ async function buildLoginUrl(host: string, port: number): Promise<URL> {
 	url.searchParams.set("port", port.toString());
 	return url;
 }
+
+export function spawnTokenRefresh(): void {
+	try {
+		const payload = Buffer.from(
+			JSON.stringify({
+				credentialsPath: fileURLToPath(CREDENTIALS_PATH),
+				defaultHost: DEFAULT_PRISMIC_HOST,
+			}),
+		).toString("base64");
+
+		const child = spawn(
+			process.execPath,
+			["--input-type=module", "-e", REFRESH_SCRIPT, payload],
+			{ detached: true, stdio: "ignore" },
+		);
+		child.unref();
+	} catch {
+		// Silent failure — never breaks the CLI.
+	}
+}
+
+const REFRESH_SCRIPT = `
+const fs = await import("node:fs/promises");
+const {dirname} = await import("node:path");
+const {credentialsPath, defaultHost} = JSON.parse(Buffer.from(process.argv[1], "base64").toString());
+try {
+	const raw = await fs.readFile(credentialsPath, "utf-8");
+	const creds = JSON.parse(raw);
+	if (!creds.token) process.exit(0);
+	const host = creds.host || defaultHost;
+	const url = new URL("refreshtoken", \`https://auth.\${host}/\`);
+	url.searchParams.set("token", creds.token);
+	const res = await fetch(url, {headers: {"User-Agent": "prismic-cli"}});
+	if (!res.ok) process.exit(0);
+	const text = await res.text();
+	let newToken;
+	try { newToken = JSON.parse(text); } catch { newToken = text; }
+	if (typeof newToken !== "string" || !newToken) process.exit(0);
+	creds.token = newToken;
+	await fs.mkdir(dirname(credentialsPath), {recursive: true});
+	await fs.writeFile(credentialsPath, JSON.stringify(creds, null, 2));
+} catch {}
+`;
