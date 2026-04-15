@@ -7,7 +7,7 @@ import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
 import { getCustomTypes, getSlices } from "../clients/custom-types";
-import { addRoute, removeRoute, updateRoute } from "../config";
+import { addRoute, removeRoute, updateRoute } from "../project";
 import { readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";

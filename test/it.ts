@@ -71,8 +71,10 @@ export const it = test.extend<Fixtures>({
 	},
 	login: async ({ token, home }, use) => {
 		await use(async () => {
+			const configDir = new URL(".config/prismic/", home);
+			await mkdir(configDir, { recursive: true });
 			await writeFile(
-				new URL(".prismic", home),
+				new URL("credentials.json", configDir),
 				JSON.stringify({ token, host: DEFUALT_PRISMIC_HOST }),
 			);
 			return { token, email: E2E_PRISMIC_EMAIL };
@@ -80,18 +82,20 @@ export const it = test.extend<Fixtures>({
 	},
 	logout: async ({ home }, use) => {
 		await use(async () => {
-			await rm(new URL(".prismic", home), { recursive: true, force: true });
+			await rm(new URL(".config/prismic/credentials.json", home), { force: true });
 		});
 	},
 	prismic: async ({ home, project, login }, use) => {
 		await login();
 		const binDir = new URL("bin/", home);
+		const configDir = new URL(".config/prismic/", home);
 		const procs: Result[] = [];
 		await use((command, args = [], options) => {
 			const env = {
 				...process.env,
 				PRISMIC_TYPE_BUILDER_ENABLED: "true",
 				NO_UPDATE_NOTIFIER: "1",
+				PRISMIC_CONFIG_DIR: fileURLToPath(configDir),
 				...options?.nodeOptions?.env,
 				PATH: `${fileURLToPath(binDir)}:${process.env.PATH}`,
 				HOME: fileURLToPath(home),

@@ -6,12 +6,12 @@ import { getProfile } from "../clients/user";
 import {
 	createConfig,
 	deleteLegacySliceMachineConfig,
-	InvalidLegacySliceMachineConfig,
-	MissingPrismicConfig,
+	InvalidLegacySliceMachineConfigError,
+	MissingPrismicConfigError,
 	readConfig,
 	readLegacySliceMachineConfig,
-	UnknownProjectRoot,
-} from "../config";
+	UnknownProjectRootError,
+} from "../project";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -49,7 +49,7 @@ export default createCommand(config, async ({ values }) => {
 			"A prismic.config.json file exists. This project is already initialized.",
 		);
 	} catch (error) {
-		if (error instanceof MissingPrismicConfig) {
+		if (error instanceof MissingPrismicConfigError) {
 			// No config found — proceed with initialization.
 		} else {
 			throw error;
@@ -61,7 +61,7 @@ export default createCommand(config, async ({ values }) => {
 	try {
 		legacySliceMachineConfig = await readLegacySliceMachineConfig();
 	} catch (error) {
-		if (error instanceof InvalidLegacySliceMachineConfig) {
+		if (error instanceof InvalidLegacySliceMachineConfigError) {
 			console.warn("Could not read slicemachine.config.json, ignoring.");
 		}
 	}
@@ -124,7 +124,7 @@ export default createCommand(config, async ({ values }) => {
 			routes: [],
 		});
 	} catch (error) {
-		if (error instanceof UnknownProjectRoot) {
+		if (error instanceof UnknownProjectRootError) {
 			throw new CommandError(
 				"Could not find a package.json file. Run this command from a project directory.",
 			);

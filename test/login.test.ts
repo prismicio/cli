@@ -25,7 +25,7 @@ it("logs in and writes token", async ({ expect, home, prismic, logout }) => {
 	});
 	await expect.poll(output).toContain("Logged in to Prismic as test@example.com");
 
-	const authFile = await readFile(new URL(".prismic", home), "utf-8");
+	const authFile = await readFile(new URL(".config/prismic/credentials.json", home), "utf-8");
 	const { token } = JSON.parse(authFile);
 	expect(token).toBe("test-token-123");
 });
