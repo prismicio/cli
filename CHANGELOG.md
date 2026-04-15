@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.1](https://github.com/prismicio/cli/compare/v1.6.0...v1.6.1) (2026-04-15)
+
+
+### Bug Fixes
+
+* only send unknown or intentionally tracked errors to Segment ([#136](https://github.com/prismicio/cli/issues/136)) ([604e895](https://github.com/prismicio/cli/commit/604e895218dee2d68b57dcd55162c5a5465941da))
+
+
+### Performance Improvements
+
+* move token refresh to a detached subprocess ([#134](https://github.com/prismicio/cli/issues/134)) ([e189ed5](https://github.com/prismicio/cli/commit/e189ed5f39a3d973617e591af79f1667e47fa28b))
+
 ## [1.6.0](https://github.com/prismicio/cli/compare/v1.5.0...v1.6.0) (2026-04-15)
 
 
