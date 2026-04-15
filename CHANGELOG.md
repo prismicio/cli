@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.0](https://github.com/prismicio/cli/compare/v1.5.0...v1.6.0) (2026-04-15)
+
+
+### Features
+
+* add a consistent table formatter for tabular output ([#125](https://github.com/prismicio/cli/issues/125)) ([9a79c50](https://github.com/prismicio/cli/commit/9a79c50abb78ee311e2b9aa79a613d4885aff85d))
+* add remote modeling commands for custom types, page types, and slices ([#83](https://github.com/prismicio/cli/issues/83)) ([78c13b0](https://github.com/prismicio/cli/commit/78c13b066814d95429cbb0f17fcd71f5ae793d98))
+* move CLI config to cross-platform config directory ([#130](https://github.com/prismicio/cli/issues/130)) ([39fc1d7](https://github.com/prismicio/cli/commit/39fc1d750d0d7261df84d2b1a7c5046b614b45a3))
+
+
+### Bug Fixes
+
+* handle 404 errors with contextual messages ([#121](https://github.com/prismicio/cli/issues/121)) ([7f75f97](https://github.com/prismicio/cli/commit/7f75f978ca6509eac7572b78dac30754a4f30609))
+
 ## [1.5.0](https://github.com/prismicio/cli/compare/v1.4.0...v1.5.0) (2026-04-08)
 
 
