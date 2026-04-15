@@ -12,8 +12,6 @@ import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
 import { appendTrailingSlash } from "./lib/url";
 
-// ── prismic.config.json ─────────────────────────────────────────────
-
 const CONFIG_FILENAME = "prismic.config.json";
 
 const RouteSchema = z.object({
@@ -47,14 +45,14 @@ export async function readConfig(): Promise<Config> {
 		return config;
 	} catch (error) {
 		if (error instanceof z.core.$ZodError) {
-			throw new InvalidPrismicConfig(error.issues);
+			throw new InvalidPrismicConfigError(error.issues);
 		}
-		throw new InvalidPrismicConfig();
+		throw new InvalidPrismicConfigError();
 	}
 }
 
-export class InvalidPrismicConfig extends Error {
-	name = "InvalidPrismicConfig";
+export class InvalidPrismicConfigError extends Error {
+	name = "InvalidPrismicConfigError";
 	message = `${CONFIG_FILENAME} is invalid.`;
 	issues: z.core.$ZodIssue[];
 
@@ -74,12 +72,12 @@ export async function updateConfig(updates: Partial<Config>): Promise<Config> {
 
 export async function findConfigPath(): Promise<URL> {
 	const configPath = await findUpward(CONFIG_FILENAME, { stop: "package.json" });
-	if (!configPath) throw new MissingPrismicConfig();
+	if (!configPath) throw new MissingPrismicConfigError();
 	return configPath;
 }
 
-export class MissingPrismicConfig extends Error {
-	name = "MissingPrismicConfig";
+export class MissingPrismicConfigError extends Error {
+	name = "MissingPrismicConfigError";
 	message = `Could not find a ${CONFIG_FILENAME} file.`;
 }
 
@@ -90,17 +88,15 @@ export async function findSuggestedConfigPath(): Promise<URL> {
 		return suggestedConfigPath;
 	} catch (error) {
 		if (error instanceof MissingPackageJson) {
-			throw new UnknownProjectRoot(undefined, { cause: error });
+			throw new UnknownProjectRootError(undefined, { cause: error });
 		}
 		throw error;
 	}
 }
 
-export class UnknownProjectRoot extends Error {
-	name = "UnknownProjectRoot";
+export class UnknownProjectRootError extends Error {
+	name = "UnknownProjectRootError";
 }
-
-// ── Routes ──────────────────────────────────────────────────────────
 
 export async function addRoute(pageType: CustomType): Promise<void> {
 	const { routes = [] } = await readConfig();
@@ -142,8 +138,6 @@ export function buildRoutePath(pageType: CustomType): string {
 	}
 }
 
-// ── Legacy Slice Machine config ─────────────────────────────────────
-
 const LEGACY_SLICE_MACHINE_CONFIG_FILENAME = "slicemachine.config.json";
 
 const LegacySliceMachineConfigSchema = z.object({
@@ -160,14 +154,14 @@ export async function readLegacySliceMachineConfig(): Promise<LegacySliceMachine
 		return config;
 	} catch (error) {
 		if (error instanceof z.core.$ZodError) {
-			throw new InvalidLegacySliceMachineConfig(error.issues);
+			throw new InvalidLegacySliceMachineConfigError(error.issues);
 		}
-		throw new InvalidLegacySliceMachineConfig();
+		throw new InvalidLegacySliceMachineConfigError();
 	}
 }
 
-export class InvalidLegacySliceMachineConfig extends Error {
-	name = "InvalidLegacySliceMachineConfig";
+export class InvalidLegacySliceMachineConfigError extends Error {
+	name = "InvalidLegacySliceMachineConfigError";
 	message = `${LEGACY_SLICE_MACHINE_CONFIG_FILENAME} is invalid.`;
 	issues: z.core.$ZodIssue[];
 
@@ -186,23 +180,21 @@ export async function findLegacySliceMachineConfigPath(): Promise<URL> {
 	const configPath = await findUpward(LEGACY_SLICE_MACHINE_CONFIG_FILENAME, {
 		stop: "package.json",
 	});
-	if (!configPath) throw new MissingLegacySliceMachineConfig();
+	if (!configPath) throw new MissingLegacySliceMachineConfigError();
 	return configPath;
 }
 
-export class MissingLegacySliceMachineConfig extends Error {
-	name = "MissingLegacySliceMachineConfig";
+export class MissingLegacySliceMachineConfigError extends Error {
+	name = "MissingLegacySliceMachineConfigError";
 	message = `Could not find a ${LEGACY_SLICE_MACHINE_CONFIG_FILENAME} file.`;
 }
-
-// ── Project queries ─────────────────────────────────────────────────
 
 export async function findProjectRoot(): Promise<URL> {
 	let configPath;
 	try {
 		configPath = await findConfigPath();
 	} catch (error) {
-		if (error instanceof MissingPrismicConfig) {
+		if (error instanceof MissingPrismicConfigError) {
 			configPath = await findSuggestedConfigPath();
 		} else {
 			throw error;
@@ -225,7 +217,7 @@ export async function getRepositoryName(): Promise<string> {
 		const config = await readConfig();
 		return config.repositoryName;
 	} catch (error) {
-		if (error instanceof MissingPrismicConfig) {
+		if (error instanceof MissingPrismicConfigError) {
 			try {
 				const legacySliceMachineConfig = await readLegacySliceMachineConfig();
 				return legacySliceMachineConfig.repositoryName;

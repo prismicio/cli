@@ -19,7 +19,7 @@ import sync from "./commands/sync";
 import token from "./commands/token";
 import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
-import { InvalidPrismicConfig, MissingPrismicConfig } from "./project";
+import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
 import { CommandError, createCommandRouter } from "./lib/command";
 import {
 	ForbiddenRequestError,
@@ -195,12 +195,12 @@ async function main(): Promise<void> {
 			return;
 		}
 
-		if (error instanceof InvalidPrismicConfig) {
+		if (error instanceof InvalidPrismicConfigError) {
 			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
 			return;
 		}
 
-		if (error instanceof MissingPrismicConfig) {
+		if (error instanceof MissingPrismicConfigError) {
 			console.error(`${error.message} Run \`prismic init\` to create a config.`);
 			return;
 		}
