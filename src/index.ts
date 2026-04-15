@@ -198,21 +198,34 @@ async function main(): Promise<void> {
 	} catch (error) {
 		process.exitCode = 1;
 
-		if (!UNTRACKED_COMMANDS.includes(command)) {
-			segmentTrackEnd(command, { error });
+		if (error instanceof CommandError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
+			console.error(error.message);
+			return;
 		}
 
-		if (error instanceof CommandError || error instanceof NoSupportedFrameworkError) {
+		if (error instanceof NoSupportedFrameworkError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command, { error });
+			}
 			console.error(error.message);
 			return;
 		}
 
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command, { error });
+			}
 			console.error("Not logged in. Run `prismic login` first.");
 			return;
 		}
 
 		if (error instanceof NotFoundRequestError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
 			console.error(
 				error.message || "Not found. Verify the repository and any specified identifiers exist.",
 			);
@@ -220,16 +233,25 @@ async function main(): Promise<void> {
 		}
 
 		if (error instanceof InvalidPrismicConfigError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
 			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
 			return;
 		}
 
 		if (error instanceof MissingPrismicConfigError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
 			console.error(`${error.message} Run \`prismic init\` to create a config.`);
 			return;
 		}
 
 		if (error instanceof TypeBuilderRequiredError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
 			console.error(dedent`
 				This command requires the Type Builder in your repository.
 
@@ -242,6 +264,9 @@ async function main(): Promise<void> {
 			return;
 		}
 
+		if (!UNTRACKED_COMMANDS.includes(command)) {
+			segmentTrackEnd(command, { error });
+		}
 		await sentryCaptureError(error);
 		throw error;
 	}
