@@ -84,7 +84,7 @@ export async function resolveFieldContainer(
 		if (root in customType.json[tabName]) tab = customType.json[tabName];
 	}
 	if (!tab) {
-		const fieldIds = Object.keys(Object.assign({}, ...Object.values(customType.json))) || "(none)";
+		const fieldIds = Object.keys(Object.assign({}, ...Object.values(customType.json))).join(", ") || "(none)";
 		throw new CommandError(`Field "${id}" not found. Available: ${fieldIds}`);
 	}
 	resolveFieldTarget(tab, id);
