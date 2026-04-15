@@ -7,7 +7,9 @@ import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { cleanupLegacyAuthFile, getHost, refreshToken } from "./auth";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { getProfile } from "./clients/user";
+import type_ from "./commands/type";
 import docs from "./commands/docs";
+import field from "./commands/field";
 import gen from "./commands/gen";
 import init from "./commands/init";
 import locale from "./commands/locale";
@@ -15,6 +17,7 @@ import login from "./commands/login";
 import logout from "./commands/logout";
 import preview from "./commands/preview";
 import repo from "./commands/repo";
+import slice from "./commands/slice";
 import sync from "./commands/sync";
 import token from "./commands/token";
 import webhook from "./commands/webhook";
@@ -74,6 +77,18 @@ const router = createCommandRouter({
 		repo: {
 			handler: repo,
 			description: "Manage repositories",
+		},
+		type: {
+			handler: type_,
+			description: "Manage content types",
+		},
+		field: {
+			handler: field,
+			description: "Manage fields",
+		},
+		slice: {
+			handler: slice,
+			description: "Manage slices",
 		},
 		preview: {
 			handler: preview,

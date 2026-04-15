@@ -1,0 +1,33 @@
+import { createCommandRouter } from "../lib/command";
+import fieldAdd from "./field-add";
+import fieldEdit from "./field-edit";
+import fieldRemove from "./field-remove";
+import fieldReorder from "./field-reorder";
+import fieldView from "./field-view";
+
+export default createCommandRouter({
+	name: "prismic field",
+	description: "Manage fields in slices and content types.",
+	commands: {
+		add: {
+			handler: fieldAdd,
+			description: "Add a field",
+		},
+		edit: {
+			handler: fieldEdit,
+			description: "Edit a field",
+		},
+		remove: {
+			handler: fieldRemove,
+			description: "Remove a field",
+		},
+		reorder: {
+			handler: fieldReorder,
+			description: "Reorder a field",
+		},
+		view: {
+			handler: fieldView,
+			description: "View details of a field",
+		},
+	},
+});

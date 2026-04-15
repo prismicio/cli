@@ -21,7 +21,6 @@ import {
 	UnauthorizedRequestError,
 } from "../lib/request";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
-import { syncCustomTypes, syncSlices } from "./sync";
 
 const config = {
 	name: "prismic init",
@@ -153,12 +152,8 @@ export default createCommand(config, async ({ values }) => {
 		);
 	}
 
-	// Sync models from remote
-	await syncSlices(repo, adapter);
-	await syncCustomTypes(repo, adapter);
-
-	// Generate TypeScript types from synced models
-	await adapter.generateTypes();
+	// Sync models from remote and generate types
+	await adapter.syncModels({ repo, token, host });
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 });
