@@ -99,8 +99,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	field.config ??= {};
 
 	if ("label" in values) field.config.label = values.label;
-	if ("placeholder" in values && "placeholder" in field.config)
-		field.config.placeholder = values.placeholder;
+	if ("placeholder" in values)
+		(field.config as Record<string, unknown>).placeholder = values.placeholder;
 
 	switch (field.type) {
 		case "Boolean": {

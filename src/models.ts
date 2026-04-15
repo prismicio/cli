@@ -25,7 +25,6 @@ export const SOURCE_OPTIONS = {
 	"from-slice": { type: "string", description: "ID of the source slice" },
 	"from-type": { type: "string", description: "ID of the source content type" },
 	variation: TARGET_OPTIONS.variation,
-	tab: TARGET_OPTIONS.tab,
 	repo: TARGET_OPTIONS.repo,
 } satisfies CommandConfig["options"];
 
