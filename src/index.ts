@@ -199,6 +199,9 @@ async function main(): Promise<void> {
 		process.exitCode = 1;
 
 		if (error instanceof CommandError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
 			console.error(error.message);
 			return;
 		}
@@ -212,11 +215,17 @@ async function main(): Promise<void> {
 		}
 
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command, { error });
+			}
 			console.error("Not logged in. Run `prismic login` first.");
 			return;
 		}
 
 		if (error instanceof NotFoundRequestError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
 			console.error(
 				error.message || "Not found. Verify the repository and any specified identifiers exist.",
 			);
@@ -224,16 +233,25 @@ async function main(): Promise<void> {
 		}
 
 		if (error instanceof InvalidPrismicConfigError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
 			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
 			return;
 		}
 
 		if (error instanceof MissingPrismicConfigError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
 			console.error(`${error.message} Run \`prismic init\` to create a config.`);
 			return;
 		}
 
 		if (error instanceof TypeBuilderRequiredError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
 			console.error(dedent`
 				This command requires the Type Builder in your repository.
 
