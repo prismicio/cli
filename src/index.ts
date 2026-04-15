@@ -198,11 +198,15 @@ async function main(): Promise<void> {
 	} catch (error) {
 		process.exitCode = 1;
 
-		if (!UNTRACKED_COMMANDS.includes(command)) {
-			segmentTrackEnd(command, { error });
+		if (error instanceof CommandError) {
+			console.error(error.message);
+			return;
 		}
 
-		if (error instanceof CommandError || error instanceof NoSupportedFrameworkError) {
+		if (error instanceof NoSupportedFrameworkError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command, { error });
+			}
 			console.error(error.message);
 			return;
 		}
@@ -242,6 +246,9 @@ async function main(): Promise<void> {
 			return;
 		}
 
+		if (!UNTRACKED_COMMANDS.includes(command)) {
+			segmentTrackEnd(command, { error });
+		}
 		await sentryCaptureError(error);
 		throw error;
 	}
