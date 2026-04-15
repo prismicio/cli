@@ -1,12 +1,14 @@
 import { spawn } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
 
 import packageJson from "../../package.json" with { type: "json" };
+import { stringify } from "./json";
+import { getNpmPackageVersion } from "./packageJson";
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const FETCH_TIMEOUT_MS = 2000;
 
 const UpdateNotifierStateSchema = z.looseObject({
 	latestKnownVersion: z.optional(z.string()),
@@ -81,43 +83,30 @@ function isNewer(latest: string, current: string): boolean {
 	return false;
 }
 
-/**
- * Spawns a detached subprocess to fetch the latest version from the npm
- * registry and persist it to the state file. The main process exits
- * immediately; the subprocess handles HTTP delivery and the file write.
- */
+export async function updateVersionState(
+	npmPackageName: string,
+	statePath: URL,
+): Promise<void> {
+	const version = await getNpmPackageVersion(npmPackageName);
+	const filePath = fileURLToPath(statePath);
+	await mkdir(dirname(filePath), { recursive: true });
+	await writeFile(
+		filePath,
+		stringify({ latestKnownVersion: version, lastUpdateCheckAt: Date.now() }),
+	);
+}
+
 function spawnBackgroundCheck(npmPackageName: string, statePath: URL): void {
 	try {
-		const payload = Buffer.from(
-			JSON.stringify({
-				npmPackageName,
-				statePath: fileURLToPath(statePath),
-				timeoutMs: FETCH_TIMEOUT_MS,
-			}),
-		).toString("base64");
-
-		const child = spawn(
-			process.execPath,
-			["--input-type=module", "-e", BACKGROUND_CHECK_SCRIPT, payload],
-			{ detached: true, stdio: "ignore" },
+		const script = fileURLToPath(
+			new URL("./subprocesses/updateVersionState.mjs", import.meta.url),
 		);
+		const child = spawn(process.execPath, [script, npmPackageName, statePath.href], {
+			detached: true,
+			stdio: "ignore",
+		});
 		child.unref();
 	} catch {
 		// Silent failure — never breaks the CLI.
 	}
 }
-
-const BACKGROUND_CHECK_SCRIPT = `
-const {npmPackageName, statePath, timeoutMs} = JSON.parse(Buffer.from(process.argv[1], "base64").toString());
-try {
-	const url = \`https://registry.npmjs.org/\${npmPackageName}/latest\`;
-	const res = await fetch(url, {signal: AbortSignal.timeout(timeoutMs)});
-	if (!res.ok) process.exit(0);
-	const {version} = await res.json();
-	if (typeof version !== "string") process.exit(0);
-	const fs = await import("node:fs/promises");
-	const {dirname} = await import("node:path");
-	await fs.mkdir(dirname(statePath), {recursive: true});
-	await fs.writeFile(statePath, JSON.stringify({latestKnownVersion: version, lastUpdateCheckAt: Date.now()}, null, 2));
-} catch {}
-`;

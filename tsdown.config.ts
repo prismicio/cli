@@ -4,7 +4,12 @@ const MODE = process.env.MODE || "development";
 const TEST = MODE === "test";
 
 export default defineConfig({
-	entry: "./src/index.ts",
+	entry: {
+		index: "./src/index.ts",
+		"subprocesses/refreshToken": "./src/subprocesses/refreshToken.ts",
+		"subprocesses/sendSegmentEvents": "./src/subprocesses/sendSegmentEvents.ts",
+		"subprocesses/updateVersionState": "./src/subprocesses/updateVersionState.ts",
+	},
 	format: "esm",
 	platform: "node",
 	unbundle: TEST,

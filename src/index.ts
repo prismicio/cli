@@ -4,7 +4,7 @@ import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
-import { cleanupLegacyAuthFile, getHost, refreshToken } from "./auth";
+import { cleanupLegacyAuthFile, getHost, getToken, spawnTokenRefresh } from "./auth";
 import { getProfile } from "./clients/user";
 import docs from "./commands/docs";
 import field from "./commands/field";
@@ -42,13 +42,13 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
+import { decodePayload } from "./lib/jwt";
 import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
 import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
 const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs"];
-const SKIP_REFRESH_COMMANDS = ["login", "logout"];
 
 const router = createCommandRouter({
 	name: "prismic",
@@ -164,17 +164,24 @@ async function main(): Promise<void> {
 			// noop - it's okay if we can't set the framework
 		}
 
-		if (command && !SKIP_REFRESH_COMMANDS.includes(command)) {
-			// Refresh the token and identify the user in the background.
-			refreshToken()
-				.then(async (token) => {
-					if (!token) return;
-					const host = await getHost();
-					const profile = await getProfile({ token, host });
-					segmentIdentify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
-					sentrySetUser({ id: profile.shortId });
-				})
-				.catch(() => {});
+		const token = await getToken();
+		if (token) {
+			const host = await getHost();
+			const exp = decodePayload(token)?.exp;
+			const now = Date.now() / 1000;
+
+			if (!exp || exp - now <= 3600) {
+				process.on("exit", () => spawnTokenRefresh());
+			}
+
+			if (!exp || exp > now) {
+				getProfile({ token, host })
+					.then((profile) => {
+						segmentIdentify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
+						sentrySetUser({ id: profile.shortId });
+					})
+					.catch(() => {});
+			}
 		}
 
 		if (command && !UNTRACKED_COMMANDS.includes(command)) {

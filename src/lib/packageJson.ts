@@ -5,6 +5,7 @@ import { x } from "tinyexec";
 import { z } from "zod/mini";
 
 import { exists, findUpward, readJsonFile } from "./file";
+import { request } from "./request";
 
 const PackageJsonSchema = z.object({
 	dependencies: z.optional(z.record(z.string(), z.string())),
@@ -48,8 +49,9 @@ export async function addDependencies(dependencies: Record<string, string>): Pro
 
 export async function getNpmPackageVersion(name: string, tag = "latest"): Promise<string> {
 	const url = new URL(`${name}/${tag}`, "https://registry.npmjs.org/");
-	const res = await fetch(url);
-	const { version } = await res.json();
+	const { version } = await request(url, {
+		schema: z.object({ version: z.string() }),
+	});
 	return version;
 }
 

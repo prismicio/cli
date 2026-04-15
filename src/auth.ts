@@ -1,7 +1,8 @@
+import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
 import { refreshToken as baseRefreshToken } from "./clients/auth";
@@ -197,4 +198,14 @@ async function buildLoginUrl(host: string, port: number): Promise<URL> {
 	url.searchParams.set("source", LOGIN_SOURCE);
 	url.searchParams.set("port", port.toString());
 	return url;
+}
+
+export function spawnTokenRefresh(): void {
+	try {
+		const script = fileURLToPath(new URL("./subprocesses/refreshToken.mjs", import.meta.url));
+		const child = spawn(process.execPath, [script], { detached: true, stdio: "ignore" });
+		child.unref();
+	} catch {
+		// Silent failure — never breaks the CLI.
+	}
 }
