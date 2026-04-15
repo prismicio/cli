@@ -53,7 +53,7 @@ export async function insertCustomType(
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
 	const url = new URL("customtypes/insert", customTypesServiceUrl);
-	await request<CustomType[]>(url, {
+	await request(url, {
 		method: "POST",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 		body: model,
@@ -67,7 +67,7 @@ export async function updateCustomType(
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
 	const url = new URL("customtypes/update", customTypesServiceUrl);
-	await request<void>(url, {
+	await request(url, {
 		method: "POST",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 		body: model,
@@ -81,7 +81,7 @@ export async function removeCustomType(
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
 	const url = new URL(`customtypes/${encodeURIComponent(id)}`, customTypesServiceUrl);
-	await request<CustomType[]>(url, {
+	await request(url, {
 		method: "DELETE",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 	});
@@ -134,7 +134,7 @@ export async function insertSlice(
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
 	const url = new URL("slices/insert", customTypesServiceUrl);
-	await request<CustomType[]>(url, {
+	await request(url, {
 		method: "POST",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 		body: model,
@@ -148,7 +148,7 @@ export async function updateSlice(
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
 	const url = new URL("slices/update", customTypesServiceUrl);
-	await request<void>(url, {
+	await request(url, {
 		method: "POST",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 		body: model,
@@ -162,7 +162,7 @@ export async function removeSlice(
 	const { repo, token, host } = config;
 	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
 	const url = new URL(`slices/${encodeURIComponent(id)}`, customTypesServiceUrl);
-	await request<CustomType[]>(url, {
+	await request(url, {
 		method: "DELETE",
 		headers: { repository: repo, Authorization: `Bearer ${token}` },
 	});

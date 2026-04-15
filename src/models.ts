@@ -58,7 +58,7 @@ export async function resolveFieldContainer(
 		const variation = slice.variations.find((v) => v.id === variationId);
 		if (!variation) {
 			const variationIds = slice.variations?.map((v) => v.id).join(", ") || "(none)";
-			throw new CommandError(`Variation "${variation}" not found. Available: ${variationIds}`);
+			throw new CommandError(`Variation "${variationId}" not found. Available: ${variationIds}`);
 		}
 		variation.primary ??= {};
 		resolveFieldTarget(variation.primary, id);

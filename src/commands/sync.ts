@@ -103,15 +103,17 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 				const changed = [];
 
 				if (slicesChanged) {
-					await adapter.syncSlices({ repo, token, host });
+					await adapter.syncSlices({ repo, token, host, generateTypes: false });
 					lastRemoteSlicesHash = remoteSlicesHash;
 					changed.push("slices");
 				}
 				if (customTypesChanged) {
-					await adapter.syncCustomTypes({ repo, token, host });
+					await adapter.syncCustomTypes({ repo, token, host, generateTypes: false });
 					lastRemoteCustomTypesHash = remoteCustomTypesHash;
 					changed.push("custom types");
 				}
+
+				await adapter.generateTypes();
 
 				const timestamp = new Date().toLocaleTimeString();
 				console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);

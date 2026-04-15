@@ -1,6 +1,6 @@
 import { getHost, getToken } from "../auth";
-import { getCustomTypes } from "../clients/custom-types";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { getCustomType } from "../clients/custom-types";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
@@ -23,12 +23,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const type = customTypes.find((ct) => ct.id === id);
-
-	if (!type) {
-		throw new CommandError(`Type not found: ${id}`);
-	}
+	const type = await getCustomType(id, { repo, token, host });
 
 	if (json) {
 		console.info(stringify(type));

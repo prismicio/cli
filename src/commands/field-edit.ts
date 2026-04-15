@@ -144,8 +144,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 				field.config.single = allowList;
 			} else if ("allow" in values) {
 				// Update whichever mode is currently set
-				if ("single" in config) {
-					config.single = values.allow;
+				if ("single" in field.config) {
+					field.config.single = values.allow;
 				} else {
 					field.config.multi = values.allow;
 				}
