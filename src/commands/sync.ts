@@ -6,9 +6,15 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
+import { flushLogs, formatChanges } from "../lib/logger";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { dedent } from "../lib/string";
-import { checkIsTypeBuilderEnabled, getRepositoryName, TypeBuilderRequiredError } from "../project";
+import {
+	checkIsTypeBuilderEnabled,
+	findProjectRoot,
+	getRepositoryName,
+	TypeBuilderRequiredError,
+} from "../project";
 
 // 5 seconds balances responsiveness with API load
 const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
@@ -53,24 +59,27 @@ export default createCommand(config, async ({ values }) => {
 		await adapter.syncModels({ repo, token, host });
 		segmentTrackEnd("sync", { watch });
 
-		console.info("Sync complete");
+		const projectRoot = await findProjectRoot();
+		console.info(formatChanges(flushLogs(), { title: "Sync complete", root: projectRoot }));
 	}
 });
 
 async function watchForChanges(repo: string, adapter: Adapter) {
 	const token = await getToken();
 	const host = await getHost();
+	const projectRoot = await findProjectRoot();
 
 	const initialRemoteSlices = await getSlices({ repo, token, host });
 	const initialRemoteCustomTypes = await getCustomTypes({ repo, token, host });
 
 	await adapter.syncModels({ repo, token, host });
 
+	console.info(formatChanges(flushLogs(), { title: "Initial sync complete", root: projectRoot }));
+
 	console.info(dedent`
-		Initial sync completed!
 
 		Watching for changes (polling every ${POLL_INTERVAL_MS / 1000}s),
-		Press Ctrl+C to stop\n
+		Press Ctrl+C to stop
 	`);
 
 	let lastRemoteSlicesHash = hash(initialRemoteSlices);
@@ -116,7 +125,13 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 				await adapter.generateTypes();
 
 				const timestamp = new Date().toLocaleTimeString();
-				console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
+				console.info();
+				console.info(
+					formatChanges(flushLogs(), {
+						title: `[${timestamp}] Changes detected in ${changed.join(" and ")}`,
+						root: projectRoot,
+					}),
+				);
 			}
 
 			// Reset error count on success

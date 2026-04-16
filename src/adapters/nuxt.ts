@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
+import { log } from "../lib/logger";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import { appendTrailingSlash } from "../lib/url";
@@ -43,6 +44,7 @@ export class NuxtAdapter extends Adapter {
 			typescript: await checkIsTypeScriptProject(),
 		});
 		await writeFileRecursive(componentPath, contents);
+		log({ type: "file-created", url: componentPath });
 	}
 
 	onSliceUpdated(): void {}
@@ -78,6 +80,7 @@ export class NuxtAdapter extends Adapter {
 		const filename = `index.${extension}`;
 		const indexPath = new URL(filename, library);
 		await writeFileRecursive(indexPath, contents);
+		log({ type: "file-updated", url: indexPath });
 	}
 
 	async getDefaultSliceLibrary(): Promise<URL> {
@@ -174,6 +177,7 @@ async function createSliceSimulatorPage(): Promise<void> {
 
 	const contents = sliceSimulatorPageTemplate({ typescript });
 	await writeFileRecursive(filePath, contents);
+	log({ type: "file-created", url: filePath });
 }
 
 async function moveOrDeleteAppVue(): Promise<void> {
@@ -194,9 +198,11 @@ async function moveOrDeleteAppVue(): Promise<void> {
 
 	if (!(await exists(indexVuePath))) {
 		await writeFileRecursive(indexVuePath, contents);
+		log({ type: "file-created", url: indexVuePath });
 	}
 
 	await rm(appVuePath);
+	log({ type: "file-deleted", url: appVuePath });
 }
 
 async function modifySliceLibraryPath(adapter: NuxtAdapter): Promise<void> {
@@ -246,6 +252,7 @@ async function createPageFile(model: CustomType): Promise<void> {
 		typescript: await checkIsTypeScriptProject(),
 	});
 	await writeFileRecursive(pageFilePath, contents);
+	log({ type: "file-created", url: pageFilePath });
 }
 
 async function getJsFileExtension(): Promise<string> {

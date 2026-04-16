@@ -1,6 +1,8 @@
 import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
+import { flushLogs, formatChanges } from "../lib/logger";
 import { installDependencies } from "../lib/packageJson";
+import { findProjectRoot } from "../project";
 
 const config = {
 	name: "prismic gen setup",
@@ -34,5 +36,8 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	console.info("Generated setup files.");
+	const projectRoot = await findProjectRoot();
+	console.info(
+		formatChanges(flushLogs(), { title: "Generated setup files", root: projectRoot }),
+	);
 });

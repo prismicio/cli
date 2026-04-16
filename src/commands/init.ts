@@ -6,11 +6,13 @@ import { getProfile } from "../clients/user";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { flushLogs, formatChanges } from "../lib/logger";
 import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
 	createConfig,
 	deleteLegacySliceMachineConfig,
+	findProjectRoot,
 	InvalidLegacySliceMachineConfigError,
 	MissingPrismicConfigError,
 	readConfig,
@@ -152,5 +154,11 @@ export default createCommand(config, async ({ values }) => {
 	// Sync models from remote and generate types
 	await adapter.syncModels({ repo, token, host });
 
-	console.info(`\nInitialized Prismic for repository "${repo}".`);
+	const projectRoot = await findProjectRoot();
+	console.info(
+		formatChanges(flushLogs(), {
+			title: `Initialized Prismic for repository "${repo}"`,
+			root: projectRoot,
+		}),
+	);
 });

@@ -6,8 +6,9 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { insertCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { flushLogs, formatChanges } from "../lib/logger";
 import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
+import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic type create",
@@ -108,9 +109,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 		throw error;
 	}
-
 	await adapter.createCustomType(model);
 	await adapter.generateTypes();
 
-	console.info(`Created type "${name}" (id: "${id}", format: "${format}")`);
+	const projectRoot = await findProjectRoot();
+	console.info(
+		formatChanges(flushLogs(), {
+			title: `Created type "${name}" (ID: ${id})`,
+			root: projectRoot,
+		}),
+	);
 });

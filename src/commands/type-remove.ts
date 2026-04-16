@@ -2,8 +2,9 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomType, removeCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { flushLogs, formatChanges } from "../lib/logger";
 import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
+import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic type remove",
@@ -39,11 +40,16 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 		throw error;
 	}
-
 	try {
 		await adapter.deleteCustomType(customType.id);
 	} catch {}
 	await adapter.generateTypes();
 
-	console.info(`Type removed: ${id}`);
+	const projectRoot = await findProjectRoot();
+	console.info(
+		formatChanges(flushLogs(), {
+			title: `Removed type "${customType.label}" (ID: ${customType.id})`,
+			root: projectRoot,
+		}),
+	);
 });
