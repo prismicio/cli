@@ -9,6 +9,7 @@ import { glob } from "tinyglobby";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
+import { reportAction } from "../lib/logger";
 import { readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
 import { addRoute, removeRoute, updateRoute } from "../project";
@@ -110,6 +111,7 @@ export abstract class Adapter {
 		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
 		const modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
 		await writeFileRecursive(modelPath, stringify(model));
+		reportAction({ type: "file-created", url: modelPath });
 		await this.createSliceIndexFile(library);
 		await this.onSliceCreated(model, library);
 	}
@@ -118,12 +120,14 @@ export abstract class Adapter {
 		const slice = await this.getSlice(model.id);
 		const modelPath = new URL("model.json", appendTrailingSlash(slice.directory));
 		await writeFileRecursive(modelPath, stringify(model));
+		reportAction({ type: "file-updated", url: modelPath });
 		await this.onSliceUpdated(model);
 	}
 
 	async deleteSlice(id: string): Promise<void> {
 		const slice = await this.getSlice(id);
 		await rm(slice.directory, { recursive: true });
+		reportAction({ type: "file-deleted", url: slice.directory });
 		await this.createSliceIndexFile(slice.library);
 		await this.onSliceDeleted(id);
 	}
@@ -162,6 +166,7 @@ export abstract class Adapter {
 		const customTypesDirectory = new URL("customtypes/", projectRoot);
 		const modelPath = new URL(`${model.id}/index.json`, customTypesDirectory);
 		await writeFileRecursive(modelPath, stringify(model));
+		reportAction({ type: "file-created", url: modelPath });
 		if (model.format === "page") await addRoute(model);
 		await this.onCustomTypeCreated(model);
 	}
@@ -170,6 +175,7 @@ export abstract class Adapter {
 		const customType = await this.getCustomType(model.id);
 		const modelPath = new URL("index.json", appendTrailingSlash(customType.directory));
 		await writeFileRecursive(modelPath, stringify(model));
+		reportAction({ type: "file-updated", url: modelPath });
 		await updateRoute(model);
 		await this.onCustomTypeUpdated(model);
 	}
@@ -177,6 +183,7 @@ export abstract class Adapter {
 	async deleteCustomType(id: string): Promise<void> {
 		const customType = await this.getCustomType(id);
 		await rm(customType.directory, { recursive: true });
+		reportAction({ type: "file-deleted", url: customType.directory });
 		await removeRoute(id);
 		await this.onCustomTypeDeleted(id);
 	}
@@ -280,6 +287,7 @@ export abstract class Adapter {
 			typesProvider: "@prismicio/client",
 		});
 		await writeFileRecursive(output, types);
+		reportAction({ type: "file-updated", url: output });
 		return output;
 	}
 }

@@ -21,7 +21,7 @@ it("generates types from local models", async ({ expect, project, prismic }) => 
 
 	const { exitCode, stdout } = await prismic("gen", ["types"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("Generated types");
+	expect(stdout).toContain("Updated prismicio-types.d.ts");
 
 	await expect(project).toHaveFile("prismicio-types.d.ts", {
 		contains: customType.id,
@@ -31,7 +31,7 @@ it("generates types from local models", async ({ expect, project, prismic }) => 
 it("generates types with no models", async ({ expect, project, prismic }) => {
 	const { exitCode, stdout } = await prismic("gen", ["types"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("Generated types");
+	expect(stdout).toContain("Updated prismicio-types.d.ts");
 
 	await expect(project).toHaveFile("prismicio-types.d.ts");
 });

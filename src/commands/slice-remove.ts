@@ -2,8 +2,9 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getSlice, removeSlice } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { flushActions, formatAction, reportAction } from "../lib/logger";
 import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
+import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic slice remove",
@@ -34,11 +35,16 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 		throw error;
 	}
+	reportAction({ type: "remote-deleted", id: slice.id, message: `slice "${id}"` });
 
 	try {
 		await adapter.deleteSlice(slice.id);
 	} catch {}
 	await adapter.generateTypes();
 
+	const projectRoot = await findProjectRoot();
+	for (const action of flushActions()) {
+		console.info(formatAction(action, projectRoot));
+	}
 	console.info(`Slice removed: ${id}`);
 });

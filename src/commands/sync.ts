@@ -6,9 +6,15 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
+import { flushActions, formatAction } from "../lib/logger";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { dedent } from "../lib/string";
-import { checkIsTypeBuilderEnabled, getRepositoryName, TypeBuilderRequiredError } from "../project";
+import {
+	checkIsTypeBuilderEnabled,
+	findProjectRoot,
+	getRepositoryName,
+	TypeBuilderRequiredError,
+} from "../project";
 
 // 5 seconds balances responsiveness with API load
 const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
@@ -53,6 +59,10 @@ export default createCommand(config, async ({ values }) => {
 		await adapter.syncModels({ repo, token, host });
 		segmentTrackEnd("sync", { watch });
 
+		const projectRoot = await findProjectRoot();
+		for (const action of flushActions()) {
+			console.info(formatAction(action, projectRoot));
+		}
 		console.info("Sync complete");
 	}
 });
@@ -60,11 +70,16 @@ export default createCommand(config, async ({ values }) => {
 async function watchForChanges(repo: string, adapter: Adapter) {
 	const token = await getToken();
 	const host = await getHost();
+	const projectRoot = await findProjectRoot();
 
 	const initialRemoteSlices = await getSlices({ repo, token, host });
 	const initialRemoteCustomTypes = await getCustomTypes({ repo, token, host });
 
 	await adapter.syncModels({ repo, token, host });
+
+	for (const action of flushActions()) {
+		console.info(formatAction(action, projectRoot));
+	}
 
 	console.info(dedent`
 		Initial sync completed!
@@ -117,6 +132,9 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 
 				const timestamp = new Date().toLocaleTimeString();
 				console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
+				for (const action of flushActions()) {
+					console.info(formatAction(action, projectRoot));
+				}
 			}
 
 			// Reset error count on success

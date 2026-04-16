@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
+import { reportAction } from "../lib/logger";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import { appendTrailingSlash } from "../lib/url";
@@ -52,6 +53,7 @@ export class NextJsAdapter extends Adapter {
 			typescript: await checkIsTypeScriptProject(),
 		});
 		await writeFileRecursive(componentPath, contents);
+		reportAction({ type: "file-created", url: componentPath });
 	}
 
 	onSliceUpdated(): void {}
@@ -91,6 +93,7 @@ export class NextJsAdapter extends Adapter {
 		const filename = `index.${extension}`;
 		const indexPath = new URL(filename, library);
 		await writeFileRecursive(indexPath, contents);
+		reportAction({ type: "file-updated", url: indexPath });
 	}
 
 	async getDefaultSliceLibrary(): Promise<URL> {
@@ -116,6 +119,7 @@ async function createRevalidateRoute(): Promise<void> {
 
 	const contents = revalidateRouteTemplate({ supportsCacheLife });
 	await writeFileRecursive(filePath, contents);
+	reportAction({ type: "file-created", url: filePath });
 }
 
 async function createExitPreviewRoute(): Promise<void> {
@@ -132,6 +136,7 @@ async function createExitPreviewRoute(): Promise<void> {
 
 	const contents = exitPreviewRouteTemplate({ typescript, appRouter });
 	await writeFileRecursive(filePath, contents);
+	reportAction({ type: "file-created", url: filePath });
 }
 
 async function createPreviewRoute(): Promise<void> {
@@ -148,6 +153,7 @@ async function createPreviewRoute(): Promise<void> {
 
 	const contents = previewRouteTemplate({ typescript, appRouter });
 	await writeFileRecursive(filePath, contents);
+	reportAction({ type: "file-created", url: filePath });
 }
 
 async function createSliceSimulatorPage(): Promise<void> {
@@ -164,6 +170,7 @@ async function createSliceSimulatorPage(): Promise<void> {
 
 	const contents = sliceSimulatorPageTemplate({ typescript, appRouter });
 	await writeFileRecursive(filePath, contents);
+	reportAction({ type: "file-created", url: filePath });
 }
 
 async function createPrismicIoFile(): Promise<void> {
@@ -182,6 +189,7 @@ async function createPrismicIoFile(): Promise<void> {
 		hasSrcDirectory,
 	});
 	await writeFileRecursive(filePath, contents);
+	reportAction({ type: "file-created", url: filePath });
 }
 
 async function createPageFile(model: CustomType): Promise<void> {
@@ -206,6 +214,7 @@ async function createPageFile(model: CustomType): Promise<void> {
 		appRouter: usesAppRouter,
 	});
 	await writeFileRecursive(pageFilePath, contents);
+	reportAction({ type: "file-created", url: pageFilePath });
 }
 
 async function checkUsesAppRouter() {

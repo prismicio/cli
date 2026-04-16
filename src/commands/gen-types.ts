@@ -1,6 +1,6 @@
 import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { relativePathname } from "../lib/url";
+import { flushActions, formatAction } from "../lib/logger";
 import { findProjectRoot } from "../project";
 
 const config = {
@@ -10,10 +10,10 @@ const config = {
 
 export default createCommand(config, async () => {
 	const adapter = await getAdapter();
-	const typesPath = await adapter.generateTypes();
+	await adapter.generateTypes();
 
 	const projectRoot = await findProjectRoot();
-	const relativeOutput = relativePathname(projectRoot, typesPath);
-
-	console.info(`Generated types at ${relativeOutput}`);
+	for (const action of flushActions()) {
+		console.info(formatAction(action, projectRoot));
+	}
 });

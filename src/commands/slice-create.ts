@@ -6,8 +6,9 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { insertSlice } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { flushActions, formatAction, reportAction } from "../lib/logger";
 import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
+import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic slice create",
@@ -55,9 +56,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 		throw error;
 	}
+	reportAction({ type: "remote-created", id, message: `slice "${name}"` });
 
 	await adapter.createSlice(model);
 	await adapter.generateTypes();
 
+	const projectRoot = await findProjectRoot();
+	for (const action of flushActions()) {
+		console.info(formatAction(action, projectRoot));
+	}
 	console.info(`Created slice "${name}" (id: "${id}")`);
 });
