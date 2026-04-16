@@ -9,7 +9,7 @@ import { glob } from "tinyglobby";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
-import { reportAction } from "../lib/logger";
+import { log } from "../lib/logger";
 import { readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
 import { addRoute, removeRoute, updateRoute } from "../project";
@@ -111,7 +111,7 @@ export abstract class Adapter {
 		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
 		const modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
 		await writeFileRecursive(modelPath, stringify(model));
-		reportAction({ type: "file-created", url: modelPath });
+		log({ type: "file-created", url: modelPath });
 		await this.createSliceIndexFile(library);
 		await this.onSliceCreated(model, library);
 	}
@@ -120,14 +120,14 @@ export abstract class Adapter {
 		const slice = await this.getSlice(model.id);
 		const modelPath = new URL("model.json", appendTrailingSlash(slice.directory));
 		await writeFileRecursive(modelPath, stringify(model));
-		reportAction({ type: "file-updated", url: modelPath });
+		log({ type: "file-updated", url: modelPath });
 		await this.onSliceUpdated(model);
 	}
 
 	async deleteSlice(id: string): Promise<void> {
 		const slice = await this.getSlice(id);
 		await rm(slice.directory, { recursive: true });
-		reportAction({ type: "file-deleted", url: slice.directory });
+		log({ type: "file-deleted", url: slice.directory });
 		await this.createSliceIndexFile(slice.library);
 		await this.onSliceDeleted(id);
 	}
@@ -166,7 +166,7 @@ export abstract class Adapter {
 		const customTypesDirectory = new URL("customtypes/", projectRoot);
 		const modelPath = new URL(`${model.id}/index.json`, customTypesDirectory);
 		await writeFileRecursive(modelPath, stringify(model));
-		reportAction({ type: "file-created", url: modelPath });
+		log({ type: "file-created", url: modelPath });
 		if (model.format === "page") await addRoute(model);
 		await this.onCustomTypeCreated(model);
 	}
@@ -175,7 +175,7 @@ export abstract class Adapter {
 		const customType = await this.getCustomType(model.id);
 		const modelPath = new URL("index.json", appendTrailingSlash(customType.directory));
 		await writeFileRecursive(modelPath, stringify(model));
-		reportAction({ type: "file-updated", url: modelPath });
+		log({ type: "file-updated", url: modelPath });
 		await updateRoute(model);
 		await this.onCustomTypeUpdated(model);
 	}
@@ -183,7 +183,7 @@ export abstract class Adapter {
 	async deleteCustomType(id: string): Promise<void> {
 		const customType = await this.getCustomType(id);
 		await rm(customType.directory, { recursive: true });
-		reportAction({ type: "file-deleted", url: customType.directory });
+		log({ type: "file-deleted", url: customType.directory });
 		await removeRoute(id);
 		await this.onCustomTypeDeleted(id);
 	}
@@ -194,11 +194,11 @@ export abstract class Adapter {
 		host: string;
 	}): Promise<void> {
 		const { repo, token, host } = config;
-		await Promise.all([
+		const [syncSlicesResult, syncCustomTypesResult] = await Promise.all([
 			this.syncSlices({ repo, token, host, generateTypes: false }),
 			this.syncCustomTypes({ repo, token, host, generateTypes: false }),
 		]);
-		await this.generateTypes();
+		if (syncSlicesResult.didSync || syncCustomTypesResult.didSync) await this.generateTypes();
 	}
 
 	async syncSlices(config: {
@@ -206,8 +206,10 @@ export abstract class Adapter {
 		token: string | undefined;
 		host: string;
 		generateTypes?: boolean;
-	}): Promise<void> {
+	}): Promise<{ didSync: boolean }> {
 		const { repo, token, host, generateTypes = true } = config;
+
+		let didSync = false;
 
 		const remoteSlices = await getSlices({ repo, token, host });
 		const localSlices = await this.getSlices();
@@ -215,22 +217,33 @@ export abstract class Adapter {
 		// Handle slices update
 		for (const remoteSlice of remoteSlices) {
 			const localSlice = localSlices.find((slice) => slice.model.id === remoteSlice.id);
-			if (localSlice) await this.updateSlice(remoteSlice);
+			if (localSlice && JSON.stringify(remoteSlice) !== JSON.stringify(localSlice.model)) {
+				await this.updateSlice(remoteSlice);
+				didSync = true;
+			}
 		}
 
 		// Handle slices deletion
 		for (const localSlice of localSlices) {
 			const existsRemotely = remoteSlices.some((slice) => slice.id === localSlice.model.id);
-			if (!existsRemotely) await this.deleteSlice(localSlice.model.id);
+			if (!existsRemotely) {
+				await this.deleteSlice(localSlice.model.id);
+				didSync = true;
+			}
 		}
 
 		// Handle slices creation
 		for (const remoteSlice of remoteSlices) {
 			const existsLocally = localSlices.some((slice) => slice.model.id === remoteSlice.id);
-			if (!existsLocally) await this.createSlice(remoteSlice);
+			if (!existsLocally) {
+				await this.createSlice(remoteSlice);
+				didSync = true;
+			}
 		}
 
-		if (generateTypes) await this.generateTypes();
+		if (didSync && generateTypes) await this.generateTypes();
+
+		return { didSync };
 	}
 
 	async syncCustomTypes(config: {
@@ -238,8 +251,10 @@ export abstract class Adapter {
 		token: string | undefined;
 		host: string;
 		generateTypes?: boolean;
-	}): Promise<void> {
+	}): Promise<{ didSync: boolean }> {
 		const { repo, token, host, generateTypes = true } = config;
+
+		let didSync = false;
 
 		const remoteCustomTypes = await getCustomTypes({ repo, token, host });
 		const localCustomTypes = await this.getCustomTypes();
@@ -249,7 +264,13 @@ export abstract class Adapter {
 			const localCustomType = localCustomTypes.find(
 				(customType) => customType.model.id === remoteCustomType.id,
 			);
-			if (localCustomType) await this.updateCustomType(remoteCustomType);
+			if (
+				localCustomType &&
+				JSON.stringify(remoteCustomType) !== JSON.stringify(localCustomType.model)
+			) {
+				await this.updateCustomType(remoteCustomType);
+				didSync = true;
+			}
 		}
 
 		// Handle custom types deletion
@@ -257,7 +278,10 @@ export abstract class Adapter {
 			const existsRemotely = remoteCustomTypes.some(
 				(customType) => customType.id === localCustomType.model.id,
 			);
-			if (!existsRemotely) await this.deleteCustomType(localCustomType.model.id);
+			if (!existsRemotely) {
+				await this.deleteCustomType(localCustomType.model.id);
+				didSync = true;
+			}
 		}
 
 		// Handle custom types creation
@@ -265,10 +289,15 @@ export abstract class Adapter {
 			const existsLocally = localCustomTypes.some(
 				(customType) => customType.model.id === remoteCustomType.id,
 			);
-			if (!existsLocally) await this.createCustomType(remoteCustomType);
+			if (!existsLocally) {
+				await this.createCustomType(remoteCustomType);
+				didSync = true;
+			}
 		}
 
-		if (generateTypes) await this.generateTypes();
+		if (didSync && generateTypes) await this.generateTypes();
+
+		return { didSync };
 	}
 
 	async generateTypes(): Promise<URL> {
@@ -287,7 +316,7 @@ export abstract class Adapter {
 			typesProvider: "@prismicio/client",
 		});
 		await writeFileRecursive(output, types);
-		reportAction({ type: "file-updated", url: output });
+		log({ type: "file-updated", url: output });
 		return output;
 	}
 }

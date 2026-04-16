@@ -6,7 +6,7 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { flushActions, formatAction } from "../lib/logger";
+import { flushLogs, formatChanges } from "../lib/logger";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { dedent } from "../lib/string";
 import {
@@ -60,10 +60,7 @@ export default createCommand(config, async ({ values }) => {
 		segmentTrackEnd("sync", { watch });
 
 		const projectRoot = await findProjectRoot();
-		for (const action of flushActions()) {
-			console.info(formatAction(action, projectRoot));
-		}
-		console.info("Sync complete");
+		console.info(formatChanges(flushLogs(), { title: "Sync complete", root: projectRoot }));
 	}
 });
 
@@ -77,15 +74,12 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 
 	await adapter.syncModels({ repo, token, host });
 
-	for (const action of flushActions()) {
-		console.info(formatAction(action, projectRoot));
-	}
+	console.info(formatChanges(flushLogs(), { title: "Initial sync complete", root: projectRoot }));
 
 	console.info(dedent`
-		Initial sync completed!
 
 		Watching for changes (polling every ${POLL_INTERVAL_MS / 1000}s),
-		Press Ctrl+C to stop\n
+		Press Ctrl+C to stop
 	`);
 
 	let lastRemoteSlicesHash = hash(initialRemoteSlices);
@@ -131,10 +125,13 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 				await adapter.generateTypes();
 
 				const timestamp = new Date().toLocaleTimeString();
-				console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
-				for (const action of flushActions()) {
-					console.info(formatAction(action, projectRoot));
-				}
+				console.info();
+				console.info(
+					formatChanges(flushLogs(), {
+						title: `[${timestamp}] Changes detected in ${changed.join(" and ")}`,
+						root: projectRoot,
+					}),
+				);
 			}
 
 			// Reset error count on success

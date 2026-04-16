@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
-import { reportAction } from "../lib/logger";
+import { log } from "../lib/logger";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import { appendTrailingSlash } from "../lib/url";
@@ -56,7 +56,7 @@ export class SvelteKitAdapter extends Adapter {
 			version: await getSvelteMajor(),
 		});
 		await writeFileRecursive(componentPath, contents);
-		reportAction({ type: "file-created", url: componentPath });
+		log({ type: "file-created", url: componentPath });
 	}
 
 	onSliceUpdated(): void {}
@@ -96,7 +96,7 @@ export class SvelteKitAdapter extends Adapter {
 		const filename = `index.${extension}`;
 		const indexPath = new URL(filename, library);
 		await writeFileRecursive(indexPath, contents);
-		reportAction({ type: "file-updated", url: indexPath });
+		log({ type: "file-updated", url: indexPath });
 	}
 
 	async getDefaultSliceLibrary(): Promise<URL> {
@@ -114,7 +114,7 @@ async function createPrismicIoFile(): Promise<void> {
 	const typescript = await checkIsTypeScriptProject();
 	const contents = prismicIOFileTemplate({ typescript });
 	await writeFileRecursive(filePath, contents);
-	reportAction({ type: "file-created", url: filePath });
+	log({ type: "file-created", url: filePath });
 }
 
 async function createSliceSimulatorPage(): Promise<void> {
@@ -126,7 +126,7 @@ async function createSliceSimulatorPage(): Promise<void> {
 		version: await getSvelteMajor(),
 	});
 	await writeFileRecursive(filePath, contents);
-	reportAction({ type: "file-created", url: filePath });
+	log({ type: "file-created", url: filePath });
 }
 
 async function createPreviewRouteMatcher(): Promise<void> {
@@ -141,7 +141,7 @@ async function createPreviewRouteMatcher(): Promise<void> {
 		}
 	`;
 	await writeFileRecursive(filePath, contents);
-	reportAction({ type: "file-created", url: filePath });
+	log({ type: "file-created", url: filePath });
 }
 
 async function createPreviewAPIRoute(): Promise<void> {
@@ -153,7 +153,7 @@ async function createPreviewAPIRoute(): Promise<void> {
 	const typescript = await checkIsTypeScriptProject();
 	const contents = previewAPIRouteTemplate({ typescript });
 	await writeFileRecursive(filePath, contents);
-	reportAction({ type: "file-created", url: filePath });
+	log({ type: "file-created", url: filePath });
 }
 
 async function createPreviewRouteDirectory(): Promise<void> {
@@ -172,7 +172,7 @@ async function createPreviewRouteDirectory(): Promise<void> {
 		See <https://prismic.io/docs/svelte-preview> for more information.
 	`;
 	await writeFileRecursive(filePath, contents);
-	reportAction({ type: "file-created", url: filePath });
+	log({ type: "file-created", url: filePath });
 }
 
 async function createRootLayoutServerFile(): Promise<void> {
@@ -185,7 +185,7 @@ async function createRootLayoutServerFile(): Promise<void> {
 		export const prerender = "auto";
 	`;
 	await writeFileRecursive(filePath, contents);
-	reportAction({ type: "file-created", url: filePath });
+	log({ type: "file-created", url: filePath });
 }
 
 async function createRootLayoutFile(): Promise<void> {
@@ -197,7 +197,7 @@ async function createRootLayoutFile(): Promise<void> {
 		version: await getSvelteMajor(),
 	});
 	await writeFileRecursive(filePath, contents);
-	reportAction({ type: "file-created", url: filePath });
+	log({ type: "file-created", url: filePath });
 }
 
 async function createPageFile(model: CustomType): Promise<void> {
@@ -216,7 +216,7 @@ async function createPageFile(model: CustomType): Promise<void> {
 			typescript: await checkIsTypeScriptProject(),
 		});
 		await writeFileRecursive(pageFilePath, contents);
-		reportAction({ type: "file-created", url: pageFilePath });
+		log({ type: "file-created", url: pageFilePath });
 	}
 
 	const serverFilePath = new URL(`+page.server.${extension}`, fullRoutePath);
@@ -226,7 +226,7 @@ async function createPageFile(model: CustomType): Promise<void> {
 			typescript: await checkIsTypeScriptProject(),
 		});
 		await writeFileRecursive(serverFilePath, contents);
-		reportAction({ type: "file-created", url: serverFilePath });
+		log({ type: "file-created", url: serverFilePath });
 	}
 }
 
@@ -256,7 +256,7 @@ async function modifyViteConfig(): Promise<void> {
 
 	const contents = mod.generate().code.replace(/\n\s*\n(?=\s*server:)/, "\n");
 	await writeFile(configUrl, contents);
-	reportAction({ type: "file-updated", url: configUrl });
+	log({ type: "file-updated", url: configUrl });
 }
 
 async function getJsFileExtension(): Promise<string> {

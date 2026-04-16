@@ -6,7 +6,7 @@ import { getProfile } from "../clients/user";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { flushActions, formatAction } from "../lib/logger";
+import { flushLogs, formatChanges } from "../lib/logger";
 import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
@@ -155,8 +155,10 @@ export default createCommand(config, async ({ values }) => {
 	await adapter.syncModels({ repo, token, host });
 
 	const projectRoot = await findProjectRoot();
-	for (const action of flushActions()) {
-		console.info(formatAction(action, projectRoot));
-	}
-	console.info(`\nInitialized Prismic for repository "${repo}".`);
+	console.info(
+		formatChanges(flushLogs(), {
+			title: `Initialized Prismic for repository "${repo}"`,
+			root: projectRoot,
+		}),
+	);
 });

@@ -1,6 +1,6 @@
 import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { flushActions, formatAction } from "../lib/logger";
+import { flushLogs, formatChanges } from "../lib/logger";
 import { installDependencies } from "../lib/packageJson";
 import { findProjectRoot } from "../project";
 
@@ -37,8 +37,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const projectRoot = await findProjectRoot();
-	for (const action of flushActions()) {
-		console.info(formatAction(action, projectRoot));
-	}
-	console.info("Generated setup files.");
+	console.info(
+		formatChanges(flushLogs(), { title: "Generated setup files", root: projectRoot }),
+	);
 });

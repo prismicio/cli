@@ -1,6 +1,6 @@
 import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { flushActions, formatAction } from "../lib/logger";
+import { flushLogs, formatChanges } from "../lib/logger";
 import { findProjectRoot } from "../project";
 
 const config = {
@@ -13,7 +13,5 @@ export default createCommand(config, async () => {
 	await adapter.generateTypes();
 
 	const projectRoot = await findProjectRoot();
-	for (const action of flushActions()) {
-		console.info(formatAction(action, projectRoot));
-	}
+	console.info(formatChanges(flushLogs(), { title: "Generated types", root: projectRoot }));
 });
