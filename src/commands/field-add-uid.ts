@@ -2,9 +2,8 @@ import type { UID } from "@prismicio/types-internal/lib/customtypes";
 
 import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveModel } from "../models";
+import { getPostFieldAddMessage, resolveModel } from "../models";
 import { getRepositoryName } from "../project";
-import { getPostFieldAddMessage } from "./field-add";
 
 const config = {
 	name: "prismic field add uid",

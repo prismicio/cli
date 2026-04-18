@@ -5,9 +5,14 @@ import { capitalCase } from "change-case";
 import { getHost, getToken } from "../auth";
 import { getCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveFieldSelection, resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
+import {
+	getPostFieldAddMessage,
+	resolveFieldSelection,
+	resolveFieldTarget,
+	resolveModel,
+	TARGET_OPTIONS,
+} from "../models";
 import { getRepositoryName } from "../project";
-import { getPostFieldAddMessage } from "./field-add";
 
 const config = {
 	name: "prismic field add content-relationship",

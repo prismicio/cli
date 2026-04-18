@@ -4,9 +4,13 @@ import { capitalCase } from "change-case";
 
 import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
+import {
+	getPostFieldAddMessage,
+	resolveFieldTarget,
+	resolveModel,
+	TARGET_OPTIONS,
+} from "../models";
 import { getRepositoryName } from "../project";
-import { getPostFieldAddMessage } from "./field-add";
 
 const ALL_BLOCKS =
 	"paragraph,preformatted,heading1,heading2,heading3,heading4,heading5,heading6,strong,em,hyperlink,image,embed,list-item,o-list-item,rtl";
