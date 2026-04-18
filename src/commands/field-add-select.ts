@@ -10,6 +10,15 @@ import { getRepositoryName } from "../project";
 const config = {
 	name: "prismic field add select",
 	description: "Add a select field to a slice or custom type.",
+	sections: {
+		EXAMPLES: `
+			Add a select with options:
+			  prismic field add select status --to-type blog_post --option draft --option published --option archived
+
+			With a default value:
+			  prismic field add select priority --to-type task --option low --option medium --option high --default-value medium
+		`,
+	},
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

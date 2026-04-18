@@ -19,6 +19,13 @@ const config = {
 			paragraph, strong, em, preformatted, hyperlink, image, embed,
 			list-item, o-list-item, rtl
 		`,
+		EXAMPLES: `
+			Add a title field (single heading):
+			  prismic field add rich-text title --to-type blog_post --allow heading1 --single
+
+			Add a body field with common blocks:
+			  prismic field add rich-text body --to-type blog_post --allow heading1,heading2,paragraph,strong,em,hyperlink,image,list-item,o-list-item
+		`,
 	},
 	positionals: {
 		id: { description: "Field ID", required: true },
