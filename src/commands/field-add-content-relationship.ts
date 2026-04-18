@@ -24,7 +24,7 @@ const config = {
 	`,
 	sections: {
 		EXAMPLES: `
-			Relate to any document:
+			Allow any document:
 			  prismic field add content-relationship author --to-type blog_post
 
 			Restrict to a specific type:

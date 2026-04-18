@@ -23,8 +23,8 @@ const config = {
 			Add a title field (single heading):
 			  prismic field add rich-text title --to-type blog_post --allow heading1 --single
 
-			Add a body field with common blocks:
-			  prismic field add rich-text body --to-type blog_post --allow heading1,heading2,paragraph,strong,em,hyperlink,image,list-item,o-list-item
+			Add a body field with only headings and paragraphs:
+			  prismic field add rich-text body --to-type blog_post --allow heading1,heading2,paragraph,strong,em,hyperlink
 		`,
 	},
 	positionals: {

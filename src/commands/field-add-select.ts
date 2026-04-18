@@ -13,10 +13,10 @@ const config = {
 	sections: {
 		EXAMPLES: `
 			Add a select with options:
-			  prismic field add select status --to-type blog_post --option draft --option published --option archived
+			  prismic field add select theme --to-type landing_page --option light --option dark --option brand
 
 			With a default value:
-			  prismic field add select priority --to-type task --option low --option medium --option high --default-value medium
+			  prismic field add select layout --to-type landing_page --option full --option centered --option sidebar --default-value full
 		`,
 	},
 	positionals: {
