@@ -38,8 +38,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 			throw error;
 		}
 
-		entry.anchors.sort((a, b) => a.slug.localeCompare(b.slug));
-
 		if (json) {
 			console.info(stringify(entry));
 			return;
