@@ -113,8 +113,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await adapter.generateTypes();
 
 	console.info(`Created type "${name}" (id: "${id}", format: "${format}")`);
-	console.info("");
-	console.info("Next steps:");
-	console.info(`  Add fields:  prismic field add <type> --to-type ${id}`);
-	console.info(`  View type:   prismic type view ${id}`);
+	console.info(`Run \`prismic field add <type> --to-type ${id}\` to add fields.`);
+	console.info(`Run \`prismic type view ${id}\` to view the type.`);
 });

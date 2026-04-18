@@ -64,7 +64,5 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	console.info(`Token created: ${createdToken}`);
-	console.info("");
-	console.info("Next steps:");
-	console.info(`  Add to .env:  PRISMIC_TOKEN=${createdToken}`);
+	console.info(`Add it to your .env file: PRISMIC_TOKEN=${createdToken}`);
 });

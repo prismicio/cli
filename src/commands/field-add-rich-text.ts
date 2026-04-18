@@ -69,8 +69,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	console.info(`Field added: ${id}`);
 	const targetId = values["to-slice"] ?? values["to-type"]!;
 	if (modelKind === "slice") {
-		console.info(`  View slice:  prismic slice view ${targetId}`);
+		console.info(`Run \`prismic slice view ${targetId}\` to view the updated slice.`);
 	} else {
-		console.info(`  View type:   prismic type view ${targetId}`);
+		console.info(`Run \`prismic type view ${targetId}\` to view the updated type.`);
 	}
 });
