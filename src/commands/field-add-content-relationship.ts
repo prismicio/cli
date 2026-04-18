@@ -22,6 +22,21 @@ const config = {
 		selected. These filters define exactly which documents are queryable
 		through this field. If neither is specified, all documents are allowed.
 	`,
+	sections: {
+		"FETCHED FIELDS": `
+			By default, a content relationship only returns the linked
+			document's metadata (ID, type, tags). Use --field to fetch
+			specific fields from the related document so you can display
+			them without a separate query.
+
+			--field requires exactly one --custom-type so the CLI knows
+			which schema to validate against. Dot notation is supported
+			for fields inside groups (e.g. --field bio_group.summary).
+
+			Learn more:
+			  prismic docs view fields/content-relationship#select-the-fields-to-fetch
+		`,
+	},
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},
