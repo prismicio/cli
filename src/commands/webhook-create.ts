@@ -92,4 +92,5 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	console.info(`Webhook created: ${webhookUrl}`);
+	console.info(`Run \`prismic webhook set-triggers ${webhookUrl}\` to configure triggers.`);
 });

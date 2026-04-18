@@ -40,6 +40,7 @@ export default createCommand(config, async ({ values }) => {
 
 	console.info(`Repository created: ${domain}`);
 	console.info(`URL: https://${domain}.${host}/`);
+	console.info(`Run \`prismic init --repo ${domain}\` to initialize a project.`);
 });
 
 async function findAvailableDomain(config: {
