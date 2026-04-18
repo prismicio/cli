@@ -33,6 +33,16 @@ const config = {
 			supported for fields inside groups (e.g. --field
 			authors.name).
 		`,
+		EXAMPLES: `
+			Allow any document:
+			  prismic field add content-relationship author --to-type blog_post
+
+			Restrict to a specific type:
+			  prismic field add content-relationship category --to-type blog_post --custom-type blog_category
+
+			Fetch fields from the related document:
+			  prismic field add content-relationship author --to-type blog_post --custom-type author --field name --field bio
+		`,
 	},
 	positionals: {
 		id: { description: "Field ID", required: true },

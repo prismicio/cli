@@ -33,6 +33,16 @@ const config = {
 			         page). Includes a slice zone and SEO & Metadata tab by
 			         default, and configures a route in prismic.config.json.
 		`,
+		EXAMPLES: `
+			Create a page type:
+			  prismic type create "Blog Post" --format page
+
+			Create a singleton custom type:
+			  prismic type create Settings --single
+
+			Create with a custom ID:
+			  prismic type create "Landing Page" --format page --id landing
+		`,
 	},
 } satisfies CommandConfig;
 

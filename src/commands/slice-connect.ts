@@ -10,6 +10,15 @@ import { getRepositoryName } from "../project";
 const config = {
 	name: "prismic slice connect",
 	description: "Connect a slice to a type's slice zone.",
+	sections: {
+		EXAMPLES: `
+			Connect a slice to a type's default slice zone:
+			  prismic slice connect hero --to blog_post
+
+			Connect to a named slice zone:
+			  prismic slice connect hero --to blog_post --slice-zone page_slices
+		`,
+	},
 	positionals: {
 		id: { description: "ID of the slice", required: true },
 	},

@@ -11,6 +11,18 @@ const config = {
 	name: "prismic field add link",
 	description:
 		"Add a link field to a slice or custom type. Use for navigational links to URLs, documents, or media. For data-level relations between documents, use content-relationship instead.",
+	sections: {
+		EXAMPLES: `
+			Add a link that opens in a new tab:
+			  prismic field add link cta --to-type landing_page --allow-target-blank
+
+			Restrict to media links only:
+			  prismic field add link download --to-type blog_post --allow media
+
+			Add a repeatable link with custom text:
+			  prismic field add link nav_item --to-type navigation --repeatable --allow-text
+		`,
+	},
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},
