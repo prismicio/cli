@@ -12,7 +12,8 @@ it("creates an access token", async ({ expect, prismic, repo, token, host }) => 
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Token created:");
 
-	const createdToken = stdout.replace("Token created:", "").trim();
+	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
+	expect(createdToken).toBeDefined();
 
 	const apps = await getAccessTokens({ repo, token, host });
 	const app = apps.find((a) => a.name === "Prismic CLI");
@@ -32,7 +33,8 @@ it("creates an access token with --allow-releases", async ({
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Token created:");
 
-	const createdToken = stdout.replace("Token created:", "").trim();
+	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
+	expect(createdToken).toBeDefined();
 
 	const apps = await getAccessTokens({ repo, token, host });
 	const app = apps.find((a) => a.name === "Prismic CLI");
@@ -47,7 +49,8 @@ it("creates a write token", async ({ expect, prismic, repo, token, host }) => {
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Token created:");
 
-	const createdToken = stdout.replace("Token created:", "").trim();
+	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
+	expect(createdToken).toBeDefined();
 
 	const writeTokensInfo = await getWriteTokens({ repo, token, host });
 	const found = writeTokensInfo.tokens.find((t) => t.token === createdToken);
