@@ -20,6 +20,15 @@ import fieldAddUid from "./field-add-uid";
 export default createCommandRouter({
 	name: "prismic field add",
 	description: "Add a field to a slice or custom type.",
+	sections: {
+		"GROUP FIELDS": `
+			To add a field inside a group, use dot notation for the field ID:
+
+			  prismic field add text my_group.description --to-type blog_post
+
+			The group must already exist. Only one level of nesting is supported.
+		`,
+	},
 	commands: {
 		boolean: {
 			handler: fieldAddBoolean,

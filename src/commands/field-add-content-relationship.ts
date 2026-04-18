@@ -23,6 +23,16 @@ const config = {
 		through this field. If neither is specified, all documents are allowed.
 	`,
 	sections: {
+		"FETCHED FIELDS": `
+			By default, a content relationship only returns the linked
+			document's metadata (ID, type, tags). Use --field to fetch
+			specific fields from the related document so you can display
+			them without a separate query.
+
+			--field requires exactly one --custom-type. Dot notation is
+			supported for fields inside groups (e.g. --field
+			authors.name).
+		`,
 		EXAMPLES: `
 			Allow any document:
 			  prismic field add content-relationship author --to-type blog_post

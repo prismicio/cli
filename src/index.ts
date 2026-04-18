@@ -53,6 +53,12 @@ const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs"];
 const router = createCommandRouter({
 	name: "prismic",
 	description: "Prismic CLI for managing repositories and configurations.",
+	sections: {
+		DOCUMENTATION: `
+			Run \`prismic docs list\` to browse available documentation topics.
+			Run \`prismic docs view <path>\` to read a topic.
+		`,
+	},
 	commands: {
 		init: {
 			handler: init,
