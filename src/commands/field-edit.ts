@@ -18,6 +18,16 @@ const config = {
 			type will be applied. See \`prismic field add <type> --help\`
 			for type-specific option details.
 		`,
+		EXAMPLES: `
+			Rename a field's label:
+			  prismic field edit title --from-type blog_post --label "Page Title"
+
+			Change a select field's options:
+			  prismic field edit theme --from-type landing_page --option light --option dark
+
+			Restrict a rich text field to a single block:
+			  prismic field edit subtitle --from-type blog_post --single
+		`,
 	},
 	positionals: {
 		id: { description: "Field ID", required: true },

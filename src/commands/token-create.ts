@@ -19,6 +19,18 @@ const config = {
 		By default, this command reads the repository from prismic.config.json at the
 		project root.
 	`,
+	sections: {
+		EXAMPLES: `
+			Create a read token:
+			  prismic token create
+
+			Create a read token with release access:
+			  prismic token create --allow-releases
+
+			Create a write token:
+			  prismic token create --write
+		`,
+	},
 	options: {
 		write: { type: "boolean", description: "Create a write token" },
 		"allow-releases": {
