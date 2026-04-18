@@ -56,7 +56,7 @@ const router = createCommandRouter({
 	sections: {
 		DOCUMENTATION: `
 			Run \`prismic docs list\` to browse available documentation topics.
-			Run \`prismic docs view <path>\` to read a topic in your terminal.
+			Run \`prismic docs view <path>\` to read a topic.
 		`,
 	},
 	commands: {

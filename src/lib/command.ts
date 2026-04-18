@@ -144,9 +144,7 @@ type CreateCommandRouterConfig = {
 type RouterCommand = { handler: () => Promise<void>; description: string };
 
 export function createCommandRouter(config: CreateCommandRouterConfig): () => Promise<void> {
-	const { name, description, commands } = config;
-
-	const depth = name.split(" ").length;
+	const depth = config.name.split(" ").length;
 
 	return async function () {
 		const args = process.argv.slice(1 + depth);
@@ -170,7 +168,7 @@ export function createCommandRouter(config: CreateCommandRouterConfig): () => Pr
 			throw new CommandError(`Unknown command: ${subcommand}`);
 		}
 
-		console.info(buildRouterHelp({ name, description, commands }));
+		console.info(buildRouterHelp(config));
 	};
 }
 
