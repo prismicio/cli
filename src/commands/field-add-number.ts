@@ -33,7 +33,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const [fields, saveModel] = await resolveModel(values, { repo, token, host });
+	const [fields, saveModel, modelKind] = await resolveModel(values, { repo, token, host });
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	const field: NumberField = {
@@ -52,6 +52,12 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await saveModel();
 
 	console.info(`Field added: ${id}`);
+	const targetId = values["to-slice"] ?? values["to-type"]!;
+	if (modelKind === "slice") {
+		console.info(`  View slice:  prismic slice view ${targetId}`);
+	} else {
+		console.info(`  View type:   prismic type view ${targetId}`);
+	}
 });
 
 function parseNumber(value: string | undefined, optionName: string): number | undefined {

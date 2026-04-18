@@ -39,10 +39,11 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
+	let createdToken: string;
 	try {
 		if (write) {
 			const writeToken = await createWriteToken(CLI_APP_NAME, { repo, token, host });
-			console.info(`Token created: ${writeToken.token}`);
+			createdToken = writeToken.token;
 		} else {
 			const scope = allowReleases ? "master+releases" : "master";
 
@@ -52,7 +53,7 @@ export default createCommand(config, async ({ values }) => {
 			if (!app) app = await createOAuthApp(CLI_APP_NAME, { repo, token, host });
 
 			const accessToken = await createOAuthAuthorization(app.id, scope, { repo, token, host });
-			console.info(`Token created: ${accessToken.token}`);
+			createdToken = accessToken.token;
 		}
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
@@ -61,4 +62,9 @@ export default createCommand(config, async ({ values }) => {
 		}
 		throw error;
 	}
+
+	console.info(`Token created: ${createdToken}`);
+	console.info("");
+	console.info("Next steps:");
+	console.info(`  Add to .env:  PRISMIC_TOKEN=${createdToken}`);
 });

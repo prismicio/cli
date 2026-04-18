@@ -37,4 +37,5 @@ export default createCommand(config, async ({ values }) => {
 	await saveModel();
 
 	console.info("Field added: uid");
+	console.info(`  View type:  prismic type view ${values["to-type"]!}`);
 });

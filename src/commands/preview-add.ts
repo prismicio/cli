@@ -50,4 +50,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	console.info(`Preview added: ${previewUrl}`);
+	console.info("");
+	console.info("Next steps:");
+	console.info("  Set simulator:  prismic preview set-simulator");
 });
