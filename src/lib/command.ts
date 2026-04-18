@@ -138,6 +138,7 @@ function buildCommandHelp(config: CommandConfig): string {
 type CreateCommandRouterConfig = {
 	name: string;
 	description: string;
+	sections?: Record<string, string>;
 	commands: Record<string, RouterCommand>;
 };
 type RouterCommand = { handler: () => Promise<void>; description: string };
@@ -174,7 +175,7 @@ export function createCommandRouter(config: CreateCommandRouterConfig): () => Pr
 }
 
 function buildRouterHelp(config: CreateCommandRouterConfig): string {
-	const { name, description, commands } = config;
+	const { name, description, sections, commands } = config;
 
 	const lines = [description];
 
@@ -190,6 +191,17 @@ function buildRouterHelp(config: CreateCommandRouterConfig): string {
 	lines.push("");
 	lines.push("OPTIONS");
 	lines.push("  -h, --help   Show help for command");
+
+	if (sections) {
+		for (const sectionName in sections) {
+			const content = dedent(sections[sectionName]);
+			lines.push("");
+			lines.push(sectionName);
+			for (const line of content.split("\n")) {
+				lines.push(line ? `  ${line}` : "");
+			}
+		}
+	}
 
 	lines.push("");
 	lines.push("LEARN MORE");
