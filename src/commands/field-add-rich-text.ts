@@ -6,6 +6,7 @@ import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
 import { getRepositoryName } from "../project";
+import { getPostFieldAddMessage } from "./field-add";
 
 const ALL_BLOCKS =
 	"paragraph,preformatted,heading1,heading2,heading3,heading4,heading5,heading6,strong,em,hyperlink,image,embed,list-item,o-list-item,rtl";
@@ -67,10 +68,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await saveModel();
 
 	console.info(`Field added: ${id}`);
+
 	const targetId = values["to-slice"] ?? values["to-type"]!;
-	if (modelKind === "slice") {
-		console.info(`Run \`prismic slice view ${targetId}\` to view the updated slice.`);
-	} else {
-		console.info(`Run \`prismic type view ${targetId}\` to view the updated type.`);
-	}
+	console.info(getPostFieldAddMessage({ targetId, modelKind }));
 });

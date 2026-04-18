@@ -7,6 +7,7 @@ import { getCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { resolveFieldSelection, resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
 import { getRepositoryName } from "../project";
+import { getPostFieldAddMessage } from "./field-add";
 
 const config = {
 	name: "prismic field add content-relationship",
@@ -94,10 +95,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await saveModel();
 
 	console.info(`Field added: ${id}`);
+
 	const targetId = values["to-slice"] ?? values["to-type"]!;
-	if (modelKind === "slice") {
-		console.info(`Run \`prismic slice view ${targetId}\` to view the updated slice.`);
-	} else {
-		console.info(`Run \`prismic type view ${targetId}\` to view the updated type.`);
-	}
+	console.info(getPostFieldAddMessage({ targetId, modelKind }));
 });

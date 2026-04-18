@@ -4,6 +4,7 @@ import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { resolveModel } from "../models";
 import { getRepositoryName } from "../project";
+import { getPostFieldAddMessage } from "./field-add";
 
 const config = {
 	name: "prismic field add uid",
@@ -22,7 +23,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const [fields, saveModel] = await resolveModel(values, { repo, token, host });
+	const [fields, saveModel, modelKind] = await resolveModel(values, { repo, token, host });
 
 	const field: UID = {
 		type: "UID",
@@ -37,5 +38,7 @@ export default createCommand(config, async ({ values }) => {
 	await saveModel();
 
 	console.info("Field added: uid");
-	console.info(`Run \`prismic type view ${values["to-type"]!}\` to view the updated type.`);
+
+	const targetId = values["to-type"]!;
+	console.info(getPostFieldAddMessage({ targetId, modelKind }));
 });

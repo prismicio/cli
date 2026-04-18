@@ -92,3 +92,16 @@ export default createCommandRouter({
 		},
 	},
 });
+
+export function getPostFieldAddMessage(args: {
+	targetId: string;
+	modelKind: "slice" | "customType";
+}): string {
+	const { modelKind, targetId } = args;
+
+	if (modelKind === "slice") {
+		return `Run \`prismic slice view ${targetId}\` to view the updated slice.`;
+	} else {
+		return `Run \`prismic type view ${targetId}\` to view the updated type.`;
+	}
+}
