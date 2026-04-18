@@ -29,9 +29,9 @@ const config = {
 			specific fields from the related document so you can display
 			them without a separate query.
 
-			--field requires exactly one --custom-type so the CLI knows
-			which schema to validate against. Dot notation is supported
-			for fields inside groups (e.g. --field authors.name).
+			--field requires exactly one --custom-type. Dot notation is
+			supported for fields inside groups (e.g. --field
+			authors.name).
 		`,
 	},
 	positionals: {
