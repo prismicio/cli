@@ -31,10 +31,7 @@ const config = {
 
 			--field requires exactly one --custom-type so the CLI knows
 			which schema to validate against. Dot notation is supported
-			for fields inside groups (e.g. --field bio_group.summary).
-
-			Learn more:
-			  prismic docs view fields/content-relationship#select-the-fields-to-fetch
+			for fields inside groups (e.g. --field authors.name).
 		`,
 	},
 	positionals: {
