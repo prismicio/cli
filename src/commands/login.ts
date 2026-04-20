@@ -1,7 +1,6 @@
-import { exec } from "node:child_process";
-
 import { createLoginSession } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
+import { openBrowser } from "../lib/browser";
 
 const config = {
 	name: "prismic login",
@@ -28,9 +27,3 @@ export default createCommand(config, async ({ values }) => {
 
 	console.info(`Logged in to Prismic as ${email}`);
 });
-
-function openBrowser(url: URL): void {
-	const cmd =
-		process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-	exec(`${cmd} "${url.toString()}"`);
-}
