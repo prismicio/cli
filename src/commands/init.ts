@@ -159,4 +159,6 @@ export default createCommand(config, async ({ values }) => {
 	await adapter.syncModels({ repo, token, host });
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
+	console.info("Run `prismic type create <name>` to create a content type.");
+	console.info("Run `prismic sync` to sync models from Prismic.");
 });

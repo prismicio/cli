@@ -37,6 +37,16 @@ const config = {
 
 			If no triggers specified, all are enabled.
 		`,
+		EXAMPLES: `
+			Create a webhook for all events:
+			  prismic webhook create https://example.com/webhook
+
+			Create a webhook for specific events:
+			  prismic webhook create https://example.com/webhook -t documentsPublished -t documentsUnpublished
+
+			Create a named webhook with a secret:
+			  prismic webhook create https://example.com/webhook --name "Deploy" --secret my-secret
+		`,
 	},
 } satisfies CommandConfig;
 
@@ -82,4 +92,5 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	console.info(`Webhook created: ${webhookUrl}`);
+	console.info(`Run \`prismic webhook set-triggers ${webhookUrl}\` to configure triggers.`);
 });

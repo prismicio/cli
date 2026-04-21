@@ -50,4 +50,5 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	console.info(`Preview added: ${previewUrl}`);
+	console.info("Run `prismic preview set-simulator <url>` to set the slice simulator URL.");
 });

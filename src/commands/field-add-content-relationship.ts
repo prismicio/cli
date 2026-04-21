@@ -5,7 +5,13 @@ import { capitalCase } from "change-case";
 import { getHost, getToken } from "../auth";
 import { getCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveFieldSelection, resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
+import {
+	getPostFieldAddMessage,
+	resolveFieldSelection,
+	resolveFieldTarget,
+	resolveModel,
+	TARGET_OPTIONS,
+} from "../models";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -22,6 +28,28 @@ const config = {
 		selected. These filters define exactly which documents are queryable
 		through this field. If neither is specified, all documents are allowed.
 	`,
+	sections: {
+		"FETCHED FIELDS": `
+			By default, a content relationship only returns the linked
+			document's metadata (ID, type, tags). Use --field to fetch
+			specific fields from the related document so you can display
+			them without a separate query.
+
+			--field requires exactly one --custom-type. Dot notation is
+			supported for fields inside groups (e.g. --field
+			authors.name).
+		`,
+		EXAMPLES: `
+			Allow any document:
+			  prismic field add content-relationship author --to-type blog_post
+
+			Restrict to a specific type:
+			  prismic field add content-relationship category --to-type blog_post --custom-type blog_category
+
+			Fetch fields from the related document:
+			  prismic field add content-relationship author --to-type blog_post --custom-type author --field name --field bio
+		`,
+	},
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},
@@ -63,7 +91,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const [fields, saveModel] = await resolveModel(values, { repo, token, host });
+	const [fields, saveModel, modelKind] = await resolveModel(values, { repo, token, host });
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	let resolvedCustomTypes: NonNullable<Link["config"]>["customtypes"] = customtypes;
@@ -94,4 +122,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await saveModel();
 
 	console.info(`Field added: ${id}`);
+
+	const targetId = values["to-slice"] ?? values["to-type"]!;
+	console.info(getPostFieldAddMessage({ targetId, modelKind }));
 });

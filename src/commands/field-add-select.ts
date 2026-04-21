@@ -4,12 +4,26 @@ import { capitalCase } from "change-case";
 
 import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
+import {
+	getPostFieldAddMessage,
+	resolveFieldTarget,
+	resolveModel,
+	TARGET_OPTIONS,
+} from "../models";
 import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field add select",
 	description: "Add a select field to a slice or custom type.",
+	sections: {
+		EXAMPLES: `
+			Add a select with options:
+			  prismic field add select theme --to-type landing_page --option light --option dark --option brand
+
+			With a default value:
+			  prismic field add select layout --to-type landing_page --option full --option centered --option sidebar --default-value full
+		`,
+	},
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},
@@ -38,7 +52,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const [fields, saveModel] = await resolveModel(values, { repo, token, host });
+	const [fields, saveModel, modelKind] = await resolveModel(values, { repo, token, host });
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	const field: Select = {
@@ -56,4 +70,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await saveModel();
 
 	console.info(`Field added: ${id}`);
+
+	const targetId = values["to-slice"] ?? values["to-type"]!;
+	console.info(getPostFieldAddMessage({ targetId, modelKind }));
 });

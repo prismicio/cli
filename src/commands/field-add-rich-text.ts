@@ -4,7 +4,12 @@ import { capitalCase } from "change-case";
 
 import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { resolveFieldTarget, resolveModel, TARGET_OPTIONS } from "../models";
+import {
+	getPostFieldAddMessage,
+	resolveFieldTarget,
+	resolveModel,
+	TARGET_OPTIONS,
+} from "../models";
 import { getRepositoryName } from "../project";
 
 const ALL_BLOCKS =
@@ -18,6 +23,13 @@ const config = {
 			heading1, heading2, heading3, heading4, heading5, heading6,
 			paragraph, strong, em, preformatted, hyperlink, image, embed,
 			list-item, o-list-item, rtl
+		`,
+		EXAMPLES: `
+			Add a title field (single heading):
+			  prismic field add rich-text title --to-type blog_post --allow heading1 --single
+
+			Add a body field with only headings and paragraphs:
+			  prismic field add rich-text body --to-type blog_post --allow heading1,heading2,paragraph,strong,em,hyperlink
 		`,
 	},
 	positionals: {
@@ -49,7 +61,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const [fields, saveModel] = await resolveModel(values, { repo, token, host });
+	const [fields, saveModel, modelKind] = await resolveModel(values, { repo, token, host });
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	const field: RichText = {
@@ -67,4 +79,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await saveModel();
 
 	console.info(`Field added: ${id}`);
+
+	const targetId = values["to-slice"] ?? values["to-type"]!;
+	console.info(getPostFieldAddMessage({ targetId, modelKind }));
 });

@@ -33,6 +33,16 @@ const config = {
 			         page). Includes a slice zone and SEO & Metadata tab by
 			         default, and configures a route in prismic.config.json.
 		`,
+		EXAMPLES: `
+			Create a page type:
+			  prismic type create "Blog Post" --format page
+
+			Create a singleton custom type:
+			  prismic type create Settings --single
+
+			Create with a custom ID:
+			  prismic type create "Landing Page" --format page --id landing
+		`,
 	},
 } satisfies CommandConfig;
 
@@ -113,4 +123,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await adapter.generateTypes();
 
 	console.info(`Created type "${name}" (id: "${id}", format: "${format}")`);
+	console.info(`Run \`prismic field add <type> --to-type ${id}\` to add fields.`);
+	console.info(`Run \`prismic type view ${id}\` to view the type.`);
 });
