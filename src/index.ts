@@ -216,9 +216,7 @@ async function main(): Promise<void> {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
 				segmentTrackEnd(command, { error });
 			}
-			console.error(
-				"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.",
-			);
+			console.error(error.message);
 			return;
 		}
 
