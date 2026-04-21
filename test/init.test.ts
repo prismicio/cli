@@ -14,16 +14,21 @@ it("fails if prismic.config.json already exists", async ({ expect, prismic }) =>
 	expect(stderr).toContain("already initialized");
 });
 
-it("fails if --repo is not provided and no legacy config exists", async ({
+it("creates a repo if --repo is not provided and no legacy config exists", async ({
 	expect,
 	project,
 	prismic,
 }) => {
 	await rm(new URL("prismic.config.json", project));
-	const { exitCode, stderr } = await prismic("init");
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Missing required flag");
-});
+	const { exitCode, stdout } = await prismic("init");
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain("Created repository:");
+	expect(stdout).toContain("Initialized Prismic for repository");
+
+	const configRaw = await readFile(new URL("prismic.config.json", project), "utf-8");
+	const config = JSON.parse(configRaw);
+	expect(config.repositoryName).toMatch(/^[a-f0-9]{8}$/);
+}, 60_000);
 
 it("initializes a project with --repo when logged in", async ({
 	expect,

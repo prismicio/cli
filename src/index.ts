@@ -23,6 +23,7 @@ import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { CommandError, createCommandRouter } from "./lib/command";
+import { decodePayload } from "./lib/jwt";
 import {
 	ForbiddenRequestError,
 	NotFoundRequestError,
@@ -42,7 +43,6 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { decodePayload } from "./lib/jwt";
 import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";

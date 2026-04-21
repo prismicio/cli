@@ -38,7 +38,8 @@ export async function getAdapter(): Promise<Adapter> {
 }
 
 export class NoSupportedFrameworkError extends Error {
-	message = "No supported framework found (Next.js, Nuxt, or SvelteKit required)";
+	name = "NoSupportedFrameworkError";
+	message = "No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
 }
 
 export abstract class Adapter {
