@@ -16,8 +16,8 @@ import { findProjectRoot, getLibraries } from "../project";
 
 const TYPES_FILENAME = "prismicio-types.d.ts";
 
-type CustomTypeMeta = { model: CustomType; directory: URL };
-type SharedSliceMeta = { model: SharedSlice; directory: URL; library: URL };
+export type CustomTypeMeta = { model: CustomType; file: URL; directory: URL };
+export type SharedSliceMeta = { model: SharedSlice; file: URL; directory: URL; library: URL };
 
 export async function getAdapter(): Promise<Adapter> {
 	const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
@@ -86,7 +86,7 @@ export abstract class Adapter {
 				sliceModelPaths.map(async (sliceModelPath) => {
 					const directory = new URL(".", sliceModelPath);
 					const model = await readJsonFile<SharedSlice>(sliceModelPath);
-					return { library, directory, model };
+					return { library, directory, file: sliceModelPath, model };
 				}),
 			);
 			allSlices.push(...slices);
@@ -141,7 +141,7 @@ export abstract class Adapter {
 			customTypeModelPaths.map(async (customTypeModelPath) => {
 				const directory = new URL(".", customTypeModelPath);
 				const model = await readJsonFile<CustomType>(customTypeModelPath);
-				return { directory, model };
+				return { directory, file: customTypeModelPath, model };
 			}),
 		);
 
@@ -181,26 +181,28 @@ export abstract class Adapter {
 		await this.onCustomTypeDeleted(id);
 	}
 
-	async syncModels(config: {
+	async pullModels(config: {
 		repo: string;
 		token: string | undefined;
 		host: string;
+		force?: boolean;
 	}): Promise<void> {
-		const { repo, token, host } = config;
+		const { repo, token, host, force } = config;
 		await Promise.all([
-			this.syncSlices({ repo, token, host, generateTypes: false }),
-			this.syncCustomTypes({ repo, token, host, generateTypes: false }),
+			this.pullSlices({ repo, token, host, generateTypes: false, force }),
+			this.pullCustomTypes({ repo, token, host, generateTypes: false, force }),
 		]);
 		await this.generateTypes();
 	}
 
-	async syncSlices(config: {
+	async pullSlices(config: {
 		repo: string;
 		token: string | undefined;
 		host: string;
 		generateTypes?: boolean;
+		force?: boolean;
 	}): Promise<void> {
-		const { repo, token, host, generateTypes = true } = config;
+		const { repo, token, host, generateTypes = true, force = false } = config;
 
 		const remoteSlices = await getSlices({ repo, token, host });
 		const localSlices = await this.getSlices();
@@ -226,13 +228,14 @@ export abstract class Adapter {
 		if (generateTypes) await this.generateTypes();
 	}
 
-	async syncCustomTypes(config: {
+	async pullCustomTypes(config: {
 		repo: string;
 		token: string | undefined;
 		host: string;
 		generateTypes?: boolean;
+		force?: boolean;
 	}): Promise<void> {
-		const { repo, token, host, generateTypes = true } = config;
+		const { repo, token, host, generateTypes = true, force = false } = config;
 
 		const remoteCustomTypes = await getCustomTypes({ repo, token, host });
 		const localCustomTypes = await this.getCustomTypes();

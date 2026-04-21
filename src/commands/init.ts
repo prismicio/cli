@@ -150,7 +150,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Sync models from remote and generate types
-	await adapter.syncModels({ repo, token, host });
+	await adapter.pullModels({ repo, token, host });
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");

@@ -50,7 +50,7 @@ export default createCommand(config, async ({ values }) => {
 	} else {
 		const token = await getToken();
 		const host = await getHost();
-		await adapter.syncModels({ repo, token, host });
+		await adapter.pullModels({ repo, token, host });
 		segmentTrackEnd("sync", { watch });
 
 		console.info("Sync complete");
@@ -64,7 +64,7 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 	const initialRemoteSlices = await getSlices({ repo, token, host });
 	const initialRemoteCustomTypes = await getCustomTypes({ repo, token, host });
 
-	await adapter.syncModels({ repo, token, host });
+	await adapter.pullModels({ repo, token, host });
 
 	console.info(dedent`
 		Initial sync completed!
@@ -103,12 +103,12 @@ async function watchForChanges(repo: string, adapter: Adapter) {
 				const changed = [];
 
 				if (slicesChanged) {
-					await adapter.syncSlices({ repo, token, host, generateTypes: false });
+					await adapter.pullSlices({ repo, token, host, generateTypes: false });
 					lastRemoteSlicesHash = remoteSlicesHash;
 					changed.push("slices");
 				}
 				if (customTypesChanged) {
-					await adapter.syncCustomTypes({ repo, token, host, generateTypes: false });
+					await adapter.pullCustomTypes({ repo, token, host, generateTypes: false });
 					lastRemoteCustomTypesHash = remoteCustomTypesHash;
 					changed.push("custom types");
 				}
