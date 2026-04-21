@@ -14,6 +14,7 @@ import locale from "./commands/locale";
 import login from "./commands/login";
 import logout from "./commands/logout";
 import preview from "./commands/preview";
+import pull from "./commands/pull";
 import repo from "./commands/repo";
 import slice from "./commands/slice";
 import sync from "./commands/sync";
@@ -23,6 +24,7 @@ import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { CommandError, createCommandRouter } from "./lib/command";
+import { decodePayload } from "./lib/jwt";
 import {
 	ForbiddenRequestError,
 	NotFoundRequestError,
@@ -42,7 +44,6 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { decodePayload } from "./lib/jwt";
 import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
@@ -99,6 +100,10 @@ const router = createCommandRouter({
 		preview: {
 			handler: preview,
 			description: "Manage preview configurations",
+		},
+		pull: {
+			handler: pull,
+			description: "Pull types and slices from Prismic",
 		},
 		token: {
 			handler: token,
