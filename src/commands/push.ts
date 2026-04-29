@@ -18,7 +18,7 @@ import { getRepositoryName, readSnapshot, writeSnapshot } from "../project";
 
 const config = {
 	name: "prismic push",
-	description: dedent`
+	description: `
 		Push local content types and slices to Prismic.
 
 		Local models are the source of truth. Remote models are created,
