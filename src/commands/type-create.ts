@@ -3,11 +3,7 @@ import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 import { snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
-import { insertCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic type create",
@@ -23,7 +19,6 @@ const config = {
 		},
 		single: { type: "boolean", short: "s", description: "Allow only one document of this type" },
 		id: { type: "string", description: "Custom ID for the content type" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 	sections: {
 		FORMATS: `
@@ -48,12 +43,7 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [name] = positionals;
-	const {
-		format = "custom",
-		single = false,
-		id = snakeCase(name),
-		repo = await getRepositoryName(),
-	} = values;
+	const { format = "custom", single = false, id = snakeCase(name) } = values;
 
 	if (format !== "custom" && format !== "page") {
 		throw new CommandError(`Invalid format: "${format}". Use "custom" or "page".`);
@@ -106,19 +96,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	};
 
 	const adapter = await getAdapter();
-	const token = await getToken();
-	const host = await getHost();
-
-	try {
-		await insertCustomType(model, { repo, host, token });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to create type: ${message}`);
-		}
-		throw error;
-	}
-
 	await adapter.createCustomType(model);
 	await adapter.generateTypes();
 

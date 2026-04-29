@@ -2,7 +2,6 @@ import type { RichText } from "@prismicio/types-internal/lib/customtypes";
 
 import { capitalCase } from "change-case";
 
-import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import {
 	getPostFieldAddMessage,
@@ -10,7 +9,6 @@ import {
 	resolveModel,
 	TARGET_OPTIONS,
 } from "../models";
-import { getRepositoryName } from "../project";
 
 const ALL_BLOCKS =
 	"paragraph,preformatted,heading1,heading2,heading3,heading4,heading5,heading6,strong,em,hyperlink,image,embed,list-item,o-list-item,rtl";
@@ -56,12 +54,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 		allow = ALL_BLOCKS,
 		single: isSingle,
 		"allow-target-blank": allowTargetBlank,
-		repo = await getRepositoryName(),
 	} = values;
 
-	const token = await getToken();
-	const host = await getHost();
-	const [fields, saveModel, modelKind] = await resolveModel(values, { repo, token, host });
+	const [fields, saveModel, modelKind] = await resolveModel(values);
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	const field: RichText = {

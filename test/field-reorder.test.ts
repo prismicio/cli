@@ -1,7 +1,14 @@
 import type { Group } from "@prismicio/types-internal/lib/customtypes";
 
-import { buildCustomType, buildSlice, it } from "./it";
-import { getCustomTypes, getSlices, insertCustomType, insertSlice } from "./prismic";
+import {
+	buildCustomType,
+	buildSlice,
+	it,
+	readLocalCustomType,
+	readLocalSlice,
+	writeLocalCustomType,
+	writeLocalSlice,
+} from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("field", ["reorder", "--help"]);
@@ -9,12 +16,12 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic field reorder <id> [options]");
 });
 
-it("reorders a field in a slice", async ({ expect, prismic, repo, token, host }) => {
+it("reorders a field in a slice", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.field_a = { type: "Boolean", config: { label: "A" } };
 	slice.variations[0].primary!.field_b = { type: "Boolean", config: { label: "B" } };
 	slice.variations[0].primary!.field_c = { type: "Boolean", config: { label: "C" } };
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"reorder",
@@ -27,17 +34,16 @@ it("reorders a field in a slice", async ({ expect, prismic, repo, token, host })
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field reordered: field_a");
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	expect(Object.keys(updated!.variations[0].primary!)).toEqual(["field_b", "field_c", "field_a"]);
 });
 
-it("reorders a field in a custom type", async ({ expect, prismic, repo, token, host }) => {
+it("reorders a field in a custom type", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType();
 	customType.json.Main.title = { type: "StructuredText", config: { label: "Title" } };
 	customType.json.Main.body = { type: "StructuredText", config: { label: "Body" } };
 	customType.json.Main.image = { type: "Image", config: { label: "Image" } };
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"reorder",
@@ -50,12 +56,11 @@ it("reorders a field in a custom type", async ({ expect, prismic, repo, token, h
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field reordered: image");
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const updated = customTypes.find((ct) => ct.id === customType.id);
-	expect(Object.keys(updated!.json.Main)).toEqual(["title", "image", "body"]);
+	const updated = await readLocalCustomType(project, customType.id);
+	expect(Object.keys(updated.json.Main)).toEqual(["title", "image", "body"]);
 });
 
-it("moves a field across tabs in a custom type", async ({ expect, prismic, repo, token, host }) => {
+it("moves a field across tabs in a custom type", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType();
 	customType.json.Main.title = { type: "StructuredText", config: { label: "Title" } };
 	customType.json.Main.body = { type: "StructuredText", config: { label: "Body" } };
@@ -63,7 +68,7 @@ it("moves a field across tabs in a custom type", async ({ expect, prismic, repo,
 		meta_title: { type: "Text", config: { label: "Meta Title" } },
 		meta_desc: { type: "Text", config: { label: "Meta Description" } },
 	};
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"reorder",
@@ -76,13 +81,12 @@ it("moves a field across tabs in a custom type", async ({ expect, prismic, repo,
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field reordered: body");
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const updated = customTypes.find((ct) => ct.id === customType.id);
-	expect(Object.keys(updated!.json.Main)).toEqual(["title"]);
-	expect(Object.keys(updated!.json.SEO)).toEqual(["meta_title", "body", "meta_desc"]);
+	const updated = await readLocalCustomType(project, customType.id);
+	expect(Object.keys(updated.json.Main)).toEqual(["title"]);
+	expect(Object.keys(updated.json.SEO)).toEqual(["meta_title", "body", "meta_desc"]);
 });
 
-it("reorders a nested field in a group", async ({ expect, prismic, repo, token, host }) => {
+it("reorders a nested field in a group", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.my_group = {
 		type: "Group",
@@ -95,7 +99,7 @@ it("reorders a nested field in a group", async ({ expect, prismic, repo, token, 
 			},
 		},
 	};
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"reorder",
@@ -108,16 +112,15 @@ it("reorders a nested field in a group", async ({ expect, prismic, repo, token, 
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field reordered: my_group.sub_c");
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const group = updated!.variations[0].primary!.my_group as Group;
 	expect(Object.keys(group.config!.fields!)).toEqual(["sub_c", "sub_a", "sub_b"]);
 });
 
-it("errors when the field does not exist", async ({ expect, prismic, repo, token, host }) => {
+it("errors when the field does not exist", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.field_a = { type: "Boolean", config: { label: "A" } };
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stderr, exitCode } = await prismic("field", [
 		"reorder",

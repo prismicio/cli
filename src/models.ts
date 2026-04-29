@@ -1,16 +1,14 @@
-import type { CustomType, DynamicWidget, Link } from "@prismicio/types-internal/lib/customtypes";
+import type { DynamicWidget, Link } from "@prismicio/types-internal/lib/customtypes";
 
+import type { Adapter } from "./adapters";
 import type { CommandConfig } from "./lib/command";
 
 import { getAdapter } from "./adapters";
-import { getCustomType, getSlice, updateCustomType, updateSlice } from "./clients/custom-types";
 import { CommandError } from "./lib/command";
-import { UnknownRequestError } from "./lib/request";
 
 type Field = DynamicWidget;
 type Fields = Record<string, Field>;
 type ModelKind = "slice" | "customType";
-type ApiConfig = { repo: string; token: string | undefined; host: string };
 type Target = [fields: Fields, save: () => Promise<void>, modelKind: ModelKind];
 
 export const TARGET_OPTIONS = {
@@ -18,14 +16,12 @@ export const TARGET_OPTIONS = {
 	"to-type": { type: "string", description: "ID of the target content type" },
 	variation: { type: "string", description: 'Slice variation ID (default: "default")' },
 	tab: { type: "string", description: 'Content type tab name (default: "Main")' },
-	repo: { type: "string", short: "r", description: "Repository domain" },
 } satisfies CommandConfig["options"];
 
 export const SOURCE_OPTIONS = {
 	"from-slice": { type: "string", description: "ID of the source slice" },
 	"from-type": { type: "string", description: "ID of the source content type" },
 	variation: TARGET_OPTIONS.variation,
-	repo: TARGET_OPTIONS.repo,
 } satisfies CommandConfig["options"];
 
 export async function resolveFieldContainer(
@@ -35,7 +31,6 @@ export async function resolveFieldContainer(
 		"from-type"?: string;
 		variation?: string;
 	},
-	apiConfig: ApiConfig,
 ): Promise<Target> {
 	const adapter = await getAdapter();
 	const {
@@ -53,10 +48,10 @@ export async function resolveFieldContainer(
 	}
 
 	if (fromSlice) {
-		const slice = await getSlice(fromSlice, apiConfig);
-		const variation = slice.variations.find((v) => v.id === variationId);
+		const slice = await adapter.getSlice(fromSlice);
+		const variation = slice.model.variations.find((v) => v.id === variationId);
 		if (!variation) {
-			const variationIds = slice.variations?.map((v) => v.id).join(", ") || "(none)";
+			const variationIds = slice.model.variations?.map((v) => v.id).join(", ") || "(none)";
 			throw new CommandError(`Variation "${variationId}" not found. Available: ${variationIds}`);
 		}
 		variation.primary ??= {};
@@ -64,39 +59,30 @@ export async function resolveFieldContainer(
 		return [
 			variation.primary,
 			async () => {
-				await updateSlice(slice, apiConfig);
-				try {
-					await adapter.updateSlice(slice);
-				} catch {
-					await adapter.createSlice(slice);
-				}
+				await adapter.updateSlice(slice.model);
 				await adapter.generateTypes();
 			},
 			"slice",
 		];
 	}
 
-	const customType = await getCustomType(fromType!, apiConfig);
+	const customType = await adapter.getCustomType(fromType!);
 	const root = id.includes(".") ? id.split(".")[0] : id;
 	let tab: Record<string, DynamicWidget> | undefined;
-	for (const tabName in customType.json) {
-		if (root in customType.json[tabName]) tab = customType.json[tabName];
+	for (const tabName in customType.model.json) {
+		if (root in customType.model.json[tabName]) tab = customType.model.json[tabName];
 	}
 	if (!tab) {
 		const fieldIds =
-			Object.keys(Object.assign({}, ...Object.values(customType.json))).join(", ") || "(none)";
+			Object.keys(Object.assign({}, ...Object.values(customType.model.json))).join(", ") ||
+			"(none)";
 		throw new CommandError(`Field "${id}" not found. Available: ${fieldIds}`);
 	}
 	resolveFieldTarget(tab, id);
 	return [
 		tab,
 		async () => {
-			await updateCustomType(customType, apiConfig);
-			try {
-				await adapter.updateCustomType(customType);
-			} catch {
-				await adapter.createCustomType(customType);
-			}
+			await adapter.updateCustomType(customType.model);
 			await adapter.generateTypes();
 		},
 		"customType",
@@ -111,7 +97,6 @@ export async function resolveFieldPair(
 		"from-type"?: string;
 		variation?: string;
 	},
-	apiConfig: ApiConfig,
 ): Promise<
 	[sourceFields: Fields, anchorFields: Fields, save: () => Promise<void>, modelKind: ModelKind]
 > {
@@ -131,10 +116,10 @@ export async function resolveFieldPair(
 	}
 
 	if (fromSlice) {
-		const slice = await getSlice(fromSlice, apiConfig);
-		const variation = slice.variations.find((v) => v.id === variationId);
+		const slice = await adapter.getSlice(fromSlice);
+		const variation = slice.model.variations.find((v) => v.id === variationId);
 		if (!variation) {
-			const variationIds = slice.variations?.map((v) => v.id).join(", ") || "(none)";
+			const variationIds = slice.model.variations?.map((v) => v.id).join(", ") || "(none)";
 			throw new CommandError(`Variation "${variationId}" not found. Available: ${variationIds}`);
 		}
 		variation.primary ??= {};
@@ -142,32 +127,27 @@ export async function resolveFieldPair(
 			variation.primary,
 			variation.primary,
 			async () => {
-				await updateSlice(slice, apiConfig);
-				try {
-					await adapter.updateSlice(slice);
-				} catch {
-					await adapter.createSlice(slice);
-				}
+				await adapter.updateSlice(slice.model);
 				await adapter.generateTypes();
 			},
 			"slice",
 		];
 	}
 
-	const customType = await getCustomType(fromType!, apiConfig);
+	const customType = await adapter.getCustomType(fromType!);
 
 	const sourceRoot = sourceId.includes(".") ? sourceId.split(".")[0] : sourceId;
 	const anchorRoot = anchorId.includes(".") ? anchorId.split(".")[0] : anchorId;
 
 	let sourceTab: Record<string, DynamicWidget> | undefined;
 	let anchorTab: Record<string, DynamicWidget> | undefined;
-	for (const tabName in customType.json) {
-		const tab = customType.json[tabName];
+	for (const tabName in customType.model.json) {
+		const tab = customType.model.json[tabName];
 		if (sourceRoot in tab) sourceTab = tab;
 		if (anchorRoot in tab) anchorTab = tab;
 	}
 
-	const allFieldIds = Object.keys(Object.assign({}, ...Object.values(customType.json)));
+	const allFieldIds = Object.keys(Object.assign({}, ...Object.values(customType.model.json)));
 	const available = allFieldIds.join(", ") || "(none)";
 	if (!sourceTab) {
 		throw new CommandError(`Field "${sourceId}" not found. Available: ${available}`);
@@ -180,12 +160,7 @@ export async function resolveFieldPair(
 		sourceTab,
 		anchorTab,
 		async () => {
-			await updateCustomType(customType, apiConfig);
-			try {
-				await adapter.updateCustomType(customType);
-			} catch {
-				await adapter.createCustomType(customType);
-			}
+			await adapter.updateCustomType(customType.model);
 			await adapter.generateTypes();
 		},
 		"customType",
@@ -201,7 +176,6 @@ export async function resolveModel(
 		variation?: string;
 		tab?: string;
 	},
-	apiConfig: ApiConfig,
 ): Promise<Target> {
 	const adapter = await getAdapter();
 	const sliceId = values["to-slice"] ?? values["from-slice"];
@@ -220,34 +194,20 @@ export async function resolveModel(
 			throw new CommandError("--tab is only valid for content types.");
 		}
 
-		const variation = values.variation ?? "default";
-		const slice = await getSlice(sliceId, apiConfig);
+		const variationId = values.variation ?? "default";
+		const slice = await adapter.getSlice(sliceId);
 
-		const newModel = structuredClone(slice);
-		const newVariation = newModel.variations?.find((v) => v.id === variation);
-		if (!newVariation) {
-			const variationIds = slice.variations?.map((v) => v.id).join(", ") || "(none)";
-			throw new CommandError(`Variation "${variation}" not found. Available: ${variationIds}`);
+		const variation = slice.model.variations?.find((v) => v.id === variationId);
+		if (!variation) {
+			const variationIds = slice.model.variations?.map((v) => v.id).join(", ") || "(none)";
+			throw new CommandError(`Variation "${variationId}" not found. Available: ${variationIds}`);
 		}
-		newVariation.primary ??= {};
+		variation.primary ??= {};
 
 		return [
-			newVariation.primary,
+			variation.primary,
 			async () => {
-				try {
-					await updateSlice(newModel, apiConfig);
-				} catch (error) {
-					if (error instanceof UnknownRequestError) {
-						const message = await error.text();
-						throw new CommandError(`Failed to update slice: ${message}`);
-					}
-					throw error;
-				}
-				try {
-					await adapter.updateSlice(newModel);
-				} catch {
-					await adapter.createSlice(newModel);
-				}
+				await adapter.updateSlice(slice.model);
 				await adapter.generateTypes();
 			},
 			"slice",
@@ -258,33 +218,19 @@ export async function resolveModel(
 		throw new CommandError("--variation is only valid for slices.");
 	}
 
-	const tab = values.tab ?? "Main";
-	const customType = await getCustomType(typeId!, apiConfig);
+	const tabName = values.tab ?? "Main";
+	const customType = await adapter.getCustomType(typeId!);
 
-	const newModel = structuredClone(customType);
-	const newTab = newModel.json[tab];
-	if (!newTab) {
-		const tabNames = Object.keys(customType.json).join(", ") || "(none)";
-		throw new CommandError(`Tab "${tab}" not found. Available: ${tabNames}`);
+	const tab = customType.model.json[tabName];
+	if (!tab) {
+		const tabNames = Object.keys(customType.model.json).join(", ") || "(none)";
+		throw new CommandError(`Tab "${tabName}" not found. Available: ${tabNames}`);
 	}
 
 	return [
-		newTab,
+		tab,
 		async () => {
-			try {
-				await updateCustomType(newModel, apiConfig);
-			} catch (error) {
-				if (error instanceof UnknownRequestError) {
-					const message = await error.text();
-					throw new CommandError(`Failed to update type: ${message}`);
-				}
-				throw error;
-			}
-			try {
-				await adapter.updateCustomType(newModel);
-			} catch {
-				await adapter.createCustomType(newModel);
-			}
+			await adapter.updateCustomType(customType.model);
 			await adapter.generateTypes();
 		},
 		"customType",
@@ -341,13 +287,15 @@ const UNFETCHABLE_FIELD_TYPES = ["Slices", "UID", "Choice"];
  */
 export async function resolveFieldSelection(
 	fieldSelection: string[],
-	targetType: CustomType,
-	apiConfig: ApiConfig,
+	targetTypeId: string,
 ): Promise<ResolvedField[]> {
-	// Merge all tabs into one flat field map.
-	const fields: Record<string, Field> = Object.assign({}, ...Object.values(targetType.json));
+	const adapter = await getAdapter();
+	const targetType = await adapter.getCustomType(targetTypeId);
 
-	return resolveFields(fieldSelection, fields, targetType.id, apiConfig, 1);
+	// Merge all tabs into one flat field map.
+	const fields: Record<string, Field> = Object.assign({}, ...Object.values(targetType.model.json));
+
+	return resolveFields(fieldSelection, fields, targetType.model.id, adapter, 1);
 }
 
 /**
@@ -361,7 +309,7 @@ async function resolveFields(
 	paths: string[],
 	fields: Record<string, Field>,
 	context: string,
-	apiConfig: ApiConfig,
+	adapter: Adapter,
 	crDepth: number,
 ): Promise<ResolvedField[]> {
 	const result: ResolvedField[] = [];
@@ -390,7 +338,7 @@ async function resolveFields(
 
 		if (field.type === "Group") {
 			const groupFields = field.config?.fields ?? {};
-			const resolved = await resolveFields(subPaths, groupFields, context, apiConfig, crDepth);
+			const resolved = await resolveFields(subPaths, groupFields, context, adapter, crDepth);
 			result.push({ id, fields: resolved });
 		} else if (field.type === "Link" && field.config?.select === "document") {
 			if (crDepth <= 0) {
@@ -406,13 +354,13 @@ async function resolveFields(
 			}
 			const ctId = typeof cts[0] === "string" ? cts[0] : cts[0].id;
 
-			// Cross the CR boundary: fetch the target type and resolve sub-paths against it.
-			const nestedType = await getCustomType(ctId, apiConfig);
+			// Cross the CR boundary: read the target type and resolve sub-paths against it.
+			const nestedType = await adapter.getCustomType(ctId);
 			const nestedFields: Record<string, Field> = Object.assign(
 				{},
-				...Object.values(nestedType.json),
+				...Object.values(nestedType.model.json),
 			);
-			const resolved = await resolveFields(subPaths, nestedFields, ctId, apiConfig, crDepth - 1);
+			const resolved = await resolveFields(subPaths, nestedFields, ctId, adapter, crDepth - 1);
 			result.push({ id, customtypes: [{ id: ctId, fields: resolved }] });
 		} else {
 			throw new CommandError(`Field "${id}" is not a group or content relationship field.`);

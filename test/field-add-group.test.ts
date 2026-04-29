@@ -1,7 +1,14 @@
 import type { Group } from "@prismicio/types-internal/lib/customtypes";
 
-import { buildCustomType, buildSlice, it } from "./it";
-import { getCustomTypes, getSlices, insertCustomType, insertSlice } from "./prismic";
+import {
+	buildCustomType,
+	buildSlice,
+	it,
+	readLocalCustomType,
+	readLocalSlice,
+	writeLocalCustomType,
+	writeLocalSlice,
+} from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("field", ["add", "group", "--help"]);
@@ -9,9 +16,9 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic field add group <id> [options]");
 });
 
-it("adds a group field to a slice", async ({ expect, prismic, repo, token, host }) => {
+it("adds a group field to a slice", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"add",
@@ -23,15 +30,14 @@ it("adds a group field to a slice", async ({ expect, prismic, repo, token, host 
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_group");
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.my_group;
 	expect(field).toMatchObject({ type: "Group" });
 });
 
-it("adds a group field to a custom type", async ({ expect, prismic, repo, token, host }) => {
+it("adds a group field to a custom type", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType();
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"add",
@@ -43,22 +49,15 @@ it("adds a group field to a custom type", async ({ expect, prismic, repo, token,
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_group");
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const updated = customTypes.find((ct) => ct.id === customType.id);
-	const field = updated!.json.Main.my_group;
+	const updated = await readLocalCustomType(project, customType.id);
+	const field = updated.json.Main.my_group;
 	expect(field).toMatchObject({ type: "Group" });
 });
 
-it("adds a field inside a group using dot syntax", async ({
-	expect,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
+it("adds a field inside a group using dot syntax", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.my_group = { type: "Group", config: { label: "My Group" } };
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"add",
@@ -70,23 +69,16 @@ it("adds a field inside a group using dot syntax", async ({
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field added: my_group.subtitle");
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const group = updated!.variations[0].primary!.my_group as Group;
 	expect(group.config?.fields).toMatchObject({
 		subtitle: { type: "Text", config: { label: "Subtitle" } },
 	});
 });
 
-it("errors when dot syntax targets a non-existent field", async ({
-	expect,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
+it("errors when dot syntax targets a non-existent field", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stderr, exitCode } = await prismic("field", [
 		"add",
@@ -99,16 +91,10 @@ it("errors when dot syntax targets a non-existent field", async ({
 	expect(stderr).toContain('Field "nonexistent" does not exist.');
 });
 
-it("errors when dot syntax targets a non-group field", async ({
-	expect,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
+it("errors when dot syntax targets a non-group field", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.my_text = { type: "Text", config: { label: "My Text" } };
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stderr, exitCode } = await prismic("field", [
 		"add",

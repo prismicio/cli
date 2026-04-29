@@ -1,5 +1,4 @@
-import { buildCustomType, it } from "./it";
-import { insertCustomType } from "./prismic";
+import { buildCustomType, it, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("type", ["list", "--help"]);
@@ -7,11 +6,11 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic type list [options]");
 });
 
-it("lists all types", async ({ expect, prismic, repo, token, host }) => {
+it("lists all types", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({ format: "custom" });
 	const pageType = buildCustomType({ format: "page" });
-	await insertCustomType(customType, { repo, token, host });
-	await insertCustomType(pageType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
+	await writeLocalCustomType(project, pageType);
 
 	const { stdout, exitCode } = await prismic("type", ["list"]);
 	expect(exitCode).toBe(0);
@@ -19,9 +18,9 @@ it("lists all types", async ({ expect, prismic, repo, token, host }) => {
 	expect(stdout).toMatch(new RegExp(`${pageType.label}\\s+${pageType.id}\\s+page`));
 });
 
-it("lists types as JSON", async ({ expect, prismic, repo, token, host }) => {
+it("lists types as JSON", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({ format: "custom" });
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("type", ["list", "--json"]);
 	expect(exitCode).toBe(0);

@@ -1,8 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import { buildSlice, it } from "./it";
-import { getSlices, insertSlice } from "./prismic";
+import { buildSlice, it, readLocalSlice, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("slice", ["add-variation", "--help"]);
@@ -10,9 +9,9 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic slice add-variation <name> [options]");
 });
 
-it("adds a variation to a slice", async ({ expect, prismic, repo, token, host }) => {
+it("adds a variation to a slice", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const variationName = `Variation${crypto.randomUUID().split("-")[0]}`;
 
@@ -26,15 +25,14 @@ it("adds a variation to a slice", async ({ expect, prismic, repo, token, host })
 	expect(stdout).toContain(`Added variation "${variationName}"`);
 	expect(stdout).toContain(`to slice "${slice.id}"`);
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const variation = updated?.variations.find((v) => v.name === variationName);
 	expect(variation).toBeDefined();
 });
 
-it("adds a variation with a screenshot URL", async ({ expect, prismic, repo, token, host }) => {
+it("adds a variation with a screenshot URL", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const variationName = `Variation${crypto.randomUUID().split("-")[0]}`;
 
@@ -49,24 +47,16 @@ it("adds a variation with a screenshot URL", async ({ expect, prismic, repo, tok
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Added variation "${variationName}"`);
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const variation = updated?.variations.find((v) => v.name === variationName);
 	expect(variation).toBeDefined();
 	expect(variation?.imageUrl).toContain("https://");
 	expect(variation?.imageUrl).toContain(".png");
 });
 
-it("adds a variation with a local screenshot file", async ({
-	expect,
-	prismic,
-	project,
-	repo,
-	token,
-	host,
-}) => {
+it("adds a variation with a local screenshot file", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const screenshotUrl =
 		"https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png";
@@ -89,8 +79,7 @@ it("adds a variation with a local screenshot file", async ({
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Added variation "${variationName}"`);
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const variation = updated?.variations.find((v) => v.name === variationName);
 	expect(variation).toBeDefined();
 	expect(variation?.imageUrl).toContain("https://");

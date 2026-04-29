@@ -2,7 +2,6 @@ import type { Link } from "@prismicio/types-internal/lib/customtypes";
 
 import { capitalCase } from "change-case";
 
-import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import {
 	getPostFieldAddMessage,
@@ -10,7 +9,6 @@ import {
 	resolveModel,
 	TARGET_OPTIONS,
 } from "../models";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field add link",
@@ -56,7 +54,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 		"allow-text": allowText,
 		repeatable: repeat,
 		variant: variants,
-		repo = await getRepositoryName(),
 	} = values;
 
 	if (allow && !ALLOWED_LINK_TYPES.includes(allow as (typeof ALLOWED_LINK_TYPES)[number])) {
@@ -64,9 +61,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 	const select = allow as (typeof ALLOWED_LINK_TYPES)[number] | undefined;
 
-	const token = await getToken();
-	const host = await getHost();
-	const [fields, saveModel, modelKind] = await resolveModel(values, { repo, token, host });
+	const [fields, saveModel, modelKind] = await resolveModel(values);
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	const field: Link = {

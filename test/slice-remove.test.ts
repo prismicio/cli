@@ -1,5 +1,4 @@
-import { buildSlice, it } from "./it";
-import { getSlices, insertSlice } from "./prismic";
+import { buildSlice, it, readLocalSlice, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("slice", ["remove", "--help"]);
@@ -7,15 +6,14 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic slice remove <id> [options]");
 });
 
-it("removes a slice", async ({ expect, prismic, repo, token, host }) => {
+it("removes a slice", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("slice", ["remove", slice.id]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Slice removed: ${slice.id}`);
 
-	const slices = await getSlices({ repo, token, host });
-	const removed = slices.find((s) => s.id === slice.id);
+	const removed = await readLocalSlice(project, slice.id);
 	expect(removed).toBeUndefined();
 });

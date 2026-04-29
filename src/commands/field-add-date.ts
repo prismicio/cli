@@ -2,7 +2,6 @@ import type { Date as DateField } from "@prismicio/types-internal/lib/customtype
 
 import { capitalCase } from "change-case";
 
-import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import {
 	getPostFieldAddMessage,
@@ -10,7 +9,6 @@ import {
 	resolveModel,
 	TARGET_OPTIONS,
 } from "../models";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field add date",
@@ -28,11 +26,9 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { label, placeholder, default: defaultValue, repo = await getRepositoryName() } = values;
+	const { label, placeholder, default: defaultValue } = values;
 
-	const token = await getToken();
-	const host = await getHost();
-	const [fields, saveModel, modelKind] = await resolveModel(values, { repo, token, host });
+	const [fields, saveModel, modelKind] = await resolveModel(values);
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	const field: DateField = {

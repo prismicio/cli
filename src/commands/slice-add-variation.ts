@@ -1,19 +1,11 @@
-import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
 import { camelCase } from "change-case";
 import { pathToFileURL } from "node:url";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import {
-	getSlice,
-	UnsupportedFileTypeError,
-	updateSlice,
-	uploadScreenshot,
-} from "../clients/custom-types";
+import { UnsupportedFileTypeError, uploadScreenshot } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { readURLFile } from "../lib/file";
-import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -26,18 +18,15 @@ const config = {
 		to: { type: "string", required: true, description: "ID of the slice" },
 		id: { type: "string", description: "Custom ID for the variation" },
 		screenshot: { type: "string", short: "s", description: "Screenshot image file path or URL" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [name] = positionals;
-	const { to, id = camelCase(name), screenshot, repo = await getRepositoryName() } = values;
+	const { to, id = camelCase(name), screenshot } = values;
 
 	const adapter = await getAdapter();
-	const token = await getToken();
-	const host = await getHost();
-	const slice = await getSlice(to, { repo, token, host });
+	const { model: slice } = await adapter.getSlice(to);
 
 	if (slice.variations.some((v) => v.id === id)) {
 		throw new CommandError(`Variation "${id}" already exists in slice "${to}".`);
@@ -45,6 +34,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	let imageUrl = "";
 	if (screenshot) {
+		const repo = await getRepositoryName();
+		const token = await getToken();
+		const host = await getHost();
+
 		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
 		const blob = await readURLFile(url);
 		let screenshotUrl;
@@ -65,37 +58,20 @@ export default createCommand(config, async ({ positionals, values }) => {
 		imageUrl = screenshotUrl.toString();
 	}
 
-	const updatedSlice: SharedSlice = {
-		...slice,
-		variations: [
-			...slice.variations,
-			{
-				id,
-				name,
-				description: name,
-				docURL: "",
-				imageUrl,
-				version: "",
-				primary: {},
-			},
-		],
-	};
+	slice.variations = [
+		...slice.variations,
+		{
+			id,
+			name,
+			description: name,
+			docURL: "",
+			imageUrl,
+			version: "",
+			primary: {},
+		},
+	];
 
-	try {
-		await updateSlice(updatedSlice, { repo, host, token });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to add variation: ${message}`);
-		}
-		throw error;
-	}
-
-	try {
-		await adapter.updateSlice(updatedSlice);
-	} catch {
-		await adapter.createSlice(updatedSlice);
-	}
+	await adapter.updateSlice(slice);
 	await adapter.generateTypes();
 
 	console.info(`Added variation "${name}" (id: "${id}") to slice "${to}"`);

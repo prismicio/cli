@@ -1,7 +1,5 @@
-import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { resolveFieldPair, resolveFieldTarget } from "../models";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field reorder",
@@ -15,13 +13,12 @@ const config = {
 		"from-slice": { type: "string", description: "ID of the source slice" },
 		"from-type": { type: "string", description: "ID of the source content type" },
 		variation: { type: "string", description: 'Slice variation ID (default: "default")' },
-		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { before, after, repo = await getRepositoryName() } = values;
+	const { before, after } = values;
 
 	if (!before && !after) {
 		throw new CommandError("Specify --before or --after.");
@@ -48,13 +45,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		);
 	}
 
-	const token = await getToken();
-	const host = await getHost();
-	const [sourceFields, anchorFields, saveModel] = await resolveFieldPair(id, anchor, values, {
-		repo,
-		token,
-		host,
-	});
+	const [sourceFields, anchorFields, saveModel] = await resolveFieldPair(id, anchor, values);
 
 	const [sourceLeaf, sourceFieldId] = resolveFieldTarget(sourceFields, id);
 	const [anchorLeaf, anchorFieldId] = resolveFieldTarget(anchorFields, anchor);
