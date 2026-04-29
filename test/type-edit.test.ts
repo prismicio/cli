@@ -1,5 +1,4 @@
-import { buildCustomType, it } from "./it";
-import { getCustomTypes, insertCustomType } from "./prismic";
+import { buildCustomType, it, readLocalCustomType, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("type", ["edit", "--help"]);
@@ -7,9 +6,9 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic type edit <id> [options]");
 });
 
-it("edits a type name", async ({ expect, prismic, repo, token, host }) => {
+it("edits a type name", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({ format: "custom" });
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const newName = `TypeT${crypto.randomUUID().split("-")[0]}`;
 
@@ -23,20 +22,18 @@ it("edits a type name", async ({ expect, prismic, repo, token, host }) => {
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Type updated: "${newName}" (id: ${customType.id})`);
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const updated = customTypes.find((ct) => ct.id === customType.id);
-	expect(updated?.label).toBe(newName);
+	const updated = await readLocalCustomType(project, customType.id);
+	expect(updated.label).toBe(newName);
 });
 
-it("edits a type format", async ({ expect, prismic, repo, token, host }) => {
+it("edits a type format", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({ format: "custom" });
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stderr, exitCode } = await prismic("type", ["edit", customType.id, "--format", "page"]);
 	expect(stderr).toBe("");
 	expect(exitCode).toBe(0);
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const updated = customTypes.find((ct) => ct.id === customType.id);
-	expect(updated?.format).toBe("page");
+	const updated = await readLocalCustomType(project, customType.id);
+	expect(updated.format).toBe("page");
 });

@@ -2,15 +2,9 @@ import { pathToFileURL } from "node:url";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import {
-	getSlice,
-	UnsupportedFileTypeError,
-	updateSlice,
-	uploadScreenshot,
-} from "../clients/custom-types";
+import { UnsupportedFileTypeError, uploadScreenshot } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { readURLFile } from "../lib/file";
-import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -23,18 +17,15 @@ const config = {
 		"from-slice": { type: "string", required: true, description: "ID of the slice" },
 		name: { type: "string", short: "n", description: "New name for the variation" },
 		screenshot: { type: "string", short: "s", description: "Screenshot image file path or URL" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { "from-slice": sliceId, screenshot, repo = await getRepositoryName() } = values;
+	const { "from-slice": sliceId, screenshot } = values;
 
 	const adapter = await getAdapter();
-	const token = await getToken();
-	const host = await getHost();
-	const slice = await getSlice(sliceId, { repo, token, host });
+	const { model: slice } = await adapter.getSlice(sliceId);
 
 	const variation = slice.variations.find((v) => v.id === id);
 	if (!variation) {
@@ -44,6 +35,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 	if ("name" in values) variation.name = values.name!;
 
 	if (screenshot) {
+		const repo = await getRepositoryName();
+		const token = await getToken();
+		const host = await getHost();
+
 		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
 		const blob = await readURLFile(url);
 		let screenshotUrl;
@@ -64,21 +59,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		variation.imageUrl = screenshotUrl.toString();
 	}
 
-	try {
-		await updateSlice(slice, { repo, host, token });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to update variation: ${message}`);
-		}
-		throw error;
-	}
-
-	try {
-		await adapter.updateSlice(slice);
-	} catch {
-		await adapter.createSlice(slice);
-	}
+	await adapter.updateSlice(slice);
 	await adapter.generateTypes();
 
 	console.info(`Variation updated: "${id}" in slice "${sliceId}"`);

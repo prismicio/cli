@@ -1,5 +1,3 @@
-import { getHost, getToken } from "../auth";
-import { getCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import {
 	resolveFieldContainer,
@@ -7,7 +5,6 @@ import {
 	resolveFieldTarget,
 	SOURCE_OPTIONS,
 } from "../models";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field edit",
@@ -101,11 +98,8 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { repo = await getRepositoryName() } = values;
 
-	const token = await getToken();
-	const host = await getHost();
-	const [fields, saveModel] = await resolveFieldContainer(id, values, { repo, token, host });
+	const [fields, saveModel] = await resolveFieldContainer(id, values);
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	const field = targetFields[fieldId];
@@ -192,12 +186,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 					);
 				}
 				const ctId = typeof cts[0] === "string" ? cts[0] : cts[0].id;
-				const targetType = await getCustomType(ctId, { repo, token, host });
-				const resolvedFields = await resolveFieldSelection(values.field!, targetType, {
-					repo,
-					token,
-					host,
-				});
+				const resolvedFields = await resolveFieldSelection(values.field!, ctId);
 				field.config.customtypes = [
 					{ id: ctId, fields: resolvedFields },
 				] as typeof field.config.customtypes;

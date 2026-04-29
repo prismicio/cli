@@ -1,5 +1,4 @@
-import { buildSlice, it } from "./it";
-import { getSlices, insertSlice } from "./prismic";
+import { buildSlice, it, readLocalSlice, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("slice", ["edit", "--help"]);
@@ -7,9 +6,9 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic slice edit <id> [options]");
 });
 
-it("edits a slice name", async ({ expect, prismic, repo, token, host }) => {
+it("edits a slice name", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const newName = `SliceS${crypto.randomUUID().split("-")[0]}`;
 
@@ -17,7 +16,6 @@ it("edits a slice name", async ({ expect, prismic, repo, token, host }) => {
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Slice updated: "${newName}"`);
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	expect(updated?.name).toBe(newName);
 });

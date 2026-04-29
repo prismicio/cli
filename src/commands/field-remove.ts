@@ -1,7 +1,5 @@
-import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { resolveFieldContainer, resolveFieldTarget, SOURCE_OPTIONS } from "../models";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field remove",
@@ -14,11 +12,8 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { repo = await getRepositoryName() } = values;
 
-	const token = await getToken();
-	const host = await getHost();
-	const [fields, saveModel] = await resolveFieldContainer(id, values, { repo, token, host });
+	const [fields, saveModel] = await resolveFieldContainer(id, values);
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 	if (!(fieldId in targetFields)) throw new CommandError(`Field "${id}" does not exist.`);
 	delete targetFields[fieldId];
