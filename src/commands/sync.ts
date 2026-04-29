@@ -1,3 +1,5 @@
+import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+
 import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 
@@ -5,10 +7,17 @@ import { getAdapter, type Adapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { env } from "../env";
-import { createCommand, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
-import { dedent } from "../lib/string";
-import { checkIsTypeBuilderEnabled, getRepositoryName, TypeBuilderRequiredError } from "../project";
+import { dedent, formatTable } from "../lib/string";
+import { appendTrailingSlash, relativePathname } from "../lib/url";
+import {
+	checkIsTypeBuilderEnabled,
+	findProjectRoot,
+	getRepositoryName,
+	TypeBuilderRequiredError,
+	writeSnapshot,
+} from "../project";
 
 // 5 seconds balances responsiveness with API load
 const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
@@ -24,13 +33,14 @@ const config = {
 		or deleted to match.
 	`,
 	options: {
+		force: { type: "boolean", short: "f", description: "Allow destructive changes" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 		watch: { type: "boolean", short: "w", description: "Watch for changes and sync continuously" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo = await getRepositoryName(), watch } = values;
+	const { force = false, repo = await getRepositoryName(), watch } = values;
 
 	const token = await getToken();
 	const host = await getHost();
@@ -48,14 +58,65 @@ export default createCommand(config, async ({ values }) => {
 	if (watch) {
 		await watchForChanges(repo, adapter);
 	} else {
-		const token = await getToken();
-		const host = await getHost();
+		if (!force) {
+			const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices] = await Promise.all([
+				adapter.getCustomTypes(),
+				adapter.getSlices(),
+				getCustomTypes({ repo, token, host }),
+				getSlices({ repo, token, host }),
+			]);
+			const projectRoot = await findProjectRoot();
+
+			const destructiveRows: string[][] = [];
+			for (const local of localSlices) {
+				const remote = remoteSlices.find((r) => r.id === local.model.id);
+				const file = relativePathname(
+					projectRoot,
+					new URL("model.json", appendTrailingSlash(local.directory)),
+				);
+				if (!remote) destructiveRows.push(["Delete slice", local.model.id, file]);
+				else if (modelsDiffer(local.model, remote))
+					destructiveRows.push(["Overwrite slice", local.model.id, file]);
+			}
+			for (const local of localCustomTypes) {
+				const remote = remoteCustomTypes.find((r) => r.id === local.model.id);
+				const file = relativePathname(
+					projectRoot,
+					new URL("index.json", appendTrailingSlash(local.directory)),
+				);
+				if (!remote) destructiveRows.push(["Delete type", local.model.id, file]);
+				else if (modelsDiffer(local.model, remote))
+					destructiveRows.push(["Overwrite type", local.model.id, file]);
+			}
+
+			if (destructiveRows.length > 0) {
+				throw new CommandError(dedent`
+					The following destructive changes will happen:
+
+					  ${formatTable(destructiveRows, { headers: ["OPERATION", "ID", "FILE"] })}
+
+					Re-run the command with \`--force\` to confirm.
+				`);
+			}
+		}
+
 		await adapter.syncModels({ repo, token, host });
+
+		const [snapshotCustomTypes, snapshotSlices] = await Promise.all([
+			getCustomTypes({ repo, token, host }),
+			getSlices({ repo, token, host }),
+		]);
+		await writeSnapshot(repo, { customTypes: snapshotCustomTypes, slices: snapshotSlices });
+
 		segmentTrackEnd("sync", { watch });
 
 		console.info("Sync complete");
 	}
 });
+
+function modelsDiffer<T extends CustomType | SharedSlice>(a: T, b: T): boolean {
+	return JSON.stringify(a) !== JSON.stringify(b);
+}
 
 async function watchForChanges(repo: string, adapter: Adapter) {
 	const token = await getToken();

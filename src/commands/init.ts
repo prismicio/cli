@@ -2,6 +2,7 @@ import type { Profile } from "../clients/user";
 
 import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
+import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { getProfile } from "../clients/user";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
@@ -16,6 +17,7 @@ import {
 	readConfig,
 	readLegacySliceMachineConfig,
 	UnknownProjectRootError,
+	writeSnapshot,
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 
@@ -151,6 +153,13 @@ export default createCommand(config, async ({ values }) => {
 
 	// Sync models from remote and generate types
 	await adapter.syncModels({ repo, token, host });
+
+	// Persist a snapshot so the first push has a baseline for drift detection
+	const [snapshotCustomTypes, snapshotSlices] = await Promise.all([
+		getCustomTypes({ repo, token, host }),
+		getSlices({ repo, token, host }),
+	]);
+	await writeSnapshot(repo, { customTypes: snapshotCustomTypes, slices: snapshotSlices });
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");

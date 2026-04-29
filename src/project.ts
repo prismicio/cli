@@ -1,13 +1,16 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
+import { createHash } from "node:crypto";
 import { readFile, rm, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
 
 import { getRepository } from "./clients/repository";
 import { getProfile } from "./clients/user";
+import { CONFIG_DIR } from "./config";
 import { env } from "./env";
 import { evaluateFlag } from "./lib/amplitude";
-import { exists, findUpward } from "./lib/file";
+import { exists, findUpward, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
 import { appendTrailingSlash } from "./lib/url";
@@ -265,4 +268,36 @@ export async function checkIsTypeBuilderEnabled(
 
 export class TypeBuilderRequiredError extends Error {
 	name = "TypeBuilderRequired";
+}
+
+export type Snapshot = { customTypes: CustomType[]; slices: SharedSlice[] };
+
+export async function readSnapshot(repo: string): Promise<Snapshot | undefined> {
+	const path = await getSnapshotPath(repo);
+	try {
+		return await readJsonFile<Snapshot>(path);
+	} catch (error) {
+		if (isENOENT(error)) return undefined;
+		throw error;
+	}
+}
+
+export async function writeSnapshot(repo: string, snapshot: Snapshot): Promise<void> {
+	const path = await getSnapshotPath(repo);
+	await writeFileRecursive(path, stringify(snapshot));
+}
+
+async function getSnapshotPath(repo: string): Promise<URL> {
+	const projectRoot = await findProjectRoot();
+	const sha = createHash("sha256").update(fileURLToPath(projectRoot)).digest("hex").slice(0, 16);
+	return new URL(`snapshots/${sha}-${repo}.json`, CONFIG_DIR);
+}
+
+function isENOENT(error: unknown): boolean {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"code" in error &&
+		(error as { code: string }).code === "ENOENT"
+	);
 }

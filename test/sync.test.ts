@@ -10,13 +10,13 @@ import {
 	insertSlice,
 } from "./prismic";
 
-it("supports --help", async ({ expect, prismic }) => {
+it.sequential("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("sync", ["--help"]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("prismic sync [options]");
 });
 
-it("fails when Type Builder is not enabled", async ({ expect, prismic }) => {
+it.sequential("fails when Type Builder is not enabled", async ({ expect, prismic }) => {
 	const { exitCode, stderr } = await prismic("sync", [], {
 		nodeOptions: { env: { PRISMIC_TYPE_BUILDER_ENABLED: "false" } },
 	});
@@ -24,7 +24,7 @@ it("fails when Type Builder is not enabled", async ({ expect, prismic }) => {
 	expect(stderr).toContain("Type Builder");
 });
 
-it("syncs slices and custom types from remote", async ({
+it.sequential("syncs slices and custom types from remote", async ({
 	expect,
 	project,
 	prismic,
@@ -47,7 +47,7 @@ it("syncs slices and custom types from remote", async ({
 	await expect(project).toContainSlice(slice);
 });
 
-it("syncs multiple slices with correct structure", async ({
+it.sequential("syncs multiple slices with correct structure", async ({
 	expect,
 	project,
 	prismic,
@@ -70,7 +70,7 @@ it("syncs multiple slices with correct structure", async ({
 	await expect(project).toContainSlice(sliceB);
 });
 
-it("adds new slice to existing library on re-sync", async ({
+it.sequential("adds new slice to existing library on re-sync", async ({
 	expect,
 	project,
 	prismic,
@@ -100,7 +100,7 @@ it("adds new slice to existing library on re-sync", async ({
 	await expect(project).toContainSlice(sliceB);
 });
 
-it("removes deleted slice and updates index on re-sync", async ({
+it.sequential("removes deleted slice and updates index on re-sync", async ({
 	expect,
 	project,
 	prismic,
@@ -128,14 +128,48 @@ it("removes deleted slice and updates index on re-sync", async ({
 		.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), { timeout: 5_000 })
 		.not.toContain(sliceB.id);
 
-	// Second sync — should remove slice B and update the index
-	const second = await prismic("sync", ["--repo", repo]);
+	// Second sync — destructive (deletes local slice B), requires --force
+	const second = await prismic("sync", ["--repo", repo, "--force"]);
 	expect(second.exitCode).toBe(0);
 	await expect(project).toContainSlice(sliceA);
 	await expect(project).not.toContainSlice(sliceB);
 });
 
-it("watches for changes and syncs", async ({ expect, project, prismic, repo, token, host }) => {
+it.sequential("refuses without --force when local would be deleted", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const slice = buildSlice();
+	await insertSlice(slice, { repo, token, host });
+
+	// First sync — creates the slice locally.
+	const first = await prismic("sync", ["--repo", repo]);
+	expect(first.exitCode).toBe(0);
+	await expect(project).toContainSlice(slice);
+
+	// Delete the slice from remote.
+	await deleteSlice(slice.id, { repo, token, host });
+	await expect
+		.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), { timeout: 5_000 })
+		.not.toContain(slice.id);
+
+	// Second sync without --force should refuse and list the destructive change.
+	const { exitCode, stderr } = await prismic("sync", ["--repo", repo]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("destructive");
+	expect(stderr).toContain("Delete slice");
+	expect(stderr).toContain(slice.id);
+	expect(stderr).toContain("--force");
+
+	// Local slice should still exist.
+	await expect(project).toContainSlice(slice);
+});
+
+it.sequential("watches for changes and syncs", async ({ expect, project, prismic, repo, token, host }) => {
 	const customType = buildCustomType();
 	const slice = buildSlice();
 
@@ -155,7 +189,7 @@ it("watches for changes and syncs", async ({ expect, project, prismic, repo, tok
 	await expect(project).toContainSlice(slice);
 }, 60_000);
 
-it("syncs repeatable page type", async ({ expect, project, prismic, repo, token, host }) => {
+it.sequential("syncs repeatable page type", async ({ expect, project, prismic, repo, token, host }) => {
 	const customType = buildCustomType({ format: "page", repeatable: true });
 	await insertCustomType(customType, { repo, token, host });
 
@@ -169,7 +203,7 @@ it("syncs repeatable page type", async ({ expect, project, prismic, repo, token,
 	});
 });
 
-it("syncs non-repeatable page type", async ({ expect, project, prismic, repo, token, host }) => {
+it.sequential("syncs non-repeatable page type", async ({ expect, project, prismic, repo, token, host }) => {
 	const customType = buildCustomType({ format: "page", repeatable: false });
 	await insertCustomType(customType, { repo, token, host });
 
@@ -183,7 +217,7 @@ it("syncs non-repeatable page type", async ({ expect, project, prismic, repo, to
 	});
 });
 
-it("syncs non-page custom type", async ({ expect, project, prismic, repo, token, host }) => {
+it.sequential("syncs non-page custom type", async ({ expect, project, prismic, repo, token, host }) => {
 	const customType = buildCustomType();
 	await insertCustomType(customType, { repo, token, host });
 
@@ -195,7 +229,7 @@ it("syncs non-page custom type", async ({ expect, project, prismic, repo, token,
 	await expect(project).not.toHaveFile(`app/${expectedSegment}/page.jsx`);
 });
 
-it("removes route when page type is deleted", async ({
+it.sequential("removes route when page type is deleted", async ({
 	expect,
 	project,
 	prismic,
@@ -218,13 +252,13 @@ it("removes route when page type is deleted", async ({
 		})
 		.not.toContain(customType.id);
 
-	// Second sync — removes the route
-	const second = await prismic("sync", ["--repo", repo]);
+	// Second sync — destructive (deletes local type), requires --force
+	const second = await prismic("sync", ["--repo", repo, "--force"]);
 	expect(second.exitCode).toBe(0);
 	await expect(project).not.toHaveRoute({ type: customType.id });
 });
 
-it("does not overwrite existing page file", async ({
+it.sequential("does not overwrite existing page file", async ({
 	expect,
 	project,
 	prismic,
