@@ -14,6 +14,7 @@ import locale from "./commands/locale";
 import login from "./commands/login";
 import logout from "./commands/logout";
 import preview from "./commands/preview";
+import push from "./commands/push";
 import repo from "./commands/repo";
 import slice from "./commands/slice";
 import sync from "./commands/sync";
@@ -75,6 +76,10 @@ const router = createCommandRouter({
 		sync: {
 			handler: sync,
 			description: "Sync types and slices from Prismic",
+		},
+		push: {
+			handler: push,
+			description: "Push types and slices to Prismic",
 		},
 		locale: {
 			handler: locale,
