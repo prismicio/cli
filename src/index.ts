@@ -7,6 +7,7 @@ import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { cleanupLegacyAuthFile, getHost, getToken, spawnTokenRefresh } from "./auth";
 import { getProfile } from "./clients/user";
 import docs from "./commands/docs";
+import fetch from "./commands/fetch";
 import field from "./commands/field";
 import gen from "./commands/gen";
 import init from "./commands/init";
@@ -17,7 +18,7 @@ import preview from "./commands/preview";
 import push from "./commands/push";
 import repo from "./commands/repo";
 import slice from "./commands/slice";
-import sync from "./commands/sync";
+import pull from "./commands/pull";
 import token from "./commands/token";
 import type_ from "./commands/type";
 import webhook from "./commands/webhook";
@@ -49,7 +50,7 @@ import { initUpdateNotifier } from "./lib/update-notifier";
 import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
 import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
-const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs"];
+const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "fetch", "docs"];
 
 const router = createCommandRouter({
 	name: "prismic",
@@ -73,9 +74,13 @@ const router = createCommandRouter({
 			handler: gen,
 			description: "Generate files from local models",
 		},
-		sync: {
-			handler: sync,
-			description: "Sync types and slices from Prismic",
+		pull: {
+			handler: pull,
+			description: "Pull types and slices from Prismic",
+		},
+		fetch: {
+			handler: fetch,
+			description: "Refresh snapshot of remote types and slices",
 		},
 		push: {
 			handler: push,
@@ -213,7 +218,7 @@ async function main(): Promise<void> {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
 				segmentTrackEnd(command);
 			}
-			console.error(error.message);
+			console.error(dedent(error.message));
 			return;
 		}
 

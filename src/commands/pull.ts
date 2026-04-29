@@ -2,29 +2,20 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import {
-	getCustomTypes,
-	getSlices,
-	insertCustomType,
-	insertSlice,
-	removeCustomType,
-	removeSlice,
-	updateCustomType,
-	updateSlice,
-} from "../clients/custom-types";
+import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getRepositoryName, readSnapshot, writeSnapshot } from "../project";
 
 const config = {
-	name: "prismic push",
+	name: "prismic pull",
 	description: `
-		Push local content types and slices to Prismic.
+		Pull content types and slices from Prismic to local files.
 
-		Local models are the source of truth. Remote models are created,
-		updated, or deleted to match.
+		Remote models are the source of truth. Local files are created, updated,
+		or deleted to match.
 	`,
 	options: {
-		force: { type: "boolean", short: "f", description: "Ignore remote drift" },
+		force: { type: "boolean", short: "f", description: "Ignore local drift" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
@@ -36,7 +27,7 @@ export default createCommand(config, async ({ values }) => {
 	const host = await getHost();
 	const adapter = await getAdapter();
 
-	console.info(`Pushing to repository: ${repo}`);
+	console.info(`Pulling from repository: ${repo}`);
 
 	const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices] = await Promise.all([
 		adapter.getCustomTypes(),
@@ -47,25 +38,23 @@ export default createCommand(config, async ({ values }) => {
 	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
 	const localSliceModels = localSlices.map((s) => s.model);
 
-	const snapshot = await readSnapshot(repo);
-	if (!snapshot) {
-		// First push from this machine — establish a baseline so subsequent commands
-		// have one. No drift comparison: snapshot would trivially equal remote.
-		await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
-	} else if (!force) {
+	if (!force) {
+		const snapshot = await readSnapshot(repo);
+		const baseline = snapshot ?? { customTypes: remoteCustomTypes, slices: remoteSlices };
 		const isDrifted =
-			JSON.stringify(sortById(snapshot.customTypes)) !==
-				JSON.stringify(sortById(remoteCustomTypes)) ||
-			JSON.stringify(sortById(snapshot.slices)) !== JSON.stringify(sortById(remoteSlices));
+			JSON.stringify(sortById(localCustomTypeModels)) !==
+				JSON.stringify(sortById(baseline.customTypes)) ||
+			JSON.stringify(sortById(localSliceModels)) !==
+				JSON.stringify(sortById(baseline.slices));
 		if (isDrifted) {
 			throw new CommandError(`
-				Remote has changed since you last pulled.
-
-				To overwrite remote with your local changes:
-				  prismic push --force
+				You have local changes that haven't been pushed.
 
 				To discard local changes and adopt remote:
 				  prismic pull --force
+
+				To overwrite remote with your local changes:
+				  prismic push --force
 
 				To merge both, use git:
 				  1. Stash your local edits: \`git stash\`
@@ -84,29 +73,27 @@ export default createCommand(config, async ({ values }) => {
 	const sliceOps = diffOps(localSliceModels, remoteSlices);
 
 	for (const model of customTypeOps.insert) {
-		await insertCustomType(model, { repo, token, host });
+		await adapter.createCustomType(model);
 	}
 	for (const model of customTypeOps.update) {
-		await updateCustomType(model, { repo, token, host });
+		await adapter.updateCustomType(model);
 	}
 	for (const id of customTypeOps.delete.map((m) => m.id)) {
-		await removeCustomType(id, { repo, token, host });
+		await adapter.deleteCustomType(id);
 	}
 	for (const model of sliceOps.insert) {
-		await insertSlice(model, { repo, token, host });
+		await adapter.createSlice(model);
 	}
 	for (const model of sliceOps.update) {
-		await updateSlice(model, { repo, token, host });
+		await adapter.updateSlice(model);
 	}
 	for (const id of sliceOps.delete.map((m) => m.id)) {
-		await removeSlice(id, { repo, token, host });
+		await adapter.deleteSlice(id);
 	}
 
-	const [newRemoteCustomTypes, newRemoteSlices] = await Promise.all([
-		getCustomTypes({ repo, token, host }),
-		getSlices({ repo, token, host }),
-	]);
-	await writeSnapshot(repo, { customTypes: newRemoteCustomTypes, slices: newRemoteSlices });
+	await adapter.generateTypes();
+
+	await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
 
 	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
 	const totalSlices = sliceOps.insert.length + sliceOps.update.length;
@@ -114,7 +101,7 @@ export default createCommand(config, async ({ values }) => {
 	if (totalTypes === 0 && totalSlices === 0 && totalDeletes === 0) {
 		console.info("Already up to date.");
 	} else {
-		console.info(`Pushed ${totalTypes} type(s), ${totalSlices} slice(s).`);
+		console.info(`Pulled ${totalTypes} type(s), ${totalSlices} slice(s).`);
 		if (totalDeletes > 0) console.info(`Deleted ${totalDeletes} model(s).`);
 	}
 });
@@ -127,17 +114,17 @@ function sortById<T extends { id: string }>(items: T[]): T[] {
 
 function diffOps<T extends CustomType | SharedSlice>(local: T[], remote: T[]): Ops<T> {
 	const ops: Ops<T> = { insert: [], update: [], delete: [] };
-	for (const localModel of local) {
-		const remoteModel = remote.find((r) => r.id === localModel.id);
-		if (!remoteModel) {
-			ops.insert.push(localModel);
-		} else if (JSON.stringify(localModel) !== JSON.stringify(remoteModel)) {
-			ops.update.push(localModel);
+	for (const remoteModel of remote) {
+		const localModel = local.find((l) => l.id === remoteModel.id);
+		if (!localModel) {
+			ops.insert.push(remoteModel);
+		} else if (JSON.stringify(remoteModel) !== JSON.stringify(localModel)) {
+			ops.update.push(remoteModel);
 		}
 	}
-	for (const remoteModel of remote) {
-		if (!local.some((l) => l.id === remoteModel.id)) {
-			ops.delete.push(remoteModel);
+	for (const localModel of local) {
+		if (!remote.some((r) => r.id === localModel.id)) {
+			ops.delete.push(localModel);
 		}
 	}
 	return ops;
