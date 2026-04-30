@@ -23,12 +23,13 @@ const config = {
 		updated, or deleted to match.
 	`,
 	options: {
+		force: { type: "boolean", short: "f", description: "Overwrite remote changes" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo = await getRepositoryName() } = values;
+	const { force = false, repo = await getRepositoryName() } = values;
 
 	const token = await getToken();
 	const host = await getHost();

@@ -38,7 +38,12 @@ export async function getAdapter(): Promise<Adapter> {
 
 export class NoSupportedFrameworkError extends Error {
 	name = "NoSupportedFrameworkError";
-	message = "No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
+	message =
+		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
+}
+
+export class ModelNotFoundError extends Error {
+	name = "ModelNotFoundError";
 }
 
 export abstract class Adapter {
@@ -100,7 +105,7 @@ export abstract class Adapter {
 	async getSlice(id: string): Promise<SharedSliceMeta> {
 		const slices = await this.getSlices();
 		const slice = slices.find((s) => s.model.id === id);
-		if (!slice) throw new Error(`No slice found with ID: ${id}`);
+		if (!slice) throw new ModelNotFoundError(`No slice found with ID: ${id}`);
 		return slice;
 	}
 
@@ -128,6 +133,24 @@ export abstract class Adapter {
 		await this.onSliceDeleted(id);
 	}
 
+	async writeSliceConflict(model: SharedSlice, conflict: string): Promise<URL> {
+		const sliceDirectoryName = pascalCase(model.name);
+		const defaultSliceLibrary = await this.getDefaultSliceLibrary();
+		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(defaultSliceLibrary));
+		let modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
+		try {
+			const slice = await this.getSlice(model.id);
+			modelPath = new URL("model.json", appendTrailingSlash(slice.directory));
+			const modelBackupPath = new URL(modelPath);
+			modelBackupPath.pathname += ".bak";
+			await writeFileRecursive(modelBackupPath, stringify(slice.model));
+		} catch (error) {
+			if (!(error instanceof ModelNotFoundError)) throw error;
+		}
+		await writeFileRecursive(modelPath, conflict);
+		return modelPath;
+	}
+
 	async getCustomTypes(): Promise<CustomTypeMeta[]> {
 		const projectRoot = await findProjectRoot();
 		const customTypesDirectory = new URL("customtypes/", projectRoot);
@@ -153,7 +176,7 @@ export abstract class Adapter {
 	async getCustomType(id: string): Promise<CustomTypeMeta> {
 		const customTypes = await this.getCustomTypes();
 		const customType = customTypes.find((s) => s.model.id === id);
-		if (!customType) throw new Error(`No custom type found with ID: ${id}`);
+		if (!customType) throw new ModelNotFoundError(`No custom type found with ID: ${id}`);
 		return customType;
 	}
 
@@ -181,6 +204,23 @@ export abstract class Adapter {
 		await this.onCustomTypeDeleted(id);
 	}
 
+	async writeCustomTypeConflict(model: CustomType, conflict: string): Promise<URL> {
+		const projectRoot = await findProjectRoot();
+		const customTypesDirectory = new URL("customtypes/", projectRoot);
+		let modelPath = new URL(`${model.id}/index.json`, customTypesDirectory);
+		try {
+			const customType = await this.getCustomType(model.id);
+			modelPath = new URL("index.json", appendTrailingSlash(customType.directory));
+			const modelBackupPath = new URL(modelPath);
+			modelBackupPath.pathname += ".bak";
+			await writeFileRecursive(modelBackupPath, stringify(customType.model));
+		} catch (error) {
+			if (!(error instanceof ModelNotFoundError)) throw error;
+		}
+		await writeFileRecursive(modelPath, conflict);
+		return modelPath;
+	}
+
 	async generateTypes(): Promise<URL> {
 		const projectRoot = await findProjectRoot();
 		const output = new URL(TYPES_FILENAME, projectRoot);
@@ -200,3 +240,16 @@ export abstract class Adapter {
 		return output;
 	}
 }
+
+// async function getCustomTypeDirectory(id: string) {
+// 	const projectRoot = await findProjectRoot();
+// 	const customTypesDirectory = new URL("customtypes/", projectRoot);
+// 	const customTypeDirectory = new URL(`${id}/index.json`, customTypesDirectory);
+// 	return customTypeDirectory;
+// }
+//
+// async function getCustomTypeModelPath(id: string) {
+// 	const customTypeDirectory = await getCustomTypeDirectory(id);
+// 	const customTypeModelPath = new URL("index.json", customTypeDirectory);
+// 	return customTypeModelPath;
+// }
