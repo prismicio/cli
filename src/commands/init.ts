@@ -152,14 +152,49 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Sync models from remote and generate types
-	await adapter.syncModels({ repo, token, host });
-
-	// Persist a snapshot so the first push has a baseline for drift detection
-	const [snapshotCustomTypes, snapshotSlices] = await Promise.all([
+	const [remoteCustomTypes, remoteSlices, localCustomTypes, localSlices] = await Promise.all([
 		getCustomTypes({ repo, token, host }),
 		getSlices({ repo, token, host }),
+		adapter.getCustomTypes(),
+		adapter.getSlices(),
 	]);
-	await writeSnapshot(repo, { customTypes: snapshotCustomTypes, slices: snapshotSlices });
+
+	for (const remote of remoteSlices) {
+		if (localSlices.some((s) => s.model.id === remote.id)) {
+			await adapter.updateSlice(remote);
+		}
+	}
+	for (const local of localSlices) {
+		if (!remoteSlices.some((r) => r.id === local.model.id)) {
+			await adapter.deleteSlice(local.model.id);
+		}
+	}
+	for (const remote of remoteSlices) {
+		if (!localSlices.some((s) => s.model.id === remote.id)) {
+			await adapter.createSlice(remote);
+		}
+	}
+
+	for (const remote of remoteCustomTypes) {
+		if (localCustomTypes.some((c) => c.model.id === remote.id)) {
+			await adapter.updateCustomType(remote);
+		}
+	}
+	for (const local of localCustomTypes) {
+		if (!remoteCustomTypes.some((r) => r.id === local.model.id)) {
+			await adapter.deleteCustomType(local.model.id);
+		}
+	}
+	for (const remote of remoteCustomTypes) {
+		if (!localCustomTypes.some((c) => c.model.id === remote.id)) {
+			await adapter.createCustomType(remote);
+		}
+	}
+
+	await adapter.generateTypes();
+
+	// Persist a snapshot so the first push has a baseline for drift detection
+	await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");
