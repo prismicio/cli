@@ -194,7 +194,6 @@ export default createCommand(config, async ({ values }) => {
 
 	await adapter.generateTypes();
 
-	// Persist a snapshot so the first push has a baseline for drift detection
 	await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
