@@ -15,7 +15,7 @@ const config = {
 		or deleted to match.
 	`,
 	options: {
-		force: { type: "boolean", short: "f", description: "Ignore local drift" },
+		force: { type: "boolean", short: "f", description: "Overwrite local changes" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;

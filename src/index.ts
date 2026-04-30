@@ -78,17 +78,14 @@ const router = createCommandRouter({
 		pull: {
 			handler: pull,
 			description: "Pull types and slices from Prismic",
-			hidden: true,
 		},
 		fetch: {
 			handler: fetch,
 			description: "Refresh snapshot of remote types and slices",
-			hidden: true,
 		},
 		push: {
 			handler: push,
 			description: "Push types and slices to Prismic",
-			hidden: true,
 		},
 		sync: {
 			handler: sync,
