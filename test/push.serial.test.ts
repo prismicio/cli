@@ -57,13 +57,7 @@ it("pushes a local edit that overwrites a remote model", async ({
 	expect(updated?.label).toBe("Modified");
 });
 
-it("refuses on remote drift without --force", async ({
-	expect,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
+it("refuses on remote drift without --force", async ({ expect, prismic, repo, token, host }) => {
 	// Pull to write a snapshot of current remote state.
 	const pull = await prismic("pull", ["--repo", repo, "--force"]);
 	expect(pull.exitCode).toBe(0);

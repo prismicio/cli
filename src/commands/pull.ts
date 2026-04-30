@@ -40,12 +40,14 @@ export default createCommand(config, async ({ values }) => {
 
 	if (!force) {
 		const snapshot = await readSnapshot(repo);
-		const baseline = snapshot ?? { customTypes: remoteCustomTypes, slices: remoteSlices };
-		const isDrifted =
-			JSON.stringify(sortById(localCustomTypeModels)) !==
-				JSON.stringify(sortById(baseline.customTypes)) ||
-			JSON.stringify(sortById(localSliceModels)) !==
-				JSON.stringify(sortById(baseline.slices));
+		const customTypesDrifted = snapshot
+			? JSON.stringify(sortById(localCustomTypeModels)) !==
+				JSON.stringify(sortById(snapshot.customTypes))
+			: hasUnpushedChanges(localCustomTypeModels, remoteCustomTypes);
+		const slicesDrifted = snapshot
+			? JSON.stringify(sortById(localSliceModels)) !== JSON.stringify(sortById(snapshot.slices))
+			: hasUnpushedChanges(localSliceModels, remoteSlices);
+		const isDrifted = customTypesDrifted || slicesDrifted;
 		if (isDrifted) {
 			throw new CommandError(`
 				You have local changes that haven't been pushed.
@@ -110,6 +112,13 @@ type Ops<T> = { insert: T[]; update: T[]; delete: T[] };
 
 function sortById<T extends { id: string }>(items: T[]): T[] {
 	return [...items].sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function hasUnpushedChanges<T extends { id: string }>(local: T[], remote: T[]): boolean {
+	return local.some((m) => {
+		const r = remote.find((x) => x.id === m.id);
+		return !r || JSON.stringify(m) !== JSON.stringify(r);
+	});
 }
 
 function diffOps<T extends CustomType | SharedSlice>(local: T[], remote: T[]): Ops<T> {

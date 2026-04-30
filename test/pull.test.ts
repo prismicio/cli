@@ -169,7 +169,14 @@ it.sequential("refuses without --force when no snapshot exists and local diverge
 	expect(stderr).toContain("--force");
 });
 
-it.sequential("pulls repeatable page type", async ({ expect, project, prismic, repo, token, host }) => {
+it.sequential("pulls repeatable page type", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
 	const customType = buildCustomType({ format: "page", repeatable: true });
 	await insertCustomType(customType, { repo, token, host });
 
@@ -183,7 +190,14 @@ it.sequential("pulls repeatable page type", async ({ expect, project, prismic, r
 	});
 });
 
-it.sequential("pulls non-repeatable page type", async ({ expect, project, prismic, repo, token, host }) => {
+it.sequential("pulls non-repeatable page type", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
 	const customType = buildCustomType({ format: "page", repeatable: false });
 	await insertCustomType(customType, { repo, token, host });
 
@@ -197,7 +211,14 @@ it.sequential("pulls non-repeatable page type", async ({ expect, project, prismi
 	});
 });
 
-it.sequential("pulls non-page custom type", async ({ expect, project, prismic, repo, token, host }) => {
+it.sequential("pulls non-page custom type", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
 	const customType = buildCustomType();
 	await insertCustomType(customType, { repo, token, host });
 

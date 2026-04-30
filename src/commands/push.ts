@@ -53,10 +53,12 @@ export default createCommand(config, async ({ values }) => {
 		// have one. No drift comparison: snapshot would trivially equal remote.
 		await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
 	} else if (!force) {
-		const isDrifted =
+		const customTypesDrifted =
 			JSON.stringify(sortById(snapshot.customTypes)) !==
-				JSON.stringify(sortById(remoteCustomTypes)) ||
+			JSON.stringify(sortById(remoteCustomTypes));
+		const slicesDrifted =
 			JSON.stringify(sortById(snapshot.slices)) !== JSON.stringify(sortById(remoteSlices));
+		const isDrifted = customTypesDrifted || slicesDrifted;
 		if (isDrifted) {
 			throw new CommandError(`
 				Remote has changed since you last pulled.
