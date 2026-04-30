@@ -71,7 +71,7 @@ it("refuses on remote drift without --force", async ({ expect, prismic, repo, to
 	expect(stderr).toContain("Remote has changed");
 });
 
-it("auto-fetches a snapshot when none exists and proceeds", async ({
+it("refuses without --force when no snapshot exists and remote diverges from local", async ({
 	expect,
 	project,
 	prismic,
@@ -79,14 +79,16 @@ it("auto-fetches a snapshot when none exists and proceeds", async ({
 	token,
 	host,
 }) => {
-	// No prior pull — there is no snapshot for this fresh project. Push should
-	// establish one and proceed without --force.
-	const customType = buildCustomType();
-	await writeLocalCustomType(project, customType);
+	// Mutate remote out-of-band so it has a model the local project doesn't.
+	const drifted = buildCustomType();
+	await insertCustomType(drifted, { repo, token, host });
 
-	const { exitCode } = await prismic("push", ["--repo", repo]);
-	expect(exitCode).toBe(0);
+	// No prior pull — there is no snapshot for this fresh project. With remote
+	// holding a model local doesn't have, pushing would delete it.
+	const local = buildCustomType();
+	await writeLocalCustomType(project, local);
 
-	const remote = await getCustomTypes({ repo, token, host });
-	expect(remote.map((t) => t.id)).toContain(customType.id);
+	const { exitCode, stderr } = await prismic("push", ["--repo", repo]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Remote has changed");
 });

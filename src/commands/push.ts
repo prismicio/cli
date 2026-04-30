@@ -46,17 +46,21 @@ export default createCommand(config, async ({ values }) => {
 	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
 	const localSliceModels = localSlices.map((s) => s.model);
 
-	const snapshot = await readSnapshot(repo);
-	if (!snapshot) {
-		// First push from this machine — establish a baseline so subsequent commands
-		// have one. No drift comparison: snapshot would trivially equal remote.
-		await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
-	} else if (!force) {
-		const customTypesDrifted =
-			JSON.stringify(sortById(snapshot.customTypes)) !==
-			JSON.stringify(sortById(remoteCustomTypes));
-		const slicesDrifted =
-			JSON.stringify(sortById(snapshot.slices)) !== JSON.stringify(sortById(remoteSlices));
+	if (!force) {
+		const snapshot = await readSnapshot(repo);
+		const customTypesDriftFromLocal = diffArrays(remoteCustomTypes, localCustomTypeModels, {
+			key: (m) => m.id,
+		});
+		const slicesDriftFromLocal = diffArrays(remoteSlices, localSliceModels, {
+			key: (m) => m.id,
+		});
+		const customTypesDrifted = snapshot
+			? JSON.stringify(sortById(snapshot.customTypes)) !==
+				JSON.stringify(sortById(remoteCustomTypes))
+			: customTypesDriftFromLocal.insert.length + customTypesDriftFromLocal.update.length > 0;
+		const slicesDrifted = snapshot
+			? JSON.stringify(sortById(snapshot.slices)) !== JSON.stringify(sortById(remoteSlices))
+			: slicesDriftFromLocal.insert.length + slicesDriftFromLocal.update.length > 0;
 		const isDrifted = customTypesDrifted || slicesDrifted;
 		if (isDrifted) {
 			throw new CommandError(`
