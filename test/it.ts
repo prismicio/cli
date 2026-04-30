@@ -164,3 +164,9 @@ export function buildSlice(overrides?: Partial<SharedSlice>): SharedSlice {
 		...overrides,
 	};
 }
+
+export async function writeLocalCustomType(project: URL, model: CustomType): Promise<void> {
+	const path = new URL(`customtypes/${model.id}/index.json`, project);
+	await mkdir(new URL(".", path), { recursive: true });
+	await writeFile(path, JSON.stringify(model, null, 2));
+}

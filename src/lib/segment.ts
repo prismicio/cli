@@ -45,18 +45,19 @@ export async function initSegment(): Promise<void> {
 	}
 }
 
-export type TrackContext = { repository?: string };
+export type TrackContext = { repository?: string; watch?: boolean };
 
 export function segmentTrackStart(command: string, context: TrackContext = {}): void {
 	if (!enabled) return;
 
-	const { repository = globalRepository } = context;
+	const { repository = globalRepository, watch } = context;
 
 	const properties: Record<string, unknown> = {
 		commandType: command,
 		fullCommand: process.argv.join(" "),
 	};
 	if (repository) properties.repository = repository;
+	if (watch !== undefined) properties.watch = watch;
 
 	trackQueue.push({
 		event: "Prismic CLI Start",
@@ -71,7 +72,7 @@ export function segmentTrackEnd(
 ): void {
 	if (!enabled) return;
 
-	const { success = !process.exitCode, error, repository = globalRepository } = context;
+	const { success = !process.exitCode, error, repository = globalRepository, watch } = context;
 
 	const properties: Record<string, unknown> = {
 		commandType: command,
@@ -79,6 +80,7 @@ export function segmentTrackEnd(
 		success,
 	};
 	if (repository) properties.repository = repository;
+	if (watch !== undefined) properties.watch = watch;
 	if (error !== undefined) {
 		const message = error instanceof Error ? error.message : String(error);
 		properties.error = message.slice(0, 512);
