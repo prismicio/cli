@@ -1,7 +1,8 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 import type { Result } from "tinyexec";
 
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { pascalCase } from "change-case";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -169,4 +170,44 @@ export async function writeLocalCustomType(project: URL, model: CustomType): Pro
 	const path = new URL(`customtypes/${model.id}/index.json`, project);
 	await mkdir(new URL(".", path), { recursive: true });
 	await writeFile(path, JSON.stringify(model, null, 2));
+}
+
+export async function readLocalCustomType(project: URL, id: string): Promise<CustomType> {
+	const path = new URL(`customtypes/${id}/index.json`, project);
+	return JSON.parse(await readFile(path, "utf8"));
+}
+
+export async function readLocalCustomTypes(project: URL): Promise<CustomType[]> {
+	const dir = new URL("customtypes/", project);
+	const entries = await readdir(dir).catch(() => [] as string[]);
+	const result: CustomType[] = [];
+	for (const id of entries) {
+		try {
+			result.push(JSON.parse(await readFile(new URL(`${id}/index.json`, dir), "utf8")));
+		} catch {}
+	}
+	return result;
+}
+
+export async function writeLocalSlice(project: URL, model: SharedSlice): Promise<void> {
+	const path = new URL(`slices/${pascalCase(model.name)}/model.json`, project);
+	await mkdir(new URL(".", path), { recursive: true });
+	await writeFile(path, JSON.stringify(model, null, 2));
+}
+
+export async function readLocalSlice(project: URL, id: string): Promise<SharedSlice | undefined> {
+	const slices = await readLocalSlices(project);
+	return slices.find((s) => s.id === id);
+}
+
+export async function readLocalSlices(project: URL): Promise<SharedSlice[]> {
+	const dir = new URL("slices/", project);
+	const entries = await readdir(dir).catch(() => [] as string[]);
+	const result: SharedSlice[] = [];
+	for (const name of entries) {
+		try {
+			result.push(JSON.parse(await readFile(new URL(`${name}/model.json`, dir), "utf8")));
+		} catch {}
+	}
+	return result;
 }

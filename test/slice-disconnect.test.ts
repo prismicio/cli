@@ -1,7 +1,13 @@
 import type { DynamicSlices } from "@prismicio/types-internal/lib/customtypes";
 
-import { buildCustomType, buildSlice, it } from "./it";
-import { getCustomTypes, insertCustomType, insertSlice } from "./prismic";
+import {
+	buildCustomType,
+	buildSlice,
+	it,
+	readLocalCustomType,
+	writeLocalCustomType,
+	writeLocalSlice,
+} from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("slice", ["disconnect", "--help"]);
@@ -9,7 +15,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic slice disconnect <id> [options]");
 });
 
-it("disconnects a slice from a type", async ({ expect, prismic, repo, token, host }) => {
+it("disconnects a slice from a type", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	const customType = buildCustomType({
 		format: "page",
@@ -24,8 +30,8 @@ it("disconnects a slice from a type", async ({ expect, prismic, repo, token, hos
 		},
 	});
 
-	await insertSlice(slice, { repo, token, host });
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalSlice(project, slice);
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("slice", [
 		"disconnect",
@@ -36,8 +42,7 @@ it("disconnects a slice from a type", async ({ expect, prismic, repo, token, hos
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Disconnected slice "${slice.id}" from "${customType.id}"`);
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const updated = customTypes.find((ct) => ct.id === customType.id);
-	const choices = (updated!.json.Main.slices as DynamicSlices).config!.choices!;
+	const updated = await readLocalCustomType(project, customType.id);
+	const choices = (updated.json.Main.slices as DynamicSlices).config!.choices!;
 	expect(choices[slice.id]).toBeUndefined();
 });

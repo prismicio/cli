@@ -1,9 +1,7 @@
-import { getHost, getToken } from "../auth";
-import { getCustomType } from "../clients/custom-types";
+import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { formatTable } from "../lib/string";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic type view",
@@ -13,17 +11,15 @@ const config = {
 	},
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { json, repo = await getRepositoryName() } = values;
+	const { json } = values;
 
-	const token = await getToken();
-	const host = await getHost();
-	const type = await getCustomType(id, { repo, token, host });
+	const adapter = await getAdapter();
+	const { model: type } = await adapter.getCustomType(id);
 
 	if (json) {
 		console.info(stringify(type));

@@ -1,5 +1,12 @@
-import { buildCustomType, buildSlice, it } from "./it";
-import { getCustomTypes, getSlices, insertCustomType, insertSlice } from "./prismic";
+import {
+	buildCustomType,
+	buildSlice,
+	it,
+	readLocalCustomType,
+	readLocalSlice,
+	writeLocalCustomType,
+	writeLocalSlice,
+} from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("field", ["edit", "--help"]);
@@ -7,10 +14,10 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic field edit <id> [options]");
 });
 
-it("edits a field label on a slice", async ({ expect, prismic, repo, token, host }) => {
+it("edits a field label on a slice", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.my_field = { type: "Boolean", config: { label: "Old Label" } };
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"edit",
@@ -23,13 +30,12 @@ it("edits a field label on a slice", async ({ expect, prismic, repo, token, host
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field updated: my_field");
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.my_field;
 	expect(field).toMatchObject({ type: "Boolean", config: { label: "New Label" } });
 });
 
-it("edits a field label on a custom type", async ({ expect, prismic, repo, token, host }) => {
+it("edits a field label on a custom type", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({
 		json: {
 			Main: {
@@ -40,7 +46,7 @@ it("edits a field label on a custom type", async ({ expect, prismic, repo, token
 			},
 		},
 	});
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"edit",
@@ -53,18 +59,17 @@ it("edits a field label on a custom type", async ({ expect, prismic, repo, token
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field updated: title");
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const updated = customTypes.find((ct) => ct.id === customType.id);
-	expect(updated!.json.Main.title).toMatchObject({
+	const updated = await readLocalCustomType(project, customType.id);
+	expect(updated.json.Main.title).toMatchObject({
 		type: "StructuredText",
 		config: { label: "Page Title" },
 	});
 });
 
-it("edits boolean field options", async ({ expect, prismic, repo, token, host }) => {
+it("edits boolean field options", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.is_active = { type: "Boolean", config: { label: "Active" } };
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"edit",
@@ -81,8 +86,7 @@ it("edits boolean field options", async ({ expect, prismic, repo, token, host })
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field updated: is_active");
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.is_active;
 	expect(field).toMatchObject({
 		type: "Boolean",
@@ -94,10 +98,10 @@ it("edits boolean field options", async ({ expect, prismic, repo, token, host })
 	});
 });
 
-it("edits number field options", async ({ expect, prismic, repo, token, host }) => {
+it("edits number field options", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.quantity = { type: "Number", config: { label: "Quantity" } };
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"edit",
@@ -112,8 +116,7 @@ it("edits number field options", async ({ expect, prismic, repo, token, host }) 
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field updated: quantity");
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.quantity;
 	expect(field).toMatchObject({
 		type: "Number",
@@ -121,13 +124,13 @@ it("edits number field options", async ({ expect, prismic, repo, token, host }) 
 	});
 });
 
-it("edits select field options", async ({ expect, prismic, repo, token, host }) => {
+it("edits select field options", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.color = {
 		type: "Select",
 		config: { label: "Color", options: ["red", "blue"] },
 	};
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"edit",
@@ -146,8 +149,7 @@ it("edits select field options", async ({ expect, prismic, repo, token, host }) 
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field updated: color");
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.color;
 	expect(field).toMatchObject({
 		type: "Select",
@@ -158,24 +160,18 @@ it("edits select field options", async ({ expect, prismic, repo, token, host }) 
 	});
 });
 
-it("edits content relationship field with --field", async ({
-	expect,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
+it("edits content relationship field with --field", async ({ expect, prismic, project }) => {
 	const target = buildCustomType({
 		json: { Main: { title: { type: "Text", config: { label: "Title" } } } },
 	});
-	await insertCustomType(target, { repo, token, host });
+	await writeLocalCustomType(project, target);
 
 	const owner = buildCustomType();
 	owner.json.Main.my_link = {
 		type: "Link",
 		config: { label: "My Link", select: "document", customtypes: [target.id] },
 	};
-	await insertCustomType(owner, { repo, token, host });
+	await writeLocalCustomType(project, owner);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"edit",
@@ -188,9 +184,8 @@ it("edits content relationship field with --field", async ({
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field updated: my_link");
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const updated = customTypes.find((ct) => ct.id === owner.id);
-	expect(updated!.json.Main.my_link).toMatchObject({
+	const updated = await readLocalCustomType(project, owner.id);
+	expect(updated.json.Main.my_link).toMatchObject({
 		type: "Link",
 		config: {
 			select: "document",
@@ -199,13 +194,13 @@ it("edits content relationship field with --field", async ({
 	});
 });
 
-it("edits link field options", async ({ expect, prismic, repo, token, host }) => {
+it("edits link field options", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.cta_link = {
 		type: "Link",
 		config: { label: "CTA Link", allowTargetBlank: false },
 	};
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"edit",
@@ -217,8 +212,7 @@ it("edits link field options", async ({ expect, prismic, repo, token, host }) =>
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Field updated: cta_link");
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.cta_link;
 	expect(field).toMatchObject({
 		type: "Link",

@@ -1,5 +1,4 @@
-import { buildCustomType, it } from "./it";
-import { getCustomTypes, insertCustomType } from "./prismic";
+import { buildCustomType, it, readLocalCustomType, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("type", ["add-tab", "--help"]);
@@ -7,9 +6,9 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic type add-tab <name> [options]");
 });
 
-it("adds a tab to a type", async ({ expect, prismic, repo, token, host }) => {
+it("adds a tab to a type", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType();
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const tabName = `Tab${crypto.randomUUID().split("-")[0]}`;
 
@@ -17,15 +16,14 @@ it("adds a tab to a type", async ({ expect, prismic, repo, token, host }) => {
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Added tab "${tabName}" to "${customType.id}"`);
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const updated = customTypes.find((ct) => ct.id === customType.id);
-	expect(updated?.json).toHaveProperty(tabName);
-	expect(updated?.json[tabName]).toEqual({});
+	const updated = await readLocalCustomType(project, customType.id);
+	expect(updated.json).toHaveProperty(tabName);
+	expect(updated.json[tabName]).toEqual({});
 });
 
-it("adds a tab with a slice zone", async ({ expect, prismic, repo, token, host }) => {
+it("adds a tab with a slice zone", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType();
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const tabName = `Tab${crypto.randomUUID().split("-")[0]}`;
 
@@ -39,9 +37,8 @@ it("adds a tab with a slice zone", async ({ expect, prismic, repo, token, host }
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Added tab "${tabName}" to "${customType.id}"`);
 
-	const customTypes = await getCustomTypes({ repo, token, host });
-	const updated = customTypes.find((ct) => ct.id === customType.id);
-	const tab = updated?.json[tabName];
+	const updated = await readLocalCustomType(project, customType.id);
+	const tab = updated.json[tabName];
 	expect(tab).toHaveProperty("slices");
-	expect(tab?.slices).toMatchObject({ type: "Slices" });
+	expect(tab.slices).toMatchObject({ type: "Slices" });
 });

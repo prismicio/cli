@@ -1,5 +1,4 @@
-import { buildCustomType, it } from "./it";
-import { insertCustomType } from "./prismic";
+import { buildCustomType, it, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("type", ["view", "--help"]);
@@ -7,9 +6,9 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic type view <id> [options]");
 });
 
-it("views a type", async ({ expect, prismic, repo, token, host }) => {
+it("views a type", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({ format: "custom" });
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("type", ["view", customType.id]);
 	expect(exitCode).toBe(0);
@@ -20,7 +19,7 @@ it("views a type", async ({ expect, prismic, repo, token, host }) => {
 	expect(stdout).toContain("Main:");
 });
 
-it("shows fields per tab", async ({ expect, prismic, repo, token, host }) => {
+it("shows fields per tab", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({
 		json: {
 			Main: {
@@ -32,7 +31,7 @@ it("shows fields per tab", async ({ expect, prismic, repo, token, host }) => {
 			},
 		},
 	});
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("type", ["view", customType.id]);
 	expect(exitCode).toBe(0);
@@ -43,9 +42,9 @@ it("shows fields per tab", async ({ expect, prismic, repo, token, host }) => {
 	expect(stdout).toMatch(/meta_title\s+Text\s+Meta Title/);
 });
 
-it("views a type as JSON", async ({ expect, prismic, repo, token, host }) => {
+it("views a type as JSON", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({ format: "custom" });
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("type", ["view", customType.id, "--json"]);
 	expect(exitCode).toBe(0);
