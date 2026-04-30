@@ -21,14 +21,18 @@ import {
 	writeSnapshot,
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
+import { createRepo } from "./repo-create";
 
 const config = {
 	name: "prismic init",
 	description: `
-		Initialize a Prismic project by creating a prismic.config.json file.
+		Initialize a new Prismic project by creating a repository and
+		prismic.config.json file. Detects the project framework, installs
+		dependencies, and syncs models from Prismic.
 
-		Detects the project framework, installs dependencies, and syncs models
-		from Prismic. If a slicemachine.config.json exists, it will be migrated.
+		Use --repo to connect to an existing repository instead. If a
+		slicemachine.config.json exists, its repository and settings will be
+		migrated.
 	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository name" },
@@ -66,12 +70,6 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
-	if (!repo) {
-		throw new CommandError("Missing required flag: --repo");
-	}
-
-	// Validate repo membership
 	let token = await getToken();
 	const host = await getHost();
 	let profile: Profile;
@@ -99,19 +97,27 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const repoMeta = profile.repositories.find((repository) => repository.domain === repo);
-	if (!repoMeta) {
-		throw new CommandError(
-			`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
-		);
-	}
+	let repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
+	if (repo) {
+		const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
+		if (!hasRepoAccess) {
+			throw new CommandError(
+				`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
+			);
+		}
 
-	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
-	if (!isTypeBuilderEnabled) {
-		throw new TypeBuilderRequiredError();
+		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+		if (!isTypeBuilderEnabled) {
+			throw new TypeBuilderRequiredError();
+		}
 	}
 
 	const adapter = await getAdapter();
+
+	if (!repo) {
+		repo = await createRepo({ token, host });
+		console.info(`Created repository: ${repo}`);
+	}
 
 	// Create prismic.config.json
 	try {
