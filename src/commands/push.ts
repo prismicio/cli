@@ -1,5 +1,3 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import {
@@ -13,6 +11,7 @@ import {
 	updateSlice,
 } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { diffArrays } from "../lib/diff";
 import { getRepositoryName, readSnapshot, writeSnapshot } from "../project";
 
 const config = {
@@ -82,8 +81,10 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const customTypeOps = diffOps(localCustomTypeModels, remoteCustomTypes);
-	const sliceOps = diffOps(localSliceModels, remoteSlices);
+	const customTypeOps = diffArrays(localCustomTypeModels, remoteCustomTypes, {
+		key: (m) => m.id,
+	});
+	const sliceOps = diffArrays(localSliceModels, remoteSlices, { key: (m) => m.id });
 
 	for (const model of customTypeOps.insert) {
 		await insertCustomType(model, { repo, token, host });
@@ -121,26 +122,6 @@ export default createCommand(config, async ({ values }) => {
 	}
 });
 
-type Ops<T> = { insert: T[]; update: T[]; delete: T[] };
-
 function sortById<T extends { id: string }>(items: T[]): T[] {
 	return [...items].sort((a, b) => a.id.localeCompare(b.id));
-}
-
-function diffOps<T extends CustomType | SharedSlice>(local: T[], remote: T[]): Ops<T> {
-	const ops: Ops<T> = { insert: [], update: [], delete: [] };
-	for (const localModel of local) {
-		const remoteModel = remote.find((r) => r.id === localModel.id);
-		if (!remoteModel) {
-			ops.insert.push(localModel);
-		} else if (JSON.stringify(localModel) !== JSON.stringify(remoteModel)) {
-			ops.update.push(localModel);
-		}
-	}
-	for (const remoteModel of remote) {
-		if (!local.some((l) => l.id === remoteModel.id)) {
-			ops.delete.push(remoteModel);
-		}
-	}
-	return ops;
 }

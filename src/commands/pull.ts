@@ -1,9 +1,8 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { diffArrays } from "../lib/diff";
 import { getRepositoryName, readSnapshot, writeSnapshot } from "../project";
 
 const config = {
@@ -40,13 +39,19 @@ export default createCommand(config, async ({ values }) => {
 
 	if (!force) {
 		const snapshot = await readSnapshot(repo);
+		const customTypesDriftFromRemote = diffArrays(localCustomTypeModels, remoteCustomTypes, {
+			key: (m) => m.id,
+		});
+		const slicesDriftFromRemote = diffArrays(localSliceModels, remoteSlices, {
+			key: (m) => m.id,
+		});
 		const customTypesDrifted = snapshot
 			? JSON.stringify(sortById(localCustomTypeModels)) !==
 				JSON.stringify(sortById(snapshot.customTypes))
-			: hasUnpushedChanges(localCustomTypeModels, remoteCustomTypes);
+			: customTypesDriftFromRemote.insert.length + customTypesDriftFromRemote.update.length > 0;
 		const slicesDrifted = snapshot
 			? JSON.stringify(sortById(localSliceModels)) !== JSON.stringify(sortById(snapshot.slices))
-			: hasUnpushedChanges(localSliceModels, remoteSlices);
+			: slicesDriftFromRemote.insert.length + slicesDriftFromRemote.update.length > 0;
 		const isDrifted = customTypesDrifted || slicesDrifted;
 		if (isDrifted) {
 			throw new CommandError(`
@@ -71,8 +76,10 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const customTypeOps = diffOps(localCustomTypeModels, remoteCustomTypes);
-	const sliceOps = diffOps(localSliceModels, remoteSlices);
+	const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
+		key: (m) => m.id,
+	});
+	const sliceOps = diffArrays(remoteSlices, localSliceModels, { key: (m) => m.id });
 
 	for (const model of customTypeOps.insert) {
 		await adapter.createCustomType(model);
@@ -108,33 +115,6 @@ export default createCommand(config, async ({ values }) => {
 	}
 });
 
-type Ops<T> = { insert: T[]; update: T[]; delete: T[] };
-
 function sortById<T extends { id: string }>(items: T[]): T[] {
 	return [...items].sort((a, b) => a.id.localeCompare(b.id));
-}
-
-function hasUnpushedChanges<T extends { id: string }>(local: T[], remote: T[]): boolean {
-	return local.some((m) => {
-		const r = remote.find((x) => x.id === m.id);
-		return !r || JSON.stringify(m) !== JSON.stringify(r);
-	});
-}
-
-function diffOps<T extends CustomType | SharedSlice>(local: T[], remote: T[]): Ops<T> {
-	const ops: Ops<T> = { insert: [], update: [], delete: [] };
-	for (const remoteModel of remote) {
-		const localModel = local.find((l) => l.id === remoteModel.id);
-		if (!localModel) {
-			ops.insert.push(remoteModel);
-		} else if (JSON.stringify(remoteModel) !== JSON.stringify(localModel)) {
-			ops.update.push(remoteModel);
-		}
-	}
-	for (const localModel of local) {
-		if (!remote.some((r) => r.id === localModel.id)) {
-			ops.delete.push(localModel);
-		}
-	}
-	return ops;
 }

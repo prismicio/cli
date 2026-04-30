@@ -7,6 +7,7 @@ import { getProfile } from "../clients/user";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { diffArrays } from "../lib/diff";
 import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
@@ -158,37 +159,31 @@ export default createCommand(config, async ({ values }) => {
 		adapter.getCustomTypes(),
 		adapter.getSlices(),
 	]);
+	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
+	const localSliceModels = localSlices.map((s) => s.model);
 
-	for (const remote of remoteSlices) {
-		if (localSlices.some((s) => s.model.id === remote.id)) {
-			await adapter.updateSlice(remote);
-		}
+	const sliceOps = diffArrays(remoteSlices, localSliceModels, { key: (m) => m.id });
+	for (const slice of sliceOps.update) {
+		await adapter.updateSlice(slice);
 	}
-	for (const local of localSlices) {
-		if (!remoteSlices.some((r) => r.id === local.model.id)) {
-			await adapter.deleteSlice(local.model.id);
-		}
+	for (const slice of sliceOps.delete) {
+		await adapter.deleteSlice(slice.id);
 	}
-	for (const remote of remoteSlices) {
-		if (!localSlices.some((s) => s.model.id === remote.id)) {
-			await adapter.createSlice(remote);
-		}
+	for (const slice of sliceOps.insert) {
+		await adapter.createSlice(slice);
 	}
 
-	for (const remote of remoteCustomTypes) {
-		if (localCustomTypes.some((c) => c.model.id === remote.id)) {
-			await adapter.updateCustomType(remote);
-		}
+	const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
+		key: (m) => m.id,
+	});
+	for (const customType of customTypeOps.update) {
+		await adapter.updateCustomType(customType);
 	}
-	for (const local of localCustomTypes) {
-		if (!remoteCustomTypes.some((r) => r.id === local.model.id)) {
-			await adapter.deleteCustomType(local.model.id);
-		}
+	for (const customType of customTypeOps.delete) {
+		await adapter.deleteCustomType(customType.id);
 	}
-	for (const remote of remoteCustomTypes) {
-		if (!localCustomTypes.some((c) => c.model.id === remote.id)) {
-			await adapter.createCustomType(remote);
-		}
+	for (const customType of customTypeOps.insert) {
+		await adapter.createCustomType(customType);
 	}
 
 	await adapter.generateTypes();

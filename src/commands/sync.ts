@@ -6,6 +6,7 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
+import { diffArrays } from "../lib/diff";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { getRepositoryName, writeSnapshot } from "../project";
 
@@ -66,48 +67,40 @@ export default createCommand(config, async ({ values }) => {
 					adapter.getCustomTypes(),
 					adapter.getSlices(),
 				]);
+				const localCustomTypeModels = localCustomTypes.map((c) => c.model);
+				const localSliceModels = localSlices.map((s) => s.model);
 
 				const changed: string[] = [];
 
-				const slicesChanged =
-					JSON.stringify(remoteSlices) !== JSON.stringify(localSlices.map((s) => s.model));
-				if (slicesChanged) {
-					for (const remote of remoteSlices) {
-						if (localSlices.some((s) => s.model.id === remote.id)) {
-							await adapter.updateSlice(remote);
-						}
+				const sliceOps = diffArrays(remoteSlices, localSliceModels, { key: (m) => m.id });
+				if (sliceOps.insert.length + sliceOps.update.length + sliceOps.delete.length > 0) {
+					for (const slice of sliceOps.update) {
+						await adapter.updateSlice(slice);
 					}
-					for (const local of localSlices) {
-						if (!remoteSlices.some((r) => r.id === local.model.id)) {
-							await adapter.deleteSlice(local.model.id);
-						}
+					for (const slice of sliceOps.delete) {
+						await adapter.deleteSlice(slice.id);
 					}
-					for (const remote of remoteSlices) {
-						if (!localSlices.some((s) => s.model.id === remote.id)) {
-							await adapter.createSlice(remote);
-						}
+					for (const slice of sliceOps.insert) {
+						await adapter.createSlice(slice);
 					}
 					changed.push("slices");
 				}
 
-				const customTypesChanged =
-					JSON.stringify(remoteCustomTypes) !==
-					JSON.stringify(localCustomTypes.map((c) => c.model));
-				if (customTypesChanged) {
-					for (const remote of remoteCustomTypes) {
-						if (localCustomTypes.some((c) => c.model.id === remote.id)) {
-							await adapter.updateCustomType(remote);
-						}
+				const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
+					key: (m) => m.id,
+				});
+				if (
+					customTypeOps.insert.length + customTypeOps.update.length + customTypeOps.delete.length >
+					0
+				) {
+					for (const customType of customTypeOps.update) {
+						await adapter.updateCustomType(customType);
 					}
-					for (const local of localCustomTypes) {
-						if (!remoteCustomTypes.some((r) => r.id === local.model.id)) {
-							await adapter.deleteCustomType(local.model.id);
-						}
+					for (const customType of customTypeOps.delete) {
+						await adapter.deleteCustomType(customType.id);
 					}
-					for (const remote of remoteCustomTypes) {
-						if (!localCustomTypes.some((c) => c.model.id === remote.id)) {
-							await adapter.createCustomType(remote);
-						}
+					for (const customType of customTypeOps.insert) {
+						await adapter.createCustomType(customType);
 					}
 					changed.push("custom types");
 				}
