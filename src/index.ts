@@ -7,7 +7,7 @@ import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { cleanupLegacyAuthFile, getHost, getToken, spawnTokenRefresh } from "./auth";
 import { getProfile } from "./clients/user";
 import docs from "./commands/docs";
-// import fetch from "./commands/fetch";
+import fetch from "./commands/fetch";
 import field from "./commands/field";
 import gen from "./commands/gen";
 import init from "./commands/init";
@@ -15,8 +15,8 @@ import locale from "./commands/locale";
 import login from "./commands/login";
 import logout from "./commands/logout";
 import preview from "./commands/preview";
-// import pull from "./commands/pull";
-// import push from "./commands/push";
+import pull from "./commands/pull";
+import push from "./commands/push";
 import repo from "./commands/repo";
 import slice from "./commands/slice";
 import sync from "./commands/sync";
@@ -75,18 +75,21 @@ const router = createCommandRouter({
 			handler: gen,
 			description: "Generate files from local models",
 		},
-		// pull: {
-		// 	handler: pull,
-		// 	description: "Pull types and slices from Prismic",
-		// },
-		// fetch: {
-		// 	handler: fetch,
-		// 	description: "Refresh snapshot of remote types and slices",
-		// },
-		// push: {
-		// 	handler: push,
-		// 	description: "Push types and slices to Prismic",
-		// },
+		pull: {
+			handler: pull,
+			description: "Pull types and slices from Prismic",
+			hidden: true,
+		},
+		fetch: {
+			handler: fetch,
+			description: "Refresh snapshot of remote types and slices",
+			hidden: true,
+		},
+		push: {
+			handler: push,
+			description: "Push types and slices to Prismic",
+			hidden: true,
+		},
 		sync: {
 			handler: sync,
 			description: "Sync types and slices from Prismic",
