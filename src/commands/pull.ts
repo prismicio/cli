@@ -50,7 +50,7 @@ export default createCommand(config, async ({ values }) => {
 		const isDrifted = customTypesDrifted || slicesDrifted;
 		if (isDrifted) {
 			throw new CommandError(`
-				You have local changes that haven't been pushed.
+				You have local changes that haven't been pushed. Pulling would overwrite them.
 
 				To discard local changes and adopt remote:
 				  prismic pull --force
