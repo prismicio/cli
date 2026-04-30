@@ -1,156 +1,139 @@
 import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 
-import { getAdapter, type Adapter } from "../adapters";
+import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
+import { diffArrays } from "../lib/diff";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
-import { dedent } from "../lib/string";
-import { checkIsTypeBuilderEnabled, getRepositoryName, TypeBuilderRequiredError } from "../project";
+import { getRepositoryName, writeSnapshot } from "../project";
 
-// 5 seconds balances responsiveness with API load
 const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
-const MAX_BACKOFF_MS = 60000; // Cap backoff at 1 minute
-const MAX_CONSECUTIVE_ERRORS = 10;
+const MAX_CONSECUTIVE_ERRORS = 5;
 
 const config = {
 	name: "prismic sync",
 	description: `
-		Sync content types and slices from Prismic to local files.
+		Watch Prismic and continuously pull changes to local files.
 
-		Remote models are the source of truth. Local files are created, updated,
-		or deleted to match.
+		For one-time pulls, use \`prismic pull\`.
 	`,
 	options: {
+		watch: {
+			type: "boolean",
+			short: "w",
+			description: "Watch for changes and sync continuously",
+			required: true,
+		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
-		watch: { type: "boolean", short: "w", description: "Watch for changes and sync continuously" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo = await getRepositoryName(), watch } = values;
+	const { repo = await getRepositoryName() } = values;
 
 	const token = await getToken();
 	const host = await getHost();
-	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
-	if (!isTypeBuilderEnabled) {
-		throw new TypeBuilderRequiredError();
-	}
-
 	const adapter = await getAdapter();
 
-	console.info(`Syncing from repository: ${repo}`);
+	segmentTrackStart("sync", { watch: true });
+	process.on("SIGINT", () => {
+		console.info("\nWatch stopped. Goodbye!");
+		segmentTrackEnd("sync", { watch: true });
+		process.exit(0);
+	});
 
-	segmentTrackStart("sync", { watch });
+	console.info(
+		`Watching repository: ${repo} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
+	);
 
-	if (watch) {
-		await watchForChanges(repo, adapter);
-	} else {
-		const token = await getToken();
-		const host = await getHost();
-		await adapter.syncModels({ repo, token, host });
-		segmentTrackEnd("sync", { watch });
-
-		console.info("Sync complete");
-	}
-});
-
-async function watchForChanges(repo: string, adapter: Adapter) {
-	const token = await getToken();
-	const host = await getHost();
-
-	const initialRemoteSlices = await getSlices({ repo, token, host });
-	const initialRemoteCustomTypes = await getCustomTypes({ repo, token, host });
-
-	await adapter.syncModels({ repo, token, host });
-
-	console.info(dedent`
-		Initial sync completed!
-
-		Watching for changes (polling every ${POLL_INTERVAL_MS / 1000}s),
-		Press Ctrl+C to stop\n
-	`);
-
-	let lastRemoteSlicesHash = hash(initialRemoteSlices);
-	let lastRemoteCustomTypesHash = hash(initialRemoteCustomTypes);
-
+	let lastHash = "";
 	let consecutiveErrors = 0;
 
-	// Handle all common termination signals
-	process.on("SIGINT", shutdown); // Ctrl+C
-	process.on("SIGTERM", shutdown); // kill command
-	process.on("SIGHUP", shutdown); // terminal closed
-	process.on("SIGQUIT", shutdown); // Ctrl+\
-	if (process.platform === "win32") {
-		process.on("SIGBREAK", shutdown); // Windows Ctrl+Break
-	}
-
 	while (true) {
-		await setTimeout(exponentialMs(consecutiveErrors));
-
 		try {
-			const remoteSlicesResult = await getSlices({ repo, token, host });
-			const remoteSlicesHash = hash(remoteSlicesResult);
-			const slicesChanged = remoteSlicesHash !== lastRemoteSlicesHash;
+			const [remoteCustomTypes, remoteSlices] = await Promise.all([
+				getCustomTypes({ repo, token, host }),
+				getSlices({ repo, token, host }),
+			]);
+			const nextHash = hash({ remoteCustomTypes, remoteSlices });
 
-			const remoteCustomTypesResult = await getCustomTypes({ repo, token, host });
-			const remoteCustomTypesHash = hash(remoteCustomTypesResult);
-			const customTypesChanged = remoteCustomTypesHash !== lastRemoteCustomTypesHash;
+			if (nextHash !== lastHash) {
+				const isInitial = lastHash === "";
 
-			if (slicesChanged || customTypesChanged) {
-				const changed = [];
+				const [localCustomTypes, localSlices] = await Promise.all([
+					adapter.getCustomTypes(),
+					adapter.getSlices(),
+				]);
+				const localCustomTypeModels = localCustomTypes.map((c) => c.model);
+				const localSliceModels = localSlices.map((s) => s.model);
 
-				if (slicesChanged) {
-					await adapter.syncSlices({ repo, token, host, generateTypes: false });
-					lastRemoteSlicesHash = remoteSlicesHash;
+				const changed: string[] = [];
+
+				const sliceOps = diffArrays(remoteSlices, localSliceModels, { key: (m) => m.id });
+				if (sliceOps.insert.length + sliceOps.update.length + sliceOps.delete.length > 0) {
+					for (const slice of sliceOps.update) {
+						await adapter.updateSlice(slice);
+					}
+					for (const slice of sliceOps.delete) {
+						await adapter.deleteSlice(slice.id);
+					}
+					for (const slice of sliceOps.insert) {
+						await adapter.createSlice(slice);
+					}
 					changed.push("slices");
 				}
-				if (customTypesChanged) {
-					await adapter.syncCustomTypes({ repo, token, host, generateTypes: false });
-					lastRemoteCustomTypesHash = remoteCustomTypesHash;
+
+				const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
+					key: (m) => m.id,
+				});
+				if (
+					customTypeOps.insert.length + customTypeOps.update.length + customTypeOps.delete.length >
+					0
+				) {
+					for (const customType of customTypeOps.update) {
+						await adapter.updateCustomType(customType);
+					}
+					for (const customType of customTypeOps.delete) {
+						await adapter.deleteCustomType(customType.id);
+					}
+					for (const customType of customTypeOps.insert) {
+						await adapter.createCustomType(customType);
+					}
 					changed.push("custom types");
 				}
 
 				await adapter.generateTypes();
+				await writeSnapshot(repo, {
+					customTypes: remoteCustomTypes,
+					slices: remoteSlices,
+				});
 
-				const timestamp = new Date().toLocaleTimeString();
-				console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
+				lastHash = nextHash;
+
+				if (isInitial) {
+					console.info("Initial sync complete.");
+				} else {
+					const timestamp = new Date().toLocaleTimeString();
+					console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
+				}
 			}
 
-			// Reset error count on success
 			consecutiveErrors = 0;
 		} catch (error) {
 			consecutiveErrors++;
-
 			const message = error instanceof Error ? error.message : "Unknown error";
-
-			const nextDelay = Math.min(
-				POLL_INTERVAL_MS * Math.pow(2, consecutiveErrors - 1),
-				MAX_BACKOFF_MS,
-			);
-
-			console.error(`Error checking for changes: ${message}. Retrying in ${nextDelay / 1000}s...`);
-
+			console.error(`Error checking for changes: ${message}`);
 			if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
 				throw new Error(`Too many consecutive errors (${MAX_CONSECUTIVE_ERRORS}), stopping watch.`);
 			}
 		}
+
+		await setTimeout(POLL_INTERVAL_MS);
 	}
-}
-
-function shutdown(): void {
-	console.info("Watch stopped. Goodbye!");
-	segmentTrackEnd("sync", { watch: true });
-	process.exit(0);
-}
-
-// Exponential backoff: 5s, 10s, 20s, 40s, 60s (capped)
-function exponentialMs(base: number): number {
-	if (base === 0) return POLL_INTERVAL_MS;
-	return Math.min(POLL_INTERVAL_MS * Math.pow(2, base - 1), MAX_BACKOFF_MS);
-}
+});
 
 function hash(data: unknown): string {
 	return createHash("sha256").update(JSON.stringify(data)).digest("hex");
