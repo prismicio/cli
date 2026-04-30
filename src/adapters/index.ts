@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { readJsonFile, writeFileRecursive } from "../lib/file";
+import { exists, readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
@@ -15,8 +15,17 @@ import { findProjectRoot, getLibraries } from "../project";
 
 const TYPES_FILENAME = "prismicio-types.d.ts";
 
-type CustomTypeMeta = { model: CustomType; directory: URL };
-type SharedSliceMeta = { model: SharedSlice; directory: URL; library: URL };
+type CustomTypeMeta = { model: CustomType; directory: URL; bak?: URL };
+type SharedSliceMeta = { model: SharedSlice; directory: URL; library: URL; bak?: URL };
+
+export class UnresolvedConflictError extends Error {
+	name = "UnresolvedConflictError";
+	modelPath: URL;
+	constructor(modelPath: URL, options: { cause?: unknown } = {}) {
+		super(`Unresolved merge conflict in ${fileURLToPath(modelPath)}.`, options);
+		this.modelPath = modelPath;
+	}
+}
 
 export async function getAdapter(): Promise<Adapter> {
 	const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
@@ -85,8 +94,16 @@ export abstract class Adapter {
 			const slices = await Promise.all(
 				sliceModelPaths.map(async (sliceModelPath) => {
 					const directory = new URL(".", sliceModelPath);
-					const model = await readJsonFile<SharedSlice>(sliceModelPath);
-					return { library, directory, model };
+					const bakPath = new URL("model.json.bak", directory);
+					const bak = (await exists(bakPath)) ? bakPath : undefined;
+					let model: SharedSlice;
+					try {
+						model = await readJsonFile<SharedSlice>(sliceModelPath);
+					} catch (error) {
+						if (bak) throw new UnresolvedConflictError(sliceModelPath, { cause: error });
+						throw error;
+					}
+					return { library, directory, model, bak };
 				}),
 			);
 			allSlices.push(...slices);
@@ -140,8 +157,16 @@ export abstract class Adapter {
 		const customTypes = await Promise.all(
 			customTypeModelPaths.map(async (customTypeModelPath) => {
 				const directory = new URL(".", customTypeModelPath);
-				const model = await readJsonFile<CustomType>(customTypeModelPath);
-				return { directory, model };
+				const bakPath = new URL("index.json.bak", directory);
+				const bak = (await exists(bakPath)) ? bakPath : undefined;
+				let model: CustomType;
+				try {
+					model = await readJsonFile<CustomType>(customTypeModelPath);
+				} catch (error) {
+					if (bak) throw new UnresolvedConflictError(customTypeModelPath, { cause: error });
+					throw error;
+				}
+				return { directory, model, bak };
 			}),
 		);
 
@@ -179,6 +204,17 @@ export abstract class Adapter {
 		await rm(customType.directory, { recursive: true });
 		await removeRoute(id);
 		await this.onCustomTypeDeleted(id);
+	}
+
+	async getCustomTypeModelPath(id: string): Promise<URL> {
+		const projectRoot = await findProjectRoot();
+		return new URL(`customtypes/${id}/index.json`, projectRoot);
+	}
+
+	async getSliceModelPath(model: SharedSlice, library?: URL): Promise<URL> {
+		library ??= await this.getDefaultSliceLibrary();
+		const sliceDirectoryName = pascalCase(model.name);
+		return new URL(`${sliceDirectoryName}/model.json`, appendTrailingSlash(library));
 	}
 
 	async generateTypes(): Promise<URL> {

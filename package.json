@@ -44,6 +44,7 @@
 		"detect-indent": "^7.0.2",
 		"github-slugger": "2.0.0",
 		"magicast": "0.5.1",
+		"node-diff3": "^3.2.0",
 		"oxfmt": "^0.24.0",
 		"oxlint": "1.39.0",
 		"prismic-ts-codegen": "^0.1.28",

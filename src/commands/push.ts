@@ -1,4 +1,6 @@
-import { getAdapter } from "../adapters";
+import { rm } from "node:fs/promises";
+
+import { getAdapter, UnresolvedConflictError } from "../adapters";
 import { getHost, getToken } from "../auth";
 import {
 	getCustomTypes,
@@ -12,6 +14,7 @@ import {
 } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
+import { stringify } from "../lib/json";
 import { getRepositoryName, readSnapshot, writeSnapshot } from "../project";
 
 const config = {
@@ -19,11 +22,11 @@ const config = {
 	description: `
 		Push local content types and slices to Prismic.
 
-		Local models are the source of truth. Remote models are created,
-		updated, or deleted to match.
+		Refuses if remote has changed since the last pull. Run \`prismic pull\` to
+		merge remote changes first, then re-run \`prismic push\`.
 	`,
 	options: {
-		force: { type: "boolean", short: "f", description: "Overwrite remote changes" },
+		force: { type: "boolean", short: "f", description: "Overwrite remote with local" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
@@ -37,51 +40,44 @@ export default createCommand(config, async ({ values }) => {
 
 	console.info(`Pushing to repository: ${repo}`);
 
-	const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices] = await Promise.all([
-		adapter.getCustomTypes(),
-		adapter.getSlices(),
+	let localCustomTypes;
+	let localSlices;
+	try {
+		[localCustomTypes, localSlices] = await Promise.all([
+			adapter.getCustomTypes(),
+			adapter.getSlices(),
+		]);
+	} catch (error) {
+		if (error instanceof UnresolvedConflictError) {
+			throw new CommandError(
+				`${error.message}\n\nResolve the conflict in the file (the .bak sibling has your pre-merge content), then re-run.`,
+			);
+		}
+		throw error;
+	}
+
+	for (const ct of localCustomTypes) if (ct.bak) await rm(ct.bak);
+	for (const s of localSlices) if (s.bak) await rm(s.bak);
+
+	const [remoteCustomTypes, remoteSlices, snapshot] = await Promise.all([
 		getCustomTypes({ repo, token, host }),
 		getSlices({ repo, token, host }),
+		readSnapshot(repo),
 	]);
+
 	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
 	const localSliceModels = localSlices.map((s) => s.model);
 
 	if (!force) {
-		const snapshot = await readSnapshot(repo);
-		const customTypesDriftFromLocal = diffArrays(remoteCustomTypes, localCustomTypeModels, {
-			key: (m) => m.id,
-		});
-		const slicesDriftFromLocal = diffArrays(remoteSlices, localSliceModels, {
-			key: (m) => m.id,
-		});
-		const customTypesDrifted = snapshot
-			? JSON.stringify(sortById(snapshot.customTypes)) !==
-				JSON.stringify(sortById(remoteCustomTypes))
-			: customTypesDriftFromLocal.insert.length + customTypesDriftFromLocal.update.length > 0;
-		const slicesDrifted = snapshot
-			? JSON.stringify(sortById(snapshot.slices)) !== JSON.stringify(sortById(remoteSlices))
-			: slicesDriftFromLocal.insert.length + slicesDriftFromLocal.update.length > 0;
-		const isDrifted = customTypesDrifted || slicesDrifted;
-		if (isDrifted) {
-			throw new CommandError(`
-				Remote has changed since you last pulled.
-
-				To overwrite remote with your local changes:
-				  prismic push --force
-
-				To discard local changes and adopt remote:
-				  prismic pull --force
-
-				To merge both, use git:
-				  1. Stash your local edits: \`git stash\`
-				  2. Run \`prismic pull --force\` to update local from remote.
-				  3. Reapply your edits: \`git stash pop\`
-				  4. Resolve any JSON conflicts in your editor.
-				  5. Run \`prismic push\`.
-
-				If your edits are already committed, run \`git reset --soft HEAD~1\`
-				first to move them back to the working tree.
-			`);
+		const customTypesDrifted =
+			stringify(sortById(snapshot?.customTypes ?? [])) !==
+			stringify(sortById(remoteCustomTypes));
+		const slicesDrifted =
+			stringify(sortById(snapshot?.slices ?? [])) !== stringify(sortById(remoteSlices));
+		if (customTypesDrifted || slicesDrifted) {
+			throw new CommandError(
+				"Remote has changed since the last pull. Run `prismic pull` first to merge remote changes, then re-run `prismic push`.",
+			);
 		}
 	}
 
@@ -90,24 +86,13 @@ export default createCommand(config, async ({ values }) => {
 	});
 	const sliceOps = diffArrays(localSliceModels, remoteSlices, { key: (m) => m.id });
 
-	for (const model of customTypeOps.insert) {
-		await insertCustomType(model, { repo, token, host });
-	}
-	for (const model of customTypeOps.update) {
-		await updateCustomType(model, { repo, token, host });
-	}
-	for (const id of customTypeOps.delete.map((m) => m.id)) {
-		await removeCustomType(id, { repo, token, host });
-	}
-	for (const model of sliceOps.insert) {
-		await insertSlice(model, { repo, token, host });
-	}
-	for (const model of sliceOps.update) {
-		await updateSlice(model, { repo, token, host });
-	}
-	for (const id of sliceOps.delete.map((m) => m.id)) {
-		await removeSlice(id, { repo, token, host });
-	}
+	for (const model of customTypeOps.insert) await insertCustomType(model, { repo, token, host });
+	for (const model of customTypeOps.update) await updateCustomType(model, { repo, token, host });
+	for (const m of customTypeOps.delete) await removeCustomType(m.id, { repo, token, host });
+
+	for (const model of sliceOps.insert) await insertSlice(model, { repo, token, host });
+	for (const model of sliceOps.update) await updateSlice(model, { repo, token, host });
+	for (const m of sliceOps.delete) await removeSlice(m.id, { repo, token, host });
 
 	const [newRemoteCustomTypes, newRemoteSlices] = await Promise.all([
 		getCustomTypes({ repo, token, host }),
@@ -115,15 +100,15 @@ export default createCommand(config, async ({ values }) => {
 	]);
 	await writeSnapshot(repo, { customTypes: newRemoteCustomTypes, slices: newRemoteSlices });
 
-	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
-	const totalSlices = sliceOps.insert.length + sliceOps.update.length;
-	const totalDeletes = customTypeOps.delete.length + sliceOps.delete.length;
-	if (totalTypes === 0 && totalSlices === 0 && totalDeletes === 0) {
-		console.info("Already up to date.");
-	} else {
-		console.info(`Pushed ${totalTypes} type(s), ${totalSlices} slice(s).`);
-		if (totalDeletes > 0) console.info(`Deleted ${totalDeletes} model(s).`);
-	}
+	const total =
+		customTypeOps.insert.length +
+		customTypeOps.update.length +
+		customTypeOps.delete.length +
+		sliceOps.insert.length +
+		sliceOps.update.length +
+		sliceOps.delete.length;
+	if (total === 0) console.info("Already up to date.");
+	else console.info(`Pushed ${total} model(s).`);
 });
 
 function sortById<T extends { id: string }>(items: T[]): T[] {

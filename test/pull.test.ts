@@ -1,6 +1,6 @@
 import { writeFile, mkdir } from "node:fs/promises";
 
-import { buildCustomType, buildSlice, it, writeLocalCustomType } from "./it";
+import { buildCustomType, buildSlice, it, readLocalCustomType, writeLocalCustomType } from "./it";
 import {
 	deleteCustomType,
 	deleteSlice,
@@ -127,7 +127,7 @@ it.sequential("removes deleted slice and updates index on re-pull", async ({
 	await expect(project).not.toContainSlice(sliceB);
 });
 
-it.sequential("refuses on local drift without --force", async ({
+it.sequential("preserves local edits when remote is unchanged", async ({
 	expect,
 	project,
 	prismic,
@@ -146,27 +146,29 @@ it.sequential("refuses on local drift without --force", async ({
 	// Edit the local file so it diverges from the snapshot.
 	await writeLocalCustomType(project, { ...customType, label: "Modified" });
 
-	const { exitCode, stderr } = await prismic("pull", ["--repo", repo]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain("local changes that haven't been pushed");
-	expect(stderr).toContain("--force");
+	const { exitCode } = await prismic("pull", ["--repo", repo]);
+	expect(exitCode).toBe(0);
+
+	// Local edits are preserved.
+	const local = await readLocalCustomType(project, customType.id);
+	expect(local.label).toBe("Modified");
 });
 
-it.sequential("refuses without --force when no snapshot exists and local diverges from remote", async ({
+it.sequential("preserves local-only model on pull when no snapshot exists", async ({
 	expect,
 	project,
 	prismic,
 	repo,
 }) => {
-	// No prior pull, no remote types. Local has a model — counts as drift
-	// against the empty just-fetched remote.
+	// No prior pull, no remote types. Local has a model — merge keeps it.
 	const customType = buildCustomType();
 	await writeLocalCustomType(project, customType);
 
-	const { exitCode, stderr } = await prismic("pull", ["--repo", repo]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain("local changes that haven't been pushed");
-	expect(stderr).toContain("--force");
+	const { exitCode } = await prismic("pull", ["--repo", repo]);
+	expect(exitCode).toBe(0);
+
+	const local = await readLocalCustomType(project, customType.id);
+	expect(local.id).toBe(customType.id);
 });
 
 it.sequential("pulls repeatable page type", async ({

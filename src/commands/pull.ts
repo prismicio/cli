@@ -1,8 +1,13 @@
-import { getAdapter } from "../adapters";
+import { rm, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+
+import { getAdapter, UnresolvedConflictError } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { diffArrays } from "../lib/diff";
+import { writeFileRecursive } from "../lib/file";
+import { planSync, type SyncConflict } from "../lib/merge";
+import { appendTrailingSlash } from "../lib/url";
 import { getRepositoryName, readSnapshot, writeSnapshot } from "../project";
 
 const config = {
@@ -10,11 +15,12 @@ const config = {
 	description: `
 		Pull content types and slices from Prismic to local files.
 
-		Remote models are the source of truth. Local files are created, updated,
-		or deleted to match.
+		Local and remote models are merged. When a conflict can't be auto-merged,
+		the file is written with conflict markers and a sibling .bak holds the
+		pre-merge local. Resolve in your editor and re-run.
 	`,
 	options: {
-		force: { type: "boolean", short: "f", description: "Overwrite local changes" },
+		force: { type: "boolean", short: "f", description: "Overwrite local with remote" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
@@ -28,93 +34,133 @@ export default createCommand(config, async ({ values }) => {
 
 	console.info(`Pulling from repository: ${repo}`);
 
-	const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices] = await Promise.all([
-		adapter.getCustomTypes(),
-		adapter.getSlices(),
+	let localCustomTypes;
+	let localSlices;
+	try {
+		[localCustomTypes, localSlices] = await Promise.all([
+			adapter.getCustomTypes(),
+			adapter.getSlices(),
+		]);
+	} catch (error) {
+		if (error instanceof UnresolvedConflictError) {
+			throw new CommandError(
+				`${error.message}\n\nResolve the conflict in the file (the .bak sibling has your pre-merge content), then re-run.`,
+			);
+		}
+		throw error;
+	}
+
+	const [remoteCustomTypes, remoteSlices, snapshot] = await Promise.all([
 		getCustomTypes({ repo, token, host }),
 		getSlices({ repo, token, host }),
+		readSnapshot(repo),
 	]);
-	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
-	const localSliceModels = localSlices.map((s) => s.model);
 
-	if (!force) {
-		const snapshot = await readSnapshot(repo);
-		const customTypesDriftFromRemote = diffArrays(localCustomTypeModels, remoteCustomTypes, {
-			key: (m) => m.id,
-		});
-		const slicesDriftFromRemote = diffArrays(localSliceModels, remoteSlices, {
-			key: (m) => m.id,
-		});
-		const customTypesDrifted = snapshot
-			? JSON.stringify(sortById(localCustomTypeModels)) !==
-				JSON.stringify(sortById(snapshot.customTypes))
-			: customTypesDriftFromRemote.insert.length + customTypesDriftFromRemote.update.length > 0;
-		const slicesDrifted = snapshot
-			? JSON.stringify(sortById(localSliceModels)) !== JSON.stringify(sortById(snapshot.slices))
-			: slicesDriftFromRemote.insert.length + slicesDriftFromRemote.update.length > 0;
-		const isDrifted = customTypesDrifted || slicesDrifted;
-		if (isDrifted) {
-			throw new CommandError(`
-				You have local changes that haven't been pushed. Pulling would overwrite them.
-
-				To discard local changes and adopt remote:
-				  prismic pull --force
-
-				To overwrite remote with your local changes:
-				  prismic push --force
-
-				To merge both, use git:
-				  1. Stash your local edits: \`git stash\`
-				  2. Run \`prismic pull --force\` to update local from remote.
-				  3. Reapply your edits: \`git stash pop\`
-				  4. Resolve any JSON conflicts in your editor.
-				  5. Run \`prismic push\`.
-
-				If your edits are already committed, run \`git reset --soft HEAD~1\`
-				first to move them back to the working tree.
-			`);
+	if (force) {
+		const remoteCustomTypeIds = new Set(remoteCustomTypes.map((c) => c.id));
+		const localCustomTypeIds = new Set(localCustomTypes.map((c) => c.model.id));
+		for (const model of remoteCustomTypes) {
+			if (localCustomTypeIds.has(model.id)) await adapter.updateCustomType(model);
+			else await adapter.createCustomType(model);
 		}
+		for (const { model } of localCustomTypes) {
+			if (!remoteCustomTypeIds.has(model.id)) await adapter.deleteCustomType(model.id);
+		}
+		const remoteSliceIds = new Set(remoteSlices.map((s) => s.id));
+		const localSliceIds = new Set(localSlices.map((s) => s.model.id));
+		for (const model of remoteSlices) {
+			if (localSliceIds.has(model.id)) await adapter.updateSlice(model);
+			else await adapter.createSlice(model);
+		}
+		for (const { model } of localSlices) {
+			if (!remoteSliceIds.has(model.id)) await adapter.deleteSlice(model.id);
+		}
+		await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
+		try {
+			await adapter.generateTypes();
+		} catch (error) {
+			console.warn(`Skipped type generation: ${error instanceof Error ? error.message : error}`);
+		}
+		console.info("Pulled with --force.");
+		return;
 	}
 
-	const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
-		key: (m) => m.id,
-	});
-	const sliceOps = diffArrays(remoteSlices, localSliceModels, { key: (m) => m.id });
+	for (const ct of localCustomTypes) if (ct.bak) await rm(ct.bak);
+	for (const s of localSlices) if (s.bak) await rm(s.bak);
 
-	for (const model of customTypeOps.insert) {
-		await adapter.createCustomType(model);
-	}
-	for (const model of customTypeOps.update) {
-		await adapter.updateCustomType(model);
-	}
-	for (const id of customTypeOps.delete.map((m) => m.id)) {
-		await adapter.deleteCustomType(id);
-	}
-	for (const model of sliceOps.insert) {
-		await adapter.createSlice(model);
-	}
-	for (const model of sliceOps.update) {
-		await adapter.updateSlice(model);
-	}
-	for (const id of sliceOps.delete.map((m) => m.id)) {
-		await adapter.deleteSlice(id);
+	const customTypePlan = planSync(
+		snapshot?.customTypes ?? [],
+		localCustomTypes.map((c) => c.model),
+		remoteCustomTypes,
+	);
+	const slicePlan = planSync(
+		snapshot?.slices ?? [],
+		localSlices.map((s) => s.model),
+		remoteSlices,
+	);
+
+	for (const model of customTypePlan.ops.insert) await adapter.createCustomType(model);
+	for (const model of customTypePlan.ops.update) await adapter.updateCustomType(model);
+	for (const m of customTypePlan.ops.delete) await adapter.deleteCustomType(m.id);
+
+	for (const model of slicePlan.ops.insert) await adapter.createSlice(model);
+	for (const model of slicePlan.ops.update) await adapter.updateSlice(model);
+	for (const m of slicePlan.ops.delete) await adapter.deleteSlice(m.id);
+
+	const conflictPaths: string[] = [];
+
+	for (const c of customTypePlan.conflicts) {
+		const localMeta = localCustomTypes.find((x) => x.model.id === c.id);
+		const modelPath = localMeta
+			? new URL("index.json", appendTrailingSlash(localMeta.directory))
+			: await adapter.getCustomTypeModelPath(c.id);
+		await writeConflict(modelPath, c);
+		conflictPaths.push(fileURLToPath(modelPath));
 	}
 
-	await adapter.generateTypes();
+	for (const c of slicePlan.conflicts) {
+		const localMeta = localSlices.find((x) => x.model.id === c.id);
+		let modelPath: URL;
+		if (localMeta) {
+			modelPath = new URL("model.json", appendTrailingSlash(localMeta.directory));
+		} else {
+			const refModel =
+				remoteSlices.find((s) => s.id === c.id) ?? snapshot?.slices.find((s) => s.id === c.id);
+			if (!refModel) throw new Error(`Cannot resolve path for slice "${c.id}".`);
+			modelPath = await adapter.getSliceModelPath(refModel);
+		}
+		await writeConflict(modelPath, c);
+		conflictPaths.push(fileURLToPath(modelPath));
+	}
 
 	await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
+	try {
+		await adapter.generateTypes();
+	} catch (error) {
+		console.warn(`Skipped type generation: ${error instanceof Error ? error.message : error}`);
+	}
 
-	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
-	const totalSlices = sliceOps.insert.length + sliceOps.update.length;
-	const totalDeletes = customTypeOps.delete.length + sliceOps.delete.length;
-	if (totalTypes === 0 && totalSlices === 0 && totalDeletes === 0) {
+	const merged =
+		customTypePlan.ops.insert.length +
+		customTypePlan.ops.update.length +
+		customTypePlan.ops.delete.length +
+		slicePlan.ops.insert.length +
+		slicePlan.ops.update.length +
+		slicePlan.ops.delete.length;
+	if (merged === 0 && conflictPaths.length === 0) {
 		console.info("Already up to date.");
-	} else {
-		console.info(`Pulled ${totalTypes} type(s), ${totalSlices} slice(s).`);
-		if (totalDeletes > 0) console.info(`Deleted ${totalDeletes} model(s).`);
+	} else if (merged > 0) {
+		console.info(`Merged ${merged} model(s).`);
+	}
+	if (conflictPaths.length > 0) {
+		console.warn(`${conflictPaths.length} conflict(s):`);
+		for (const path of conflictPaths) console.warn(`  ${path}`);
+		console.warn("Resolve in your editor (each .bak holds the pre-merge local), then re-run.");
+		process.exitCode = 1;
 	}
 });
 
-function sortById<T extends { id: string }>(items: T[]): T[] {
-	return [...items].sort((a, b) => a.id.localeCompare(b.id));
+async function writeConflict(modelPath: URL, conflict: SyncConflict): Promise<void> {
+	await writeFileRecursive(modelPath, conflict.text);
+	await writeFile(new URL(modelPath.href + ".bak"), conflict.localText);
 }
