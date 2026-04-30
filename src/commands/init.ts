@@ -2,10 +2,12 @@ import type { Profile } from "../clients/user";
 
 import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
+import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { getProfile } from "../clients/user";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { diffArrays } from "../lib/diff";
 import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
@@ -16,6 +18,7 @@ import {
 	readConfig,
 	readLegacySliceMachineConfig,
 	UnknownProjectRootError,
+	writeSnapshot,
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 
@@ -150,7 +153,43 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Sync models from remote and generate types
-	await adapter.syncModels({ repo, token, host });
+	const [remoteCustomTypes, remoteSlices, localCustomTypes, localSlices] = await Promise.all([
+		getCustomTypes({ repo, token, host }),
+		getSlices({ repo, token, host }),
+		adapter.getCustomTypes(),
+		adapter.getSlices(),
+	]);
+	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
+	const localSliceModels = localSlices.map((s) => s.model);
+
+	const sliceOps = diffArrays(remoteSlices, localSliceModels, { key: (m) => m.id });
+	for (const slice of sliceOps.update) {
+		await adapter.updateSlice(slice);
+	}
+	for (const slice of sliceOps.delete) {
+		await adapter.deleteSlice(slice.id);
+	}
+	for (const slice of sliceOps.insert) {
+		await adapter.createSlice(slice);
+	}
+
+	const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
+		key: (m) => m.id,
+	});
+	for (const customType of customTypeOps.update) {
+		await adapter.updateCustomType(customType);
+	}
+	for (const customType of customTypeOps.delete) {
+		await adapter.deleteCustomType(customType.id);
+	}
+	for (const customType of customTypeOps.insert) {
+		await adapter.createCustomType(customType);
+	}
+
+	await adapter.generateTypes();
+
+	// Persist a snapshot so the first push has a baseline for drift detection
+	await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");

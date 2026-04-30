@@ -1,6 +1,6 @@
 import { writeFile, mkdir } from "node:fs/promises";
 
-import { buildCustomType, buildSlice, captureOutput, it } from "./it";
+import { buildCustomType, buildSlice, it, writeLocalCustomType } from "./it";
 import {
 	deleteCustomType,
 	deleteSlice,
@@ -10,21 +10,13 @@ import {
 	insertSlice,
 } from "./prismic";
 
-it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("sync", ["--help"]);
+it.sequential("supports --help", async ({ expect, prismic }) => {
+	const { stdout, exitCode } = await prismic("pull", ["--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic sync [options]");
+	expect(stdout).toContain("prismic pull [options]");
 });
 
-it("fails when Type Builder is not enabled", async ({ expect, prismic }) => {
-	const { exitCode, stderr } = await prismic("sync", [], {
-		nodeOptions: { env: { PRISMIC_TYPE_BUILDER_ENABLED: "false" } },
-	});
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Type Builder");
-});
-
-it("syncs slices and custom types from remote", async ({
+it.sequential("pulls slices and custom types from remote", async ({
 	expect,
 	project,
 	prismic,
@@ -40,14 +32,14 @@ it("syncs slices and custom types from remote", async ({
 		insertSlice(slice, { repo, token, host }),
 	]);
 
-	const { exitCode } = await prismic("sync", ["--repo", repo]);
+	const { exitCode } = await prismic("pull", ["--repo", repo]);
 	expect(exitCode).toBe(0);
 
 	await expect(project).toContainCustomType(customType);
 	await expect(project).toContainSlice(slice);
 });
 
-it("syncs multiple slices with correct structure", async ({
+it.sequential("pulls multiple slices with correct structure", async ({
 	expect,
 	project,
 	prismic,
@@ -63,14 +55,14 @@ it("syncs multiple slices with correct structure", async ({
 		insertSlice(sliceB, { repo, token, host }),
 	]);
 
-	const { exitCode } = await prismic("sync", ["--repo", repo]);
+	const { exitCode } = await prismic("pull", ["--repo", repo]);
 	expect(exitCode).toBe(0);
 
 	await expect(project).toContainSlice(sliceA);
 	await expect(project).toContainSlice(sliceB);
 });
 
-it("adds new slice to existing library on re-sync", async ({
+it.sequential("adds new slice to existing library on re-pull", async ({
 	expect,
 	project,
 	prismic,
@@ -81,8 +73,8 @@ it("adds new slice to existing library on re-sync", async ({
 	const sliceA = buildSlice();
 	await insertSlice(sliceA, { repo, token, host });
 
-	// First sync — creates slice A
-	const first = await prismic("sync", ["--repo", repo]);
+	// First pull — creates slice A
+	const first = await prismic("pull", ["--repo", repo]);
 	expect(first.exitCode).toBe(0);
 	await expect(project).toContainSlice(sliceA);
 
@@ -93,14 +85,14 @@ it("adds new slice to existing library on re-sync", async ({
 		.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), { timeout: 5_000 })
 		.toContain(sliceB.id);
 
-	// Second sync — should add slice B without breaking slice A
-	const second = await prismic("sync", ["--repo", repo]);
+	// Second pull — should add slice B without breaking slice A
+	const second = await prismic("pull", ["--repo", repo]);
 	expect(second.exitCode).toBe(0);
 	await expect(project).toContainSlice(sliceA);
 	await expect(project).toContainSlice(sliceB);
 });
 
-it("removes deleted slice and updates index on re-sync", async ({
+it.sequential("removes deleted slice and updates index on re-pull", async ({
 	expect,
 	project,
 	prismic,
@@ -116,8 +108,8 @@ it("removes deleted slice and updates index on re-sync", async ({
 		insertSlice(sliceB, { repo, token, host }),
 	]);
 
-	// First sync — creates both slices
-	const first = await prismic("sync", ["--repo", repo]);
+	// First pull — creates both slices
+	const first = await prismic("pull", ["--repo", repo]);
 	expect(first.exitCode).toBe(0);
 	await expect(project).toContainSlice(sliceA);
 	await expect(project).toContainSlice(sliceB);
@@ -128,74 +120,56 @@ it("removes deleted slice and updates index on re-sync", async ({
 		.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), { timeout: 5_000 })
 		.not.toContain(sliceB.id);
 
-	// Second sync — should remove slice B and update the index
-	const second = await prismic("sync", ["--repo", repo]);
+	// Second pull — destructive (deletes local slice B), requires --force
+	const second = await prismic("pull", ["--repo", repo, "--force"]);
 	expect(second.exitCode).toBe(0);
 	await expect(project).toContainSlice(sliceA);
 	await expect(project).not.toContainSlice(sliceB);
 });
 
-it("watches for changes and syncs", async ({ expect, project, prismic, repo, token, host }) => {
-	const customType = buildCustomType();
-	const slice = buildSlice();
+it.sequential("refuses on local drift without --force", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType({ label: "Original" });
+	await insertCustomType(customType, { repo, token, host });
 
-	const proc = prismic("sync", ["--repo", repo, "--watch"]);
-	const output = captureOutput(proc);
-
-	await expect.poll(output, { timeout: 30_000 }).toContain("Watching for changes");
-
-	await Promise.all([
-		insertCustomType(customType, { repo, token, host }),
-		insertSlice(slice, { repo, token, host }),
-	]);
-
-	await expect.poll(output, { timeout: 30_000 }).toContain("Changes detected");
-
+	// First pull — establishes the snapshot.
+	const first = await prismic("pull", ["--repo", repo]);
+	expect(first.exitCode).toBe(0);
 	await expect(project).toContainCustomType(customType);
-	await expect(project).toContainSlice(slice);
-}, 60_000);
 
-it("syncs repeatable page type", async ({ expect, project, prismic, repo, token, host }) => {
-	const customType = buildCustomType({ format: "page", repeatable: true });
-	await insertCustomType(customType, { repo, token, host });
+	// Edit the local file so it diverges from the snapshot.
+	await writeLocalCustomType(project, { ...customType, label: "Modified" });
 
-	const { exitCode } = await prismic("sync", ["--repo", repo]);
-	expect(exitCode).toBe(0);
-
-	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
-	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}/:uid` });
-	await expect(project).toHaveFile(`app/${expectedSegment}/[uid]/page.jsx`, {
-		contains: `getByUID("${customType.id}"`,
-	});
+	const { exitCode, stderr } = await prismic("pull", ["--repo", repo]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("local changes that haven't been pushed");
+	expect(stderr).toContain("--force");
 });
 
-it("syncs non-repeatable page type", async ({ expect, project, prismic, repo, token, host }) => {
-	const customType = buildCustomType({ format: "page", repeatable: false });
-	await insertCustomType(customType, { repo, token, host });
-
-	const { exitCode } = await prismic("sync", ["--repo", repo]);
-	expect(exitCode).toBe(0);
-
-	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
-	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}` });
-	await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
-		contains: `getSingle("${customType.id}"`,
-	});
-});
-
-it("syncs non-page custom type", async ({ expect, project, prismic, repo, token, host }) => {
+it.sequential("refuses without --force when no snapshot exists and local diverges from remote", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+}) => {
+	// No prior pull, no remote types. Local has a model — counts as drift
+	// against the empty just-fetched remote.
 	const customType = buildCustomType();
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
-	const { exitCode } = await prismic("sync", ["--repo", repo]);
-	expect(exitCode).toBe(0);
-
-	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
-	await expect(project).not.toHaveRoute({ type: customType.id });
-	await expect(project).not.toHaveFile(`app/${expectedSegment}/page.jsx`);
+	const { exitCode, stderr } = await prismic("pull", ["--repo", repo]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("local changes that haven't been pushed");
+	expect(stderr).toContain("--force");
 });
 
-it("removes route when page type is deleted", async ({
+it.sequential("pulls repeatable page type", async ({
 	expect,
 	project,
 	prismic,
@@ -206,8 +180,69 @@ it("removes route when page type is deleted", async ({
 	const customType = buildCustomType({ format: "page", repeatable: true });
 	await insertCustomType(customType, { repo, token, host });
 
-	// First sync — adds the route
-	const first = await prismic("sync", ["--repo", repo]);
+	const { exitCode } = await prismic("pull", ["--repo", repo]);
+	expect(exitCode).toBe(0);
+
+	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}/:uid` });
+	await expect(project).toHaveFile(`app/${expectedSegment}/[uid]/page.jsx`, {
+		contains: `getByUID("${customType.id}"`,
+	});
+});
+
+it.sequential("pulls non-repeatable page type", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType({ format: "page", repeatable: false });
+	await insertCustomType(customType, { repo, token, host });
+
+	const { exitCode } = await prismic("pull", ["--repo", repo]);
+	expect(exitCode).toBe(0);
+
+	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}` });
+	await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
+		contains: `getSingle("${customType.id}"`,
+	});
+});
+
+it.sequential("pulls non-page custom type", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType();
+	await insertCustomType(customType, { repo, token, host });
+
+	const { exitCode } = await prismic("pull", ["--repo", repo]);
+	expect(exitCode).toBe(0);
+
+	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+	await expect(project).not.toHaveRoute({ type: customType.id });
+	await expect(project).not.toHaveFile(`app/${expectedSegment}/page.jsx`);
+});
+
+it.sequential("removes route when page type is deleted", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType({ format: "page", repeatable: true });
+	await insertCustomType(customType, { repo, token, host });
+
+	// First pull — adds the route
+	const first = await prismic("pull", ["--repo", repo]);
 	expect(first.exitCode).toBe(0);
 	await expect(project).toHaveRoute({ type: customType.id });
 
@@ -218,13 +253,13 @@ it("removes route when page type is deleted", async ({
 		})
 		.not.toContain(customType.id);
 
-	// Second sync — removes the route
-	const second = await prismic("sync", ["--repo", repo]);
+	// Second pull — destructive (deletes local type), requires --force
+	const second = await prismic("pull", ["--repo", repo, "--force"]);
 	expect(second.exitCode).toBe(0);
 	await expect(project).not.toHaveRoute({ type: customType.id });
 });
 
-it("does not overwrite existing page file", async ({
+it.sequential("does not overwrite existing page file", async ({
 	expect,
 	project,
 	prismic,
@@ -235,14 +270,14 @@ it("does not overwrite existing page file", async ({
 	const customType = buildCustomType({ format: "page", repeatable: false });
 	await insertCustomType(customType, { repo, token, host });
 
-	// Create the page file manually before syncing
+	// Create the page file manually before pulling
 	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
 	const pagePath = new URL(`app/${expectedSegment}/page.jsx`, project);
 	const originalContent = "// existing page content";
 	await mkdir(new URL(".", pagePath), { recursive: true });
 	await writeFile(pagePath, originalContent);
 
-	const { exitCode } = await prismic("sync", ["--repo", repo]);
+	const { exitCode } = await prismic("pull", ["--repo", repo]);
 	expect(exitCode).toBe(0);
 
 	await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
