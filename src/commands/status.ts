@@ -4,6 +4,7 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { getProfile } from "../clients/user";
+import { resolveEnvironment } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getDirtyTrackedPaths, getGitRoot } from "../lib/git";
@@ -21,11 +22,12 @@ const config = {
 	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
+		env: { type: "string", short: "e", description: "Environment domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo = await getRepositoryName() } = values;
+	const { repo: parentRepo = await getRepositoryName(), env } = values;
 
 	const token = await getToken();
 	const host = await getHost();
@@ -41,10 +43,14 @@ export default createCommand(config, async ({ values }) => {
 			adapter.getSlices(),
 		]);
 
+	let repo = parentRepo;
 	let userEmail: string | undefined;
 	let customTypeOps: ArrayDiff<CustomType> | undefined;
 	let sliceOps: ArrayDiff<SharedSlice> | undefined;
 	if (token) {
+		if (env) {
+			repo = await resolveEnvironment({ env, repo: parentRepo, token, host });
+		}
 		const [profile, remoteCustomTypes, remoteSlices] = await Promise.all([
 			getProfile({ token, host }),
 			getCustomTypes({ repo, token, host }),
@@ -77,7 +83,10 @@ export default createCommand(config, async ({ values }) => {
 			.map((path) => relativePathname(projectRoot, path));
 	}
 
-	console.info(`Repository: ${repo}`);
+	console.info(`Repository: ${parentRepo}`);
+	if (env) {
+		console.info(`Environment: ${env}`);
+	}
 	if (userEmail) {
 		console.info(`Authenticated as: ${userEmail}`);
 	} else {

@@ -83,6 +83,40 @@ export async function removePreview(
 	}
 }
 
+const EnvironmentSchema = z.object({
+	kind: z.enum(["prod", "stage", "dev"]),
+	name: z.string(),
+	domain: z.string(),
+	users: z.array(z.object({ id: z.string() })),
+});
+
+const GetEnvironmentsResponseSchema = z.object({
+	results: z.array(EnvironmentSchema),
+});
+
+export type Environment = z.infer<typeof EnvironmentSchema>;
+
+export async function getEnvironments(config: {
+	repo: string;
+	token: string | undefined;
+	host: string;
+}): Promise<Environment[]> {
+	const { repo, token, host } = config;
+	const url = new URL("core/environments", getCoreBaseUrl(repo, host));
+	try {
+		const response = await request(url, {
+			credentials: { "prismic-auth": token },
+			schema: GetEnvironmentsResponseSchema,
+		});
+		return response.results;
+	} catch (error) {
+		if (error instanceof NotFoundRequestError) {
+			error.message = `Repository not found: ${repo}`;
+		}
+		throw error;
+	}
+}
+
 const RepositoryResponseSchema = z.object({
 	simulator_url: z.optional(z.string()),
 });

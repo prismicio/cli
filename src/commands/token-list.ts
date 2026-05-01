@@ -1,5 +1,6 @@
 import { getHost, getToken } from "../auth";
 import { getOAuthApps, getWriteTokens } from "../clients/wroom";
+import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
@@ -17,14 +18,16 @@ const config = {
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
+		env: { type: "string", short: "e", description: "Environment domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo = await getRepositoryName(), json } = values;
+	const { repo: parentRepo = await getRepositoryName(), env, json } = values;
 
 	const token = await getToken();
 	const host = await getHost();
+	const repo = env ? await resolveEnvironment({ env, repo: parentRepo, token, host }) : parentRepo;
 
 	let apps;
 	let writeTokensInfo;

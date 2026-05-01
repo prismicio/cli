@@ -1,6 +1,7 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
+import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getDirtyTrackedPaths, getGitRoot } from "../lib/git";
@@ -18,18 +19,25 @@ const config = {
 	options: {
 		force: { type: "boolean", short: "f", description: "Overwrite local changes" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
+		env: { type: "string", short: "e", description: "Environment domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { force = false, repo = await getRepositoryName() } = values;
+	const { force = false, repo: parentRepo = await getRepositoryName(), env } = values;
 
 	const token = await getToken();
 	const host = await getHost();
 	const adapter = await getAdapter();
 	const projectRoot = await findProjectRoot();
 
-	console.info(`Pulling from repository: ${repo}`);
+	const repo = env ? await resolveEnvironment({ env, repo: parentRepo, token, host }) : parentRepo;
+
+	if (env) {
+		console.info(`Pulling from repository: ${parentRepo} (env: ${env})`);
+	} else {
+		console.info(`Pulling from repository: ${repo}`);
+	}
 
 	const [gitRoot, customTypeLibraries, sliceLibraries] = await Promise.all([
 		getGitRoot(projectRoot),
