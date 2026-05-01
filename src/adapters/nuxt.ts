@@ -1,7 +1,7 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
-import { builders, loadFile, writeFile as magicastWriteFile } from "magicast";
+import { loadFile, writeFile as magicastWriteFile } from "magicast";
 import { readFile, rm } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -114,13 +114,11 @@ async function configureNuxtModule(): Promise<void> {
 			: mod.exports.default;
 
 	// Check if @nuxtjs/prismic is already registered
-	let hasInlinedConfiguration = false;
 	const hasPrismicModuleRegistered = (config.modules || []).find(
 		(registration: string | [string, unknown]) => {
 			if (typeof registration === "string") {
 				return registration === NUXT_PRISMIC;
 			} else if (Array.isArray(registration)) {
-				hasInlinedConfiguration = !!registration[1];
 				return registration[0] === NUXT_PRISMIC;
 			}
 			return false;
@@ -130,20 +128,6 @@ async function configureNuxtModule(): Promise<void> {
 	if (!hasPrismicModuleRegistered) {
 		config.modules ||= [];
 		config.modules.push(NUXT_PRISMIC);
-	}
-
-	// Append Prismic module configuration if not inlined
-	if (!hasInlinedConfiguration) {
-		mod.imports.$prepend({
-			from: "./prismic.config.json",
-			imported: "default",
-			local: "prismicConfig",
-		});
-
-		config.prismic ||= {};
-		config.prismic.endpoint = builders.raw("prismicConfig.repositoryName");
-		config.prismic.clientConfig ||= {};
-		config.prismic.clientConfig.routes = builders.raw("prismicConfig.routes");
 	}
 
 	await magicastWriteFile(mod, filepath);
