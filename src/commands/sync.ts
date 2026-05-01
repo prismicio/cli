@@ -41,7 +41,7 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
 
 	const repo = envFlag
-		? await resolveEnvironment({ env: envFlag, repo: parentRepo, token, host })
+		? await resolveEnvironment(envFlag, { repo: parentRepo, token, host })
 		: parentRepo;
 
 	segmentTrackStart("sync", { watch: true });
@@ -51,15 +51,9 @@ export default createCommand(config, async ({ values }) => {
 		process.exit(0);
 	});
 
-	if (envFlag) {
-		console.info(
-			`Watching repository: ${parentRepo} (env: ${envFlag}, polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
-		);
-	} else {
-		console.info(
-			`Watching repository: ${repo} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
-		);
-	}
+	console.info(
+		`Watching repository: ${parentRepo}${envFlag ? ` (env: ${envFlag})` : ""} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
+	);
 
 	let lastHash = "";
 	let consecutiveErrors = 0;

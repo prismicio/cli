@@ -40,7 +40,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const repo = env ? await resolveEnvironment({ env, repo: parentRepo, token, host }) : parentRepo;
+	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	try {
 		await addPreview({ name: displayName, websiteURL, resolverPath }, { repo, token, host });
