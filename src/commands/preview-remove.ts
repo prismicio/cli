@@ -1,5 +1,6 @@
 import { getHost, getToken } from "../auth";
 import { getPreviews, removePreview } from "../clients/core";
+import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -17,15 +18,17 @@ const config = {
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
+		env: { type: "string", short: "e", description: "Environment domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;
-	const { repo = await getRepositoryName() } = values;
+	const { repo: parentRepo = await getRepositoryName(), env } = values;
 
 	const token = await getToken();
 	const host = await getHost();
+	const repo = env ? await resolveEnvironment({ env, repo: parentRepo, token, host }) : parentRepo;
 
 	let previews;
 	try {

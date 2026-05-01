@@ -1,5 +1,6 @@
 import { getHost, getToken } from "../auth";
 import { setSimulatorUrl } from "../clients/core";
+import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -23,12 +24,13 @@ const config = {
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository domain" },
+		env: { type: "string", short: "e", description: "Environment domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [urlArg] = positionals;
-	const { repo = await getRepositoryName() } = values;
+	const { repo: parentRepo = await getRepositoryName(), env } = values;
 
 	let parsed: URL;
 	try {
@@ -44,6 +46,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
+	const repo = env ? await resolveEnvironment({ env, repo: parentRepo, token, host }) : parentRepo;
 
 	try {
 		await setSimulatorUrl(simulatorUrl, { repo, token, host });

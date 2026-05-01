@@ -1,5 +1,6 @@
 import { getHost, getToken } from "../auth";
 import { createWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
+import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -25,6 +26,7 @@ const config = {
 			description: "Trigger events (can be repeated)",
 		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
+		env: { type: "string", short: "e", description: "Environment domain" },
 	},
 	sections: {
 		TRIGGERS: `
@@ -52,7 +54,7 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
-	const { repo = await getRepositoryName(), name, secret, trigger = [] } = values;
+	const { repo: parentRepo = await getRepositoryName(), env, name, secret, trigger = [] } = values;
 
 	// Validate triggers
 	for (const t of trigger) {
@@ -65,6 +67,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
+	const repo = env ? await resolveEnvironment({ env, repo: parentRepo, token, host }) : parentRepo;
 
 	const defaultValue = trigger.length > 0 ? false : true;
 

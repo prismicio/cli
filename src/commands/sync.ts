@@ -5,6 +5,7 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { env } from "../env";
+import { resolveEnvironment } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
@@ -28,15 +29,20 @@ const config = {
 			required: true,
 		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
+		env: { type: "string", short: "e", description: "Environment domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo = await getRepositoryName() } = values;
+	const { repo: parentRepo = await getRepositoryName(), env: envFlag } = values;
 
 	const token = await getToken();
 	const host = await getHost();
 	const adapter = await getAdapter();
+
+	const repo = envFlag
+		? await resolveEnvironment({ env: envFlag, repo: parentRepo, token, host })
+		: parentRepo;
 
 	segmentTrackStart("sync", { watch: true });
 	process.on("SIGINT", () => {
@@ -45,9 +51,15 @@ export default createCommand(config, async ({ values }) => {
 		process.exit(0);
 	});
 
-	console.info(
-		`Watching repository: ${repo} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
-	);
+	if (envFlag) {
+		console.info(
+			`Watching repository: ${parentRepo} (env: ${envFlag}, polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
+		);
+	} else {
+		console.info(
+			`Watching repository: ${repo} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
+		);
+	}
 
 	let lastHash = "";
 	let consecutiveErrors = 0;

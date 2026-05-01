@@ -5,6 +5,7 @@ import {
 	createWriteToken,
 	getOAuthApps,
 } from "../clients/wroom";
+import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -26,11 +27,17 @@ const config = {
 			description: "Allow access to releases (read tokens only)",
 		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
+		env: { type: "string", short: "e", description: "Environment domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo = await getRepositoryName(), write, "allow-releases": allowReleases } = values;
+	const {
+		repo: parentRepo = await getRepositoryName(),
+		env,
+		write,
+		"allow-releases": allowReleases,
+	} = values;
 
 	if (write && allowReleases) {
 		throw new CommandError("--allow-releases is only valid for access tokens (not with --write)");
@@ -38,6 +45,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
+	const repo = env ? await resolveEnvironment({ env, repo: parentRepo, token, host }) : parentRepo;
 
 	let createdToken: string;
 	try {
