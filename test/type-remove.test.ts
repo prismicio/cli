@@ -1,5 +1,4 @@
-import { buildCustomType, it } from "./it";
-import { getCustomTypes, insertCustomType } from "./prismic";
+import { buildCustomType, it, readLocalCustomTypes, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("type", ["remove", "--help"]);
@@ -7,15 +6,15 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic type remove <id> [options]");
 });
 
-it("removes a type", async ({ expect, prismic, repo, token, host }) => {
+it("removes a type", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({ format: "custom" });
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("type", ["remove", customType.id]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Type removed: ${customType.id}`);
 
-	const customTypes = await getCustomTypes({ repo, token, host });
+	const customTypes = await readLocalCustomTypes(project);
 	const removed = customTypes.find((ct) => ct.id === customType.id);
 	expect(removed).toBeUndefined();
 });

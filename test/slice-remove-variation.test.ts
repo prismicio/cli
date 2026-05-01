@@ -1,5 +1,4 @@
-import { buildSlice, it } from "./it";
-import { getSlices, insertSlice } from "./prismic";
+import { buildSlice, it, readLocalSlice, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("slice", ["remove-variation", "--help"]);
@@ -7,7 +6,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic slice remove-variation <id> [options]");
 });
 
-it("removes a variation from a slice", async ({ expect, prismic, repo, token, host }) => {
+it("removes a variation from a slice", async ({ expect, prismic, project }) => {
 	const variationName = `Variation${crypto.randomUUID().split("-")[0]}`;
 	const variationId = `variation${crypto.randomUUID().split("-")[0]}`;
 	const slice = buildSlice();
@@ -26,7 +25,7 @@ it("removes a variation from a slice", async ({ expect, prismic, repo, token, ho
 		],
 	};
 
-	await insertSlice(sliceWithVariation, { repo, token, host });
+	await writeLocalSlice(project, sliceWithVariation);
 
 	const { stdout, exitCode } = await prismic("slice", [
 		"remove-variation",
@@ -37,8 +36,7 @@ it("removes a variation from a slice", async ({ expect, prismic, repo, token, ho
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Removed variation "${variationId}" from slice "${slice.id}"`);
 
-	const slices = await getSlices({ repo, token, host });
-	const updated = slices.find((s) => s.id === slice.id);
+	const updated = await readLocalSlice(project, slice.id);
 	const removed = updated?.variations.find((v) => v.id === variationId);
 	expect(removed).toBeUndefined();
 });

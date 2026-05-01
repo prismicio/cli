@@ -1,28 +1,24 @@
-import { getHost, getToken } from "../auth";
-import { getSlices } from "../clients/custom-types";
+import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { formatTable } from "../lib/string";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic slice list",
 	description: "List all slices.",
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { json, repo = await getRepositoryName() } = values;
+	const { json } = values;
 
-	const token = await getToken();
-	const host = await getHost();
-	const slices = await getSlices({ repo, token, host });
+	const adapter = await getAdapter();
+	const slices = await adapter.getSlices();
 
 	if (json) {
-		console.info(stringify(slices));
+		console.info(stringify(slices.map((s) => s.model)));
 		return;
 	}
 
@@ -31,6 +27,6 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const rows = slices.map((slice) => [slice.name, slice.id]);
+	const rows = slices.map(({ model }) => [model.name, model.id]);
 	console.info(formatTable(rows, { headers: ["NAME", "ID"] }));
 });

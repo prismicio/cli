@@ -1,5 +1,4 @@
-import { buildSlice, it } from "./it";
-import { insertSlice } from "./prismic";
+import { buildSlice, it, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("slice", ["view", "--help"]);
@@ -7,9 +6,9 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic slice view <id> [options]");
 });
 
-it("views a slice", async ({ expect, prismic, repo, token, host }) => {
+it("views a slice", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("slice", ["view", slice.id]);
 	expect(exitCode).toBe(0);
@@ -18,7 +17,7 @@ it("views a slice", async ({ expect, prismic, repo, token, host }) => {
 	expect(stdout).toContain("default:");
 });
 
-it("shows fields per variation", async ({ expect, prismic, repo, token, host }) => {
+it("shows fields per variation", async ({ expect, prismic, project }) => {
 	const slice = buildSlice({
 		variations: [
 			{
@@ -46,7 +45,7 @@ it("shows fields per variation", async ({ expect, prismic, repo, token, host }) 
 			},
 		],
 	});
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("slice", ["view", slice.id]);
 	expect(exitCode).toBe(0);
@@ -57,9 +56,9 @@ it("shows fields per variation", async ({ expect, prismic, repo, token, host }) 
 	expect(stdout).toMatch(/image\s+Image\s+Image/);
 });
 
-it("views a slice as JSON", async ({ expect, prismic, repo, token, host }) => {
+it("views a slice as JSON", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("slice", ["view", slice.id, "--json"]);
 	expect(exitCode).toBe(0);

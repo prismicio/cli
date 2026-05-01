@@ -1,5 +1,4 @@
-import { buildCustomType, buildSlice, it } from "./it";
-import { insertCustomType, insertSlice } from "./prismic";
+import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("field", ["view", "--help"]);
@@ -7,13 +6,13 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic field view <id> [options]");
 });
 
-it("views a field in a slice", async ({ expect, prismic, repo, token, host }) => {
+it("views a field in a slice", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.title = {
 		type: "StructuredText",
 		config: { label: "Title", placeholder: "Enter title" },
 	};
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", ["view", "title", "--from-slice", slice.id]);
 	expect(exitCode).toBe(0);
@@ -22,13 +21,13 @@ it("views a field in a slice", async ({ expect, prismic, repo, token, host }) =>
 	expect(stdout).toContain("Placeholder: Enter title");
 });
 
-it("views a field in a custom type", async ({ expect, prismic, repo, token, host }) => {
+it("views a field in a custom type", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType();
 	customType.json.Main.count = {
 		type: "Number",
 		config: { label: "Count", placeholder: "Enter number", min: 0, max: 100 },
 	};
-	await insertCustomType(customType, { repo, token, host });
+	await writeLocalCustomType(project, customType);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"view",
@@ -43,13 +42,13 @@ it("views a field in a custom type", async ({ expect, prismic, repo, token, host
 	expect(stdout).toContain("Max: 100");
 });
 
-it("outputs JSON with --json", async ({ expect, prismic, repo, token, host }) => {
+it("outputs JSON with --json", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.is_active = {
 		type: "Boolean",
 		config: { label: "Is Active", default_value: true },
 	};
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stdout, exitCode } = await prismic("field", [
 		"view",
@@ -66,9 +65,9 @@ it("outputs JSON with --json", async ({ expect, prismic, repo, token, host }) =>
 	expect(field.config.label).toBe("Is Active");
 });
 
-it("errors for non-existent field", async ({ expect, prismic, repo, token, host }) => {
+it("errors for non-existent field", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
-	await insertSlice(slice, { repo, token, host });
+	await writeLocalSlice(project, slice);
 
 	const { stderr, exitCode } = await prismic("field", [
 		"view",

@@ -1,11 +1,7 @@
 import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
-import { getCustomType, updateCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic type edit-tab",
@@ -18,18 +14,15 @@ const config = {
 		name: { type: "string", short: "n", description: "New name for the tab" },
 		"with-slice-zone": { type: "boolean", description: "Add a slice zone to the tab" },
 		"without-slice-zone": { type: "boolean", description: "Remove the slice zone from the tab" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [currentName] = positionals;
-	const { "from-type": typeId, repo = await getRepositoryName() } = values;
+	const { "from-type": typeId } = values;
 
 	const adapter = await getAdapter();
-	const token = await getToken();
-	const host = await getHost();
-	const customType = await getCustomType(typeId, { repo, token, host });
+	const { model: customType } = await adapter.getCustomType(typeId);
 
 	if (!(currentName in customType.json)) {
 		throw new CommandError(`Tab "${currentName}" not found in "${typeId}".`);
@@ -86,21 +79,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		customType.json = newJson;
 	}
 
-	try {
-		await updateCustomType(customType, { repo, host, token });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to update tab: ${message}`);
-		}
-		throw error;
-	}
-
-	try {
-		await adapter.updateCustomType(customType);
-	} catch {
-		await adapter.createCustomType(customType);
-	}
+	await adapter.updateCustomType(customType);
 	await adapter.generateTypes();
 
 	console.info(`Tab updated: "${currentName}" in "${typeId}"`);

@@ -7,6 +7,7 @@ import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { cleanupLegacyAuthFile, getHost, getToken, spawnTokenRefresh } from "./auth";
 import { getProfile } from "./clients/user";
 import docs from "./commands/docs";
+import fetch from "./commands/fetch";
 import field from "./commands/field";
 import gen from "./commands/gen";
 import init from "./commands/init";
@@ -14,6 +15,8 @@ import locale from "./commands/locale";
 import login from "./commands/login";
 import logout from "./commands/logout";
 import preview from "./commands/preview";
+import pull from "./commands/pull";
+import push from "./commands/push";
 import repo from "./commands/repo";
 import slice from "./commands/slice";
 import sync from "./commands/sync";
@@ -23,6 +26,7 @@ import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { CommandError, createCommandRouter } from "./lib/command";
+import { decodePayload } from "./lib/jwt";
 import {
 	ForbiddenRequestError,
 	NotFoundRequestError,
@@ -42,13 +46,12 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { decodePayload } from "./lib/jwt";
 import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
 import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
-const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs"];
+const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "fetch", "docs"];
 
 const router = createCommandRouter({
 	name: "prismic",
@@ -71,6 +74,18 @@ const router = createCommandRouter({
 		gen: {
 			handler: gen,
 			description: "Generate files from local models",
+		},
+		pull: {
+			handler: pull,
+			description: "Pull types and slices from Prismic",
+		},
+		fetch: {
+			handler: fetch,
+			description: "Refresh snapshot of remote types and slices",
+		},
+		push: {
+			handler: push,
+			description: "Push types and slices to Prismic",
 		},
 		sync: {
 			handler: sync,
@@ -208,7 +223,7 @@ async function main(): Promise<void> {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
 				segmentTrackEnd(command);
 			}
-			console.error(error.message);
+			console.error(dedent(error.message));
 			return;
 		}
 

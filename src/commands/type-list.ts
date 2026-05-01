@@ -1,29 +1,24 @@
-import { getHost, getToken } from "../auth";
-import { getCustomTypes } from "../clients/custom-types";
+import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { formatTable } from "../lib/string";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic type list",
 	description: "List all content types.",
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { json, repo = await getRepositoryName() } = values;
+	const { json } = values;
 
-	const token = await getToken();
-	const host = await getHost();
-
-	const types = await getCustomTypes({ repo, token, host });
+	const adapter = await getAdapter();
+	const types = await adapter.getCustomTypes();
 
 	if (json) {
-		console.info(stringify(types));
+		console.info(stringify(types.map((t) => t.model)));
 		return;
 	}
 
@@ -32,9 +27,9 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const rows = types.map((type) => {
-		const label = type.label || "(no name)";
-		return [label, type.id, type.format ?? ""];
+	const rows = types.map(({ model }) => {
+		const label = model.label || "(no name)";
+		return [label, model.id, model.format ?? ""];
 	});
 	console.info(formatTable(rows, { headers: ["NAME", "ID", "FORMAT"] }));
 });

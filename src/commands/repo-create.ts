@@ -19,6 +19,18 @@ export default createCommand(config, async ({ values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
+	const domain = await createRepo({ name, token, host });
+
+	console.info(`Repository created: ${domain}`);
+	console.info(`URL: https://${domain}.${host}/`);
+});
+
+export async function createRepo(config: {
+	name?: string;
+	token: string | undefined;
+	host: string;
+}): Promise<string> {
+	const { name, token, host } = config;
 
 	const domain = await findAvailableDomain({ token, host });
 	if (!domain) {
@@ -38,10 +50,8 @@ export default createCommand(config, async ({ values }) => {
 		throw error;
 	}
 
-	console.info(`Repository created: ${domain}`);
-	console.info(`URL: https://${domain}.${host}/`);
-	console.info(`Run \`prismic init --repo ${domain}\` to initialize a project.`);
-});
+	return domain;
+}
 
 async function findAvailableDomain(config: {
 	token: string | undefined;

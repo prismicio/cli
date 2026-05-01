@@ -2,10 +2,12 @@ import type { Profile } from "../clients/user";
 
 import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
+import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { getProfile } from "../clients/user";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { diffArrays } from "../lib/diff";
 import { installDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
@@ -16,16 +18,21 @@ import {
 	readConfig,
 	readLegacySliceMachineConfig,
 	UnknownProjectRootError,
+	writeSnapshot,
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
+import { createRepo } from "./repo-create";
 
 const config = {
 	name: "prismic init",
 	description: `
-		Initialize a Prismic project by creating a prismic.config.json file.
+		Initialize a new Prismic project by creating a repository and
+		prismic.config.json file. Detects the project framework, installs
+		dependencies, and syncs models from Prismic.
 
-		Detects the project framework, installs dependencies, and syncs models
-		from Prismic. If a slicemachine.config.json exists, it will be migrated.
+		Use --repo to connect to an existing repository instead. If a
+		slicemachine.config.json exists, its repository and settings will be
+		migrated.
 	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository name" },
@@ -63,12 +70,6 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
-	if (!repo) {
-		throw new CommandError("Missing required flag: --repo");
-	}
-
-	// Validate repo membership
 	let token = await getToken();
 	const host = await getHost();
 	let profile: Profile;
@@ -96,19 +97,27 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const repoMeta = profile.repositories.find((repository) => repository.domain === repo);
-	if (!repoMeta) {
-		throw new CommandError(
-			`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
-		);
-	}
+	let repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
+	if (repo) {
+		const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
+		if (!hasRepoAccess) {
+			throw new CommandError(
+				`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
+			);
+		}
 
-	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
-	if (!isTypeBuilderEnabled) {
-		throw new TypeBuilderRequiredError();
+		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+		if (!isTypeBuilderEnabled) {
+			throw new TypeBuilderRequiredError();
+		}
 	}
 
 	const adapter = await getAdapter();
+
+	if (!repo) {
+		repo = await createRepo({ token, host });
+		console.info(`Created repository: ${repo}`);
+	}
 
 	// Create prismic.config.json
 	try {
@@ -150,7 +159,43 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Sync models from remote and generate types
-	await adapter.syncModels({ repo, token, host });
+	const [remoteCustomTypes, remoteSlices, localCustomTypes, localSlices] = await Promise.all([
+		getCustomTypes({ repo, token, host }),
+		getSlices({ repo, token, host }),
+		adapter.getCustomTypes(),
+		adapter.getSlices(),
+	]);
+	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
+	const localSliceModels = localSlices.map((s) => s.model);
+
+	const sliceOps = diffArrays(remoteSlices, localSliceModels, { key: (m) => m.id });
+	for (const slice of sliceOps.update) {
+		await adapter.updateSlice(slice);
+	}
+	for (const slice of sliceOps.delete) {
+		await adapter.deleteSlice(slice.id);
+	}
+	for (const slice of sliceOps.insert) {
+		await adapter.createSlice(slice);
+	}
+
+	const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
+		key: (m) => m.id,
+	});
+	for (const customType of customTypeOps.update) {
+		await adapter.updateCustomType(customType);
+	}
+	for (const customType of customTypeOps.delete) {
+		await adapter.deleteCustomType(customType.id);
+	}
+	for (const customType of customTypeOps.insert) {
+		await adapter.createCustomType(customType);
+	}
+
+	await adapter.generateTypes();
+
+	// Persist a snapshot so the first push has a baseline for drift detection
+	await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");

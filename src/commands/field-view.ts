@@ -1,10 +1,8 @@
 import { capitalCase } from "change-case";
 
-import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { resolveFieldContainer, resolveFieldTarget, SOURCE_OPTIONS } from "../models";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field view",
@@ -20,11 +18,8 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { repo = await getRepositoryName() } = values;
 
-	const token = await getToken();
-	const host = await getHost();
-	const [fields] = await resolveFieldContainer(id, values, { repo, token, host });
+	const [fields] = await resolveFieldContainer(id, values);
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	const field = targetFields[fieldId];

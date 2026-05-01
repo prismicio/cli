@@ -1,11 +1,7 @@
 import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
 
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
-import { getCustomType, getSlice, updateCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic slice disconnect",
@@ -23,21 +19,16 @@ const config = {
 			type: "string",
 			description: 'Slice zone field ID (default: "slices")',
 		},
-		repo: { type: "string", short: "r", description: "Repository domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { from, "slice-zone": sliceZone = "slices", repo = await getRepositoryName() } = values;
+	const { from, "slice-zone": sliceZone = "slices" } = values;
 
 	const adapter = await getAdapter();
-	const token = await getToken();
-	const host = await getHost();
-	const apiConfig = { repo, token, host };
-
-	const slice = await getSlice(id, apiConfig);
-	const customType = await getCustomType(from, apiConfig);
+	const { model: slice } = await adapter.getSlice(id);
+	const { model: customType } = await adapter.getCustomType(from);
 
 	const allFields: Record<string, DynamicWidget> = Object.assign(
 		{},
@@ -57,21 +48,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	delete sliceZoneField.config.choices[slice.id];
 
-	try {
-		await updateCustomType(customType, apiConfig);
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to disconnect slice: ${message}`);
-		}
-		throw error;
-	}
-
-	try {
-		await adapter.updateCustomType(customType);
-	} catch {
-		await adapter.createCustomType(customType);
-	}
+	await adapter.updateCustomType(customType);
 	await adapter.generateTypes();
 
 	console.info(`Disconnected slice "${id}" from "${from}"`);

@@ -2,8 +2,6 @@ import type { Link } from "@prismicio/types-internal/lib/customtypes";
 
 import { capitalCase } from "change-case";
 
-import { getHost, getToken } from "../auth";
-import { getCustomType } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import {
 	getPostFieldAddMessage,
@@ -12,7 +10,6 @@ import {
 	resolveModel,
 	TARGET_OPTIONS,
 } from "../models";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic field add content-relationship",
@@ -77,31 +74,18 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const {
-		label,
-		tag: tags,
-		"custom-type": customtypes,
-		field: fieldSelection,
-		repo = await getRepositoryName(),
-	} = values;
+	const { label, tag: tags, "custom-type": customtypes, field: fieldSelection } = values;
 
 	if (fieldSelection && (!customtypes || customtypes.length !== 1)) {
 		throw new CommandError("--field requires exactly one --custom-type.");
 	}
 
-	const token = await getToken();
-	const host = await getHost();
-	const [fields, saveModel, modelKind] = await resolveModel(values, { repo, token, host });
+	const [fields, saveModel, modelKind] = await resolveModel(values);
 	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
 
 	let resolvedCustomTypes: NonNullable<Link["config"]>["customtypes"] = customtypes;
 	if (fieldSelection && customtypes) {
-		const targetType = await getCustomType(customtypes[0], { repo, token, host });
-		const resolvedFields = await resolveFieldSelection(fieldSelection, targetType, {
-			repo,
-			token,
-			host,
-		});
+		const resolvedFields = await resolveFieldSelection(fieldSelection, customtypes[0]);
 		resolvedCustomTypes = [
 			{ id: customtypes[0], fields: resolvedFields },
 		] as typeof resolvedCustomTypes;
