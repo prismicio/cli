@@ -57,6 +57,21 @@ it("reports remote-only models when added remotely but not pulled", async ({
 	expect(stdout).toContain("prismic pull");
 });
 
+it("rejects --env when no environments are available", async ({ expect, prismic, repo }) => {
+	const { stderr, exitCode } = await prismic("status", ["--repo", repo, "--env", "does-not-exist"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`No environments available on repository "${repo}".`);
+});
+
+it("warns and skips --env when not logged in", async ({ expect, prismic, logout, repo }) => {
+	await logout();
+	const { stdout, exitCode } = await prismic("status", ["--repo", repo, "--env", "anything"]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain(`Repository: ${repo}`);
+	expect(stdout).toContain("Environment: anything");
+	expect(stdout).toContain("Environment flag ignored");
+});
+
 it("reports differing models when local and remote disagree", async ({
 	expect,
 	project,
