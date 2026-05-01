@@ -1,4 +1,6 @@
 import { writeFile, mkdir } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { x } from "tinyexec";
 
 import { buildCustomType, buildSlice, it } from "./it";
 import {
@@ -121,7 +123,7 @@ it.sequential("removes deleted slice and updates index on re-pull", async ({
 		.not.toContain(sliceB.id);
 
 	// Second pull — deletes local slice B to match remote
-	const second = await prismic("pull", ["--repo", repo]);
+	const second = await prismic("pull", ["--repo", repo, "--force"]);
 	expect(second.exitCode).toBe(0);
 	await expect(project).toContainSlice(sliceA);
 	await expect(project).not.toContainSlice(sliceB);
@@ -212,9 +214,70 @@ it.sequential("removes route when page type is deleted", async ({
 		.not.toContain(customType.id);
 
 	// Second pull — deletes local type to match remote
-	const second = await prismic("pull", ["--repo", repo]);
+	const second = await prismic("pull", ["--repo", repo, "--force"]);
 	expect(second.exitCode).toBe(0);
 	await expect(project).not.toHaveRoute({ type: customType.id });
+});
+
+it.sequential("blocks pull when local model files have uncommitted changes", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType();
+	await insertCustomType(customType, { repo, token, host });
+
+	const first = await prismic("pull", ["--repo", repo]);
+	expect(first.exitCode).toBe(0);
+
+	const cwd = fileURLToPath(project);
+	await x("git", ["init", "-q", "-b", "main"], { nodeOptions: { cwd } });
+	await x("git", ["config", "user.email", "test@example.com"], { nodeOptions: { cwd } });
+	await x("git", ["config", "user.name", "Test"], { nodeOptions: { cwd } });
+	await x("git", ["add", "."], { nodeOptions: { cwd } });
+	await x("git", ["commit", "-q", "-m", "init"], { nodeOptions: { cwd } });
+
+	const modelPath = new URL(`customtypes/${customType.id}/index.json`, project);
+	await writeFile(modelPath, JSON.stringify({ ...customType, label: "Edited locally" }, null, 2));
+
+	const second = await prismic("pull", ["--repo", repo]);
+	expect(second.exitCode).toBe(1);
+	expect(second.stderr).toContain("uncommitted");
+	expect(second.stderr).toContain(`customtypes/${customType.id}/index.json`);
+});
+
+it.sequential("refuses to delete local models without --force when not tracked by git", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const sliceA = buildSlice();
+	const sliceB = buildSlice();
+
+	await Promise.all([
+		insertSlice(sliceA, { repo, token, host }),
+		insertSlice(sliceB, { repo, token, host }),
+	]);
+
+	const first = await prismic("pull", ["--repo", repo]);
+	expect(first.exitCode).toBe(0);
+	await expect(project).toContainSlice(sliceB);
+
+	await deleteSlice(sliceB.id, { repo, token, host });
+	await expect
+		.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), { timeout: 5_000 })
+		.not.toContain(sliceB.id);
+
+	const second = await prismic("pull", ["--repo", repo]);
+	expect(second.exitCode).toBe(1);
+	expect(second.stderr).toContain("--force");
+	await expect(project).toContainSlice(sliceB);
 });
 
 it.sequential("does not overwrite existing page file", async ({

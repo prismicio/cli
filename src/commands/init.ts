@@ -18,7 +18,6 @@ import {
 	readConfig,
 	readLegacySliceMachineConfig,
 	UnknownProjectRootError,
-	writeSnapshot,
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 import { createRepo } from "./repo-create";
@@ -168,7 +167,7 @@ export default createCommand(config, async ({ values }) => {
 	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
 	const localSliceModels = localSlices.map((s) => s.model);
 
-	const sliceOps = diffArrays(remoteSlices, localSliceModels, { key: (m) => m.id });
+	const sliceOps = diffArrays(remoteSlices, localSliceModels, { getKey: (m) => m.id });
 	for (const slice of sliceOps.update) {
 		await adapter.updateSlice(slice);
 	}
@@ -180,7 +179,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
-		key: (m) => m.id,
+		getKey: (m) => m.id,
 	});
 	for (const customType of customTypeOps.update) {
 		await adapter.updateCustomType(customType);
@@ -193,8 +192,6 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	await adapter.generateTypes();
-
-	await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");

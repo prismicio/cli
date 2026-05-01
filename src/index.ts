@@ -7,7 +7,6 @@ import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { cleanupLegacyAuthFile, getHost, getToken, spawnTokenRefresh } from "./auth";
 import { getProfile } from "./clients/user";
 import docs from "./commands/docs";
-import fetch from "./commands/fetch";
 import field from "./commands/field";
 import gen from "./commands/gen";
 import init from "./commands/init";
@@ -51,7 +50,7 @@ import { initUpdateNotifier } from "./lib/update-notifier";
 import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
 import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
-const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "fetch", "docs"];
+const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs"];
 
 const router = createCommandRouter({
 	name: "prismic",
@@ -78,10 +77,6 @@ const router = createCommandRouter({
 		pull: {
 			handler: pull,
 			description: "Pull types and slices from Prismic",
-		},
-		fetch: {
-			handler: fetch,
-			description: "Refresh snapshot of remote types and slices",
 		},
 		push: {
 			handler: push,

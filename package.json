@@ -63,8 +63,5 @@
 	},
 	"engines": {
 		"node": ">=20"
-	},
-	"dependencies": {
-		"node-diff3": "^3.2.0"
 	}
 }

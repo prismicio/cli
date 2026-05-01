@@ -100,6 +100,12 @@ export class SvelteKitAdapter extends Adapter {
 		const projectRoot = await findProjectRoot();
 		return new URL("src/lib/slices/", projectRoot);
 	}
+
+	async getDefaultCustomTypeLibrary(): Promise<URL> {
+		const projectRoot = await findProjectRoot();
+		const defaultCustomTypeLibrary = new URL("customtypes/", projectRoot)
+		return defaultCustomTypeLibrary;
+	}
 }
 
 async function createPrismicIoFile(): Promise<void> {

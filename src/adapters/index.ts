@@ -1,12 +1,12 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { readJsonFile, writeFileRecursive } from "../lib/file";
+import { writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
@@ -15,8 +15,8 @@ import { findProjectRoot, getLibraries } from "../project";
 
 const TYPES_FILENAME = "prismicio-types.d.ts";
 
-type CustomTypeMeta = { model: CustomType; directory: URL };
-type SharedSliceMeta = { model: SharedSlice; directory: URL; library: URL };
+type CustomTypeMeta = { model: CustomType; modelPath: URL; directory: URL; library: URL };
+type SharedSliceMeta = { model: SharedSlice; modelPath: URL; directory: URL; library: URL };
 
 export async function getAdapter(): Promise<Adapter> {
 	const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
@@ -46,6 +46,22 @@ export class ModelNotFoundError extends Error {
 	name = "ModelNotFoundError";
 }
 
+export class UnresolvedConflictError extends Error {
+	name = "UnresolvedConflictError";
+	path: URL;
+
+	constructor(path: URL) {
+		super(`Unresolved merge conflict in ${fileURLToPath(path)}. Resolve before continuing.`);
+		this.path = path;
+	}
+}
+
+async function readModelFile<T>(path: URL): Promise<T> {
+	const text = await readFile(path, "utf8");
+	if (text.includes("<<<<<<<")) throw new UnresolvedConflictError(path);
+	return JSON.parse(text) as T;
+}
+
 export abstract class Adapter {
 	abstract readonly id: string;
 
@@ -60,6 +76,7 @@ export abstract class Adapter {
 	abstract setupProject(): Promise<void>;
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	abstract getDefaultSliceLibrary(): Promise<URL>;
+	abstract getDefaultCustomTypeLibrary(): Promise<URL>;
 
 	async initProject(): Promise<void> {
 		const libraries = await this.getSliceLibraries();
@@ -90,8 +107,8 @@ export abstract class Adapter {
 			const slices = await Promise.all(
 				sliceModelPaths.map(async (sliceModelPath) => {
 					const directory = new URL(".", sliceModelPath);
-					const model = await readJsonFile<SharedSlice>(sliceModelPath);
-					return { library, directory, model };
+					const model = await readModelFile<SharedSlice>(sliceModelPath);
+					return { library, directory, modelPath: sliceModelPath, model };
 				}),
 			);
 			allSlices.push(...slices);
@@ -121,8 +138,7 @@ export abstract class Adapter {
 
 	async updateSlice(model: SharedSlice): Promise<void> {
 		const slice = await this.getSlice(model.id);
-		const modelPath = new URL("model.json", appendTrailingSlash(slice.directory));
-		await writeFileRecursive(modelPath, stringify(model));
+		await writeFileRecursive(slice.modelPath, stringify(model));
 		await this.onSliceUpdated(model);
 	}
 
@@ -133,42 +149,32 @@ export abstract class Adapter {
 		await this.onSliceDeleted(id);
 	}
 
-	async writeSliceConflict(model: SharedSlice, conflict: string): Promise<URL> {
-		const sliceDirectoryName = pascalCase(model.name);
-		const defaultSliceLibrary = await this.getDefaultSliceLibrary();
-		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(defaultSliceLibrary));
-		let modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
-		try {
-			const slice = await this.getSlice(model.id);
-			modelPath = new URL("model.json", appendTrailingSlash(slice.directory));
-			const modelBackupPath = new URL(modelPath);
-			modelBackupPath.pathname += ".bak";
-			await writeFileRecursive(modelBackupPath, stringify(slice.model));
-		} catch (error) {
-			if (!(error instanceof ModelNotFoundError)) throw error;
-		}
-		await writeFileRecursive(modelPath, conflict);
-		return modelPath;
+	async getCustomTypeLibraries(): Promise<URL[]> {
+		const defaultCustomTypeLibrary = await this.getDefaultCustomTypeLibrary();
+		return [defaultCustomTypeLibrary];
 	}
 
 	async getCustomTypes(): Promise<CustomTypeMeta[]> {
-		const projectRoot = await findProjectRoot();
-		const customTypesDirectory = new URL("customtypes/", projectRoot);
-		const modelGlob = new URL("*/index.json", customTypesDirectory);
-		const customTypeModelPaths = Array.from(
-			await glob(fileURLToPath(modelGlob), { absolute: true }),
-			(path) => pathToFileURL(path),
-		);
+		const allCustomTypes: CustomTypeMeta[] = [];
 
-		const customTypes = await Promise.all(
-			customTypeModelPaths.map(async (customTypeModelPath) => {
-				const directory = new URL(".", customTypeModelPath);
-				const model = await readJsonFile<CustomType>(customTypeModelPath);
-				return { directory, model };
-			}),
-		);
+		const libraries = await this.getCustomTypeLibraries();
+		for (const library of libraries) {
+			const modelGlob = new URL("*/index.json", library);
+			const customTypeModelPaths = Array.from(
+				await glob(fileURLToPath(modelGlob), { absolute: true }),
+				(path) => pathToFileURL(path),
+			);
+			const customTypes = await Promise.all(
+				customTypeModelPaths.map(async (customTypeModelPath) => {
+					const directory = new URL(".", customTypeModelPath);
+					const model = await readModelFile<CustomType>(customTypeModelPath);
+					return { library, directory, modelPath: customTypeModelPath, model };
+				}),
+			);
+			allCustomTypes.push(...customTypes);
+		}
 
-		return customTypes.sort((a, b) =>
+		return allCustomTypes.sort((a, b) =>
 			a.model.id.toLowerCase().localeCompare(b.model.id.toLowerCase()),
 		);
 	}
@@ -180,10 +186,10 @@ export abstract class Adapter {
 		return customType;
 	}
 
-	async createCustomType(model: CustomType): Promise<void> {
-		const projectRoot = await findProjectRoot();
-		const customTypesDirectory = new URL("customtypes/", projectRoot);
-		const modelPath = new URL(`${model.id}/index.json`, customTypesDirectory);
+	async createCustomType(model: CustomType,library?:URL): Promise<void> {
+		library ??= await this.getDefaultCustomTypeLibrary();
+		const customTypeDirectory = new URL(model.id, library);
+		const modelPath = new URL("index.json", appendTrailingSlash(customTypeDirectory));
 		await writeFileRecursive(modelPath, stringify(model));
 		if (model.format === "page") await addRoute(model);
 		await this.onCustomTypeCreated(model);
@@ -191,8 +197,7 @@ export abstract class Adapter {
 
 	async updateCustomType(model: CustomType): Promise<void> {
 		const customType = await this.getCustomType(model.id);
-		const modelPath = new URL("index.json", appendTrailingSlash(customType.directory));
-		await writeFileRecursive(modelPath, stringify(model));
+		await writeFileRecursive(customType.modelPath, stringify(model));
 		await updateRoute(model);
 		await this.onCustomTypeUpdated(model);
 	}
@@ -202,23 +207,6 @@ export abstract class Adapter {
 		await rm(customType.directory, { recursive: true });
 		await removeRoute(id);
 		await this.onCustomTypeDeleted(id);
-	}
-
-	async writeCustomTypeConflict(model: CustomType, conflict: string): Promise<URL> {
-		const projectRoot = await findProjectRoot();
-		const customTypesDirectory = new URL("customtypes/", projectRoot);
-		let modelPath = new URL(`${model.id}/index.json`, customTypesDirectory);
-		try {
-			const customType = await this.getCustomType(model.id);
-			modelPath = new URL("index.json", appendTrailingSlash(customType.directory));
-			const modelBackupPath = new URL(modelPath);
-			modelBackupPath.pathname += ".bak";
-			await writeFileRecursive(modelBackupPath, stringify(customType.model));
-		} catch (error) {
-			if (!(error instanceof ModelNotFoundError)) throw error;
-		}
-		await writeFileRecursive(modelPath, conflict);
-		return modelPath;
 	}
 
 	async generateTypes(): Promise<URL> {
@@ -240,16 +228,3 @@ export abstract class Adapter {
 		return output;
 	}
 }
-
-// async function getCustomTypeDirectory(id: string) {
-// 	const projectRoot = await findProjectRoot();
-// 	const customTypesDirectory = new URL("customtypes/", projectRoot);
-// 	const customTypeDirectory = new URL(`${id}/index.json`, customTypesDirectory);
-// 	return customTypeDirectory;
-// }
-//
-// async function getCustomTypeModelPath(id: string) {
-// 	const customTypeDirectory = await getCustomTypeDirectory(id);
-// 	const customTypeModelPath = new URL("index.json", customTypeDirectory);
-// 	return customTypeModelPath;
-// }

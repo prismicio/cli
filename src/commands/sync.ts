@@ -8,7 +8,7 @@ import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
-import { getRepositoryName, writeSnapshot } from "../project";
+import { getRepositoryName } from "../project";
 
 const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
 const MAX_CONSECUTIVE_ERRORS = 5;
@@ -72,7 +72,7 @@ export default createCommand(config, async ({ values }) => {
 
 				const changed: string[] = [];
 
-				const sliceOps = diffArrays(remoteSlices, localSliceModels, { key: (m) => m.id });
+				const sliceOps = diffArrays(remoteSlices, localSliceModels, { getKey: (m) => m.id });
 				if (sliceOps.insert.length + sliceOps.update.length + sliceOps.delete.length > 0) {
 					for (const slice of sliceOps.update) {
 						await adapter.updateSlice(slice);
@@ -87,7 +87,7 @@ export default createCommand(config, async ({ values }) => {
 				}
 
 				const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
-					key: (m) => m.id,
+					getKey: (m) => m.id,
 				});
 				if (
 					customTypeOps.insert.length + customTypeOps.update.length + customTypeOps.delete.length >
@@ -106,10 +106,6 @@ export default createCommand(config, async ({ values }) => {
 				}
 
 				await adapter.generateTypes();
-				await writeSnapshot(repo, {
-					customTypes: remoteCustomTypes,
-					slices: remoteSlices,
-				});
 
 				lastHash = nextHash;
 

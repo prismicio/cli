@@ -12,7 +12,9 @@ import {
 } from "../clients/custom-types";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
-import { getRepositoryName, writeSnapshot } from "../project";
+import { getDirtyTrackedPaths, getGitRoot } from "../lib/git";
+import { isDescendant, relativePathname } from "../lib/url";
+import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic push",
@@ -34,22 +36,72 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 	const adapter = await getAdapter();
+	const projectRoot = await findProjectRoot();
 
 	console.info(`Pushing to repository: ${repo}`);
 
-	const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices] = await Promise.all([
-		adapter.getCustomTypes(),
-		adapter.getSlices(),
-		getCustomTypes({ repo, token, host }),
-		getSlices({ repo, token, host }),
-	]);
+	const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices, gitRoot] =
+		await Promise.all([
+			adapter.getCustomTypes(),
+			adapter.getSlices(),
+			getCustomTypes({ repo, token, host }),
+			getSlices({ repo, token, host }),
+			getGitRoot(projectRoot),
+		]);
 	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
 	const localSliceModels = localSlices.map((s) => s.model);
 
 	const customTypeOps = diffArrays(localCustomTypeModels, remoteCustomTypes, {
-		key: (m) => m.id,
+		getKey: (m) => m.id,
 	});
-	const sliceOps = diffArrays(localSliceModels, remoteSlices, { key: (m) => m.id });
+	const sliceOps = diffArrays(localSliceModels, remoteSlices, { getKey: (m) => m.id });
+
+	if (gitRoot) {
+		if (!force) {
+			const sliceLibraries = await adapter.getSliceLibraries();
+			const customTypeLibraries = await adapter.getCustomTypeLibraries();
+			const dirtyTrackedPaths = await getDirtyTrackedPaths(gitRoot);
+			const dirtyModels = dirtyTrackedPaths.filter(
+				(path) =>
+					(path.pathname.endsWith("/model.json") &&
+						sliceLibraries.some((sliceLibrary) => isDescendant(sliceLibrary, path))) ||
+					(path.pathname.endsWith("/index.json") &&
+						customTypeLibraries.some((customTypeLibrary) => isDescendant(customTypeLibrary, path))),
+			);
+
+			if (dirtyModels.length > 0) {
+				console.error(
+					"Local model files have uncommitted changes. Commit or stash before pushing, or re-run with --force:",
+				);
+				for (const path of dirtyModels) {
+					console.error(relativePathname(projectRoot, path));
+				}
+				process.exitCode = 1;
+				return;
+			}
+		}
+	} else if (!force) {
+		const destructive: string[] = [];
+		for (const model of customTypeOps.update) {
+			destructive.push(`customtypes/${model.id}/index.json (update)`);
+		}
+		for (const model of customTypeOps.delete) {
+			destructive.push(`customtypes/${model.id}/index.json (delete)`);
+		}
+		for (const model of sliceOps.update) {
+			destructive.push(`slices/${model.id} (update)`);
+		}
+		for (const model of sliceOps.delete) {
+			destructive.push(`slices/${model.id} (delete)`);
+		}
+		if (destructive.length > 0) {
+			console.error("Push would update or delete remote models. Re-run with --force to proceed.");
+			for (const entry of destructive) console.error(entry);
+			console.error("Track these files with git to enable a clean-state check instead.");
+			process.exitCode = 1;
+			return;
+		}
+	}
 
 	for (const model of customTypeOps.insert) {
 		await insertCustomType(model, { repo, token, host });
@@ -69,12 +121,6 @@ export default createCommand(config, async ({ values }) => {
 	for (const id of sliceOps.delete.map((m) => m.id)) {
 		await removeSlice(id, { repo, token, host });
 	}
-
-	const [newRemoteCustomTypes, newRemoteSlices] = await Promise.all([
-		getCustomTypes({ repo, token, host }),
-		getSlices({ repo, token, host }),
-	]);
-	await writeSnapshot(repo, { customTypes: newRemoteCustomTypes, slices: newRemoteSlices });
 
 	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
 	const totalSlices = sliceOps.insert.length + sliceOps.update.length;
