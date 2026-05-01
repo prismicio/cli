@@ -30,7 +30,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const repo = env ? await resolveEnvironment({ env, repo: parentRepo, token, host }) : parentRepo;
+	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	try {
 		await upsertLocale({ id: code, isMaster: master, customName: name }, { repo, token, host });

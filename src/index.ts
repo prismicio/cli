@@ -25,6 +25,7 @@ import type_ from "./commands/type";
 import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
+import { InvalidEnvironmentError } from "./environments";
 import { CommandError, createCommandRouter } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import {
@@ -232,6 +233,34 @@ async function main(): Promise<void> {
 				segmentTrackEnd(command, { error });
 			}
 			console.error(error.message);
+			return;
+		}
+
+		if (error instanceof InvalidEnvironmentError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
+			const list = error.availableEnvironments.map((environment) => environment.domain).join("\n");
+			console.error(`
+				Environment "${error.env}" not found on repository "${error.repo}".
+
+				Available environments:
+				  ${list}
+			`);
+			return;
+		}
+
+		if (error instanceof InvalidEnvironmentError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command);
+			}
+			const list = error.availableEnvironments.map((environment) => environment.domain).join("\n");
+			console.error(`
+				Environment "${error.env}" not found on repository "${error.repo}".
+
+				Available environments:
+				  ${list}
+			`);
 			return;
 		}
 

@@ -89,11 +89,6 @@ const EnvironmentSchema = z.object({
 	domain: z.string(),
 	users: z.array(z.object({ id: z.string() })),
 });
-
-const GetEnvironmentsResponseSchema = z.object({
-	results: z.array(EnvironmentSchema),
-});
-
 export type Environment = z.infer<typeof EnvironmentSchema>;
 
 export async function getEnvironments(config: {
@@ -106,7 +101,7 @@ export async function getEnvironments(config: {
 	try {
 		const response = await request(url, {
 			credentials: { "prismic-auth": token },
-			schema: GetEnvironmentsResponseSchema,
+			schema: z.object({ results: z.array(EnvironmentSchema) }),
 		});
 		return response.results;
 	} catch (error) {

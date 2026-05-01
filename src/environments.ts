@@ -1,34 +1,37 @@
-import { getEnvironments } from "./clients/core";
+import { type Environment, getEnvironments } from "./clients/core";
 import { getProfile } from "./clients/user";
-import { CommandError } from "./lib/command";
 
-export async function resolveEnvironment(args: {
-	env: string;
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<string> {
-	const { env, repo, token, host } = args;
+export async function resolveEnvironment(
+	env: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<string> {
+	const { repo, token, host } = config;
 
 	const [profile, environments] = await Promise.all([
 		getProfile({ token, host }),
 		getEnvironments({ repo, token, host }),
 	]);
 
-	const available = environments.filter(
+	const availableEnvironments = environments.filter(
 		(environment) =>
-			environment.kind !== "dev" && environment.users.some((user) => user.id === profile.shortId),
+			(environment.kind === "prod" || environment.kind === "stage") &&
+			environment.users.some((user) => user.id === profile.shortId),
 	);
-
-	const match = available.find((environment) => environment.domain === env);
+	const match = availableEnvironments.find((environment) => environment.domain === env);
 	if (match) return match.domain;
 
-	if (available.length === 0) {
-		throw new CommandError(`No environments available on repository "${repo}".`);
-	}
+	throw new InvalidEnvironmentError(env, availableEnvironments, repo);
+}
 
-	const list = available.map((environment) => `  ${environment.domain}`).join("\n");
-	throw new CommandError(
-		`Environment "${env}" not found on repository "${repo}".\n\nAvailable environments:\n${list}`,
-	);
+export class InvalidEnvironmentError extends Error {
+	name = "InvalidEnvironmentError";
+	repo: string;
+	env: string;
+	availableEnvironments: Environment[];
+	constructor(env: string, availableEnvironments: Environment[], repo: string) {
+		super();
+		this.repo = repo;
+		this.env = env;
+		this.availableEnvironments = availableEnvironments;
+	}
 }

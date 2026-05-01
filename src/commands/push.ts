@@ -42,13 +42,9 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
 	const projectRoot = await findProjectRoot();
 
-	const repo = env ? await resolveEnvironment({ env, repo: parentRepo, token, host }) : parentRepo;
+	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
-	if (env) {
-		console.info(`Pushing to repository: ${parentRepo} (env: ${env})`);
-	} else {
-		console.info(`Pushing to repository: ${repo}`);
-	}
+	console.info(`Pushing to repository: ${parentRepo}${env ? ` (env: ${env})` : ""}`);
 
 	const [gitRoot, customTypeLibraries, sliceLibraries] = await Promise.all([
 		getGitRoot(projectRoot),

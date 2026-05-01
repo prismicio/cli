@@ -45,7 +45,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const repo = env ? await resolveEnvironment({ env, repo: parentRepo, token, host }) : parentRepo;
+	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	let createdToken: string;
 	try {

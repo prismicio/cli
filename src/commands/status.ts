@@ -49,7 +49,7 @@ export default createCommand(config, async ({ values }) => {
 	let sliceOps: ArrayDiff<SharedSlice> | undefined;
 	if (token) {
 		if (env) {
-			repo = await resolveEnvironment({ env, repo: parentRepo, token, host });
+			repo = await resolveEnvironment(env, { repo: parentRepo, token, host });
 		}
 		const [profile, remoteCustomTypes, remoteSlices] = await Promise.all([
 			getProfile({ token, host }),
