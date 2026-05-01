@@ -250,20 +250,6 @@ async function main(): Promise<void> {
 			return;
 		}
 
-		if (error instanceof InvalidEnvironmentError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				segmentTrackEnd(command);
-			}
-			const list = error.availableEnvironments.map((environment) => environment.domain).join("\n");
-			console.error(`
-				Environment "${error.env}" not found on repository "${error.repo}".
-
-				Available environments:
-				  ${list}
-			`);
-			return;
-		}
-
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
 				segmentTrackEnd(command, { error });
