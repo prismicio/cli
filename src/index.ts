@@ -241,7 +241,7 @@ async function main(): Promise<void> {
 				segmentTrackEnd(command);
 			}
 			const list = error.availableEnvironments.map((environment) => environment.domain).join("\n");
-			console.error(`
+			console.error(dedent`
 				Environment "${error.env}" not found on repository "${error.repo}".
 
 				Available environments:
