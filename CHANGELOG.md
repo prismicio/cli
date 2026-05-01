@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.7.0](https://github.com/prismicio/cli/compare/v1.6.1...v1.7.0) (2026-05-01)
+
+
+### Features
+
+* add --env flag ([#167](https://github.com/prismicio/cli/issues/167)) ([3dbdb86](https://github.com/prismicio/cli/commit/3dbdb869b73a5c6fab987e2e5eda455ac98bfbe9))
+* add examples to --help output for complex commands ([#154](https://github.com/prismicio/cli/issues/154)) ([a4e39db](https://github.com/prismicio/cli/commit/a4e39db3ba7e4645cd0d51fb0f381c48721230a8))
+* add push, pull, and fetch commands ([#164](https://github.com/prismicio/cli/issues/164)) ([ef09ffa](https://github.com/prismicio/cli/commit/ef09ffac9e394b612e5c356d68718bb58de3c728))
+* add status command and simplify model sync ([#166](https://github.com/prismicio/cli/issues/166)) ([f010fa5](https://github.com/prismicio/cli/commit/f010fa56b200d7b0dbd6d930cdd53bcd2e242754))
+* create a new repository during init when --repo is not provided ([#147](https://github.com/prismicio/cli/issues/147)) ([a4a8aba](https://github.com/prismicio/cli/commit/a4a8aba1ab17203908cc2204e6f7a17a16a8f3b7))
+* document group field dot notation in field add help ([#152](https://github.com/prismicio/cli/issues/152)) ([c353e2f](https://github.com/prismicio/cli/commit/c353e2fc0fd003e8fcf631d78a93167bd3e59a2f))
+* **nuxt:** module doesn't require further configuration ([#165](https://github.com/prismicio/cli/issues/165)) ([31c2c56](https://github.com/prismicio/cli/commit/31c2c56a14958017181835874d64d78a0ad4c2f6))
+* operate on local models only ([a744f54](https://github.com/prismicio/cli/commit/a744f5454743c2af41dd95c833c2af6e7ffdf655))
+* print suggested next steps after mutating commands ([#157](https://github.com/prismicio/cli/issues/157)) ([3f53653](https://github.com/prismicio/cli/commit/3f536538a527d0e429ebe9f2bc97b0feab365382))
+* surface content-relationship --field flag in help text ([#153](https://github.com/prismicio/cli/issues/153)) ([84390d1](https://github.com/prismicio/cli/commit/84390d162702e8afc06ad71a90bf347cf8bd8f76))
+* surface prismic docs command in top-level help ([#155](https://github.com/prismicio/cli/issues/155)) ([bdbe6a3](https://github.com/prismicio/cli/commit/bdbe6a346de6365a87d732c1361930278eb6b57d))
+
+
+### Bug Fixes
+
+* preserve order for docs anchors instead of sorting alphabetically ([#151](https://github.com/prismicio/cli/issues/151)) ([494e82d](https://github.com/prismicio/cli/commit/494e82d44def18944d31307be3c77216b70018c4)), closes [#144](https://github.com/prismicio/cli/issues/144)
+* **win32:** don't open extra terminal ([#159](https://github.com/prismicio/cli/issues/159)) ([d418cc9](https://github.com/prismicio/cli/commit/d418cc996e7d4a8264dd6ba67bed4e2ce2534393))
+
 ## [1.6.1](https://github.com/prismicio/cli/compare/v1.6.0...v1.6.1) (2026-04-15)
 
 
