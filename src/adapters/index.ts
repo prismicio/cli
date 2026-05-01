@@ -175,9 +175,9 @@ export abstract class Adapter {
 		return customType;
 	}
 
-	async createCustomType(model: CustomType,library?:URL): Promise<void> {
+	async createCustomType(model: CustomType, library?: URL): Promise<void> {
 		library ??= await this.getDefaultCustomTypeLibrary();
-		const customTypeDirectory = new URL(model.id, library);
+		const customTypeDirectory = new URL(model.id, appendTrailingSlash(library));
 		const modelPath = new URL("index.json", appendTrailingSlash(customTypeDirectory));
 		await writeFileRecursive(modelPath, stringify(model));
 		if (model.format === "page") await addRoute(model);
