@@ -240,13 +240,22 @@ async function main(): Promise<void> {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
 				segmentTrackEnd(command);
 			}
-			const list = error.availableEnvironments.map((environment) => environment.domain).join("\n");
-			console.error(dedent`
-				Environment "${error.env}" not found on repository "${error.repo}".
+			if (
+				error.availableEnvironments.length === 1 &&
+				error.repo === error.availableEnvironments[0].domain
+			) {
+				console.error(`No environments available on repository "${error.repo}".`);
+			} else {
+				const list = error.availableEnvironments
+					.map((environment) => environment.domain)
+					.join("\n");
+				console.error(dedent`
+					Environment "${error.env}" not found on repository "${error.repo}".
 
-				Available environments:
-				  ${list}
-			`);
+					Available environments:
+					  ${list}
+				`);
+			}
 			return;
 		}
 
