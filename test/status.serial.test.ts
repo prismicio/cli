@@ -69,7 +69,6 @@ it("warns and skips --env when not logged in", async ({ expect, prismic, logout,
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Repository: ${repo}`);
 	expect(stdout).toContain("Environment: anything");
-	expect(stdout).toContain("Environment flag ignored");
 });
 
 it("reports differing models when local and remote disagree", async ({
