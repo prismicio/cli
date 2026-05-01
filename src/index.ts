@@ -18,6 +18,7 @@ import pull from "./commands/pull";
 import push from "./commands/push";
 import repo from "./commands/repo";
 import slice from "./commands/slice";
+import status from "./commands/status";
 import sync from "./commands/sync";
 import token from "./commands/token";
 import type_ from "./commands/type";
@@ -50,7 +51,7 @@ import { initUpdateNotifier } from "./lib/update-notifier";
 import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
 import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
-const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs"];
+const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs", "status"];
 
 const router = createCommandRouter({
 	name: "prismic",
@@ -85,6 +86,10 @@ const router = createCommandRouter({
 		sync: {
 			handler: sync,
 			description: "Sync types and slices from Prismic",
+		},
+		status: {
+			handler: status,
+			description: "Show local vs remote model differences",
 		},
 		locale: {
 			handler: locale,

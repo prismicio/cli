@@ -46,19 +46,8 @@ export class ModelNotFoundError extends Error {
 	name = "ModelNotFoundError";
 }
 
-export class UnresolvedConflictError extends Error {
-	name = "UnresolvedConflictError";
-	path: URL;
-
-	constructor(path: URL) {
-		super(`Unresolved merge conflict in ${fileURLToPath(path)}. Resolve before continuing.`);
-		this.path = path;
-	}
-}
-
 async function readModelFile<T>(path: URL): Promise<T> {
 	const text = await readFile(path, "utf8");
-	if (text.includes("<<<<<<<")) throw new UnresolvedConflictError(path);
 	return JSON.parse(text) as T;
 }
 
