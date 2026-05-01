@@ -25,7 +25,10 @@ export async function getDirtyTrackedPaths(gitRoot: URL): Promise<URL[]> {
 		const paths: URL[] = [];
 		for (const line of stdout.split("\n")) {
 			if (line.length < 4) continue;
-			paths.push(new URL(line.slice(3), gitRoot));
+			let path = line.slice(3);
+			const arrow = path.indexOf(" -> ");
+			if (arrow !== -1) path = path.slice(arrow + 4);
+			paths.push(new URL(path, gitRoot));
 		}
 		return paths;
 	} catch {
