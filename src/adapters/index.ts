@@ -1,12 +1,12 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
-import { readFile, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { writeFileRecursive } from "../lib/file";
+import { readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
@@ -40,15 +40,6 @@ export class NoSupportedFrameworkError extends Error {
 	name = "NoSupportedFrameworkError";
 	message =
 		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
-}
-
-export class ModelNotFoundError extends Error {
-	name = "ModelNotFoundError";
-}
-
-async function readModelFile<T>(path: URL): Promise<T> {
-	const text = await readFile(path, "utf8");
-	return JSON.parse(text) as T;
 }
 
 export abstract class Adapter {
@@ -96,7 +87,7 @@ export abstract class Adapter {
 			const slices = await Promise.all(
 				sliceModelPaths.map(async (sliceModelPath) => {
 					const directory = new URL(".", sliceModelPath);
-					const model = await readModelFile<SharedSlice>(sliceModelPath);
+					const model = await readJsonFile<SharedSlice>(sliceModelPath);
 					return { library, directory, modelPath: sliceModelPath, model };
 				}),
 			);
@@ -111,7 +102,7 @@ export abstract class Adapter {
 	async getSlice(id: string): Promise<SharedSliceMeta> {
 		const slices = await this.getSlices();
 		const slice = slices.find((s) => s.model.id === id);
-		if (!slice) throw new ModelNotFoundError(`No slice found with ID: ${id}`);
+		if (!slice) throw new Error(`No slice found with ID: ${id}`);
 		return slice;
 	}
 
@@ -156,7 +147,7 @@ export abstract class Adapter {
 			const customTypes = await Promise.all(
 				customTypeModelPaths.map(async (customTypeModelPath) => {
 					const directory = new URL(".", customTypeModelPath);
-					const model = await readModelFile<CustomType>(customTypeModelPath);
+					const model = await readJsonFile<CustomType>(customTypeModelPath);
 					return { library, directory, modelPath: customTypeModelPath, model };
 				}),
 			);
@@ -171,7 +162,7 @@ export abstract class Adapter {
 	async getCustomType(id: string): Promise<CustomTypeMeta> {
 		const customTypes = await this.getCustomTypes();
 		const customType = customTypes.find((s) => s.model.id === id);
-		if (!customType) throw new ModelNotFoundError(`No custom type found with ID: ${id}`);
+		if (!customType) throw new Error(`No custom type found with ID: ${id}`);
 		return customType;
 	}
 
