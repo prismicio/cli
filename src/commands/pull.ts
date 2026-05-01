@@ -95,7 +95,7 @@ export default createCommand(config, async ({ values }) => {
 		if (affectedFiles.length > 0) {
 			throw new CommandError(`
 				Pull would modify or delete local model files:
-				  ${affectedFiles.join("\n  ")}
+				  ${affectedFiles.join("\n")}
 
 				This project isn't in a git repo, so changes can't be tracked. Choose one:
 				  prismic pull --force   Discard local files, adopt remote

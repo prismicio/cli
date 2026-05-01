@@ -128,7 +128,7 @@ export default createCommand(config, async ({ values }) => {
 		console.info(
 			dedent`
 				Pull and push won't run while these model files have uncommitted git changes:
-				  ${dirtyModelFiles.join("\n  ")}
+				  ${dirtyModelFiles.join("\n")}
 
 				To unblock, commit them:
 				  git add ${dirtyModelFiles.join(" ")}
