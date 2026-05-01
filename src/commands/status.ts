@@ -91,9 +91,6 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Authenticated as: ${userEmail}`);
 	} else {
 		console.info("Not logged in — log in with `prismic login` to compare with remote.");
-		if (env) {
-			console.info("Environment flag ignored — log in to use --env.");
-		}
 	}
 
 	const inSync =
