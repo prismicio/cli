@@ -106,17 +106,17 @@ export default createCommand(config, async ({ values }) => {
 			...customTypeOps.insert.map((m) => `  ${m.id} (custom type)`),
 			...sliceOps.insert.map((m) => `  ${m.id} (slice)`),
 		];
-		if (onlyLocal.length > 0) sections.push(["Local-only:", ...onlyLocal]);
+		if (onlyLocal.length > 0) sections.push(["LOCAL ONLY", ...onlyLocal]);
 		const onlyRemote = [
 			...customTypeOps.delete.map((m) => `  ${m.id} (custom type)`),
 			...sliceOps.delete.map((m) => `  ${m.id} (slice)`),
 		];
-		if (onlyRemote.length > 0) sections.push(["Remote-only:", ...onlyRemote]);
+		if (onlyRemote.length > 0) sections.push(["REMOTE ONLY", ...onlyRemote]);
 		const differ = [
 			...customTypeOps.update.map((m) => `  ${m.id} (custom type)`),
 			...sliceOps.update.map((m) => `  ${m.id} (slice)`),
 		];
-		if (differ.length > 0) sections.push(["Differ:", ...differ]);
+		if (differ.length > 0) sections.push(["CHANGES", ...differ]);
 		for (const lines of sections) {
 			console.info("");
 			for (const line of lines) console.info(line);
@@ -127,26 +127,14 @@ export default createCommand(config, async ({ values }) => {
 		console.info("");
 		console.info(
 			dedent`
-				Sync blocked
-
 				Pull and push won't run while these model files have uncommitted git changes:
 				  ${dirtyModelFiles.join("\n  ")}
 
-				Why: a pull would overwrite your edits, a push would commit half-finished work to Prismic.
+				To unblock, commit them:
+				  git add ${dirtyModelFiles.join(" ")}
+				  git commit -m "Update Prismic models"
 
-				To unblock, choose one:
-				  Keep your local edits and overwrite remote:
-				    prismic push --force
-
-				  Discard your local edits and adopt remote:
-				    prismic pull --force
-
-				  Merge by hand:
-				    1. git stash
-				    2. prismic pull
-				    3. git stash pop
-				    4. Resolve JSON conflicts in your editor
-				    5. prismic push
+				Or override with \`prismic push --force\` (keep local) or \`prismic pull --force\` (discard local).
 			`,
 		);
 	}

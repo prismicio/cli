@@ -62,23 +62,13 @@ export default createCommand(config, async ({ values }) => {
 
 		if (dirtyFiles.length > 0) {
 			throw new CommandError(`
-				Local model files have uncommitted changes. Choose one:
+				Local model files have uncommitted changes. Commit them, then push:
 
-				  Discard local changes and adopt remote:
-				    prismic pull --force
+				  git add ${dirtyFiles.join(" ")}
+				  git commit -m "Update Prismic models"
+				  prismic push
 
-				  Keep local changes and overwrite remote:
-				    prismic push --force
-
-				  Combine both:
-				    1. git stash
-				    2. prismic pull
-				    3. git stash pop
-				    4. Resolve any JSON conflicts in your editor
-				    5. prismic push
-
-				Files with uncommitted changes:
-				  ${dirtyFiles.join("\n")}
+				Or skip the safety check with \`prismic push --force\`.
 			`);
 		}
 	}

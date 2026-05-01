@@ -51,23 +51,16 @@ export default createCommand(config, async ({ values }) => {
 
 		if (dirtyFiles.length > 0) {
 			throw new CommandError(`
-				Local model files have uncommitted changes. Choose one:
+				Local model files have uncommitted changes. Commit them first so a
+				pull won't silently discard your edits:
 
-				  Discard local changes and adopt remote:
-				    prismic pull --force
+				  git add ${dirtyFiles.join(" ")}
+				  git commit -m "Update Prismic models"
+				  prismic pull
 
-				  Keep local changes and overwrite remote:
-				    prismic push --force
-
-				  Combine both:
-				    1. git stash
-				    2. prismic pull
-				    3. git stash pop
-				    4. Resolve any JSON conflicts in your editor
-				    5. prismic push
-
-				Files with uncommitted changes:
-				  ${dirtyFiles.join("\n")}
+				Other options:
+				  prismic push --force   Keep local edits, overwrite remote
+				  prismic pull --force   Discard local edits, adopt remote
 			`);
 		}
 	}
@@ -101,23 +94,12 @@ export default createCommand(config, async ({ values }) => {
 
 		if (affectedFiles.length > 0) {
 			throw new CommandError(`
-				Pull would modify or delete local model files. Choose one:
+				Pull would modify or delete local model files:
+				  ${affectedFiles.join("\n  ")}
 
-				  Discard local changes and adopt remote:
-				    prismic pull --force
-
-				  Keep local changes and overwrite remote:
-				    prismic push --force
-
-				  Combine both:
-				    1. git stash
-				    2. prismic pull
-				    3. git stash pop
-				    4. Resolve any JSON conflicts in your editor
-				    5. prismic push
-
-				Files that would be modified or deleted:
-				  ${affectedFiles.join("\n")}
+				This project isn't in a git repo, so changes can't be tracked. Choose one:
+				  prismic pull --force   Discard local files, adopt remote
+				  prismic push --force   Keep local files, overwrite remote
 			`);
 		}
 	}
