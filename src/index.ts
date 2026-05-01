@@ -7,7 +7,6 @@ import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { cleanupLegacyAuthFile, getHost, getToken, spawnTokenRefresh } from "./auth";
 import { getProfile } from "./clients/user";
 import docs from "./commands/docs";
-import fetch from "./commands/fetch";
 import field from "./commands/field";
 import gen from "./commands/gen";
 import init from "./commands/init";
@@ -19,6 +18,7 @@ import pull from "./commands/pull";
 import push from "./commands/push";
 import repo from "./commands/repo";
 import slice from "./commands/slice";
+import status from "./commands/status";
 import sync from "./commands/sync";
 import token from "./commands/token";
 import type_ from "./commands/type";
@@ -51,7 +51,7 @@ import { initUpdateNotifier } from "./lib/update-notifier";
 import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
 import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
 
-const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "fetch", "docs"];
+const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs", "status"];
 
 const router = createCommandRouter({
 	name: "prismic",
@@ -79,10 +79,6 @@ const router = createCommandRouter({
 			handler: pull,
 			description: "Pull types and slices from Prismic",
 		},
-		fetch: {
-			handler: fetch,
-			description: "Refresh snapshot of remote types and slices",
-		},
 		push: {
 			handler: push,
 			description: "Push types and slices to Prismic",
@@ -90,6 +86,10 @@ const router = createCommandRouter({
 		sync: {
 			handler: sync,
 			description: "Sync types and slices from Prismic",
+		},
+		status: {
+			handler: status,
+			description: "Show local vs remote model differences",
 		},
 		locale: {
 			handler: locale,

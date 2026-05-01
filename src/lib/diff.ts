@@ -3,12 +3,12 @@ export type ArrayDiff<T> = { insert: T[]; update: T[]; delete: T[] };
 export function diffArrays<T>(
 	source: T[],
 	target: T[],
-	options: { key: (item: T) => string },
+	options: { getKey: (item: T) => string },
 ): ArrayDiff<T> {
-	const { key } = options;
+	const { getKey } = options;
 	const diff: ArrayDiff<T> = { insert: [], update: [], delete: [] };
 	for (const sourceItem of source) {
-		const targetItem = target.find((item) => key(item) === key(sourceItem));
+		const targetItem = target.find((item) => getKey(item) === getKey(sourceItem));
 		if (!targetItem) {
 			diff.insert.push(sourceItem);
 		} else if (JSON.stringify(sourceItem) !== JSON.stringify(targetItem)) {
@@ -16,7 +16,7 @@ export function diffArrays<T>(
 		}
 	}
 	for (const targetItem of target) {
-		if (!source.some((item) => key(item) === key(targetItem))) {
+		if (!source.some((item) => getKey(item) === getKey(targetItem))) {
 			diff.delete.push(targetItem);
 		}
 	}

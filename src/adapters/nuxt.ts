@@ -84,6 +84,12 @@ export class NuxtAdapter extends Adapter {
 		const srcDir = await getSrcDir();
 		return new URL("slices/", srcDir);
 	}
+
+	async getDefaultCustomTypeLibrary(): Promise<URL> {
+		const projectRoot = await findProjectRoot();
+		const defaultCustomTypeLibrary = new URL("customtypes/", projectRoot)
+		return defaultCustomTypeLibrary;
+	}
 }
 
 async function getSrcDir(): Promise<URL> {

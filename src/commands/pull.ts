@@ -3,7 +3,9 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
-import { getRepositoryName, readSnapshot, writeSnapshot } from "../project";
+import { getDirtyTrackedPaths, getGitRoot } from "../lib/git";
+import { isDescendant, relativePathname } from "../lib/url";
+import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic pull",
@@ -25,8 +27,43 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 	const adapter = await getAdapter();
+	const projectRoot = await findProjectRoot();
 
 	console.info(`Pulling from repository: ${repo}`);
+
+	const [gitRoot, customTypeLibraries, sliceLibraries] = await Promise.all([
+		getGitRoot(projectRoot),
+		adapter.getCustomTypeLibraries(),
+		adapter.getSliceLibraries(),
+	]);
+
+	if (!force && gitRoot) {
+		const dirtyTrackedPaths = await getDirtyTrackedPaths(gitRoot);
+		const dirtyFiles = dirtyTrackedPaths
+			.filter(
+				(path) =>
+					(path.pathname.endsWith("/model.json") &&
+						sliceLibraries.some((lib) => isDescendant(lib, path))) ||
+					(path.pathname.endsWith("/index.json") &&
+						customTypeLibraries.some((lib) => isDescendant(lib, path))),
+			)
+			.map((path) => relativePathname(projectRoot, path));
+
+		if (dirtyFiles.length > 0) {
+			throw new CommandError(`
+				Local model files have uncommitted changes. Commit them first so a
+				pull won't silently discard your edits:
+
+				  git add ${dirtyFiles.join(" ")}
+				  git commit -m "Update Prismic models"
+				  prismic pull
+
+				Other options:
+				  prismic push --force   Keep local edits, overwrite remote
+				  prismic pull --force   Discard local edits, adopt remote
+			`);
+		}
+	}
 
 	const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices] = await Promise.all([
 		adapter.getCustomTypes(),
@@ -34,52 +71,38 @@ export default createCommand(config, async ({ values }) => {
 		getCustomTypes({ repo, token, host }),
 		getSlices({ repo, token, host }),
 	]);
-	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
-	const localSliceModels = localSlices.map((s) => s.model);
+	const customTypeOps = diffArrays(
+		remoteCustomTypes,
+		localCustomTypes.map((customType) => customType.model),
+		{ getKey: (model) => model.id },
+	);
+	const sliceOps = diffArrays(
+		remoteSlices,
+		localSlices.map((slice) => slice.model),
+		{ getKey: (model) => model.id },
+	);
 
-	if (!force) {
-		const snapshot = await readSnapshot(repo);
-		const customTypesDriftFromRemote = diffArrays(localCustomTypeModels, remoteCustomTypes, {
-			key: (m) => m.id,
-		});
-		const slicesDriftFromRemote = diffArrays(localSliceModels, remoteSlices, {
-			key: (m) => m.id,
-		});
-		const customTypesDrifted = snapshot
-			? JSON.stringify(sortById(localCustomTypeModels)) !==
-				JSON.stringify(sortById(snapshot.customTypes))
-			: customTypesDriftFromRemote.insert.length + customTypesDriftFromRemote.update.length > 0;
-		const slicesDrifted = snapshot
-			? JSON.stringify(sortById(localSliceModels)) !== JSON.stringify(sortById(snapshot.slices))
-			: slicesDriftFromRemote.insert.length + slicesDriftFromRemote.update.length > 0;
-		const isDrifted = customTypesDrifted || slicesDrifted;
-		if (isDrifted) {
+	if (!force && !gitRoot) {
+		const customTypeIds = new Set(
+			[...customTypeOps.update, ...customTypeOps.delete].map((op) => op.id),
+		);
+		const sliceIds = new Set([...sliceOps.update, ...sliceOps.delete].map((op) => op.id));
+		const affectedFiles = [
+			...localCustomTypes.filter((c) => customTypeIds.has(c.model.id)),
+			...localSlices.filter((s) => sliceIds.has(s.model.id)),
+		].map((meta) => relativePathname(projectRoot, meta.modelPath));
+
+		if (affectedFiles.length > 0) {
 			throw new CommandError(`
-				You have local changes that haven't been pushed. Pulling would overwrite them.
+				Pull would modify or delete local model files:
+				  ${affectedFiles.join("\n")}
 
-				To discard local changes and adopt remote:
-				  prismic pull --force
-
-				To overwrite remote with your local changes:
-				  prismic push --force
-
-				To merge both, use git:
-				  1. Stash your local edits: \`git stash\`
-				  2. Run \`prismic pull --force\` to update local from remote.
-				  3. Reapply your edits: \`git stash pop\`
-				  4. Resolve any JSON conflicts in your editor.
-				  5. Run \`prismic push\`.
-
-				If your edits are already committed, run \`git reset --soft HEAD~1\`
-				first to move them back to the working tree.
+				This project isn't in a git repo, so changes can't be tracked. Choose one:
+				  prismic pull --force   Discard local files, adopt remote
+				  prismic push --force   Keep local files, overwrite remote
 			`);
 		}
 	}
-
-	const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
-		key: (m) => m.id,
-	});
-	const sliceOps = diffArrays(remoteSlices, localSliceModels, { key: (m) => m.id });
 
 	for (const model of customTypeOps.insert) {
 		await adapter.createCustomType(model);
@@ -87,8 +110,8 @@ export default createCommand(config, async ({ values }) => {
 	for (const model of customTypeOps.update) {
 		await adapter.updateCustomType(model);
 	}
-	for (const id of customTypeOps.delete.map((m) => m.id)) {
-		await adapter.deleteCustomType(id);
+	for (const model of customTypeOps.delete) {
+		await adapter.deleteCustomType(model.id);
 	}
 	for (const model of sliceOps.insert) {
 		await adapter.createSlice(model);
@@ -96,25 +119,25 @@ export default createCommand(config, async ({ values }) => {
 	for (const model of sliceOps.update) {
 		await adapter.updateSlice(model);
 	}
-	for (const id of sliceOps.delete.map((m) => m.id)) {
-		await adapter.deleteSlice(id);
+	for (const model of sliceOps.delete) {
+		await adapter.deleteSlice(model.id);
 	}
 
 	await adapter.generateTypes();
 
-	await writeSnapshot(repo, { customTypes: remoteCustomTypes, slices: remoteSlices });
-
 	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
 	const totalSlices = sliceOps.insert.length + sliceOps.update.length;
 	const totalDeletes = customTypeOps.delete.length + sliceOps.delete.length;
+
 	if (totalTypes === 0 && totalSlices === 0 && totalDeletes === 0) {
 		console.info("Already up to date.");
-	} else {
-		console.info(`Pulled ${totalTypes} type(s), ${totalSlices} slice(s).`);
-		if (totalDeletes > 0) console.info(`Deleted ${totalDeletes} model(s).`);
+		return;
 	}
-});
 
-function sortById<T extends { id: string }>(items: T[]): T[] {
-	return [...items].sort((a, b) => a.id.localeCompare(b.id));
-}
+	console.info(
+		`Inserted ${customTypeOps.insert.length}, updated ${customTypeOps.update.length}, deleted ${customTypeOps.delete.length} types`,
+	);
+	console.info(
+		`Inserted ${sliceOps.insert.length}, updated ${sliceOps.update.length}, deleted ${sliceOps.delete.length} slices`,
+	);
+});

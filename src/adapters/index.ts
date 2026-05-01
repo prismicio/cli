@@ -15,8 +15,8 @@ import { findProjectRoot, getLibraries } from "../project";
 
 const TYPES_FILENAME = "prismicio-types.d.ts";
 
-type CustomTypeMeta = { model: CustomType; directory: URL };
-type SharedSliceMeta = { model: SharedSlice; directory: URL; library: URL };
+type CustomTypeMeta = { model: CustomType; modelPath: URL; directory: URL; library: URL };
+type SharedSliceMeta = { model: SharedSlice; modelPath: URL; directory: URL; library: URL };
 
 export async function getAdapter(): Promise<Adapter> {
 	const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
@@ -38,7 +38,8 @@ export async function getAdapter(): Promise<Adapter> {
 
 export class NoSupportedFrameworkError extends Error {
 	name = "NoSupportedFrameworkError";
-	message = "No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
+	message =
+		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
 }
 
 export abstract class Adapter {
@@ -55,6 +56,7 @@ export abstract class Adapter {
 	abstract setupProject(): Promise<void>;
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	abstract getDefaultSliceLibrary(): Promise<URL>;
+	abstract getDefaultCustomTypeLibrary(): Promise<URL>;
 
 	async initProject(): Promise<void> {
 		const libraries = await this.getSliceLibraries();
@@ -86,7 +88,7 @@ export abstract class Adapter {
 				sliceModelPaths.map(async (sliceModelPath) => {
 					const directory = new URL(".", sliceModelPath);
 					const model = await readJsonFile<SharedSlice>(sliceModelPath);
-					return { library, directory, model };
+					return { library, directory, modelPath: sliceModelPath, model };
 				}),
 			);
 			allSlices.push(...slices);
@@ -116,8 +118,7 @@ export abstract class Adapter {
 
 	async updateSlice(model: SharedSlice): Promise<void> {
 		const slice = await this.getSlice(model.id);
-		const modelPath = new URL("model.json", appendTrailingSlash(slice.directory));
-		await writeFileRecursive(modelPath, stringify(model));
+		await writeFileRecursive(slice.modelPath, stringify(model));
 		await this.onSliceUpdated(model);
 	}
 
@@ -128,24 +129,32 @@ export abstract class Adapter {
 		await this.onSliceDeleted(id);
 	}
 
+	async getCustomTypeLibraries(): Promise<URL[]> {
+		const defaultCustomTypeLibrary = await this.getDefaultCustomTypeLibrary();
+		return [defaultCustomTypeLibrary];
+	}
+
 	async getCustomTypes(): Promise<CustomTypeMeta[]> {
-		const projectRoot = await findProjectRoot();
-		const customTypesDirectory = new URL("customtypes/", projectRoot);
-		const modelGlob = new URL("*/index.json", customTypesDirectory);
-		const customTypeModelPaths = Array.from(
-			await glob(fileURLToPath(modelGlob), { absolute: true }),
-			(path) => pathToFileURL(path),
-		);
+		const allCustomTypes: CustomTypeMeta[] = [];
 
-		const customTypes = await Promise.all(
-			customTypeModelPaths.map(async (customTypeModelPath) => {
-				const directory = new URL(".", customTypeModelPath);
-				const model = await readJsonFile<CustomType>(customTypeModelPath);
-				return { directory, model };
-			}),
-		);
+		const libraries = await this.getCustomTypeLibraries();
+		for (const library of libraries) {
+			const modelGlob = new URL("*/index.json", library);
+			const customTypeModelPaths = Array.from(
+				await glob(fileURLToPath(modelGlob), { absolute: true }),
+				(path) => pathToFileURL(path),
+			);
+			const customTypes = await Promise.all(
+				customTypeModelPaths.map(async (customTypeModelPath) => {
+					const directory = new URL(".", customTypeModelPath);
+					const model = await readJsonFile<CustomType>(customTypeModelPath);
+					return { library, directory, modelPath: customTypeModelPath, model };
+				}),
+			);
+			allCustomTypes.push(...customTypes);
+		}
 
-		return customTypes.sort((a, b) =>
+		return allCustomTypes.sort((a, b) =>
 			a.model.id.toLowerCase().localeCompare(b.model.id.toLowerCase()),
 		);
 	}
@@ -157,10 +166,10 @@ export abstract class Adapter {
 		return customType;
 	}
 
-	async createCustomType(model: CustomType): Promise<void> {
-		const projectRoot = await findProjectRoot();
-		const customTypesDirectory = new URL("customtypes/", projectRoot);
-		const modelPath = new URL(`${model.id}/index.json`, customTypesDirectory);
+	async createCustomType(model: CustomType, library?: URL): Promise<void> {
+		library ??= await this.getDefaultCustomTypeLibrary();
+		const customTypeDirectory = new URL(model.id, appendTrailingSlash(library));
+		const modelPath = new URL("index.json", appendTrailingSlash(customTypeDirectory));
 		await writeFileRecursive(modelPath, stringify(model));
 		if (model.format === "page") await addRoute(model);
 		await this.onCustomTypeCreated(model);
@@ -168,8 +177,7 @@ export abstract class Adapter {
 
 	async updateCustomType(model: CustomType): Promise<void> {
 		const customType = await this.getCustomType(model.id);
-		const modelPath = new URL("index.json", appendTrailingSlash(customType.directory));
-		await writeFileRecursive(modelPath, stringify(model));
+		await writeFileRecursive(customType.modelPath, stringify(model));
 		await updateRoute(model);
 		await this.onCustomTypeUpdated(model);
 	}

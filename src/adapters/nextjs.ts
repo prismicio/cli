@@ -99,6 +99,12 @@ export class NextJsAdapter extends Adapter {
 		const defaultSliceLibrary = new URL(hasSrcDirectory ? "src/slices/" : "slices/", projectRoot);
 		return defaultSliceLibrary;
 	}
+
+	async getDefaultCustomTypeLibrary(): Promise<URL> {
+		const projectRoot = await findProjectRoot();
+		const defaultCustomTypeLibrary = new URL("customtypes/", projectRoot)
+		return defaultCustomTypeLibrary;
+	}
 }
 
 async function createRevalidateRoute(): Promise<void> {
