@@ -18,14 +18,10 @@ it.sequential("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic pull [options]");
 });
 
-it.sequential("rejects --env when no environments are available", async ({
-	expect,
-	prismic,
-	repo,
-}) => {
+it.sequential("rejects an unknown --env", async ({ expect, prismic, repo }) => {
 	const { stderr, exitCode } = await prismic("pull", ["--repo", repo, "--env", "does-not-exist"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain(`No environments available on repository "${repo}".`);
+	expect(stderr).toContain(`Environment "does-not-exist" not found on repository "${repo}".`);
 });
 
 it.sequential("pulls slices and custom types from remote", async ({
