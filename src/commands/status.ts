@@ -7,7 +7,7 @@ import { getProfile } from "../clients/user";
 import { resolveEnvironment } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays, type ArrayDiff } from "../lib/diff";
-import { getDirtyTrackedPaths, getGitRoot } from "../lib/git";
+import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { dedent } from "../lib/string";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -71,8 +71,8 @@ export default createCommand(config, async ({ values }) => {
 
 	let dirtyModelFiles: string[] = [];
 	if (gitRoot) {
-		const dirtyTrackedPaths = await getDirtyTrackedPaths(gitRoot);
-		dirtyModelFiles = dirtyTrackedPaths
+		const dirtyPaths = await getDirtyPaths(gitRoot);
+		dirtyModelFiles = dirtyPaths
 			.filter(
 				(path) =>
 					(path.pathname.endsWith("/model.json") &&
