@@ -77,14 +77,22 @@ export default createCommand(config, async ({ values }) => {
 		getSlices({ repo, token, host }),
 	]);
 	const customTypeOps = diffArrays(
-		remoteCustomTypes.map(canonicalizeModel),
-		localCustomTypes.map((customType) => canonicalizeModel(customType.model)),
-		{ getKey: (model) => model.id },
+		remoteCustomTypes,
+		localCustomTypes.map((customType) => customType.model),
+		{
+			getKey: (model) => model.id,
+			equals: (a, b) =>
+				JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+		},
 	);
 	const sliceOps = diffArrays(
-		remoteSlices.map(canonicalizeModel),
-		localSlices.map((slice) => canonicalizeModel(slice.model)),
-		{ getKey: (model) => model.id },
+		remoteSlices,
+		localSlices.map((slice) => slice.model),
+		{
+			getKey: (model) => model.id,
+			equals: (a, b) =>
+				JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+		},
 	);
 
 	if (!force && !gitRoot) {

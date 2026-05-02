@@ -59,14 +59,22 @@ export default createCommand(config, async ({ values }) => {
 		]);
 		userEmail = profile.email;
 		customTypeOps = diffArrays(
-			localCustomTypesMeta.map((ct) => canonicalizeModel(ct.model)),
-			remoteCustomTypes.map(canonicalizeModel),
-			{ getKey: (m) => m.id },
+			localCustomTypesMeta.map((ct) => ct.model),
+			remoteCustomTypes,
+			{
+				getKey: (m) => m.id,
+				equals: (a, b) =>
+					JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+			},
 		);
 		sliceOps = diffArrays(
-			localSlicesMeta.map((s) => canonicalizeModel(s.model)),
-			remoteSlices.map(canonicalizeModel),
-			{ getKey: (m) => m.id },
+			localSlicesMeta.map((s) => s.model),
+			remoteSlices,
+			{
+				getKey: (m) => m.id,
+				equals: (a, b) =>
+					JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+			},
 		);
 	}
 
