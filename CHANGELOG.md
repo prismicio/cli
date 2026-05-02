@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.1](https://github.com/prismicio/cli/compare/v1.7.0...v1.7.1) (2026-05-02)
+
+
+### Bug Fixes
+
+* ignore cosmetic key-order drift in model comparisons ([#172](https://github.com/prismicio/cli/issues/172)) ([5a96016](https://github.com/prismicio/cli/commit/5a9601623e47730fb559f86df7b93d8a75154288))
+* include untracked model files in dirty tree check ([#169](https://github.com/prismicio/cli/issues/169)) ([9e130c3](https://github.com/prismicio/cli/commit/9e130c33fc1ae6dd281a70d814da3f153918aa3a))
+
 ## [1.7.0](https://github.com/prismicio/cli/compare/v1.6.1...v1.7.0) (2026-05-01)
 
 

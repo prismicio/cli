@@ -1,6 +1,6 @@
 {
 	"name": "prismic",
-	"version": "1.7.0",
+	"version": "1.7.1",
 	"description": "Prismic's official command line tool",
 	"keywords": [
 		"prismic",
