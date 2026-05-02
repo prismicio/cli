@@ -6,48 +6,29 @@ import type { CommandConfig } from "./lib/command";
 import { getAdapter } from "./adapters";
 import { CommandError } from "./lib/command";
 
-// Returns a deep copy of `model` with all object keys sorted alphabetically,
-// except inside containers where insertion order carries meaning in the
-// editor. Used only for comparing local vs. remote models — the API returns
-// metadata keys in a different order than we wrote them, which would
-// otherwise show as cosmetic drift.
-//
-// Order is preserved in:
-//   - `json`: a tab map. Its keys are tab names.
-//   - Each tab object inside `json`: a field map. Its keys are field IDs.
-//   - `primary`, `items`, `fields`: field maps. Their keys are field IDs.
+// Returns a copy of `model` with top-level keys sorted alphabetically, and
+// each variation's top-level keys sorted alphabetically. Used only for
+// comparing local vs. remote — the Prismic API returns these metadata keys
+// in a different order than we wrote them, which would otherwise show as
+// cosmetic drift. Field order inside `json`/`primary`/`items` is preserved
+// because it carries meaning in the editor.
 export function canonicalizeModel<T>(model: T): T {
-	return canonicalize(model, undefined, undefined) as T;
+	if (!isPlainObject(model)) return model;
+	const sorted = sortKeys(model);
+	if (Array.isArray(sorted.variations)) {
+		sorted.variations = sorted.variations.map((variation) =>
+			isPlainObject(variation) ? sortKeys(variation) : variation,
+		);
+	}
+	return sorted as T;
 }
 
-const FIELD_MAP_KEYS = new Set(["primary", "items", "fields"]);
-const TAB_MAP_KEY = "json";
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return value !== null && typeof value === "object" && !Array.isArray(value);
+}
 
-function canonicalize(
-	value: unknown,
-	parentKey: string | undefined,
-	grandparentKey: string | undefined,
-): unknown {
-	if (Array.isArray(value)) {
-		// Array elements are independent subtrees; their parent context resets.
-		return value.map((item) => canonicalize(item, undefined, undefined));
-	}
-	if (value && typeof value === "object") {
-		const isFieldMap = parentKey !== undefined && FIELD_MAP_KEYS.has(parentKey);
-		const isTabMap = parentKey === TAB_MAP_KEY;
-		const isTabObject = grandparentKey === TAB_MAP_KEY;
-		const preserveKeyOrder = isFieldMap || isTabMap || isTabObject;
-
-		const entries = Object.entries(value as Record<string, unknown>);
-		if (!preserveKeyOrder) entries.sort(([a], [b]) => a.localeCompare(b));
-
-		const result: Record<string, unknown> = {};
-		for (const [key, child] of entries) {
-			result[key] = canonicalize(child, key, parentKey);
-		}
-		return result;
-	}
-	return value;
+function sortKeys(obj: Record<string, unknown>): Record<string, unknown> {
+	return Object.fromEntries(Object.entries(obj).sort(([a], [b]) => a.localeCompare(b)));
 }
 
 type Field = DynamicWidget;
