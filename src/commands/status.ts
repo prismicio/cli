@@ -10,6 +10,7 @@ import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { dedent } from "../lib/string";
 import { isDescendant, relativePathname } from "../lib/url";
+import { canonicalizeModel } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
@@ -58,13 +59,13 @@ export default createCommand(config, async ({ values }) => {
 		]);
 		userEmail = profile.email;
 		customTypeOps = diffArrays(
-			localCustomTypesMeta.map((ct) => ct.model),
-			remoteCustomTypes,
+			localCustomTypesMeta.map((ct) => canonicalizeModel(ct.model)),
+			remoteCustomTypes.map(canonicalizeModel),
 			{ getKey: (m) => m.id },
 		);
 		sliceOps = diffArrays(
-			localSlicesMeta.map((s) => s.model),
-			remoteSlices,
+			localSlicesMeta.map((s) => canonicalizeModel(s.model)),
+			remoteSlices.map(canonicalizeModel),
 			{ getKey: (m) => m.id },
 		);
 	}

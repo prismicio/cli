@@ -6,6 +6,7 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { isDescendant, relativePathname } from "../lib/url";
+import { canonicalizeModel } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
@@ -76,13 +77,13 @@ export default createCommand(config, async ({ values }) => {
 		getSlices({ repo, token, host }),
 	]);
 	const customTypeOps = diffArrays(
-		remoteCustomTypes,
-		localCustomTypes.map((customType) => customType.model),
+		remoteCustomTypes.map(canonicalizeModel),
+		localCustomTypes.map((customType) => canonicalizeModel(customType.model)),
 		{ getKey: (model) => model.id },
 	);
 	const sliceOps = diffArrays(
-		remoteSlices,
-		localSlices.map((slice) => slice.model),
+		remoteSlices.map(canonicalizeModel),
+		localSlices.map((slice) => canonicalizeModel(slice.model)),
 		{ getKey: (model) => model.id },
 	);
 
