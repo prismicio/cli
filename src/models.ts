@@ -1,4 +1,9 @@
-import type { DynamicWidget, Link } from "@prismicio/types-internal/lib/customtypes";
+import type {
+	CustomType,
+	DynamicWidget,
+	Link,
+	SharedSlice,
+} from "@prismicio/types-internal/lib/customtypes";
 
 import type { Adapter } from "./adapters";
 import type { CommandConfig } from "./lib/command";
@@ -6,29 +11,18 @@ import type { CommandConfig } from "./lib/command";
 import { getAdapter } from "./adapters";
 import { CommandError } from "./lib/command";
 
-// Returns a copy of `model` with top-level keys sorted alphabetically, and
-// each variation's top-level keys sorted alphabetically. Used only for
-// comparing local vs. remote — the Prismic API returns these metadata keys
-// in a different order than we wrote them, which would otherwise show as
-// cosmetic drift. Field order inside `json`/`primary`/`items` is preserved
-// because it carries meaning in the editor.
-export function canonicalizeModel<T>(model: T): T {
-	if (!isPlainObject(model)) return model;
-	const sorted = sortKeys(model);
-	if (Array.isArray(sorted.variations)) {
-		sorted.variations = sorted.variations.map((variation) =>
-			isPlainObject(variation) ? sortKeys(variation) : variation,
+export function canonicalizeModel<T extends CustomType | SharedSlice>(model: T): T {
+	const canonicalizedModel = sortKeys(model);
+	if ("variations" in canonicalizedModel) {
+		canonicalizedModel.variations = canonicalizedModel.variations.map((variation) =>
+			sortKeys(variation),
 		);
 	}
-	return sorted as T;
+	return canonicalizedModel;
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function sortKeys(obj: Record<string, unknown>): Record<string, unknown> {
-	return Object.fromEntries(Object.entries(obj).sort(([a], [b]) => a.localeCompare(b)));
+function sortKeys<T extends Record<string, unknown>>(obj: T): T {
+	return Object.fromEntries(Object.entries(obj).sort(([a], [b]) => a.localeCompare(b))) as T;
 }
 
 type Field = DynamicWidget;
