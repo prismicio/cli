@@ -10,6 +10,7 @@ import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { dedent } from "../lib/string";
 import { isDescendant, relativePathname } from "../lib/url";
+import { canonicalizeModel } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
@@ -60,12 +61,20 @@ export default createCommand(config, async ({ values }) => {
 		customTypeOps = diffArrays(
 			localCustomTypesMeta.map((ct) => ct.model),
 			remoteCustomTypes,
-			{ getKey: (m) => m.id },
+			{
+				getKey: (m) => m.id,
+				equals: (a, b) =>
+					JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+			},
 		);
 		sliceOps = diffArrays(
 			localSlicesMeta.map((s) => s.model),
 			remoteSlices,
-			{ getKey: (m) => m.id },
+			{
+				getKey: (m) => m.id,
+				equals: (a, b) =>
+					JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+			},
 		);
 	}
 

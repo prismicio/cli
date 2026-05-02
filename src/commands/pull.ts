@@ -6,6 +6,7 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { isDescendant, relativePathname } from "../lib/url";
+import { canonicalizeModel } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
@@ -78,12 +79,20 @@ export default createCommand(config, async ({ values }) => {
 	const customTypeOps = diffArrays(
 		remoteCustomTypes,
 		localCustomTypes.map((customType) => customType.model),
-		{ getKey: (model) => model.id },
+		{
+			getKey: (model) => model.id,
+			equals: (a, b) =>
+				JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+		},
 	);
 	const sliceOps = diffArrays(
 		remoteSlices,
 		localSlices.map((slice) => slice.model),
-		{ getKey: (model) => model.id },
+		{
+			getKey: (model) => model.id,
+			equals: (a, b) =>
+				JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+		},
 	);
 
 	if (!force && !gitRoot) {

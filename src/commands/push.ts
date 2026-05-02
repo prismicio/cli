@@ -17,6 +17,7 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
+import { canonicalizeModel } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
@@ -86,12 +87,20 @@ export default createCommand(config, async ({ values }) => {
 	const customTypeOps = diffArrays(
 		localCustomTypes.map((customType) => customType.model),
 		remoteCustomTypes,
-		{ getKey: (model) => model.id },
+		{
+			getKey: (model) => model.id,
+			equals: (a, b) =>
+				JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+		},
 	);
 	const sliceOps = diffArrays(
 		localSlices.map((slice) => slice.model),
 		remoteSlices,
-		{ getKey: (model) => model.id },
+		{
+			getKey: (model) => model.id,
+			equals: (a, b) =>
+				JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+		},
 	);
 
 	if (!force) {

@@ -1,10 +1,29 @@
-import type { DynamicWidget, Link } from "@prismicio/types-internal/lib/customtypes";
+import type {
+	CustomType,
+	DynamicWidget,
+	Link,
+	SharedSlice,
+} from "@prismicio/types-internal/lib/customtypes";
 
 import type { Adapter } from "./adapters";
 import type { CommandConfig } from "./lib/command";
 
 import { getAdapter } from "./adapters";
 import { CommandError } from "./lib/command";
+
+export function canonicalizeModel<T extends CustomType | SharedSlice>(model: T): T {
+	const canonicalizedModel = sortKeys(model);
+	if ("variations" in canonicalizedModel) {
+		canonicalizedModel.variations = canonicalizedModel.variations.map((variation) =>
+			sortKeys(variation),
+		);
+	}
+	return canonicalizedModel;
+}
+
+function sortKeys<T extends Record<string, unknown>>(obj: T): T {
+	return Object.fromEntries(Object.entries(obj).sort(([a], [b]) => a.localeCompare(b))) as T;
+}
 
 type Field = DynamicWidget;
 type Fields = Record<string, Field>;
