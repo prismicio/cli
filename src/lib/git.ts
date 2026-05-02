@@ -18,7 +18,7 @@ export async function getGitRoot(start: URL): Promise<URL | undefined> {
 
 export async function getDirtyPaths(gitRoot: URL): Promise<URL[]> {
 	try {
-		const { stdout } = await x("git", ["status", "--porcelain"], {
+		const { stdout } = await x("git", ["status", "--porcelain", "--untracked-files=all"], {
 			nodeOptions: { cwd: fileURLToPath(gitRoot) },
 			throwOnError: true,
 		});
