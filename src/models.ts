@@ -7,36 +7,43 @@ import { getAdapter } from "./adapters";
 import { CommandError } from "./lib/command";
 
 // Returns a deep copy of `model` with all object keys sorted alphabetically,
-// except inside containers where insertion order carries meaning (tab order
-// and field order in the editor). Used only for comparing local vs. remote
-// models — the API returns metadata keys in a different order than we wrote
-// them, which would otherwise show as cosmetic drift.
+// except inside containers where insertion order carries meaning in the
+// editor. Used only for comparing local vs. remote models — the API returns
+// metadata keys in a different order than we wrote them, which would
+// otherwise show as cosmetic drift.
 //
-// Ordered containers:
-//   - `json`: direct children are tab names (order matters), and each tab's
-//     direct children are field IDs (order matters) — depth 2.
-//   - `primary`, `items`, `fields`: direct children are field IDs — depth 1.
+// Order is preserved in:
+//   - `json`: a tab map. Its keys are tab names.
+//   - Each tab object inside `json`: a field map. Its keys are field IDs.
+//   - `primary`, `items`, `fields`: field maps. Their keys are field IDs.
 export function canonicalizeModel<T>(model: T): T {
-	return canonicalize(model, 0) as T;
+	return canonicalize(model, undefined, undefined) as T;
 }
 
-function canonicalize(value: unknown, orderedDepth: number): unknown {
+const FIELD_MAP_KEYS = new Set(["primary", "items", "fields"]);
+const TAB_MAP_KEY = "json";
+
+function canonicalize(
+	value: unknown,
+	parentKey: string | undefined,
+	grandparentKey: string | undefined,
+): unknown {
 	if (Array.isArray(value)) {
-		return value.map((item) => canonicalize(item, 0));
+		// Array elements are independent subtrees; their parent context resets.
+		return value.map((item) => canonicalize(item, undefined, undefined));
 	}
 	if (value && typeof value === "object") {
+		const isFieldMap = parentKey !== undefined && FIELD_MAP_KEYS.has(parentKey);
+		const isTabMap = parentKey === TAB_MAP_KEY;
+		const isTabObject = grandparentKey === TAB_MAP_KEY;
+		const preserveKeyOrder = isFieldMap || isTabMap || isTabObject;
+
 		const entries = Object.entries(value as Record<string, unknown>);
-		if (orderedDepth === 0) {
-			entries.sort(([a], [b]) => a.localeCompare(b));
-		}
+		if (!preserveKeyOrder) entries.sort(([a], [b]) => a.localeCompare(b));
+
 		const result: Record<string, unknown> = {};
 		for (const [key, child] of entries) {
-			let childOrderedDepth = Math.max(0, orderedDepth - 1);
-			if (key === "json") childOrderedDepth = 2;
-			else if (key === "primary" || key === "items" || key === "fields") {
-				childOrderedDepth = 1;
-			}
-			result[key] = canonicalize(child, childOrderedDepth);
+			result[key] = canonicalize(child, key, parentKey);
 		}
 		return result;
 	}
