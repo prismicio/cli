@@ -32,6 +32,7 @@ import {
 	ForbiddenRequestError,
 	NotFoundRequestError,
 	UnauthorizedRequestError,
+	UnknownRequestError,
 } from "./lib/request";
 import {
 	initSegment,
@@ -274,6 +275,23 @@ async function main(): Promise<void> {
 			console.error(
 				error.message || "Not found. Verify the repository and any specified identifiers exist.",
 			);
+			return;
+		}
+
+		if (error instanceof UnknownRequestError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				segmentTrackEnd(command, { error });
+			}
+			const url = new URL(error.response.url);
+			// Prevent logging sensitive data like a token
+			url.search = "";
+			console.error(dedent`
+				A network request failed unexpectedly:
+
+				  ${url}
+
+				If this error happens repeatedly, report the issue here: https://github.com/prismicio/cli/issues
+			`);
 			return;
 		}
 

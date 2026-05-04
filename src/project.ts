@@ -3,10 +3,10 @@ import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import * as z from "zod/mini";
 
+import { getVariantData } from "./clients/amplitude";
 import { getRepository } from "./clients/repository";
 import { getProfile } from "./clients/user";
 import { env } from "./env";
-import { evaluateFlag } from "./lib/amplitude";
 import { exists, findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
@@ -253,13 +253,14 @@ export async function checkIsTypeBuilderEnabled(
 
 	const { token, host } = config;
 	const profile = await getProfile({ token, host });
-	const [flagEnabled, repository] = await Promise.all([
-		evaluateFlag("dev-tools-types-builder-cloud", {
-			userId: profile.shortId,
+	const [variantData, repository] = await Promise.all([
+		getVariantData(profile.shortId, {
 			groups: { Repository: [repo] },
+			host,
 		}),
 		getRepository({ repo, token, host }),
 	]);
+	const flagEnabled = variantData["dev-tools-types-builder-cloud"]?.value === "on";
 	return flagEnabled && repository.quotas?.sliceMachineEnabled === true;
 }
 
