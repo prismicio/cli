@@ -40,6 +40,7 @@ export function trackCommandStart(command: string, config: { watch?: boolean } =
 			repository,
 			watch,
 		},
+		groupId: repository ? { Repository: repository } : undefined,
 	});
 }
 
@@ -72,14 +73,14 @@ async function isTelemetryEnabled(): Promise<boolean> {
 		const userRc = await readJsonFile(
 			new URL(".prismicrc", appendTrailingSlash(pathToFileURL(homedir()))),
 			{ schema: PrismicRcSchema },
-		);
+		).catch(() => ({ telemetry: true }));
 		if (userRc.telemetry === false) return false;
 
 		// Check project-level .prismicrc
 		const projectRc = await readJsonFile(
 			new URL(".prismicrc", appendTrailingSlash(pathToFileURL(process.cwd()))),
 			{ schema: PrismicRcSchema },
-		);
+		).catch(() => ({ telemetry: true }));
 		if (projectRc.telemetry === false) return false;
 
 		return true;

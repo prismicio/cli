@@ -84,7 +84,10 @@ function flushEvents(config: { writeKey: string }): void {
 	try {
 		const payload = Buffer.from(
 			JSON.stringify({
-				trackEvents,
+				trackEvents: trackEvents.map((event) => ({
+					...event,
+					userId: event.userId || userId,
+				})),
 				identifyEvents,
 				writeKey,
 			}),
