@@ -8,8 +8,8 @@ import { env } from "../env";
 import { resolveEnvironment } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
-import { segmentTrackEnd, segmentTrackStart } from "../lib/segment";
 import { getRepositoryName } from "../project";
+import { trackCommandStart, trackCommandEnd } from "../tracking";
 
 const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
 const MAX_CONSECUTIVE_ERRORS = 5;
@@ -44,10 +44,10 @@ export default createCommand(config, async ({ values }) => {
 		? await resolveEnvironment(envFlag, { repo: parentRepo, token, host })
 		: parentRepo;
 
-	segmentTrackStart("sync", { watch: true });
+	trackCommandStart("sync", { watch: true });
 	process.on("SIGINT", () => {
 		console.info("\nWatch stopped. Goodbye!");
-		segmentTrackEnd("sync", { watch: true });
+		trackCommandEnd("sync", { watch: true });
 		process.exit(0);
 	});
 
