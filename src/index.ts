@@ -281,7 +281,7 @@ async function main(): Promise<void> {
 
 		if (error instanceof UnknownRequestError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
-				segmentTrackEnd(command, { error });
+				trackCommandEnd(command, { error });
 			}
 			const url = new URL(error.response.url);
 			// Prevent logging sensitive data like a token
