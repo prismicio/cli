@@ -34,13 +34,6 @@ import {
 	UnauthorizedRequestError,
 } from "./lib/request";
 import {
-	initSegment,
-	segmentIdentify,
-	segmentSetRepository,
-	segmentTrackEnd,
-	segmentTrackStart,
-} from "./lib/segment";
-import {
 	sentryCaptureError,
 	sentrySetContext,
 	sentrySetTag,
@@ -51,6 +44,13 @@ import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
 import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
+import {
+	initTracking,
+	setTrackedRepository,
+	trackCommandEnd,
+	trackCommandStart,
+	trackUser,
+} from "./tracking";
 
 const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs", "status"];
 
@@ -170,11 +170,13 @@ async function main(): Promise<void> {
 	if (typeof repo !== "string") repo = "";
 
 	if (!help) {
+		const host = await getHost();
+
 		setupSentry();
-		await initSegment();
+		await initTracking({ host });
 
 		if (repo) {
-			segmentSetRepository(repo);
+			setTrackedRepository(repo);
 			sentrySetTag("repository", repo);
 			sentrySetContext("Repository Data", { name: repo });
 		}
@@ -188,7 +190,6 @@ async function main(): Promise<void> {
 
 		const token = await getToken();
 		if (token) {
-			const host = await getHost();
 			const exp = decodePayload(token)?.exp;
 			const now = Date.now() / 1000;
 
@@ -199,7 +200,7 @@ async function main(): Promise<void> {
 			if (!exp || exp > now) {
 				getProfile({ token, host })
 					.then((profile) => {
-						segmentIdentify({ shortId: profile.shortId, intercomHash: profile.intercomHash });
+						trackUser(profile);
 						sentrySetUser({ id: profile.shortId });
 					})
 					.catch(() => {});
@@ -207,7 +208,7 @@ async function main(): Promise<void> {
 		}
 
 		if (command && !UNTRACKED_COMMANDS.includes(command)) {
-			segmentTrackStart(command);
+			trackCommandStart(command);
 		}
 	}
 
@@ -215,14 +216,14 @@ async function main(): Promise<void> {
 		await router();
 
 		if (command && !UNTRACKED_COMMANDS.includes(command)) {
-			segmentTrackEnd(command);
+			trackCommandEnd(command);
 		}
 	} catch (error) {
 		process.exitCode = 1;
 
 		if (error instanceof CommandError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
-				segmentTrackEnd(command);
+				trackCommandEnd(command);
 			}
 			console.error(dedent(error.message));
 			return;
@@ -230,7 +231,7 @@ async function main(): Promise<void> {
 
 		if (error instanceof NoSupportedFrameworkError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
-				segmentTrackEnd(command, { error });
+				trackCommandEnd(command, { error });
 			}
 			console.error(error.message);
 			return;
@@ -238,7 +239,7 @@ async function main(): Promise<void> {
 
 		if (error instanceof InvalidEnvironmentError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
-				segmentTrackEnd(command);
+				trackCommandEnd(command);
 			}
 			if (
 				error.availableEnvironments.length === 1 &&
@@ -261,7 +262,7 @@ async function main(): Promise<void> {
 
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
-				segmentTrackEnd(command, { error });
+				trackCommandEnd(command, { error });
 			}
 			console.error("Not logged in. Run `prismic login` first.");
 			return;
@@ -269,7 +270,7 @@ async function main(): Promise<void> {
 
 		if (error instanceof NotFoundRequestError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
-				segmentTrackEnd(command);
+				trackCommandEnd(command);
 			}
 			console.error(
 				error.message || "Not found. Verify the repository and any specified identifiers exist.",
@@ -279,7 +280,7 @@ async function main(): Promise<void> {
 
 		if (error instanceof InvalidPrismicConfigError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
-				segmentTrackEnd(command);
+				trackCommandEnd(command);
 			}
 			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
 			return;
@@ -287,7 +288,7 @@ async function main(): Promise<void> {
 
 		if (error instanceof MissingPrismicConfigError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
-				segmentTrackEnd(command);
+				trackCommandEnd(command);
 			}
 			console.error(`${error.message} Run \`prismic init\` to create a config.`);
 			return;
@@ -295,7 +296,7 @@ async function main(): Promise<void> {
 
 		if (error instanceof TypeBuilderRequiredError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
-				segmentTrackEnd(command);
+				trackCommandEnd(command);
 			}
 			console.error(dedent`
 				This command requires the Type Builder in your repository.
@@ -310,7 +311,7 @@ async function main(): Promise<void> {
 		}
 
 		if (!UNTRACKED_COMMANDS.includes(command)) {
-			segmentTrackEnd(command, { error });
+			trackCommandEnd(command, { error });
 		}
 		await sentryCaptureError(error);
 		throw error;
