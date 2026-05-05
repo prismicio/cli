@@ -1,151 +1,99 @@
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import packageJson from "../../package.json" with { type: "json" };
-import { env } from "../env";
-
-const SEGMENT_WRITE_KEY =
-	process.env.PRISMIC_ENV && process.env.PRISMIC_ENV !== "production"
-		? "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG"
-		: "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
+import { name as packageName, version as packageVersion } from "../../package.json";
 
 const SEGMENT_TRACK_URL = "https://api.segment.io/v1/track";
 const SEGMENT_IDENTIFY_URL = "https://api.segment.io/v1/identify";
 
-let enabled = false;
-let anonymousId = "";
+const trackEvents: TrackedEvent[] = [];
+const identifyEvents: TrackedIdentity[] = [];
+const anonymousId = crypto.randomUUID();
 let userId: string | undefined;
-let globalRepository: string | undefined;
-const appContext = { app: { name: packageJson.name, version: packageJson.version } };
-const trackQueue: Array<{
+
+type TrackedEvent = {
 	event: string;
 	properties: Record<string, unknown>;
-	context: Record<string, unknown>;
-}> = [];
-const identifyQueue: Array<Record<string, unknown>> = [];
-
-export async function initSegment(): Promise<void> {
-	try {
-		if (env.TEST) {
-			return;
-		}
-		enabled = await isTelemetryEnabled();
-		if (!enabled) {
-			return;
-		}
-
-		anonymousId = randomUUID();
-		process.on("exit", flushTelemetry);
-	} catch {
-		enabled = false;
-	}
-}
-
-export type TrackContext = { repository?: string; watch?: boolean };
-
-export function segmentTrackStart(command: string, context: TrackContext = {}): void {
-	if (!enabled) return;
-
-	const { repository = globalRepository, watch } = context;
-
-	const properties: Record<string, unknown> = {
-		commandType: command,
-		fullCommand: process.argv.join(" "),
+	context: {
+		app: { name: string; version: string };
+		groupId?: Record<string, string>;
 	};
-	if (repository) properties.repository = repository;
-	if (watch !== undefined) properties.watch = watch;
+	userId?: string;
+	anonymousId: string;
+	timestamp: string;
+};
 
-	trackQueue.push({
-		event: "Prismic CLI Start",
-		properties,
-		context: buildContext(repository),
-	});
+type TrackedIdentity = {
+	userId: string;
+	anonymousId: string;
+	integrations: { Intercom: { user_hash: string } };
+	context: { app: { name: string; version: string } };
+	timestamp: string;
+};
+
+export async function initSegment(config: { writeKey: string }): Promise<void> {
+	const { writeKey } = config;
+	process.on("exit", () => flushEvents({ writeKey }));
 }
 
-export function segmentTrackEnd(
-	command: string,
-	context: TrackContext & { success?: boolean; error?: unknown } = {},
-): void {
-	if (!enabled) return;
-
-	const { success = !process.exitCode, error, repository = globalRepository, watch } = context;
-
-	const properties: Record<string, unknown> = {
-		commandType: command,
-		fullCommand: process.argv.join(" "),
-		success,
-	};
-	if (repository) properties.repository = repository;
-	if (watch !== undefined) properties.watch = watch;
-	if (error !== undefined) {
-		const message = error instanceof Error ? error.message : String(error);
-		properties.error = message.slice(0, 512);
-	}
-
-	trackQueue.push({
-		event: "Prismic CLI End",
-		properties,
-		context: buildContext(repository),
-	});
-}
-
-export function segmentIdentify(profile: { shortId: string; intercomHash: string }): void {
-	if (!enabled) {
-		return;
-	}
-
-	userId = profile.shortId;
-
-	identifyQueue.push({
-		userId,
+export function trackIdentity(identity: { userId: string; intercomHash: string }): void {
+	userId = identity.userId;
+	identifyEvents.push({
+		userId: identity.userId,
 		anonymousId,
-		integrations: { Intercom: { user_hash: profile.intercomHash } },
-		context: appContext,
+		integrations: { Intercom: { user_hash: identity.intercomHash } },
+		context: {
+			app: {
+				name: packageName,
+				version: packageVersion,
+			},
+		},
 		timestamp: new Date().toISOString(),
 	});
 }
 
-export function segmentSetRepository(repo: string): void {
-	globalRepository = repo;
+export function trackEvent(
+	event: string,
+	config: { properties?: Record<string, unknown>; groupId?: Record<string, string> } = {},
+): void {
+	const { properties, groupId } = config;
+	trackEvents.push({
+		event,
+		properties: {
+			nodeVersion: process.versions.node,
+			...properties,
+		},
+		context: {
+			app: {
+				name: packageName,
+				version: packageVersion,
+			},
+			groupId,
+		},
+		userId,
+		anonymousId,
+		timestamp: new Date().toISOString(),
+	});
 }
 
-function buildContext(repository: string | undefined): Record<string, unknown> {
-	const context: Record<string, unknown> = { ...appContext };
-	if (repository) context.groupId = { Repository: repository };
-	return context;
-}
+function flushEvents(config: { writeKey: string }): void {
+	const { writeKey } = config;
 
-/**
- * Spawns a detached subprocess to send queued telemetry events.
- * The main process exits immediately; the subprocess handles HTTP delivery.
- */
-function flushTelemetry(): void {
-	if (trackQueue.length === 0 && identifyQueue.length === 0) {
-		return;
-	}
+	if (trackEvents.length === 0 && identifyEvents.length === 0) return;
 
 	try {
 		const payload = Buffer.from(
 			JSON.stringify({
-				trackEvents: trackQueue.map((e) => ({
-					...(userId ? { userId } : {}),
-					anonymousId,
-					event: e.event,
-					properties: { nodeVersion: process.versions.node, ...e.properties },
-					context: e.context,
-					timestamp: new Date().toISOString(),
+				trackEvents: trackEvents.map((event) => ({
+					...event,
+					userId: event.userId || userId,
 				})),
-				identifyEvents: identifyQueue,
+				identifyEvents,
+				writeKey,
 			}),
 		).toString("base64");
 
-		const script = fileURLToPath(
-			new URL("./subprocesses/sendSegmentEvents.mjs", import.meta.url),
-		);
+		const script = fileURLToPath(new URL("./subprocesses/sendSegmentEvents.mjs", import.meta.url));
 		const child = spawn(process.execPath, [script, payload], {
 			detached: true,
 			stdio: "ignore",
@@ -155,17 +103,18 @@ function flushTelemetry(): void {
 		// Silent failure — never breaks the CLI
 	}
 
-	trackQueue.length = 0;
-	identifyQueue.length = 0;
+	trackEvents.length = 0;
+	identifyEvents.length = 0;
 }
 
 export async function sendSegmentEvents(
 	trackEvents: unknown[],
 	identifyEvents: unknown[],
+	writeKey: string,
 ): Promise<void> {
 	const headers = {
 		"Content-Type": "application/json",
-		Authorization: `Basic ${btoa(SEGMENT_WRITE_KEY + ":")}`,
+		Authorization: `Basic ${btoa(writeKey + ":")}`,
 	};
 
 	await Promise.allSettled([
@@ -180,33 +129,4 @@ export async function sendSegmentEvents(
 			),
 		),
 	]);
-}
-
-async function isTelemetryEnabled(): Promise<boolean> {
-	try {
-		// Check user-level .prismicrc
-		const userRc = await readJsonFile(join(homedir(), ".prismicrc"));
-		if (userRc?.telemetry === false) {
-			return false;
-		}
-
-		// Check project-level .prismicrc
-		const projectRc = await readJsonFile(join(process.cwd(), ".prismicrc"));
-		if (projectRc?.telemetry === false) {
-			return false;
-		}
-
-		return true;
-	} catch {
-		return true;
-	}
-}
-
-async function readJsonFile(path: string): Promise<Record<string, unknown> | undefined> {
-	try {
-		const contents = await readFile(path, "utf8");
-		return JSON.parse(contents);
-	} catch {
-		return undefined;
-	}
 }
