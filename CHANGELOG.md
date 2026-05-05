@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.2](https://github.com/prismicio/cli/compare/v1.7.1...v1.7.2) (2026-05-05)
+
+
+### Bug Fixes
+
+* derive Amplitude server URL from host ([#173](https://github.com/prismicio/cli/issues/173)) ([cc6f2d7](https://github.com/prismicio/cli/commit/cc6f2d7a1c7ae90162f5fe0b1d984f2f8c0af861))
+* rename stray segmentTrackEnd call to trackCommandEnd ([#177](https://github.com/prismicio/cli/issues/177)) ([90818aa](https://github.com/prismicio/cli/commit/90818aad321200d62a60388dd93c08719c36af92))
+
 ## [1.7.1](https://github.com/prismicio/cli/compare/v1.7.0...v1.7.1) (2026-05-02)
 
 
