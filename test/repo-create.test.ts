@@ -33,7 +33,7 @@ it("creates a repository using --name as the domain", async ({
 	expect(repository.name).toBe(name);
 });
 
-it("rejects a non-kebab-case --name", async ({ expect, prismic }) => {
+it("rejects --name with disallowed characters", async ({ expect, prismic }) => {
 	const { stderr, exitCode } = await prismic("repo", ["create", "--name", "My Test Repo"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Invalid repository name");
