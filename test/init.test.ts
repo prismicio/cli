@@ -1,6 +1,9 @@
 import { access, readFile, rm, writeFile } from "node:fs/promises";
 
+import { onTestFinished } from "vitest";
+
 import { captureOutput, it } from "./it";
+import { deleteRepository } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("init", ["--help"]);
@@ -14,14 +17,19 @@ it("fails if prismic.config.json already exists", async ({ expect, prismic }) =>
 	expect(stderr).toContain("already initialized");
 });
 
-it("creates a repo from --name if --repo is not provided", async ({
+it("creates a repo when --repo doesn't exist yet", async ({
 	expect,
 	project,
 	prismic,
+	token,
+	host,
+	password,
 }) => {
 	await rm(new URL("prismic.config.json", project));
 	const name = `cli-test-${crypto.randomUUID().slice(0, 8)}`;
-	const { exitCode, stdout } = await prismic("init", ["--name", name]);
+	onTestFinished(() => deleteRepository(name, { token, password, host }));
+
+	const { exitCode, stdout } = await prismic("init", ["--repo", name]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Created repository: ${name}`);
 	expect(stdout).toContain(`Initialized Prismic for repository "${name}"`);
@@ -31,11 +39,11 @@ it("creates a repo from --name if --repo is not provided", async ({
 	expect(config.repositoryName).toBe(name);
 }, 60_000);
 
-it("fails when neither --repo nor --name is provided", async ({ expect, project, prismic }) => {
+it("fails when --repo is not provided", async ({ expect, project, prismic }) => {
 	await rm(new URL("prismic.config.json", project));
 	const { exitCode, stderr } = await prismic("init");
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Missing repository");
+	expect(stderr).toContain("Missing --repo");
 });
 
 it("initializes a project with --repo when logged in", async ({
@@ -67,11 +75,12 @@ it("triggers login flow when not logged in", async ({ expect, project, prismic, 
 	proc.kill();
 });
 
-it("fails if repo is not in the user's account", async ({ expect, project, prismic }) => {
+it("fails if --repo is taken by another account", async ({ expect, project, prismic }) => {
 	await rm(new URL("prismic.config.json", project));
-	const { exitCode, stderr } = await prismic("init", ["--repo", "nonexistent-repo-xyz-12345"]);
+	// "prismic" is reserved/taken and will fail availability check.
+	const { exitCode, stderr } = await prismic("init", ["--repo", "prismic"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("not found in your account");
+	expect(stderr).toContain("not in your account");
 });
 
 it("migrates slicemachine.config.json", async ({ expect, project, prismic, repo }) => {

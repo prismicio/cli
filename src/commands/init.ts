@@ -4,6 +4,7 @@ import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { getProfile } from "../clients/user";
+import { checkIsDomainAvailable } from "../clients/wroom";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -34,17 +35,7 @@ const config = {
 		migrated.
 	`,
 	options: {
-		repo: { type: "string", short: "r", description: "Existing repository to connect to" },
-		name: {
-			type: "string",
-			short: "n",
-			description: "Name for a new repository (used as the domain). Required unless --repo is provided",
-		},
-		"display-name": {
-			type: "string",
-			short: "d",
-			description: "Display name for the new repository (defaults to --name)",
-		},
+		repo: { type: "string", short: "r", description: "Repository name (created if it doesn't exist)" },
 		"no-browser": {
 			type: "boolean",
 			description: "Skip opening the browser automatically during login",
@@ -53,12 +44,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const {
-		repo: explicitRepo,
-		name,
-		"display-name": displayName,
-		"no-browser": noBrowser,
-	} = values;
+	const { repo: explicitRepo, "no-browser": noBrowser } = values;
 
 	// Check for existing prismic.config.json
 	try {
@@ -112,14 +98,14 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	let repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
-	if (repo) {
-		const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
-		if (!hasRepoAccess) {
-			throw new CommandError(
-				`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
-			);
-		}
+	if (!repo) {
+		throw new CommandError(
+			"Missing --repo. Provide the repository to connect to (or to create if it doesn't exist).",
+		);
+	}
 
+	const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
+	if (hasRepoAccess) {
 		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
 		if (!isTypeBuilderEnabled) {
 			throw new TypeBuilderRequiredError();
@@ -128,13 +114,14 @@ export default createCommand(config, async ({ values }) => {
 
 	const adapter = await getAdapter();
 
-	if (!repo) {
-		if (!name) {
+	if (!hasRepoAccess) {
+		const available = await checkIsDomainAvailable({ domain: repo, token, host });
+		if (!available) {
 			throw new CommandError(
-				"Missing repository. Provide --repo to connect to an existing repository, or --name to create a new one.",
+				`Repository "${repo}" exists but is not in your account. Request access, or choose a different name.`,
 			);
 		}
-		repo = await createRepo({ name, displayName, token, host });
+		repo = await createRepo({ name: repo, token, host });
 		console.info(`Created repository: ${repo}`);
 	}
 
