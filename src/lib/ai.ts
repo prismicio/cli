@@ -3,13 +3,16 @@ import { exists } from "./file";
 export async function detectAgent(): Promise<string | undefined> {
 	if (process.env.AI_AGENT) return process.env.AI_AGENT.toLowerCase();
 
-	if (process.env.CLAUDE_CODE_IS_COWORK === "1" || process.env.CLAUDE_CODE_IS_COWORK === "true")
+	if (process.env.CLAUDE_CODE_IS_COWORK === "1" || process.env.CLAUDE_CODE_IS_COWORK === "true") {
 		return "claude-cowork";
+	}
 	if (process.env.CLAUDECODE === "1" || process.env.CLAUDE_CODE) return "claude-code";
-	if (process.env.CODEX_CI === "1" || process.env.CODEX_SANDBOX || process.env.CODEX_THREAD_ID)
+	if (process.env.CODEX_CI === "1" || process.env.CODEX_SANDBOX || process.env.CODEX_THREAD_ID) {
 		return "codex";
-	if (process.env.CURSOR_AGENT === "1" || process.env.CURSOR_EXTENSION_HOST_ROLE === "agent-exec")
+	}
+	if (process.env.CURSOR_AGENT === "1" || process.env.CURSOR_EXTENSION_HOST_ROLE === "agent-exec") {
 		return "cursor";
+	}
 	if (process.env.CLINE_ACTIVE === "true") return "cline";
 	if (process.env.ANTIGRAVITY_AGENT) return "antigravity";
 	if (process.env.AUGMENT_AGENT === "1") return "augment";
@@ -21,8 +24,9 @@ export async function detectAgent(): Promise<string | undefined> {
 		process.env.COPILOT_MODEL ||
 		process.env.COPILOT_ALLOW_ALL ||
 		process.env.COPILOT_GITHUB_TOKEN
-	)
+	) {
 		return "github-copilot";
+	}
 
 	const agent = process.env.AGENT?.toLowerCase();
 	if (agent === "goose" || agent === "amp") return agent;
