@@ -3,6 +3,7 @@ import type { Profile } from "../clients/user";
 import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
+import { completeOnboardingStepsSilently } from "../clients/onboarding";
 import { getProfile } from "../clients/user";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
@@ -192,6 +193,13 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	await adapter.generateTypes();
+
+	await completeOnboardingStepsSilently({
+		repo,
+		token,
+		host,
+		stepIds: ["createProject", "setupSliceMachine", "chooseLocale"],
+	});
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");

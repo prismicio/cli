@@ -3,7 +3,10 @@ import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 import { snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
+import { getHost, getToken } from "../auth";
+import { completeOnboardingStepsSilently } from "../clients/onboarding";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { readConfig } from "../project";
 
 const config = {
 	name: "prismic type create",
@@ -98,6 +101,22 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const adapter = await getAdapter();
 	await adapter.createCustomType(model);
 	await adapter.generateTypes();
+
+	if (format === "page") {
+		try {
+			const [{ repositoryName }, token, host] = await Promise.all([
+				readConfig(),
+				getToken(),
+				getHost(),
+			]);
+			await completeOnboardingStepsSilently({
+				repo: repositoryName,
+				token,
+				host,
+				stepIds: ["createPageType"],
+			});
+		} catch {}
+	}
 
 	console.info(`Created type "${name}" (id: "${id}", format: "${format}")`);
 	console.info(`Run \`prismic field add <type> --to-type ${id}\` to add fields.`);

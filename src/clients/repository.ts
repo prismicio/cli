@@ -37,6 +37,6 @@ export async function getRepository(config: {
 	}
 }
 
-function getRepositoryServiceUrl(host: string): URL {
+export function getRepositoryServiceUrl(host: string): URL {
 	return new URL(`https://api.internal.${host}/repository/`);
 }
