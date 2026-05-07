@@ -38,12 +38,10 @@ export async function getVariantData(
 
 function getAmplitudeApiKey(host: string): string {
 	if (host === DEFAULT_PRISMIC_HOST) return PROD_API_KEY;
-	if (host === WROOM_PRISMIC_HOST) return WROOM_API_KEY;
-	throw new Error(
-		`The Amplitude service is only supported in: ${DEFAULT_PRISMIC_HOST}, ${WROOM_PRISMIC_HOST}`,
-	);
+	return WROOM_API_KEY;
 }
 
 function getAmplitudeServiceUrl(host: string): URL {
-	return new URL(`https://amplitude.${host}/`);
+	if (host === DEFAULT_PRISMIC_HOST) return new URL(`https://amplitude.${DEFAULT_PRISMIC_HOST}/`);
+	return new URL(`https://amplitude.${WROOM_PRISMIC_HOST}/`);
 }
