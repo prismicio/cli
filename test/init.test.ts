@@ -14,21 +14,29 @@ it("fails if prismic.config.json already exists", async ({ expect, prismic }) =>
 	expect(stderr).toContain("already initialized");
 });
 
-it("creates a repo if --repo is not provided and no legacy config exists", async ({
+it("creates a repo from --name if --repo is not provided", async ({
 	expect,
 	project,
 	prismic,
 }) => {
 	await rm(new URL("prismic.config.json", project));
-	const { exitCode, stdout } = await prismic("init");
+	const name = `cli-test-${crypto.randomUUID().slice(0, 8)}`;
+	const { exitCode, stdout } = await prismic("init", ["--name", name]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("Created repository:");
-	expect(stdout).toContain("Initialized Prismic for repository");
+	expect(stdout).toContain(`Created repository: ${name}`);
+	expect(stdout).toContain(`Initialized Prismic for repository "${name}"`);
 
 	const configRaw = await readFile(new URL("prismic.config.json", project), "utf-8");
 	const config = JSON.parse(configRaw);
-	expect(config.repositoryName).toMatch(/^[a-f0-9]{8}$/);
+	expect(config.repositoryName).toBe(name);
 }, 60_000);
+
+it("fails when neither --repo nor --name is provided", async ({ expect, project, prismic }) => {
+	await rm(new URL("prismic.config.json", project));
+	const { exitCode, stderr } = await prismic("init");
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Missing repository");
+});
 
 it("initializes a project with --repo when logged in", async ({
 	expect,

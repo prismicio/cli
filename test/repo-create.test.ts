@@ -9,31 +9,74 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic repo create [options]");
 });
 
-it("creates a repository", async ({ expect, prismic, token, host, password }) => {
-	const { stdout, exitCode } = await prismic("repo", ["create"]);
-	expect(exitCode).toBe(0);
-	expect(stdout).toContain("Repository created:");
-
-	const domain = stdout.match(/Repository created: (\S+)/)?.[1];
-	expect(domain).toBeDefined();
-
-	onTestFinished(() => deleteRepository(domain!, { token, password, host }));
-
-	const repository = await getRepository({ repo: domain!, token, host });
-	expect(repository).toBeDefined();
+it("requires --name", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("repo", ["create"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Missing required option: --name");
 });
 
-it("creates a repository with a name", async ({ expect, prismic, token, host, password }) => {
-	const name = `Test ${crypto.randomUUID().slice(0, 8)}`;
+it("creates a repository using --name as the domain", async ({
+	expect,
+	prismic,
+	token,
+	host,
+	password,
+}) => {
+	const name = `cli-test-${crypto.randomUUID().slice(0, 8)}`;
 	const { stdout, exitCode } = await prismic("repo", ["create", "--name", name]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("Repository created:");
+	expect(stdout).toContain(`Repository created: ${name}`);
 
-	const domain = stdout.match(/Repository created: (\S+)/)?.[1];
-	expect(domain).toBeDefined();
+	onTestFinished(() => deleteRepository(name, { token, password, host }));
 
-	onTestFinished(() => deleteRepository(domain!, { token, password, host }));
-
-	const repository = await getRepository({ repo: domain!, token, host });
+	const repository = await getRepository({ repo: name, token, host });
 	expect(repository.name).toBe(name);
+});
+
+it("kebab-cases --name into a valid domain", async ({
+	expect,
+	prismic,
+	token,
+	host,
+	password,
+}) => {
+	const suffix = crypto.randomUUID().slice(0, 8);
+	const name = `CLI Test ${suffix}`;
+	const expectedDomain = `cli-test-${suffix}`;
+	const { stdout, exitCode } = await prismic("repo", ["create", "--name", name]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain(`Repository created: ${expectedDomain}`);
+
+	onTestFinished(() => deleteRepository(expectedDomain, { token, password, host }));
+});
+
+it("uses --display-name as the repository label", async ({
+	expect,
+	prismic,
+	token,
+	host,
+	password,
+}) => {
+	const name = `cli-test-${crypto.randomUUID().slice(0, 8)}`;
+	const displayName = "My Display Name";
+	const { stdout, exitCode } = await prismic("repo", [
+		"create",
+		"--name",
+		name,
+		"--display-name",
+		displayName,
+	]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain(`Repository created: ${name}`);
+
+	onTestFinished(() => deleteRepository(name, { token, password, host }));
+
+	const repository = await getRepository({ repo: name, token, host });
+	expect(repository.name).toBe(displayName);
+});
+
+it("fails with guidance when --name is invalid", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("repo", ["create", "--name", "!!"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Invalid repository name");
 });

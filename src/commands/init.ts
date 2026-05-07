@@ -34,7 +34,17 @@ const config = {
 		migrated.
 	`,
 	options: {
-		repo: { type: "string", short: "r", description: "Repository name" },
+		repo: { type: "string", short: "r", description: "Existing repository to connect to" },
+		name: {
+			type: "string",
+			short: "n",
+			description: "Name for a new repository (used as the domain). Required unless --repo is provided",
+		},
+		"display-name": {
+			type: "string",
+			short: "d",
+			description: "Display name for the new repository (defaults to --name)",
+		},
 		"no-browser": {
 			type: "boolean",
 			description: "Skip opening the browser automatically during login",
@@ -43,7 +53,12 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: explicitRepo, "no-browser": noBrowser } = values;
+	const {
+		repo: explicitRepo,
+		name,
+		"display-name": displayName,
+		"no-browser": noBrowser,
+	} = values;
 
 	// Check for existing prismic.config.json
 	try {
@@ -114,7 +129,12 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
 
 	if (!repo) {
-		repo = await createRepo({ token, host });
+		if (!name) {
+			throw new CommandError(
+				"Missing repository. Provide --repo to connect to an existing repository, or --name to create a new one.",
+			);
+		}
+		repo = await createRepo({ name, displayName, token, host });
 		console.info(`Created repository: ${repo}`);
 	}
 
