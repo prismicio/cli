@@ -3,7 +3,7 @@ import { getHost, getToken } from "../auth";
 import { checkIsDomainAvailable, createRepository } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
-import { formatRepositoryDomain, validateRepositoryDomain } from "../lib/repositoryDomain";
+import { validateRepositoryDomain } from "../lib/repositoryDomain";
 
 const config = {
 	name: "prismic repo create",
@@ -42,13 +42,12 @@ export async function createRepo(config: {
 }): Promise<string> {
 	const { name, displayName, token, host } = config;
 
-	const domain = formatRepositoryDomain(name);
-	validateRepositoryDomain(domain);
+	validateRepositoryDomain(name);
 
-	const available = await checkIsDomainAvailable({ domain, token, host });
+	const available = await checkIsDomainAvailable({ domain: name, token, host });
 	if (!available) {
 		throw new CommandError(
-			`Repository name "${domain}" is already taken. Choose another.`,
+			`Repository name "${name}" is already taken. Choose another.`,
 		);
 	}
 
@@ -57,7 +56,7 @@ export async function createRepo(config: {
 
 	try {
 		await createRepository({
-			domain,
+			domain: name,
 			name: displayName ?? name,
 			framework,
 			token,
@@ -71,5 +70,5 @@ export async function createRepo(config: {
 		throw error;
 	}
 
-	return domain;
+	return name;
 }

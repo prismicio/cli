@@ -33,21 +33,10 @@ it("creates a repository using --name as the domain", async ({
 	expect(repository.name).toBe(name);
 });
 
-it("kebab-cases --name into a valid domain", async ({
-	expect,
-	prismic,
-	token,
-	host,
-	password,
-}) => {
-	const suffix = crypto.randomUUID().slice(0, 8);
-	const name = `CLI Test ${suffix}`;
-	const expectedDomain = `cli-test-${suffix}`;
-	const { stdout, exitCode } = await prismic("repo", ["create", "--name", name]);
-	expect(exitCode).toBe(0);
-	expect(stdout).toContain(`Repository created: ${expectedDomain}`);
-
-	onTestFinished(() => deleteRepository(expectedDomain, { token, password, host }));
+it("rejects a non-kebab-case --name", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("repo", ["create", "--name", "My Test Repo"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Invalid repository name");
 });
 
 it("uses --display-name as the repository label", async ({
