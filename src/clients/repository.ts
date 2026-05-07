@@ -38,14 +38,10 @@ export async function getRepository(config: {
 }
 
 export type OnboardingStep =
-	| "createProject"
-	| "setupSliceMachine"
-	| "chooseLocale"
-	| "createSlice"
+	| "createPrismicProject"
 	| "createPageType"
-	| "codePage"
-	| "reviewAndPush"
-	| "createContent";
+	| "createSlice"
+	| "connectPrismic";
 
 const OnboardingStateSchema = z.object({
 	completedSteps: z.array(z.string()),
