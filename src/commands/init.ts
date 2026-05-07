@@ -98,37 +98,35 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
-	let hasRepoAccess = false;
-	if (repo) {
-		hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
-		if (!hasRepoAccess) {
-			const parsed = repositoryNameSchema.safeParse(repo);
-			if (!parsed.success) {
-				throw new CommandError(
-					`Invalid repository name "${repo}": ${parsed.error.issues[0]?.message ?? "Invalid value"}`,
-				);
-			}
-			const available = await checkIsDomainAvailable({ domain: repo, token, host });
-			if (!available) {
-				throw new CommandError(
-					`Repository "${repo}" is not in your account. Request access, or choose a different name.`,
-				);
-			}
-		} else {
-			const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
-			if (!isTypeBuilderEnabled) {
-				throw new TypeBuilderRequiredError();
-			}
-		}
-	}
-
-	const adapter = await getAdapter();
-
 	if (!repo) {
 		throw new CommandError(
 			"Missing --repo. Provide the repository to connect to (or to create if it doesn't exist).",
 		);
 	}
+
+	const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
+	if (!hasRepoAccess) {
+		const parsed = repositoryNameSchema.safeParse(repo);
+		if (!parsed.success) {
+			throw new CommandError(
+				`Invalid repository name "${repo}": ${parsed.error.issues[0]?.message ?? "Invalid value"}`,
+			);
+		}
+		const available = await checkIsDomainAvailable({ domain: repo, token, host });
+		if (!available) {
+			throw new CommandError(
+				`Repository "${repo}" is not in your account. Request access, or choose a different name.`,
+			);
+		}
+	} else {
+		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+		if (!isTypeBuilderEnabled) {
+			throw new TypeBuilderRequiredError();
+		}
+	}
+
+	const adapter = await getAdapter();
+
 	if (!hasRepoAccess) {
 		repo = await createRepo({ name: repo, token, host });
 		console.info(`Created repository: ${repo}`);
