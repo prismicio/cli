@@ -198,7 +198,7 @@ export default createCommand(config, async ({ values }) => {
 		repo,
 		token,
 		host,
-		stepIds: ["createProject", "setupSliceMachine", "chooseLocale"],
+		stepIds: ["createProject", "chooseLocale"],
 	});
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
