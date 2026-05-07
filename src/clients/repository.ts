@@ -82,7 +82,9 @@ export async function completeOnboardingStepsSilently(
 ): Promise<void> {
 	try {
 		await completeOnboardingSteps(config);
-	} catch {}
+	} catch {
+		// Ignore errors
+	}
 }
 
 function getRepositoryServiceUrl(host: string): URL {
