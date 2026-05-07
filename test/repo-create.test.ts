@@ -56,7 +56,7 @@ it("lowercases --name before submitting", async ({
 it("rejects --name with disallowed characters", async ({ expect, prismic }) => {
 	const { stderr, exitCode } = await prismic("repo", ["create", "--name", "My Test Repo"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Invalid repository name");
+	expect(stderr).toContain("Invalid --name:");
 });
 
 it("uses --display-name as the repository label", async ({
@@ -87,5 +87,5 @@ it("uses --display-name as the repository label", async ({
 it("fails with guidance when --name is invalid", async ({ expect, prismic }) => {
 	const { stderr, exitCode } = await prismic("repo", ["create", "--name", "!!"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Invalid repository name");
+	expect(stderr).toContain("Invalid --name:");
 });

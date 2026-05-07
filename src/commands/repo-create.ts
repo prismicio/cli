@@ -1,20 +1,10 @@
+import * as z from "zod/mini";
+
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { checkIsDomainAvailable, createRepository } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
-
-const DOMAIN_REGEX = /^[a-zA-Z0-9][-a-zA-Z0-9]{2,}[a-zA-Z0-9]$/;
-const MIN_LENGTH = 4;
-const MAX_LENGTH = 63;
-
-export function validateRepositoryDomain(name: string): void {
-	if (name.length < MIN_LENGTH || name.length > MAX_LENGTH || !DOMAIN_REGEX.test(name)) {
-		throw new CommandError(
-			`Invalid repository name "${name}". Must be ${MIN_LENGTH}–${MAX_LENGTH} characters, letters/numbers/hyphens only, and start and end with a letter or number.`,
-		);
-	}
-}
 
 const config = {
 	name: "prismic repo create",
@@ -25,6 +15,16 @@ const config = {
 			short: "n",
 			description: "Repository name (used as the domain)",
 			required: true,
+			schema: z
+				.string()
+				.check(
+					z.minLength(4, "Must be at least 4 characters"),
+					z.maxLength(63, "Must be at most 63 characters"),
+					z.regex(
+						/^[a-zA-Z0-9][-a-zA-Z0-9]{2,}[a-zA-Z0-9]$/,
+						"Must contain only letters, numbers, and hyphens, and start and end with a letter or number",
+					),
+				),
 		},
 		"display-name": {
 			type: "string",
@@ -53,7 +53,6 @@ export async function createRepo(config: {
 }): Promise<string> {
 	const { name, displayName, token, host } = config;
 
-	validateRepositoryDomain(name);
 	const domain = name.toLowerCase();
 
 	const available = await checkIsDomainAvailable({ domain, token, host });
