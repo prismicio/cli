@@ -6,6 +6,17 @@ import { checkIsDomainAvailable, createRepository } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 
+export const repositoryNameSchema = z
+	.string()
+	.check(
+		z.minLength(4, "Must be at least 4 characters"),
+		z.maxLength(63, "Must be at most 63 characters"),
+		z.regex(
+			/^[a-zA-Z0-9][-a-zA-Z0-9]{2,}[a-zA-Z0-9]$/,
+			"Must contain only letters, numbers, and hyphens, and start and end with a letter or number",
+		),
+	);
+
 const config = {
 	name: "prismic repo create",
 	description: "Create a new Prismic repository.",
@@ -15,16 +26,7 @@ const config = {
 			short: "n",
 			description: "Repository name (used as the domain)",
 			required: true,
-			schema: z
-				.string()
-				.check(
-					z.minLength(4, "Must be at least 4 characters"),
-					z.maxLength(63, "Must be at most 63 characters"),
-					z.regex(
-						/^[a-zA-Z0-9][-a-zA-Z0-9]{2,}[a-zA-Z0-9]$/,
-						"Must contain only letters, numbers, and hyphens, and start and end with a letter or number",
-					),
-				),
+			schema: repositoryNameSchema,
 		},
 		"display-name": {
 			type: "string",

@@ -21,7 +21,7 @@ import {
 	UnknownProjectRootError,
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
-import { createRepo } from "./repo-create";
+import { createRepo, repositoryNameSchema } from "./repo-create";
 
 const config = {
 	name: "prismic init",
@@ -97,11 +97,17 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	let repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
+	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
 	let hasRepoAccess = false;
 	if (repo) {
 		hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
 		if (!hasRepoAccess) {
+			const parsed = repositoryNameSchema.safeParse(repo);
+			if (!parsed.success) {
+				throw new CommandError(
+					`Invalid repository name "${repo}": ${parsed.error.issues[0]?.message ?? "Invalid value"}`,
+				);
+			}
 			const available = await checkIsDomainAvailable({ domain: repo, token, host });
 			if (!available) {
 				throw new CommandError(
