@@ -37,6 +37,16 @@ export async function getRepository(config: {
 	}
 }
 
+export type OnboardingStep =
+	| "createProject"
+	| "setupSliceMachine"
+	| "chooseLocale"
+	| "createSlice"
+	| "createPageType"
+	| "codePage"
+	| "reviewAndPush"
+	| "createContent";
+
 const OnboardingStateSchema = z.object({
 	completedSteps: z.array(z.string()),
 });
@@ -59,7 +69,7 @@ export async function getOnboardingState(config: OnboardingConfig): Promise<Onbo
 }
 
 export async function completeOnboardingSteps(
-	config: OnboardingConfig & { stepIds: string[] },
+	config: OnboardingConfig & { stepIds: OnboardingStep[] },
 ): Promise<void> {
 	const { repo, token, host, stepIds } = config;
 	const { completedSteps } = await getOnboardingState({ repo, token, host });
@@ -78,7 +88,7 @@ export async function completeOnboardingSteps(
 }
 
 export async function completeOnboardingStepsSilently(
-	config: OnboardingConfig & { stepIds: string[] },
+	config: OnboardingConfig & { stepIds: OnboardingStep[] },
 ): Promise<void> {
 	try {
 		await completeOnboardingSteps(config);

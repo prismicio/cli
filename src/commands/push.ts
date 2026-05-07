@@ -12,7 +12,10 @@ import {
 	updateCustomType,
 	updateSlice,
 } from "../clients/custom-types";
-import { completeOnboardingStepsSilently } from "../clients/repository";
+import {
+	completeOnboardingStepsSilently,
+	type OnboardingStep,
+} from "../clients/repository";
 import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
@@ -144,7 +147,7 @@ export default createCommand(config, async ({ values }) => {
 		await removeSlice(id, { repo, token, host });
 	}
 
-	const onboardingSteps: string[] = [];
+	const onboardingSteps: OnboardingStep[] = [];
 	if (sliceOps.insert.length > 0) {
 		onboardingSteps.push("createSlice");
 	}
