@@ -5,6 +5,7 @@ import * as z from "zod/mini";
 import type { Profile } from "./clients/user";
 
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
+import { detectAgent } from "./lib/ai";
 import { readJsonFile } from "./lib/file";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
@@ -13,6 +14,7 @@ const PROD_WRITE_KEY = "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
 const STAGING_WRITE_KEY = "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG";
 
 let repository: string | undefined;
+let agent: string | undefined;
 
 export async function initTracking(config: { host: string }): Promise<void> {
 	if (env.TEST) return;
@@ -20,6 +22,7 @@ export async function initTracking(config: { host: string }): Promise<void> {
 	const enabled = await isTelemetryEnabled();
 	if (!enabled) return;
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
+	agent = await detectAgent();
 	await initSegment({ writeKey });
 }
 
@@ -39,6 +42,7 @@ export function trackCommandStart(command: string, config: { watch?: boolean } =
 			fullCommand: process.argv.join(" "),
 			repository,
 			watch,
+			agent,
 		},
 		groupId: repository ? { Repository: repository } : undefined,
 	});
@@ -58,6 +62,7 @@ export function trackCommandEnd(
 			repository,
 			watch,
 			error: errorMessage?.slice(0, 512),
+			agent,
 		},
 		groupId: repository ? { Repository: repository } : undefined,
 	});
