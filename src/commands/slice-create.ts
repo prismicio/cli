@@ -4,7 +4,7 @@ import { snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { completeOnboardingStepsSilently } from "../clients/onboarding";
+import { completeOnboardingStepsSilently } from "../clients/repository";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { readConfig } from "../project";
 

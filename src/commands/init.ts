@@ -3,7 +3,7 @@ import type { Profile } from "../clients/user";
 import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
-import { completeOnboardingStepsSilently } from "../clients/onboarding";
+import { completeOnboardingStepsSilently } from "../clients/repository";
 import { getProfile } from "../clients/user";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
