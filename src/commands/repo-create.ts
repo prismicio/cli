@@ -43,11 +43,12 @@ export async function createRepo(config: {
 	const { name, displayName, token, host } = config;
 
 	validateRepositoryDomain(name);
+	const domain = name.toLowerCase();
 
-	const available = await checkIsDomainAvailable({ domain: name, token, host });
+	const available = await checkIsDomainAvailable({ domain, token, host });
 	if (!available) {
 		throw new CommandError(
-			`Repository name "${name}" is already taken. Choose another.`,
+			`Repository name "${domain}" is already taken. Choose another.`,
 		);
 	}
 
@@ -56,7 +57,7 @@ export async function createRepo(config: {
 
 	try {
 		await createRepository({
-			domain: name,
+			domain,
 			name: displayName ?? name,
 			framework,
 			token,
@@ -70,5 +71,5 @@ export async function createRepo(config: {
 		throw error;
 	}
 
-	return name;
+	return domain;
 }

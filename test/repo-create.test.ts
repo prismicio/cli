@@ -33,6 +33,26 @@ it("creates a repository using --name as the domain", async ({
 	expect(repository.name).toBe(name);
 });
 
+it("lowercases --name before submitting", async ({
+	expect,
+	prismic,
+	token,
+	host,
+	password,
+}) => {
+	const suffix = crypto.randomUUID().slice(0, 8);
+	const name = `CLI-Test-${suffix}`;
+	const expectedDomain = name.toLowerCase();
+	const { stdout, exitCode } = await prismic("repo", ["create", "--name", name]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain(`Repository created: ${expectedDomain}`);
+
+	onTestFinished(() => deleteRepository(expectedDomain, { token, password, host }));
+
+	const repository = await getRepository({ repo: expectedDomain, token, host });
+	expect(repository).toBeDefined();
+});
+
 it("rejects --name with disallowed characters", async ({ expect, prismic }) => {
 	const { stderr, exitCode } = await prismic("repo", ["create", "--name", "My Test Repo"]);
 	expect(exitCode).toBe(1);
