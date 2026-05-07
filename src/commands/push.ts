@@ -12,6 +12,7 @@ import {
 	updateCustomType,
 	updateSlice,
 } from "../clients/custom-types";
+import { completeOnboardingStepsSilently } from "../clients/repository";
 import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
@@ -141,6 +142,22 @@ export default createCommand(config, async ({ values }) => {
 	}
 	for (const id of sliceOps.delete.map((m) => m.id)) {
 		await removeSlice(id, { repo, token, host });
+	}
+
+	const onboardingSteps: string[] = [];
+	if (sliceOps.insert.length > 0) {
+		onboardingSteps.push("createSlice");
+	}
+	if (customTypeOps.insert.some((model) => model.format === "page")) {
+		onboardingSteps.push("createPageType");
+	}
+	if (onboardingSteps.length > 0) {
+		await completeOnboardingStepsSilently({
+			repo: parentRepo,
+			token,
+			host,
+			stepIds: onboardingSteps,
+		});
 	}
 
 	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
