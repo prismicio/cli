@@ -80,7 +80,9 @@ it("fails if --repo is taken by another account", async ({ expect, project, pris
 	// "prismic" is reserved/taken and will fail availability check.
 	const { exitCode, stderr } = await prismic("init", ["--repo", "prismic"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("not in your account");
+	expect(stderr).toContain(
+		'Repository name "prismic" is already taken. Choose a different name or request access to it.',
+	);
 });
 
 it("migrates slicemachine.config.json", async ({ expect, project, prismic, repo }) => {

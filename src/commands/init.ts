@@ -119,7 +119,7 @@ export default createCommand(config, async ({ values }) => {
 		const available = await checkIsDomainAvailable({ domain: repo, token, host });
 		if (!available) {
 			throw new CommandError(
-				`Repository name "${repo}" is already taken. Choose a different name.`,
+				`Repository name "${repo}" is already taken. Choose a different name or request access to it.`,
 			);
 		}
 
@@ -131,7 +131,7 @@ export default createCommand(config, async ({ values }) => {
 			throw new TypeBuilderRequiredError();
 		}
 	}
-	
+
 	const adapter = await getAdapter();
 
 	// Create prismic.config.json
