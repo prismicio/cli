@@ -4,7 +4,6 @@ import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { getProfile } from "../clients/user";
-import { checkIsDomainAvailable } from "../clients/wroom";
 import { DEFAULT_PRISMIC_HOST } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
