@@ -50,7 +50,7 @@ it("lowercases --name before submitting", async ({
 	expect(stdout).toContain(`Repository created: ${expectedDomain}`);
 
 	const repository = await getRepository({ repo: expectedDomain, token, host });
-	expect(repository).toBeDefined();
+	expect(repository.name).toBe(expectedDomain);
 });
 
 it("rejects --name with disallowed characters", async ({ expect, prismic }) => {
