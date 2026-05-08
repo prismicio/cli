@@ -104,8 +104,8 @@ export default createCommand(config, async ({ values }) => {
 		);
 	}
 
-	const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
-	if (!hasRepoAccess) {
+	const repoExistsInAccount = profile.repositories.some((r) => r.domain === repo);
+	if (!repoExistsInAccount) {
 		const parsed = repositoryNameSchema.safeParse(repo);
 		if (!parsed.success) {
 			throw new CommandError(
