@@ -1,7 +1,7 @@
 import { onTestFinished } from "vitest";
 
 import { it } from "./it";
-import { deleteRepository, getRepository } from "./prismic";
+import { cleanupRepository, getRepository } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("repo", ["create", "--help"]);
@@ -23,11 +23,11 @@ it("creates a repository using --name as the domain", async ({
 	password,
 }) => {
 	const name = `cli-test-${crypto.randomUUID().slice(0, 8)}`;
+	onTestFinished(() => cleanupRepository(name, { token, password, host }));
+
 	const { stdout, exitCode } = await prismic("repo", ["create", "--name", name]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Repository created: ${name}`);
-
-	onTestFinished(() => deleteRepository(name, { token, password, host }));
 
 	const repository = await getRepository({ repo: name, token, host });
 	expect(repository.name).toBe(name);
@@ -43,11 +43,11 @@ it("lowercases --name before submitting", async ({
 	const suffix = crypto.randomUUID().slice(0, 8);
 	const name = `CLI-Test-${suffix}`;
 	const expectedDomain = name.toLowerCase();
+	onTestFinished(() => cleanupRepository(expectedDomain, { token, password, host }));
+
 	const { stdout, exitCode } = await prismic("repo", ["create", "--name", name]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Repository created: ${expectedDomain}`);
-
-	onTestFinished(() => deleteRepository(expectedDomain, { token, password, host }));
 
 	const repository = await getRepository({ repo: expectedDomain, token, host });
 	expect(repository).toBeDefined();
@@ -68,6 +68,8 @@ it("uses --display-name as the repository label", async ({
 }) => {
 	const name = `cli-test-${crypto.randomUUID().slice(0, 8)}`;
 	const displayName = "My Display Name";
+	onTestFinished(() => cleanupRepository(name, { token, password, host }));
+
 	const { stdout, exitCode } = await prismic("repo", [
 		"create",
 		"--name",
@@ -77,8 +79,6 @@ it("uses --display-name as the repository label", async ({
 	]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain(`Repository created: ${name}`);
-
-	onTestFinished(() => deleteRepository(name, { token, password, host }));
 
 	const repository = await getRepository({ repo: name, token, host });
 	expect(repository.name).toBe(displayName);

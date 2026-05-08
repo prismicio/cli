@@ -3,7 +3,7 @@ import { access, readFile, rm, writeFile } from "node:fs/promises";
 import { onTestFinished } from "vitest";
 
 import { captureOutput, it } from "./it";
-import { deleteRepository } from "./prismic";
+import { cleanupRepository } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("init", ["--help"]);
@@ -27,7 +27,7 @@ it("creates a repo when --repo doesn't exist yet", async ({
 }) => {
 	await rm(new URL("prismic.config.json", project));
 	const name = `cli-test-${crypto.randomUUID().slice(0, 8)}`;
-	onTestFinished(() => deleteRepository(name, { token, password, host }));
+	onTestFinished(() => cleanupRepository(name, { token, password, host }));
 
 	const { exitCode, stdout } = await prismic("init", ["--repo", name]);
 	expect(exitCode).toBe(0);
