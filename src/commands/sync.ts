@@ -4,6 +4,7 @@ import { setTimeout } from "node:timers/promises";
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
+import { completeOnboardingStepsSilently } from "../clients/repository";
 import { env } from "../env";
 import { resolveEnvironment } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
@@ -116,6 +117,12 @@ export default createCommand(config, async ({ values }) => {
 				lastHash = nextHash;
 
 				if (isInitial) {
+					await completeOnboardingStepsSilently({
+						repo: parentRepo,
+						token,
+						host,
+						stepIds: ["connectPrismic"],
+					});
 					console.info("Initial sync complete.");
 				} else {
 					const timestamp = new Date().toLocaleTimeString();

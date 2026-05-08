@@ -1,6 +1,7 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
+import { completeOnboardingStepsSilently } from "../clients/repository";
 import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
@@ -137,6 +138,13 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	await adapter.generateTypes();
+
+	await completeOnboardingStepsSilently({
+		repo: parentRepo,
+		token,
+		host,
+		stepIds: ["connectPrismic"],
+	});
 
 	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
 	const totalSlices = sliceOps.insert.length + sliceOps.update.length;

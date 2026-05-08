@@ -1,5 +1,6 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
+import { completeOnboardingStepsSilently } from "../clients/repository";
 import { checkIsDomainAvailable, createRepository } from "../clients/wroom";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -51,6 +52,13 @@ export async function createRepo(config: {
 		}
 		throw error;
 	}
+
+	await completeOnboardingStepsSilently({
+		repo: domain,
+		token,
+		host,
+		stepIds: ["createPrismicProject"],
+	});
 
 	return domain;
 }
