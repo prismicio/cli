@@ -320,11 +320,14 @@ export async function createRepository(config: {
 	domain: string;
 	name: string;
 	framework: string;
+	agent: string | undefined;
 	token: string | undefined;
 	host: string;
 }): Promise<void> {
-	const { domain, name, framework, token, host } = config;
+	const { domain, name, framework, agent, token, host } = config;
 	const url = new URL("app/dashboard/repositories", getDashboardUrl(host));
+	url.searchParams.set("app", "cli");
+	if (agent) url.searchParams.set("agent", agent);
 	await request(url, {
 		method: "POST",
 		body: { domain, name, framework, plan: "personal" },
