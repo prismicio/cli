@@ -33,7 +33,7 @@ const config = {
 		"display-name": {
 			type: "string",
 			short: "d",
-			description: "Display name for the repository (defaults to --name)",
+			description: "Display name for the repository",
 		},
 	},
 } satisfies CommandConfig;
@@ -73,7 +73,7 @@ export async function createRepo(config: {
 	try {
 		await createRepository({
 			domain,
-			name: displayName ?? name,
+			name: displayName,
 			framework,
 			agent,
 			token,
