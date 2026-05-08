@@ -85,7 +85,11 @@ it("uses --display-name as the repository label", async ({
 });
 
 it("fails with guidance when --name is invalid", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("repo", ["create", "--name", "!!"]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Invalid name:");
+	const tooShort = await prismic("repo", ["create", "--name", "!!"]);
+	expect(tooShort.exitCode).toBe(1);
+	expect(tooShort.stderr).toContain("Invalid name:");
+
+	const tooLong = await prismic("repo", ["create", "--name", `a${"x".repeat(62)}z`]);
+	expect(tooLong.exitCode).toBe(1);
+	expect(tooLong.stderr).toContain("Invalid name:");
 });
