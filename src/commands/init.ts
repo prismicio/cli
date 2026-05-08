@@ -111,12 +111,6 @@ export default createCommand(config, async ({ values }) => {
 				`Invalid repository name "${repo}": ${parsed.error.issues[0]?.message ?? "Invalid value"}`,
 			);
 		}
-
-		console.info(
-			`Repository "${repo}" was not found in your account. Creating it...`,
-		);
-		repo = await createRepo({ name: repo, token, host });
-		console.info(`Created repository: ${repo}`);
 	} else {
 		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
 		if (!isTypeBuilderEnabled) {
@@ -124,7 +118,17 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
+	// getAdapter checks for a supported framework; calling it before createRepo
 	const adapter = await getAdapter();
+
+	if (!repoExistsInAccount) {
+		console.info(
+			`Repository "${repo}" was not found in your account. Creating it...`,
+		);
+		repo = await createRepo({ name: repo, token, host });
+		console.info(`Created repository: ${repo}`);
+	}
+	
 
 	// Create prismic.config.json
 	try {
