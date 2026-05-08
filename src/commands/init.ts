@@ -20,7 +20,7 @@ import {
 	UnknownProjectRootError,
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
-import { createRepo } from "./repo-create";
+import { createRepo, repositoryNameSchema } from "./repo-create";
 
 const config = {
 	name: "prismic init",
@@ -34,7 +34,7 @@ const config = {
 		migrated.
 	`,
 	options: {
-		repo: { type: "string", short: "r", description: "Repository name" },
+		repo: { type: "string", short: "r", description: "Repository name (created if it doesn't exist)" },
 		"no-browser": {
 			type: "boolean",
 			description: "Skip opening the browser automatically during login",
@@ -96,27 +96,39 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	let repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
-	if (repo) {
-		const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
-		if (!hasRepoAccess) {
+	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
+	if (!repo) {
+		throw new CommandError(
+			"Missing --repo. Provide the repository name to connect to (creating it if it doesn't exist yet).",
+		);
+	}
+
+	const repoExistsInAccount = profile.repositories.some((r) => r.domain === repo);
+	if (!repoExistsInAccount) {
+		const parsed = repositoryNameSchema.safeParse(repo);
+		if (!parsed.success) {
 			throw new CommandError(
-				`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
+				`Invalid repository name "${repo}": ${parsed.error.issues[0]?.message ?? "Invalid value"}`,
 			);
 		}
-
+	} else {
 		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
 		if (!isTypeBuilderEnabled) {
 			throw new TypeBuilderRequiredError();
 		}
 	}
 
+	// getAdapter checks for a supported framework; calling it before createRepo
 	const adapter = await getAdapter();
 
-	if (!repo) {
-		repo = await createRepo({ token, host });
+	if (!repoExistsInAccount) {
+		console.info(
+			`Repository "${repo}" was not found in your account. Creating it...`,
+		);
+		repo = await createRepo({ name: repo, token, host });
 		console.info(`Created repository: ${repo}`);
 	}
+	
 
 	// Create prismic.config.json
 	try {

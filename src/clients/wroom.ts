@@ -318,7 +318,7 @@ export async function checkIsDomainAvailable(config: {
 
 export async function createRepository(config: {
 	domain: string;
-	name: string;
+	name?: string;
 	framework: string;
 	agent: string | undefined;
 	token: string | undefined;
@@ -328,9 +328,15 @@ export async function createRepository(config: {
 	const url = new URL("app/dashboard/repositories", getDashboardUrl(host));
 	url.searchParams.set("app", "cli");
 	if (agent) url.searchParams.set("agent", agent);
+
+	const body: Record<string, unknown> = { domain, framework, plan: "personal" };
+	if (name) {
+		body.name = name;
+	}
+
 	await request(url, {
 		method: "POST",
-		body: { domain, name, framework, plan: "personal" },
+		body,
 		credentials: { "prismic-auth": token },
 	});
 }
