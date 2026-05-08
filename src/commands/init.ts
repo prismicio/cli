@@ -116,13 +116,6 @@ export default createCommand(config, async ({ values }) => {
 		console.info(
 			`Repository "${repo}" was not found in your account. Creating it...`,
 		);
-		const available = await checkIsDomainAvailable({ domain: repo, token, host });
-		if (!available) {
-			throw new CommandError(
-				`Repository name "${repo}" is already taken. Choose a different name or request access to it.`,
-			);
-		}
-
 		repo = await createRepo({ name: repo, token, host });
 		console.info(`Created repository: ${repo}`);
 	} else {

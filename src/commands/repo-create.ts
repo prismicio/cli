@@ -60,7 +60,7 @@ export async function createRepo(config: {
 	const available = await checkIsDomainAvailable({ domain, token, host });
 	if (!available) {
 		throw new CommandError(
-			`Repository name "${domain}" is already taken. Choose a different name.`,
+			`Repository name "${domain}" is already taken. Choose a different name or request access to it.`,
 		);
 	}
 
