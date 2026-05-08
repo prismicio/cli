@@ -73,15 +73,14 @@ export function createCommand<T extends CommandConfig>(
 			if (config.required && !(name in result.values)) {
 				throw new CommandError(`Missing required option: --${name}`);
 			}
-			if (config.schema && name in result.values) {
-				const parsed = config.schema.safeParse(
-					(result.values as Record<string, unknown>)[name],
-				);
+			const optionValues = result.values as Record<string, unknown>;
+			if (config.schema && name in optionValues) {
+				const parsed = config.schema.safeParse(optionValues[name]);
 				if (!parsed.success) {
 					const message = parsed.error.issues[0]?.message ?? "Invalid value";
 					throw new CommandError(`Invalid ${name}: ${message}`);
 				}
-				(result.values as Record<string, unknown>)[name] = parsed.data;
+				optionValues[name] = parsed.data;
 			}
 		}
 
