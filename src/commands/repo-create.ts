@@ -1,6 +1,7 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { checkIsDomainAvailable, createRepository } from "../clients/wroom";
+import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 
@@ -39,9 +40,10 @@ export async function createRepo(config: {
 
 	const adapter = await getAdapter().catch(() => undefined);
 	const framework = adapter?.id ?? "other";
+	const agent = await detectAgent();
 
 	try {
-		await createRepository({ domain, name: name ?? domain, framework, token, host });
+		await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
