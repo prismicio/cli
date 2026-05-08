@@ -100,7 +100,7 @@ export default createCommand(config, async ({ values }) => {
 	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
 	if (!repo) {
 		throw new CommandError(
-			"Missing --repo. Provide the repository to connect to (or to create if it doesn't exist).",
+			"Missing --repo. Provide the repository name to connect to (creating it if it doesn't exist yet).",
 		);
 	}
 
