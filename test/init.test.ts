@@ -3,7 +3,7 @@ import { access, readFile, rm, writeFile } from "node:fs/promises";
 import { onTestFinished } from "vitest";
 
 import { captureOutput, it } from "./it";
-import { cleanupRepository, getRepository } from "./prismic";
+import { cleanupRepository } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("init", ["--help"]);
