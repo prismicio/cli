@@ -361,6 +361,20 @@ export async function deleteWriteToken(tokenValue: string, config: RepoConfig): 
 		throw new Error(`Failed to delete write token: ${res.status} ${await res.text()}`);
 }
 
+export async function setSimulatorUrl(simulatorUrl: string, config: RepoConfig): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("core/repository", `https://${config.repo}.${host}/`);
+	const res = await fetch(url, {
+		method: "PATCH",
+		headers: {
+			"Content-Type": "application/json",
+			Cookie: `prismic-auth=${config.token}`,
+		},
+		body: JSON.stringify({ simulator_url: simulatorUrl }),
+	});
+	if (!res.ok) throw new Error(`Failed to set simulator URL: ${res.status} ${await res.text()}`);
+}
+
 export async function getRepository(
 	config: RepoConfig,
 ): Promise<{ name: string; framework: string; simulatorUrl?: string }> {
