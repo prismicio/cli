@@ -1,3 +1,4 @@
+import { determineAgent } from "@vercel/detect-agent";
 import * as z from "zod/mini";
 
 import { NotFoundRequestError, request } from "../lib/request";
@@ -320,14 +321,15 @@ export async function createRepository(config: {
 	domain: string;
 	name?: string;
 	framework: string;
-	agent: string | undefined;
 	token: string | undefined;
 	host: string;
 }): Promise<void> {
-	const { domain, name, framework, agent, token, host } = config;
+	const { domain, name, framework, token, host } = config;
 	const url = new URL("app/dashboard/repositories", getDashboardUrl(host));
 	url.searchParams.set("app", "cli");
-	if (agent) url.searchParams.set("agent", agent);
+
+	const { isAgent, agent } = await determineAgent();
+	if (isAgent) url.searchParams.set("agent", agent.name);
 
 	const body: Record<string, unknown> = { domain, framework, plan: "personal" };
 	if (name) {

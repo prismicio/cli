@@ -37,6 +37,7 @@
 		"@prismicio/types-internal": "3.16.1",
 		"@sentry/node-core": "10.42.0",
 		"@types/node": "25.0.9",
+		"@vercel/detect-agent": "^1.2.3",
 		"change-case": "5.4.4",
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",

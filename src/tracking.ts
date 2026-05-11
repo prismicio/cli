@@ -1,11 +1,11 @@
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
+import { determineAgent } from "@vercel/detect-agent";
 import * as z from "zod/mini";
 
 import type { Profile } from "./clients/user";
 
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
-import { detectAgent } from "./lib/ai";
 import { readJsonFile } from "./lib/file";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
@@ -22,7 +22,8 @@ export async function initTracking(config: { host: string }): Promise<void> {
 	const enabled = await isTelemetryEnabled();
 	if (!enabled) return;
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
-	agent = await detectAgent();
+	const result = await determineAgent();
+	agent = result.isAgent ? result.agent.name : undefined;
 	await initSegment({ writeKey });
 }
 
