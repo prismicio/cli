@@ -121,7 +121,7 @@ it("fails when Type Builder is not enabled", async ({ expect, project, prismic, 
 	expect(stderr).toContain("Type Builder");
 });
 
-it("installs dependencies", async ({ expect, project, prismic, repo }) => {
+it("installs dependencies", { timeout: 30_000 }, async ({ expect, project, prismic, repo }) => {
 	await rm(new URL("prismic.config.json", project));
 
 	const { exitCode } = await prismic("init", ["--repo", repo]);
