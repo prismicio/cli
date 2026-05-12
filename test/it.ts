@@ -38,7 +38,9 @@ export const it = test.extend<Fixtures>({
 		try {
 			await rm(dir, { recursive: true, force: true });
 		} catch {
-			// noop
+			// Retry once with delay
+			await new Promise((res) => setTimeout(res, 1000));
+			await rm(dir, { recursive: true, force: true });
 		}
 	},
 	project: async ({ home, repo }, use) => {
