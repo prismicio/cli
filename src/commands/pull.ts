@@ -43,8 +43,11 @@ export default createCommand(config, async ({ values }) => {
 		adapter.getSliceLibraries(),
 	]);
 
+	console.log({ gitRoot })
+
 	if (!force && gitRoot) {
 		const dirtyPaths = await getDirtyPaths(gitRoot);
+		console.log({ dirtyPaths })
 		const dirtyFiles = dirtyPaths
 			.filter(
 				(path) =>

@@ -22,6 +22,7 @@ export async function getDirtyPaths(gitRoot: URL): Promise<URL[]> {
 			nodeOptions: { cwd: fileURLToPath(gitRoot) },
 			throwOnError: true,
 		});
+		console.log({ stdout })
 		const paths: URL[] = [];
 		for (const line of stdout.split("\n")) {
 			if (line.length < 4) continue;
