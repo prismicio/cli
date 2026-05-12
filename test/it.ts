@@ -35,7 +35,11 @@ export const it = test.extend<Fixtures>({
 	home: async ({}, use) => {
 		const dir = await mkdtemp(join(tmpdir(), "prismic-test-"));
 		await use(pathToFileURL(dir + "/"));
-		await rm(dir, { recursive: true, force: true });
+		try {
+			await rm(dir, { recursive: true, force: true });
+		} catch {
+			// noop
+		}
 	},
 	project: async ({ home, repo }, use) => {
 		const projectPath = new URL("project/", home);
