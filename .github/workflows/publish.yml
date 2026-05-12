@@ -9,7 +9,7 @@ on:
 jobs:
   release:
     if: github.event_name == 'push' && github.repository_owner == 'prismicio'
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       issues: write
@@ -41,7 +41,7 @@ jobs:
   prerelease:
     if: "!cancelled() && github.repository_owner == 'prismicio'"
     needs: [release]
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
