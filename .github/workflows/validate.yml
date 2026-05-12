@@ -29,7 +29,7 @@ jobs:
 
   test:
     name: test (Node.js ${{ matrix.node }})
-    runs-on: blacksmith-2vcpu-ubuntu-2404
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     strategy:
       matrix:
         node: [20, 22, 24]
@@ -47,8 +47,8 @@ jobs:
           E2E_PRISMIC_PASSWORD: ${{ secrets.E2E_PRISMIC_PASSWORD }}
 
   test-win32:
-    name: test (Node.js ${{ matrix.node }})
-    runs-on: blacksmith-2vcpu-windows-2025
+    name: test windows (Node.js ${{ matrix.node }})
+    runs-on: blacksmith-4vcpu-windows-2025
     strategy:
       matrix:
         node: [20, 22, 24]
