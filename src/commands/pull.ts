@@ -57,6 +57,7 @@ export default createCommand(config, async ({ values }) => {
 						customTypeLibraries.some((lib) => isDescendant(lib, path))),
 			)
 			.map((path) => relativePathname(projectRoot, path));
+		console.log({ dirtyFiles })
 
 		if (dirtyFiles.length > 0) {
 			throw new CommandError(`
