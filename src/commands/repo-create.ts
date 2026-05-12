@@ -1,5 +1,3 @@
-import * as z from "zod/mini";
-
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { completeOnboardingStepsSilently } from "../clients/repository";
@@ -8,62 +6,37 @@ import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 
-export const repositoryNameSchema = z
-	.string()
-	.check(
-		z.minLength(4, "Must be at least 4 characters"),
-		z.maxLength(63, "Must be at most 63 characters"),
-		z.regex(
-			/^[a-zA-Z0-9][-a-zA-Z0-9]{2,}[a-zA-Z0-9]$/,
-			"Must contain only letters, numbers, and hyphens, and start and end with a letter or number",
-		),
-	);
+const MAX_DOMAIN_TRIES = 5;
 
 const config = {
 	name: "prismic repo create",
 	description: "Create a new Prismic repository.",
 	options: {
-		name: {
-			type: "string",
-			short: "n",
-			description: "Repository name (used as the domain)",
-			required: true,
-			schema: repositoryNameSchema,
-		},
-		"display-name": {
-			type: "string",
-			short: "d",
-			description: "Display name for the repository",
-		},
+		name: { type: "string", short: "n", description: "Display name for the repository" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { name, "display-name": displayName } = values;
+	const { name } = values;
 
 	const token = await getToken();
 	const host = await getHost();
-	const domain = await createRepo({ name, displayName, token, host });
+	const domain = await createRepo({ name, token, host });
 
 	console.info(`Repository created: ${domain}`);
 	console.info(`URL: https://${domain}.${host}/`);
 });
 
 export async function createRepo(config: {
-	name: string;
-	displayName?: string;
+	name?: string;
 	token: string | undefined;
 	host: string;
 }): Promise<string> {
-	const { name, displayName, token, host } = config;
+	const { name, token, host } = config;
 
-	const domain = name.toLowerCase();
-
-	const available = await checkIsDomainAvailable({ domain, token, host });
-	if (!available) {
-		throw new CommandError(
-			`Repository name "${domain}" is already taken. Choose a different name or request access to it.`,
-		);
+	const domain = await findAvailableDomain({ token, host });
+	if (!domain) {
+		throw new CommandError("Failed to create a repository. Please try again.");
 	}
 
 	const adapter = await getAdapter().catch(() => undefined);
@@ -71,14 +44,7 @@ export async function createRepo(config: {
 	const agent = await detectAgent();
 
 	try {
-		await createRepository({
-			domain,
-			name: displayName,
-			framework,
-			agent,
-			token,
-			host,
-		});
+		await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
 	} catch (error) {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
@@ -94,5 +60,22 @@ export async function createRepo(config: {
 		stepIds: ["createPrismicProject"],
 	});
 
+	return domain;
+}
+
+async function findAvailableDomain(config: {
+	token: string | undefined;
+	host: string;
+}): Promise<string | undefined> {
+	const { token, host } = config;
+	let domain;
+	for (let i = 0; i < MAX_DOMAIN_TRIES; i++) {
+		const candidate = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+		const available = await checkIsDomainAvailable({ domain: candidate, token, host });
+		if (available) {
+			domain = candidate;
+			break;
+		}
+	}
 	return domain;
 }

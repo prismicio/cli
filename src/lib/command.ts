@@ -1,7 +1,5 @@
 import type { ParseArgsOptionDescriptor } from "node:util";
 
-import type * as z from "zod/mini";
-
 import { parseArgs } from "node:util";
 
 import { dedent, formatTable } from "./string";
@@ -11,14 +9,7 @@ export type CommandConfig = {
 	description: string;
 	sections?: Record<string, string>;
 	positionals?: Record<string, { description: string; required?: boolean }>;
-	options?: Record<
-		string,
-		ParseArgsOptionDescriptor & {
-			description: string;
-			required?: boolean;
-			schema?: z.ZodMiniType<unknown, unknown>;
-		}
-	>;
+	options?: Record<string, ParseArgsOptionDescriptor & { description: string; required?: boolean }>;
 };
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
@@ -72,15 +63,6 @@ export function createCommand<T extends CommandConfig>(
 		for (const [name, config] of Object.entries(options)) {
 			if (config.required && !(name in result.values)) {
 				throw new CommandError(`Missing required option: --${name}`);
-			}
-			const optionValues = result.values as Record<string, unknown>;
-			if (config.schema && name in optionValues) {
-				const parsed = config.schema.safeParse(optionValues[name]);
-				if (!parsed.success) {
-					const message = parsed.error.issues[0]?.message ?? "Invalid value";
-					throw new CommandError(`Invalid ${name}: ${message}`);
-				}
-				optionValues[name] = parsed.data;
 			}
 		}
 
