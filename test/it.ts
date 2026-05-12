@@ -38,9 +38,11 @@ export const it = test.extend<Fixtures>({
 		try {
 			await rm(dir, { recursive: true, force: true });
 		} catch {
-			// Retry once with delay
-			await new Promise((res) => setTimeout(res, 1000));
-			await rm(dir, { recursive: true, force: true });
+			// Noop on CI, retry once with delay locally
+			if (!process.env.CI) {
+				await new Promise((res) => setTimeout(res, 1000));
+				await rm(dir, { recursive: true, force: true });
+			}
 		}
 	},
 	project: async ({ home, repo }, use) => {
