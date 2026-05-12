@@ -57,7 +57,18 @@ export default createCommand(config, async ({ values }) => {
 						customTypeLibraries.some((lib) => isDescendant(lib, path))),
 			)
 			.map((path) => relativePathname(projectRoot, path));
-		console.log({ dirtyFiles })
+			console.log({ projectRoot, customTypeLibraries, sliceLibraries });
+			console.log(
+				dirtyPaths.map((path) => ({
+					path,
+					isIndex: path.pathname.endsWith("/index.json"),
+					customTypeMatches: customTypeLibraries.map((lib) => ({
+						lib,
+						matches: isDescendant(lib, path),
+					})),
+				})),
+			);
+			console.log({ dirtyFiles });
 
 		if (dirtyFiles.length > 0) {
 			throw new CommandError(`
