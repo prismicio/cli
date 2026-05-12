@@ -251,7 +251,6 @@ it.sequential("blocks pull when local model files have uncommitted changes", asy
 	await writeFile(modelPath, JSON.stringify({ ...customType, label: "Edited locally" }, null, 2));
 
 	const second = await prismic("pull", ["--repo", repo]);
-	console.log(second)
 	expect(second.exitCode).toBe(1);
 	expect(second.stderr).toContain("uncommitted");
 	expect(second.stderr).toContain(`customtypes/${customType.id}/index.json`.replaceAll("/", sep));

@@ -1,6 +1,7 @@
 import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
 import { getVariantData } from "./clients/amplitude";
@@ -201,7 +202,7 @@ export async function findProjectRoot(): Promise<URL> {
 		}
 	}
 	const projectRoot = new URL(".", configPath);
-	return projectRoot;
+	return appendTrailingSlash(pathToFileURL(await realpath(fileURLToPath(projectRoot))));
 }
 
 export async function safeGetRepositoryName(): Promise<string | undefined> {
