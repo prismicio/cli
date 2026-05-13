@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.8.0](https://github.com/prismicio/cli/compare/v1.7.2...v1.8.0) (2026-05-13)
+
+
+### Features
+
+* add default UID field to new repeatable types ([#184](https://github.com/prismicio/cli/issues/184)) ([89591e5](https://github.com/prismicio/cli/commit/89591e5b3850deacd3abd8631d37c944d3ae7fe3))
+* configure preview and simulator URL on init ([#183](https://github.com/prismicio/cli/issues/183)) ([2979d6b](https://github.com/prismicio/cli/commit/2979d6b91aa7f0ee87ae7350dab0d863a8754e68))
+* mark onboarding steps from CLI commands ([#178](https://github.com/prismicio/cli/issues/178)) ([9ae5b1d](https://github.com/prismicio/cli/commit/9ae5b1d50ecf0ebf927341634612beb07d67e483))
+* **tracking:** identify CLI and detect AI agent harness ([#175](https://github.com/prismicio/cli/issues/175)) ([1d5c9ed](https://github.com/prismicio/cli/commit/1d5c9ed4b516b1877ea981e9dcabdc882303efad))
+* use --name as repository domain in repo create and init ([#180](https://github.com/prismicio/cli/issues/180)) ([1b7e4bf](https://github.com/prismicio/cli/commit/1b7e4bf5e93369a34787951e424436446c0b371d))
+
+
+### Bug Fixes
+
+* map non-prod hosts to staging Amplitude ([#179](https://github.com/prismicio/cli/issues/179)) ([4d981f8](https://github.com/prismicio/cli/commit/4d981f8fc909117801ee44e03da55666eb99190e))
+* windows compatibility ([#185](https://github.com/prismicio/cli/issues/185)) ([79e9cc9](https://github.com/prismicio/cli/commit/79e9cc9bf563ab5c0cf0d92986cd4a65b6ff43a9))
+
 ## [1.7.2](https://github.com/prismicio/cli/compare/v1.7.1...v1.7.2) (2026-05-05)
 
 
