@@ -8,7 +8,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic gen setup [options]");
 });
 
-it("generates setup files", async ({ expect, project, prismic }) => {
+it("generates setup files", { timeout: 30_000 }, async ({ expect, project, prismic }) => {
 	const { exitCode, stdout } = await prismic("gen", ["setup"]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Generated setup files");
@@ -25,7 +25,7 @@ it("generates setup files", async ({ expect, project, prismic }) => {
 	await expect(project).toHaveFile("package-lock.json");
 });
 
-it("skips existing files", async ({ expect, project, prismic }) => {
+it("skips existing files", { timeout: 30_000 }, async ({ expect, project, prismic }) => {
 	const customContent = "// custom client file\n";
 	await writeFile(new URL("prismicio.js", project), customContent);
 

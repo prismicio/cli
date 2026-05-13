@@ -4,7 +4,7 @@ on: push
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -15,7 +15,7 @@ jobs:
       - run: npm run lint
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     env:
       MODE: production
     steps:
@@ -29,7 +29,26 @@ jobs:
 
   test:
     name: test (Node.js ${{ matrix.node }})
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    strategy:
+      matrix:
+        node: [20, 22, 24]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run unit
+        env:
+          E2E_PRISMIC_EMAIL: ${{ secrets.E2E_PRISMIC_EMAIL }}
+          E2E_PRISMIC_PASSWORD: ${{ secrets.E2E_PRISMIC_PASSWORD }}
+
+  test-win32:
+    name: test windows (Node.js ${{ matrix.node }})
+    runs-on: blacksmith-4vcpu-windows-2025
     strategy:
       matrix:
         node: [20, 22, 24]
@@ -48,7 +67,7 @@ jobs:
 
   types:
     name: "types (TypeScript ${{ matrix.typescript }})"
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
     strategy:
       matrix:
         typescript: ["5.4", "5.6", "5.7", "5.8", "5.9"]

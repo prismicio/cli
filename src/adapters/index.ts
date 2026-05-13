@@ -2,7 +2,7 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 
 import { pascalCase } from "change-case";
 import { rm } from "node:fs/promises";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
@@ -79,9 +79,8 @@ export abstract class Adapter {
 
 		const libraries = await this.getSliceLibraries();
 		for (const library of libraries) {
-			const modelGlob = new URL("*/model.json", library);
 			const sliceModelPaths = Array.from(
-				await glob(fileURLToPath(modelGlob), { absolute: true }),
+				await glob("*/model.json", { absolute: true, cwd: library }),
 				(path) => pathToFileURL(path),
 			);
 			const slices = await Promise.all(
@@ -139,9 +138,8 @@ export abstract class Adapter {
 
 		const libraries = await this.getCustomTypeLibraries();
 		for (const library of libraries) {
-			const modelGlob = new URL("*/index.json", library);
 			const customTypeModelPaths = Array.from(
-				await glob(fileURLToPath(modelGlob), { absolute: true }),
+				await glob("*/index.json", { absolute: true, cwd: library }),
 				(path) => pathToFileURL(path),
 			);
 			const customTypes = await Promise.all(

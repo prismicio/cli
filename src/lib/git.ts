@@ -1,3 +1,4 @@
+import { realpath } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { x } from "tinyexec";
 
@@ -10,7 +11,7 @@ export async function getGitRoot(start: URL): Promise<URL | undefined> {
 			throwOnError: true,
 		});
 		const top = stdout.trim();
-		return top ? appendTrailingSlash(pathToFileURL(top)) : undefined;
+		return top ? appendTrailingSlash(pathToFileURL(await realpath(top))) : undefined;
 	} catch {
 		return undefined;
 	}

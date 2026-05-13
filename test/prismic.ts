@@ -49,14 +49,6 @@ export async function deleteRepository(
 	}
 }
 
-export async function cleanupRepository(
-	domain: string | undefined,
-	config: AuthConfig & { password: string },
-): Promise<void> {
-	if (domain === undefined) return;
-	await deleteRepository(domain, config);
-}
-
 export async function getCustomTypes(config: RepoConfig): Promise<CustomType[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("customtypes", `https://customtypes.${host}/`);

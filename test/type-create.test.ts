@@ -18,6 +18,7 @@ it("creates a custom type", async ({ expect, prismic, project }) => {
 	const id = snakeCase(label!);
 	const created = await readLocalCustomType(project, id);
 	expect(created).toMatchObject({ label, format: "custom", repeatable: true });
+	expect(created.json.Main.uid).toEqual({ type: "UID", config: { label: "UID" } });
 });
 
 it("creates a page type with --format page", async ({ expect, prismic, project }) => {
@@ -32,6 +33,7 @@ it("creates a page type with --format page", async ({ expect, prismic, project }
 	expect(created).toMatchObject({ format: "page", repeatable: true });
 	expect(created.json).toHaveProperty("SEO & Metadata");
 	expect(created.json.Main).toHaveProperty("slices");
+	expect(created.json.Main.uid).toEqual({ type: "UID", config: { label: "UID" } });
 });
 
 it("creates a single custom type", async ({ expect, prismic, project }) => {
@@ -43,6 +45,7 @@ it("creates a single custom type", async ({ expect, prismic, project }) => {
 	const id = snakeCase(label!);
 	const created = await readLocalCustomType(project, id);
 	expect(created).toMatchObject({ format: "custom", repeatable: false });
+	expect(created.json.Main).not.toHaveProperty("uid");
 });
 
 it("creates a custom type with a custom id", async ({ expect, prismic, project }) => {
