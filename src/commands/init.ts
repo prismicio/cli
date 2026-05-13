@@ -96,7 +96,7 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	let repo = explicitRepo ?? legacySliceMachineConfig?.repositoryName;
+	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
 	if (repo) {
 		const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
 		if (!hasRepoAccess) {
