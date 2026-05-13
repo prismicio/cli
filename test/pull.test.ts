@@ -1,4 +1,5 @@
 import { writeFile, mkdir } from "node:fs/promises";
+import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { x } from "tinyexec";
 
@@ -252,7 +253,7 @@ it.sequential("blocks pull when local model files have uncommitted changes", asy
 	const second = await prismic("pull", ["--repo", repo]);
 	expect(second.exitCode).toBe(1);
 	expect(second.stderr).toContain("uncommitted");
-	expect(second.stderr).toContain(`customtypes/${customType.id}/index.json`);
+	expect(second.stderr).toContain(`customtypes/${customType.id}/index.json`.replaceAll("/", sep));
 });
 
 it.sequential("refuses to delete local models without --force when not tracked by git", async ({
