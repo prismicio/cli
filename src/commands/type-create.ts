@@ -86,6 +86,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 				}
 			: { Main: {} };
 
+	if (!single) {
+		json.Main = {
+			uid: { type: "UID", config: { label: "UID" } },
+			...json.Main,
+		};
+	}
+
 	const model: CustomType = {
 		id,
 		label: name,
