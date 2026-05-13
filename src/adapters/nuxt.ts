@@ -7,11 +7,13 @@ import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
+import { getHost, getToken } from "../auth";
+import { addPreview, getPreviews, getSimulatorUrl, setSimulatorUrl } from "../clients/core";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import { appendTrailingSlash } from "../lib/url";
-import { buildRoutePath, readConfig, updateConfig } from "../project";
+import { buildRoutePath, getRepositoryName, readConfig, updateConfig } from "../project";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import { pageTemplate, sliceSimulatorPageTemplate, sliceTemplate } from "./nuxt.templates";
 
@@ -31,7 +33,24 @@ export class NuxtAdapter extends Adapter {
 		await modifySliceLibraryPath(this);
 	}
 
-	onProjectInitialized(): void {}
+	async onProjectInitialized(): Promise<void> {
+		const repo = await getRepositoryName();
+		const token = await getToken();
+		const host = await getHost();
+
+		const simulatorUrl = await getSimulatorUrl({ repo, token, host });
+		if (!simulatorUrl) {
+			await setSimulatorUrl("http://localhost:3000/slice-simulator", { repo, token, host });
+		}
+
+		const previews = await getPreviews({ repo, token, host });
+		if (previews.length === 0) {
+			await addPreview(
+				{ name: "Development", websiteURL: "http://localhost:3000", resolverPath: "/preview" },
+				{ repo, token, host },
+			);
+		}
+	}
 
 	async onSliceCreated(model: SharedSlice, library: URL): Promise<void> {
 		const sliceDirectoryName = pascalCase(model.name);
@@ -87,7 +106,7 @@ export class NuxtAdapter extends Adapter {
 
 	async getDefaultCustomTypeLibrary(): Promise<URL> {
 		const projectRoot = await findProjectRoot();
-		const defaultCustomTypeLibrary = new URL("customtypes/", projectRoot)
+		const defaultCustomTypeLibrary = new URL("customtypes/", projectRoot);
 		return defaultCustomTypeLibrary;
 	}
 }

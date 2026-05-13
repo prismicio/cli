@@ -1,6 +1,15 @@
 import { access, readFile, rm, writeFile } from "node:fs/promises";
+import { onTestFinished } from "vitest";
 
 import { captureOutput, it } from "./it";
+import {
+	addPreview,
+	createRepository,
+	deleteRepository,
+	getPreviews,
+	getRepository,
+	setSimulatorUrl,
+} from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("init", ["--help"]);
@@ -18,16 +27,63 @@ it("creates a repo if --repo is not provided and no legacy config exists", async
 	expect,
 	project,
 	prismic,
+	token,
+	host,
+	password,
 }) => {
 	await rm(new URL("prismic.config.json", project));
 	const { exitCode, stdout } = await prismic("init");
+	const createdRepositoryMatch = stdout.match(/^Created repository: ([a-z0-9-]+)$/m);
+	const name = createdRepositoryMatch?.[1];
+	if (!name) throw new Error(`Could not find created repository name in output:\n${stdout}`);
+	onTestFinished(() => deleteRepository(name, { token, password, host }));
+
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Created repository:");
 	expect(stdout).toContain("Initialized Prismic for repository");
 
 	const configRaw = await readFile(new URL("prismic.config.json", project), "utf-8");
 	const config = JSON.parse(configRaw);
-	expect(config.repositoryName).toMatch(/^[a-f0-9]{8}$/);
+	expect(config.repositoryName).toBe(name);
+
+	const repository = await getRepository({ repo: name, token, host });
+	expect(repository.simulatorUrl).toBe("http://localhost:3000/slice-simulator");
+
+	const previews = await getPreviews({ repo: name, token, host });
+	const dev = previews.find((p) => p.url === "http://localhost:3000/api/preview");
+	expect(dev?.label).toBe("Development");
+}, 60_000);
+
+it("preserves existing preview config", async ({
+	expect,
+	project,
+	prismic,
+	token,
+	password,
+	host,
+}) => {
+	const rawName = `CLI-Test-${crypto.randomUUID().slice(0, 8)}`;
+	const name = rawName.toLowerCase();
+	onTestFinished(() => deleteRepository(name, { token, password, host }));
+	await createRepository(name, { token, host });
+
+	const presetSimulator = "https://staging.example.com/slice-simulator";
+	await setSimulatorUrl(presetSimulator, { repo: name, token, host });
+	await addPreview("https://staging.example.com/api/preview", "Staging", {
+		repo: name,
+		token,
+		host,
+	});
+
+	await rm(new URL("prismic.config.json", project));
+	const { exitCode } = await prismic("init", ["--repo", rawName]);
+	expect(exitCode).toBe(0);
+
+	const repository = await getRepository({ repo: name, token, host });
+	expect(repository.simulatorUrl).toBe(presetSimulator);
+
+	const previews = await getPreviews({ repo: name, token, host });
+	expect(previews.map((p) => p.label)).toEqual(["Staging"]);
 }, 60_000);
 
 it("initializes a project with --repo when logged in", async ({
