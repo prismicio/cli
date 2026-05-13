@@ -1,10 +1,11 @@
 import { access, readFile, rm, writeFile } from "node:fs/promises";
+import { onTestFinished } from "vitest";
 
 import { captureOutput, it } from "./it";
 import {
 	addPreview,
-	cleanupRepository,
 	createRepository,
+	deleteRepository,
 	getPreviews,
 	getRepository,
 	setSimulatorUrl,
@@ -26,9 +27,17 @@ it("creates a repo if --repo is not provided and no legacy config exists", async
 	expect,
 	project,
 	prismic,
+	token,
+	host,
+	password,
 }) => {
 	await rm(new URL("prismic.config.json", project));
 	const { exitCode, stdout } = await prismic("init");
+	const createdRepositoryMatch = stdout.match(/^Created repository: ([a-z0-9-]+)$/m);
+	const name = createdRepositoryMatch?.[1];
+	if (!name) throw new Error(`Could not find created repository name in output:\n${stdout}`);
+	onTestFinished(() => deleteRepository(name, { token, password, host }));
+
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Created repository:");
 	expect(stdout).toContain("Initialized Prismic for repository");
@@ -55,7 +64,7 @@ it("preserves existing preview config", async ({
 }) => {
 	const rawName = `CLI-Test-${crypto.randomUUID().slice(0, 8)}`;
 	const name = rawName.toLowerCase();
-	onTestFinished(() => cleanupRepository(name, { token, password, host }));
+	onTestFinished(() => deleteRepository(name, { token, password, host }));
 	await createRepository(name, { token, host });
 
 	const presetSimulator = "https://staging.example.com/slice-simulator";
