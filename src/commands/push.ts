@@ -37,10 +37,6 @@ const config = {
 
 		Local models are the source of truth. Remote models are created,
 		updated, or deleted to match.
-
-		Use --delete-pages when you need push to skip the interactive confirmation
-		before deleting documents belonging to removed custom types (--force alone
-		does not skip that confirmation).
 	`,
 	options: {
 		force: { type: "boolean", short: "f", description: "Skip overwrite safety checks" },
