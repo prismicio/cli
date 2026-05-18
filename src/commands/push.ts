@@ -43,11 +43,11 @@ const config = {
 		does not skip that confirmation).
 	`,
 	options: {
-		force: { type: "boolean", short: "f", description: "Skip safety checks" },
+		force: { type: "boolean", short: "f", description: "Skip overwrite safety checks" },
 		"delete-pages": {
 			type: "boolean",
 			description:
-				"Skip confirmation before bulk-deleting documents when removing a custom type that has content",
+				"Confirm the bulk-deletion of associated pages when removing a type",
 		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
 		env: { type: "string", short: "e", description: "Environment domain" },
