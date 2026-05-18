@@ -53,6 +53,7 @@ export async function request<T>(
 
 		return value;
 	} else {
+		if (response.status === 400) throw new BadRequestError(response, value);
 		if (response.status === 401) throw new UnauthorizedRequestError(response);
 		if (response.status === 403) throw new ForbiddenRequestError(response);
 		if (response.status === 404) throw new NotFoundRequestError(response);
@@ -88,6 +89,15 @@ export class RequestError extends Error {
 
 export class UnknownRequestError extends RequestError {
 	name = "UnknownRequestError";
+}
+export class BadRequestError extends RequestError {
+	name = "BadRequestError";
+	body: unknown;
+
+	constructor(response: Response, body: unknown) {
+		super(response);
+		this.body = body;
+	}
 }
 export class NotFoundRequestError extends RequestError {
 	name = "NotFoundRequestError";

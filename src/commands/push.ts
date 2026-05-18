@@ -3,6 +3,10 @@ import { pascalCase } from "change-case";
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import {
+	deleteDocumentsByCustomType,
+	getDocumentTotalByCustomTypes,
+} from "../clients/core";
+import {
 	getCustomTypes,
 	getSlices,
 	insertCustomType,
@@ -16,10 +20,12 @@ import {
 	completeOnboardingStepsSilently,
 	type OnboardingStep,
 } from "../clients/repository";
+import { getWorkingDocumentsUrlForCustomType } from "../clients/wroom";
 import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
+import { BadRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
 import { canonicalizeModel } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -31,16 +37,30 @@ const config = {
 
 		Local models are the source of truth. Remote models are created,
 		updated, or deleted to match.
+
+		Use --delete-pages when you need push to skip the interactive confirmation
+		before deleting documents belonging to removed custom types (--force alone
+		does not skip that confirmation).
 	`,
 	options: {
 		force: { type: "boolean", short: "f", description: "Skip safety checks" },
+		"delete-pages": {
+			type: "boolean",
+			description:
+				"Skip confirmation before bulk-deleting documents when removing a custom type that has content",
+		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
 		env: { type: "string", short: "e", description: "Environment domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { force = false, repo: parentRepo = await getRepositoryName(), env } = values;
+	const {
+		force = false,
+		"delete-pages": deletePages = false,
+		repo: parentRepo = await getRepositoryName(),
+		env,
+	} = values;
 
 	const token = await getToken();
 	const host = await getHost();
@@ -134,8 +154,13 @@ export default createCommand(config, async ({ values }) => {
 	for (const model of customTypeOps.update) {
 		await updateCustomType(model, { repo, token, host });
 	}
-	for (const id of customTypeOps.delete.map((m) => m.id)) {
-		await removeCustomType(id, { repo, token, host });
+	for (const model of customTypeOps.delete) {
+		await removeCustomTypeWithDocumentHandling(model.id, {
+			repo,
+			token,
+			host,
+			deletePages,
+		});
 	}
 	for (const model of sliceOps.insert) {
 		await insertSlice(model, { repo, token, host });
@@ -173,3 +198,77 @@ export default createCommand(config, async ({ values }) => {
 		if (totalDeletes > 0) console.info(`Deleted ${totalDeletes} model(s).`);
 	}
 });
+
+const DELETE_PAGES_LIMIT = 200; // same hard limit from type builder and sm-api
+
+async function removeCustomTypeWithDocumentHandling(
+	id: string,
+	config: {
+		repo: string;
+		token: string | undefined;
+		host: string;
+		deletePages: boolean;
+	},
+): Promise<void> {
+	const { repo, token, host, deletePages: forceDeletePages } = config;
+	try {
+		await removeCustomType(id, { repo, token, host });
+	} catch (error) {
+		if (!isDocumentsInUseError(error)) throw error;
+
+		let documentCount: number;
+		try {
+			documentCount = await getDocumentTotalByCustomTypes(id, { repo, token, host });
+		} catch {
+			throw new CommandError(
+				`Failed to check whether type "${id}" has associated pages. ` +
+					"Please try pushing again, or manually delete any associated pages in Prismic: " + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
+			);
+		}
+
+		if (documentCount === 0) {
+			try {
+				await removeCustomType(id, { repo, token, host });
+				return;
+			} catch (retryError) {
+				if (!isDocumentsInUseError(retryError)) throw retryError;
+				throw new CommandError(
+					`Unable to delete type "${id}". It may have associated pages. ` +
+						`Please try pushing again, or manually delete any associated pages in Prismic: ` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
+				);
+			}
+		}
+
+		if (documentCount > DELETE_PAGES_LIMIT) {
+			const plural = documentCount === 1 ? "" : "s";
+			throw new CommandError(
+				`Cannot delete type "${id}": it has ${documentCount} associated page${plural}, ` +
+					`which exceeds the limit of ${DELETE_PAGES_LIMIT} that can be bulk-deleted. ` +
+					`Delete pages manually before pushing: ` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
+			);
+		}
+
+		if (!forceDeletePages) {
+			const plural = documentCount === 1 ? "" : "s";
+			throw new CommandError(
+				`Type "${id}" has ${documentCount} associated page${plural}. ` +
+					`Deleting it type will also permanently delete all associated pages: \n` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }) + "\n\n" +
+					`Pass --delete-pages to confirm this cascading deletion.`,
+			);
+			
+		}
+
+		console.info(`Deleting pages associated with type "${id}"...`);
+		await deleteDocumentsByCustomType(id, { repo, token, host });
+		await removeCustomType(id, { repo, token, host });
+	}
+}
+
+function isDocumentsInUseError(error: unknown): error is BadRequestError {
+	if (!(error instanceof BadRequestError)) return false;
+	const { body } = error;
+	return (
+		typeof body === "string" &&
+		(body.includes("associated documents") || body.includes("Delete all documents belonging"))
+	);
+}

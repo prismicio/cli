@@ -421,3 +421,13 @@ function getDashboardUrl(host: string): URL {
 function getWroomUrl(repo: string, host: string): URL {
 	return new URL(`https://${repo}.${host}/`);
 }
+
+/** Editor parity: document list filtered by custom type (sidebar / working view). */
+export function getWorkingDocumentsUrlForCustomType(
+	args: { repo: string; host: string; customTypeId: string },
+): string {
+	const { repo, host, customTypeId } = args;
+	const url = new URL("builder/working", getWroomUrl(repo, host));
+	url.searchParams.set("customTypes", customTypeId);
+	return url.href
+}
