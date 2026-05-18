@@ -429,5 +429,5 @@ export function getWorkingDocumentsUrlForCustomType(
 	const { repo, host, customTypeId } = args;
 	const url = new URL("builder/working", getWroomUrl(repo, host));
 	url.searchParams.set("customTypes", customTypeId);
-	return url.href
+	return url.href;
 }

@@ -248,7 +248,7 @@ async function removeCustomTypeWithDocumentHandling(
 			const plural = documentCount === 1 ? "" : "s";
 			throw new CommandError(
 				`Type "${id}" has ${documentCount} associated page${plural}. ` +
-					`Deleting it type will also permanently delete all associated pages: \n` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }) + "\n\n" +
+					`Deleting it will also permanently delete all associated pages: \n` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }) + "\n\n" +
 					`Pass --delete-pages to confirm this cascading deletion.`,
 			);
 			
