@@ -261,10 +261,7 @@ async function removeCustomTypeWithDocumentHandling(
 }
 
 function isDocumentsInUseError(error: unknown): error is BadRequestError {
-	if (!(error instanceof BadRequestError)) return false;
-	const { body } = error;
-	return (
-		typeof body === "string" &&
-		(body.includes("associated documents") || body.includes("Delete all documents belonging"))
-	);
+	if (!(error instanceof BadRequestError) || typeof error.body !== "string") return false;
+	const body = error.body.toString();
+	return body.includes("associated documents") || body.includes("Delete all documents belonging");
 }
