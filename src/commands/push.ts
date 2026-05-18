@@ -210,7 +210,7 @@ async function removeCustomTypeWithDocumentHandling(
 	try {
 		await removeCustomType(id, { repo, token, host });
 	} catch (error) {
-		if (!isDocumentsInUseError(error)) throw error;
+		if (!(await isDocumentsInUseError(error))) throw error;
 
 		let documentCount: number;
 		try {
@@ -227,7 +227,7 @@ async function removeCustomTypeWithDocumentHandling(
 				await removeCustomType(id, { repo, token, host });
 				return;
 			} catch (retryError) {
-				if (!isDocumentsInUseError(retryError)) throw retryError;
+				if (!(await isDocumentsInUseError(retryError))) throw retryError;
 				throw new CommandError(
 					`Unable to delete type "${id}". It may have associated pages. ` +
 						`Please try pushing again, or manually delete any associated pages in Prismic: ` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
@@ -260,8 +260,8 @@ async function removeCustomTypeWithDocumentHandling(
 	}
 }
 
-function isDocumentsInUseError(error: unknown): error is BadRequestError {
-	if (!(error instanceof BadRequestError) || typeof error.body !== "string") return false;
-	const body = error.body.toString();
+async function isDocumentsInUseError(error: unknown): Promise<boolean> {
+	if (!(error instanceof BadRequestError)) return false;
+	const body = await error.text();
 	return body.includes("associated documents") || body.includes("Delete all documents belonging");
 }
