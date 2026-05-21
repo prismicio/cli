@@ -38,18 +38,14 @@ const config = {
 		updated, or deleted to match.
 	`,
 	options: {
-		force: { type: "boolean", short: "f", description: "Skip overwrite safety checks" },
+		force: { type: "boolean", short: "f", description: "Skip safety checks" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 		env: { type: "string", short: "e", description: "Environment domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const {
-		force = false,
-		repo: parentRepo = await getRepositoryName(),
-		env,
-	} = values;
+	const { force = false, repo: parentRepo = await getRepositoryName(), env } = values;
 
 	const token = await getToken();
 	const host = await getHost();
@@ -144,11 +140,7 @@ export default createCommand(config, async ({ values }) => {
 		await updateCustomType(model, { repo, token, host });
 	}
 	for (const model of customTypeOps.delete) {
-		await removeCustomTypeWithDocumentHandling(model, {
-			repo,
-			token,
-			host,
-		});
+		await removeCustomTypeWithDocumentHandling(model, { repo, token, host });
 	}
 	for (const model of sliceOps.insert) {
 		await insertSlice(model, { repo, token, host });
