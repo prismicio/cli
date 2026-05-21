@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/prismicio/cli/compare/v1.8.0...v1.9.0) (2026-05-21)
+
+
+### Features
+
+* **push:** handle delete custom type with documents ([#187](https://github.com/prismicio/cli/issues/187)) ([8218fba](https://github.com/prismicio/cli/commit/8218fba69eff2f59cb1de075893c0889f26d6a43))
+
 ## [1.8.0](https://github.com/prismicio/cli/compare/v1.7.2...v1.8.0) (2026-05-13)
 
 
