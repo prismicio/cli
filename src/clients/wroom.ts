@@ -431,3 +431,16 @@ export function getWorkingDocumentsUrlForCustomType(
 	url.searchParams.set("customTypes", customTypeId);
 	return url.href;
 }
+
+type GetCustomTypePagesUrlArgs = {
+	repo: string;
+	host: string;
+	format: "custom" | "page";
+};
+
+export function getCustomTypeListUrl(args: GetCustomTypePagesUrlArgs): string {
+	const { repo, host, format } = args;
+	const path = ["builder", "types", format === "custom" ? "custom-types" : "page-types"].join("/");
+	const url = new URL(path, getWroomUrl(repo, host));
+	return url.href;
+}

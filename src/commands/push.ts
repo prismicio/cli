@@ -1,5 +1,7 @@
 import { pascalCase } from "change-case";
 
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getDocumentTotalByCustomTypes } from "../clients/core";
@@ -17,7 +19,7 @@ import {
 	completeOnboardingStepsSilently,
 	type OnboardingStep,
 } from "../clients/repository";
-import { getWorkingDocumentsUrlForCustomType } from "../clients/wroom";
+import { getWorkingDocumentsUrlForCustomType, getCustomTypeListUrl } from "../clients/wroom";
 import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
@@ -142,7 +144,7 @@ export default createCommand(config, async ({ values }) => {
 		await updateCustomType(model, { repo, token, host });
 	}
 	for (const model of customTypeOps.delete) {
-		await removeCustomTypeWithDocumentHandling(model.id, {
+		await removeCustomTypeWithDocumentHandling(model, {
 			repo,
 			token,
 			host,
@@ -186,7 +188,7 @@ export default createCommand(config, async ({ values }) => {
 });
 
 async function removeCustomTypeWithDocumentHandling(
-	id: string,
+	model: CustomType,
 	config: {
 		repo: string;
 		token: string | undefined;
@@ -194,34 +196,36 @@ async function removeCustomTypeWithDocumentHandling(
 	},
 ): Promise<void> {
 	const { repo, token, host } = config;
+	const { id, format } = model;
+
 	try {
 		await removeCustomType(id, { repo, token, host });
 	} catch (error) {
-		if (!(await isDocumentsInUseError(error))) throw error;
+		if (!(await isDocumentsInUseError(error))) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw new CommandError(
+				`Could not delete type "${id}: ${errorMessage}"` + 
+					"\n\nPlease try again, or manually delete the types at:" + 
+					getCustomTypeListUrl({ repo, host, format: format ?? "custom" })
+			);
+		}
 
 		let documentCount: number;
 		try {
 			documentCount = await getDocumentTotalByCustomTypes(id, { repo, token, host });
 		} catch {
 			throw new CommandError(
-				`Failed to check whether type "${id}" has associated pages. ` +
-					"Please try pushing again, or manually delete any associated pages in Prismic: " + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
+				`Could not check whether type "${id}" has associated pages. ` +
+					"\nPlease try again, or manually delete any associated pages at: " + 
+					getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
 			);
 		}
 
-		if (documentCount === 0) {
-			try {
-				await removeCustomType(id, { repo, token, host });
-				return;
-			} catch (retryError) {
-				if (!(await isDocumentsInUseError(retryError))) throw retryError;
-			}
-		}
-
-		const plural = documentCount === 1 ? "" : "s";
+		const countLabel = documentCount > 0 ? ` ${documentCount}` : "";
+		const pluralPages = documentCount === 1 ? "page" : "pages";
 		throw new CommandError(
-			`Cannot delete type "${id}": it has ${documentCount} associated page${plural}. ` +
-				`Delete pages manually before pushing: ` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
+			`Could not delete type "${id}" because it has${countLabel} associated ${pluralPages}. ` +
+				`\nDelete any associated pages manually before pushing at: ${getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id })}`,
 		);
 	}
 }
