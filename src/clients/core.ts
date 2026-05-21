@@ -183,26 +183,6 @@ export async function getDocumentTotalByCustomTypes(
 	}
 }
 
-export async function deleteDocumentsByCustomType(
-	customTypeId: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const url = new URL("core/documents", getCoreBaseUrl(repo, host));
-	try {
-		await request(url, {
-			method: "DELETE",
-			body: { customtype_ids: [customTypeId] },
-			credentials: { "prismic-auth": token },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
-}
-
 function getCoreBaseUrl(repo: string, host: string): URL {
 	return new URL(`https://${repo}.${host}/`);
 }

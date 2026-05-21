@@ -2,10 +2,7 @@ import { pascalCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import {
-	deleteDocumentsByCustomType,
-	getDocumentTotalByCustomTypes,
-} from "../clients/core";
+import { getDocumentTotalByCustomTypes } from "../clients/core";
 import {
 	getCustomTypes,
 	getSlices,
@@ -40,11 +37,6 @@ const config = {
 	`,
 	options: {
 		force: { type: "boolean", short: "f", description: "Skip overwrite safety checks" },
-		"delete-pages": {
-			type: "boolean",
-			description:
-				"Confirm the bulk-deletion of associated pages when removing a type",
-		},
 		repo: { type: "string", short: "r", description: "Repository domain" },
 		env: { type: "string", short: "e", description: "Environment domain" },
 	},
@@ -53,7 +45,6 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const {
 		force = false,
-		"delete-pages": deletePages = false,
 		repo: parentRepo = await getRepositoryName(),
 		env,
 	} = values;
@@ -155,7 +146,6 @@ export default createCommand(config, async ({ values }) => {
 			repo,
 			token,
 			host,
-			deletePages,
 		});
 	}
 	for (const model of sliceOps.insert) {
@@ -195,18 +185,15 @@ export default createCommand(config, async ({ values }) => {
 	}
 });
 
-const DELETE_PAGES_LIMIT = 200; // same hard limit from type builder and sm-api
-
 async function removeCustomTypeWithDocumentHandling(
 	id: string,
 	config: {
 		repo: string;
 		token: string | undefined;
 		host: string;
-		deletePages: boolean;
 	},
 ): Promise<void> {
-	const { repo, token, host, deletePages: forceDeletePages } = config;
+	const { repo, token, host } = config;
 	try {
 		await removeCustomType(id, { repo, token, host });
 	} catch (error) {
@@ -228,35 +215,14 @@ async function removeCustomTypeWithDocumentHandling(
 				return;
 			} catch (retryError) {
 				if (!(await isDocumentsInUseError(retryError))) throw retryError;
-				throw new CommandError(
-					`Unable to delete type "${id}". It may have associated pages. ` +
-						`Please try pushing again, or manually delete any associated pages in Prismic: ` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
-				);
 			}
 		}
 
-		if (documentCount > DELETE_PAGES_LIMIT) {
-			const plural = documentCount === 1 ? "" : "s";
-			throw new CommandError(
-				`Cannot delete type "${id}": it has ${documentCount} associated page${plural}, ` +
-					`which exceeds the limit of ${DELETE_PAGES_LIMIT} that can be bulk-deleted. ` +
-					`Delete pages manually before pushing: ` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
-			);
-		}
-
-		if (!forceDeletePages) {
-			const plural = documentCount === 1 ? "" : "s";
-			throw new CommandError(
-				`Type "${id}" has ${documentCount} associated page${plural}. ` +
-					`Deleting it will also permanently delete all associated pages: \n` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }) + "\n\n" +
-					`Pass --delete-pages to confirm this cascading deletion.`,
-			);
-			
-		}
-
-		console.info(`Deleting pages associated with type "${id}"...`);
-		await deleteDocumentsByCustomType(id, { repo, token, host });
-		await removeCustomType(id, { repo, token, host });
+		const plural = documentCount === 1 ? "" : "s";
+		throw new CommandError(
+			`Cannot delete type "${id}": it has ${documentCount} associated page${plural}. ` +
+				`Delete pages manually before pushing: ` + getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
+		);
 	}
 }
 
