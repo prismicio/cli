@@ -421,3 +421,26 @@ function getDashboardUrl(host: string): URL {
 function getWroomUrl(repo: string, host: string): URL {
 	return new URL(`https://${repo}.${host}/`);
 }
+
+/** Editor parity: document list filtered by custom type (sidebar / working view). */
+export function getWorkingDocumentsUrlForCustomType(
+	args: { repo: string; host: string; customTypeId: string },
+): string {
+	const { repo, host, customTypeId } = args;
+	const url = new URL("builder/working", getWroomUrl(repo, host));
+	url.searchParams.set("customTypes", customTypeId);
+	return url.href;
+}
+
+type GetCustomTypePagesUrlArgs = {
+	repo: string;
+	host: string;
+	format: "custom" | "page";
+};
+
+export function getCustomTypeListUrl(args: GetCustomTypePagesUrlArgs): string {
+	const { repo, host, format } = args;
+	const path = ["builder", "types", format === "custom" ? "custom-types" : "page-types"].join("/");
+	const url = new URL(path, getWroomUrl(repo, host));
+	return url.href;
+}
