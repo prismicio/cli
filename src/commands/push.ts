@@ -204,8 +204,8 @@ async function removeCustomTypeWithDocumentHandling(
 		if (!(await isDocumentsInUseError(error))) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw new CommandError(
-				`Could not delete type "${id}: ${errorMessage}"` + 
-					"\n\nPlease try again, or manually delete the types at:" + 
+				`Could not delete type "${id}": ${errorMessage}"` + 
+					"\nPlease try again, or manually deleting the type at: " + 
 					getCustomTypeListUrl({ repo, host, format: format ?? "custom" })
 			);
 		}
@@ -225,7 +225,8 @@ async function removeCustomTypeWithDocumentHandling(
 		const pluralPages = documentCount === 1 ? "page" : "pages";
 		throw new CommandError(
 			`Could not delete type "${id}" because it has${countLabel} associated ${pluralPages}. ` +
-				`\nDelete any associated pages manually before pushing at: ${getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id })}`,
+				`\nDelete any associated pages manually before pushing at: ` + 
+				getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
 		);
 	}
 }
