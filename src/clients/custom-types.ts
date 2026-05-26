@@ -181,7 +181,6 @@ const SUPPORTED_IMAGE_MIME_TYPES: Record<string, string> = {
 	"image/jpeg": ".jpg",
 	"image/gif": ".gif",
 	"image/webp": ".webp",
-	"image/svg+xml": ".svg",
 };
 
 export async function uploadScreenshot(
