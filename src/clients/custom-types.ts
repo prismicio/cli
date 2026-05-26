@@ -177,11 +177,11 @@ const ScreenshotPresignedUrlResponseSchema = z.object({
 });
 
 const SUPPORTED_IMAGE_MIME_TYPES: Record<string, string> = {
-	"image/png": "png",
-	"image/jpeg": "jpg",
-	"image/gif": "gif",
-	"image/webp": "webp",
-	"image/svg+xml": "svg",
+	"image/png": ".png",
+	"image/jpeg": ".jpg",
+	"image/gif": ".gif",
+	"image/webp": ".webp",
+	"image/svg+xml": ".svg",
 };
 
 export async function uploadScreenshot(
@@ -212,7 +212,7 @@ export async function uploadScreenshot(
 	const digest = createHash("sha1")
 		.update(new Uint8Array(await blob.arrayBuffer()))
 		.digest("hex");
-	const key = `${repo}/shared-slices/${sliceId}/${variationId}/${digest}.${extension}`;
+	const key = `${repo}/shared-slices/${sliceId}/${variationId}/${digest}${extension}`;
 
 	const formData = new FormData();
 	for (const [field, value] of Object.entries(presigned.values.fields)) {
