@@ -1,7 +1,10 @@
 import { pascalCase } from "change-case";
 
+import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
+import { getDocumentTotalByCustomTypes } from "../clients/core";
 import {
 	getCustomTypes,
 	getSlices,
@@ -16,10 +19,12 @@ import {
 	completeOnboardingStepsSilently,
 	type OnboardingStep,
 } from "../clients/repository";
+import { getWorkingDocumentsUrlForCustomType, getCustomTypeListUrl } from "../clients/wroom";
 import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
+import { BadRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
 import { canonicalizeModel } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -134,8 +139,8 @@ export default createCommand(config, async ({ values }) => {
 	for (const model of customTypeOps.update) {
 		await updateCustomType(model, { repo, token, host });
 	}
-	for (const id of customTypeOps.delete.map((m) => m.id)) {
-		await removeCustomType(id, { repo, token, host });
+	for (const model of customTypeOps.delete) {
+		await removeCustomTypeWithDocumentHandling(model, { repo, token, host });
 	}
 	for (const model of sliceOps.insert) {
 		await insertSlice(model, { repo, token, host });
@@ -173,3 +178,53 @@ export default createCommand(config, async ({ values }) => {
 		if (totalDeletes > 0) console.info(`Deleted ${totalDeletes} model(s).`);
 	}
 });
+
+async function removeCustomTypeWithDocumentHandling(
+	model: CustomType,
+	config: {
+		repo: string;
+		token: string | undefined;
+		host: string;
+	},
+): Promise<void> {
+	const { repo, token, host } = config;
+	const { id, format } = model;
+
+	try {
+		await removeCustomType(id, { repo, token, host });
+	} catch (error) {
+		if (!(await isDocumentsInUseError(error))) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw new CommandError(
+				`Could not delete type "${id}": ${errorMessage}"` + 
+					"\nPlease try again, or manually deleting the type at: " + 
+					getCustomTypeListUrl({ repo, host, format: format ?? "custom" })
+			);
+		}
+
+		let documentCount: number;
+		try {
+			documentCount = await getDocumentTotalByCustomTypes(id, { repo, token, host });
+		} catch {
+			throw new CommandError(
+				`Could not check whether type "${id}" has associated pages. ` +
+					"\nPlease try again, or manually delete any associated pages at: " + 
+					getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
+			);
+		}
+
+		const countLabel = documentCount > 0 ? ` ${documentCount}` : "";
+		const pluralPages = documentCount === 1 ? "page" : "pages";
+		throw new CommandError(
+			`Could not delete type "${id}" because it has${countLabel} associated ${pluralPages}. ` +
+				`\nDelete any associated pages manually before pushing at: ` + 
+				getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
+		);
+	}
+}
+
+async function isDocumentsInUseError(error: unknown): Promise<boolean> {
+	if (!(error instanceof BadRequestError)) return false;
+	const body = await error.text();
+	return body.includes("associated documents") || body.includes("Delete all documents belonging");
+}
