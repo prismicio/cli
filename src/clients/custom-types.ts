@@ -183,6 +183,20 @@ const SUPPORTED_IMAGE_MIME_TYPES: Record<string, string> = {
 	"image/webp": ".webp",
 };
 
+export async function deleteScreenshots(
+	sliceId: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const { repo, token, host } = config;
+	const url = new URL("delete", getScreenshotServiceUrl(host));
+	url.searchParams.set("repository", repo);
+	await request(url, {
+		method: "POST",
+		headers: { repository: repo, Authorization: `Bearer ${token}` },
+		body: { sliceId },
+	});
+}
+
 export async function uploadScreenshot(
 	blob: Blob,
 	config: {
