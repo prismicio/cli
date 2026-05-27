@@ -131,6 +131,22 @@ export async function deleteSlice(sliceId: string, config: RepoConfig): Promise<
 	if (!res.ok) throw new Error(`Failed to delete slice: ${res.status} ${await res.text()}`);
 }
 
+export async function listScreenshotFiles(config: RepoConfig): Promise<string[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("files", `https://api.internal.${host}/screenshot/`);
+	url.searchParams.set("repository", config.repo);
+	const res = await fetch(url, {
+		headers: { Authorization: `Bearer ${config.token}` },
+	});
+	if (!res.ok) throw new Error(`Failed to list screenshot files: ${res.status} ${await res.text()}`);
+	const data = (await res.json()) as { keys: string[] };
+	return data.keys;
+}
+
+export function getScreenshotPrefix(config: RepoConfig, sliceId: string): string {
+	return `${config.repo}/shared-slices/${sliceId}/`;
+}
+
 export async function getWebhooks(
 	config: RepoConfig,
 ): Promise<{ config: Record<string, unknown> }[]> {
