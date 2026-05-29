@@ -168,7 +168,7 @@ export async function removeSlice(
 	});
 }
 
-const AclCreateResponseSchema = z.object({
+const ScreenshotPresignedUrlResponseSchema = z.object({
 	values: z.object({
 		url: z.string(),
 		fields: z.record(z.string(), z.string()),
@@ -182,6 +182,20 @@ const SUPPORTED_IMAGE_MIME_TYPES: Record<string, string> = {
 	"image/gif": ".gif",
 	"image/webp": ".webp",
 };
+
+export async function deleteScreenshots(
+	sliceId: string,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	const { repo, token, host } = config;
+	const url = new URL("delete", getScreenshotServiceUrl(host));
+	url.searchParams.set("repository", repo);
+	await request(url, {
+		method: "POST",
+		headers: { repository: repo, Authorization: `Bearer ${token}` },
+		body: { sliceId },
+	});
+}
 
 export async function uploadScreenshot(
 	blob: Blob,
@@ -200,29 +214,30 @@ export async function uploadScreenshot(
 		throw new UnsupportedFileTypeError(type);
 	}
 
-	const aclUrl = new URL("create", getAclProviderUrl(host));
-	const acl = await request(aclUrl, {
-		headers: { Repository: repo, Authorization: `Bearer ${token}` },
-		schema: AclCreateResponseSchema,
+	const presignedUrl = new URL("presigned-url", getScreenshotServiceUrl(host));
+	presignedUrl.searchParams.set("repository", repo);
+	const presigned = await request(presignedUrl, {
+		headers: { repository: repo, Authorization: `Bearer ${token}` },
+		schema: ScreenshotPresignedUrlResponseSchema,
 	});
 
 	const extension = SUPPORTED_IMAGE_MIME_TYPES[type];
-	const digest = createHash("md5")
+	const digest = createHash("sha1")
 		.update(new Uint8Array(await blob.arrayBuffer()))
 		.digest("hex");
 	const key = `${repo}/shared-slices/${sliceId}/${variationId}/${digest}${extension}`;
 
 	const formData = new FormData();
-	for (const [field, value] of Object.entries(acl.values.fields)) {
+	for (const [field, value] of Object.entries(presigned.values.fields)) {
 		formData.append(field, value);
 	}
-	formData.append("key", key);
-	formData.append("Content-Type", type);
-	formData.append("file", blob);
+	formData.set("key", key);
+	formData.set("Content-Type", type);
+	formData.set("file", blob);
 
-	await request(acl.values.url, { method: "POST", body: formData });
+	await request(presigned.values.url, { method: "POST", body: formData });
 
-	const url = new URL(key, appendTrailingSlash(acl.imgixEndpoint));
+	const url = new URL(key, appendTrailingSlash(presigned.imgixEndpoint));
 	url.searchParams.set("auto", "compress,format");
 
 	return url;
@@ -243,6 +258,6 @@ function getCustomTypesServiceUrl(host: string): URL {
 	return new URL(`https://customtypes.${host}/`);
 }
 
-function getAclProviderUrl(host: string): URL {
-	return new URL(`https://acl-provider.${host}/`);
+function getScreenshotServiceUrl(host: string): URL {
+	return new URL(`https://api.internal.${host}/screenshot/`);
 }

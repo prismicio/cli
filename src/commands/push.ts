@@ -6,6 +6,7 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getDocumentTotalByCustomTypes } from "../clients/core";
 import {
+	deleteScreenshots,
 	getCustomTypes,
 	getSlices,
 	insertCustomType,
@@ -150,6 +151,10 @@ export default createCommand(config, async ({ values }) => {
 	}
 	for (const id of sliceOps.delete.map((m) => m.id)) {
 		await removeSlice(id, { repo, token, host });
+		await deleteScreenshots(id, { repo, token, host }).catch((error) => {
+			const message = error instanceof Error ? error.message : String(error);
+			console.warn(`Failed to delete screenshots for slice "${id}": ${message}`);
+		});
 	}
 
 	const onboardingSteps: OnboardingStep[] = [];
