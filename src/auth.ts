@@ -23,6 +23,7 @@ const CredentialsSchema = z.looseObject({
 type Credentials = z.infer<typeof CredentialsSchema>;
 
 export async function getToken(): Promise<string | undefined> {
+	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
 	const credentials = await readCredentials();
 	return credentials?.token;
 }
@@ -34,6 +35,7 @@ export async function getHost(): Promise<string> {
 }
 
 export async function refreshToken(): Promise<string | undefined> {
+	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
 	const token = await getToken();
 	if (!token) return;
 	const host = await getHost();
