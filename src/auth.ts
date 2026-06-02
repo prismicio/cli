@@ -35,7 +35,7 @@ export async function getHost(): Promise<string> {
 }
 
 export async function refreshToken(): Promise<string | undefined> {
-	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
+	if (env.PRISMIC_TOKEN) return;
 	const token = await getToken();
 	if (!token) return;
 	const host = await getHost();
