@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.0](https://github.com/prismicio/cli/compare/v1.9.0...v1.10.0) (2026-06-03)
+
+
+### Features
+
+* **screenshots:** migrate to new service and delete on push ([#189](https://github.com/prismicio/cli/issues/189)) ([634d167](https://github.com/prismicio/cli/commit/634d16744c5c3340e8812eb1b09a45cc0ae6ec43))
+* support PRISMIC_TOKEN env var to override stored token ([#191](https://github.com/prismicio/cli/issues/191)) ([38d799d](https://github.com/prismicio/cli/commit/38d799dc53f1aac4f7f176bf9de9264d97b4a4ef))
+
 ## [1.9.0](https://github.com/prismicio/cli/compare/v1.8.0...v1.9.0) (2026-05-21)
 
 
