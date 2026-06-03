@@ -4,7 +4,7 @@ import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { getProfile } from "../clients/user";
-import { DEFAULT_PRISMIC_HOST } from "../env";
+import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
@@ -76,6 +76,11 @@ export default createCommand(config, async ({ values }) => {
 		profile = await getProfile({ token, host });
 	} catch (error) {
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
+			if (env.PRISMIC_TOKEN) {
+				throw new CommandError(
+					"PRISMIC_TOKEN is invalid or expired. Unset it to log in with a browser, or replace it with a valid token.",
+				);
+			}
 			console.info("Not logged in. Starting login...");
 			const { email } = await createLoginSession({
 				onReady: (url) => {
