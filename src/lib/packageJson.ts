@@ -47,6 +47,19 @@ export async function addDependencies(dependencies: Record<string, string>): Pro
 	await writeFile(packageJsonPath, newContents);
 }
 
+export async function removeDependencies(names: string[]): Promise<void> {
+	const packageJsonPath = await findPackageJson();
+	const raw = await readFile(packageJsonPath, "utf8");
+	const indent = detectIndent(raw).indent || "\t";
+	const packageJson = JSON.parse(raw);
+	for (const section of ["dependencies", "devDependencies", "peerDependencies"]) {
+		if (!packageJson[section]) continue;
+		for (const name of names) delete packageJson[section][name];
+	}
+	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
+	await writeFile(packageJsonPath, newContents);
+}
+
 export async function getNpmPackageVersion(name: string, tag = "latest"): Promise<string> {
 	const url = new URL(`${name}/${tag}`, "https://registry.npmjs.org/");
 	const { version } = await request(url, {
