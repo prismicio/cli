@@ -1,6 +1,19 @@
 import baseDedent from "dedent";
 
-export const dedent = baseDedent.withOptions({ alignValues: true });
+const baseDedentWithOptions = baseDedent.withOptions({ alignValues: true });
+
+export function dedent(strings: TemplateStringsArray | string, ...values: unknown[]): string {
+	if (typeof strings === "string") {
+		return baseDedentWithOptions(strings);
+	}
+
+	// dedent reads `strings.raw` by default, which keeps escapes the bundler adds
+	// to string literals (e.g. `</script>` becomes `<\/script>`). Point `raw` at
+	// the regular string segments instead, where escapes are already resolved, so
+	// they don't leak into generated files.
+	const resolved = Array.from(strings);
+	return baseDedentWithOptions(Object.assign(resolved, { raw: resolved }), ...values);
+}
 
 export function formatTable(
 	rows: string[][],
