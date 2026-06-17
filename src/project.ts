@@ -4,9 +4,7 @@ import { readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
-import { getVariantData } from "./clients/amplitude";
 import { getRepository } from "./clients/repository";
-import { getProfile } from "./clients/user";
 import { env } from "./env";
 import { exists, findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
@@ -253,16 +251,8 @@ export async function checkIsTypeBuilderEnabled(
 	if (env.PRISMIC_TYPE_BUILDER_ENABLED !== undefined) return env.PRISMIC_TYPE_BUILDER_ENABLED;
 
 	const { token, host } = config;
-	const profile = await getProfile({ token, host });
-	const [variantData, repository] = await Promise.all([
-		getVariantData(profile.shortId, {
-			groups: { Repository: [repo] },
-			host,
-		}),
-		getRepository({ repo, token, host }),
-	]);
-	const flagEnabled = variantData["dev-tools-types-builder-cloud"]?.value === "on";
-	return flagEnabled && repository.quotas?.sliceMachineEnabled === true;
+	const repository = await getRepository({ repo, token, host });
+	return repository.quotas?.sliceMachineEnabled === true;
 }
 
 export class TypeBuilderRequiredError extends Error {
