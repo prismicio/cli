@@ -27,7 +27,7 @@ const config = {
 	description: `
 		Initialize a new Prismic project by creating a repository and
 		prismic.config.json file. Detects the project framework, installs
-		dependencies, and syncs models from Prismic.
+		dependencies, and pulls models from Prismic.
 
 		Use --repo to connect to an existing repository instead. If a
 		slicemachine.config.json exists, its repository and settings will be
@@ -200,5 +200,7 @@ export default createCommand(config, async ({ values }) => {
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");
-	console.info("Run `prismic sync` to sync models from Prismic.");
+	if (explicitRepo) {
+		console.info("Run `prismic pull` to pull models from Prismic.");
+	}
 });
