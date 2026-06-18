@@ -200,7 +200,5 @@ export default createCommand(config, async ({ values }) => {
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");
-	if (explicitRepo) {
-		console.info("Run `prismic pull` to pull models from Prismic.");
-	}
+	console.info("Run `prismic pull` to pull models from Prismic.");
 });
