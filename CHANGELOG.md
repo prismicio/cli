@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/prismicio/cli/compare/v1.10.0...v1.11.0) (2026-06-17)
+
+
+### Features
+
+* allow `prismic init` migration on all Slice Machine repositories ([#192](https://github.com/prismicio/cli/issues/192)) ([7885b21](https://github.com/prismicio/cli/commit/7885b216ddc07fc46dccde87d2a261a2516283f9))
+
 ## [1.10.0](https://github.com/prismicio/cli/compare/v1.9.0...v1.10.0) (2026-06-03)
 
 
