@@ -148,6 +148,41 @@ it("migrates slicemachine.config.json", async ({ expect, project, prismic, repo 
 	await expect(access(new URL("slicemachine.config.json", project))).rejects.toThrow();
 });
 
+it("uninstalls Slice Machine packages when migrating", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({
+			dependencies: { next: "latest" },
+			devDependencies: {
+				"slice-machine-ui": "^2.0.0",
+				// A non-matching adapter, to verify any @slicemachine/adapter-* is removed.
+				"@slicemachine/adapter-nuxt": "^0.3.0",
+			},
+		}),
+	);
+	await writeFile(
+		new URL("slicemachine.config.json", project),
+		JSON.stringify({ repositoryName: repo, libraries: ["./src/slices"] }),
+	);
+
+	const proc = prismic("init");
+	const output = captureOutput(proc);
+	await expect.poll(output, { timeout: 15_000 }).toContain("Migrated slicemachine.config.json");
+	proc.kill();
+
+	const packageJson = JSON.parse(await readFile(new URL("package.json", project), "utf-8"));
+	const allDependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
+	expect(allDependencies).not.toHaveProperty("slice-machine-ui");
+	expect(allDependencies).not.toHaveProperty("@slicemachine/adapter-nuxt");
+	expect(allDependencies).toHaveProperty("next");
+});
+
 it("fails when Type Builder is not enabled", async ({ expect, project, prismic, repo }) => {
 	await rm(new URL("prismic.config.json", project));
 	const { exitCode, stderr } = await prismic("init", ["--repo", repo], {

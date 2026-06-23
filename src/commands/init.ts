@@ -8,7 +8,7 @@ import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
-import { installDependencies } from "../lib/packageJson";
+import { installDependencies, readPackageJson, removeDependencies } from "../lib/packageJson";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
 	createConfig,
@@ -146,6 +146,17 @@ export default createCommand(config, async ({ values }) => {
 		try {
 			await deleteLegacySliceMachineConfig();
 		} catch {}
+		// Slice Machine is replaced by the Type Builder and CLI, so its packages
+		// are no longer needed after migrating.
+		const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
+		const sliceMachinePackages = Object.keys({
+			...dependencies,
+			...devDependencies,
+			...peerDependencies,
+		}).filter((name) => name === "slice-machine-ui" || name.startsWith("@slicemachine/adapter-"));
+		if (sliceMachinePackages.length > 0) {
+			await removeDependencies(sliceMachinePackages);
+		}
 		console.info("Migrated slicemachine.config.json to prismic.config.json");
 	}
 
