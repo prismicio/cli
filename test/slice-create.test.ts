@@ -1,4 +1,5 @@
 import { snakeCase } from "change-case";
+import { writeFile } from "node:fs/promises";
 
 import { buildSlice, it, readLocalSlice } from "./it";
 
@@ -31,4 +32,25 @@ it("creates a slice with a custom id", async ({ expect, prismic, project }) => {
 
 	const created = await readLocalSlice(project, id);
 	expect(created).toBeDefined();
+});
+
+it("creates a slice in the first configured library", async ({ expect, prismic, project, repo }) => {
+	await writeFile(
+		new URL("prismic.config.json", project),
+		JSON.stringify({
+			repositoryName: repo,
+			libraries: ["./slices/blog", "./slices/features"],
+		}),
+	);
+
+	const { name } = buildSlice();
+	const id = snakeCase(name);
+
+	const { exitCode } = await prismic("slice", ["create", name]);
+	expect(exitCode).toBe(0);
+
+	const created = await readLocalSlice(project, id);
+	expect(created).toBeDefined();
+	await expect(project).toHaveFile(`slices/blog/${name}/model.json`);
+	await expect(project).not.toHaveFile(`slices/${name}/model.json`);
 });

@@ -1,7 +1,10 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile } from "node:fs/promises";
+import { pascalCase } from "change-case";
+import { access, readFile } from "node:fs/promises";
 import { expect } from "vitest";
+
+import { getSliceLibraryPaths } from "./it";
 
 declare module "vitest" {
 	// oxlint-disable-next-line no-explicit-any
@@ -38,8 +41,22 @@ expect.extend({
 
 	async toContainSlice(project, slice) {
 		const problems: string[] = [];
+		const libraries = await getSliceLibraryPaths(project);
+		const sliceDirectoryName = pascalCase(slice.name);
+		let sliceLibrary: string | undefined;
 
-		const sliceIndexPath = new URL("slices/index.js", project);
+		for (const library of libraries) {
+			const sliceDirectory = new URL(`${library}/${sliceDirectoryName}/`, project);
+			try {
+				await access(sliceDirectory);
+				sliceLibrary = library;
+				break;
+			} catch {}
+		}
+
+		const library = sliceLibrary ?? libraries[0]!;
+
+		const sliceIndexPath = new URL(`${library}/index.js`, project);
 		try {
 			const sliceIndex = await readFile(sliceIndexPath, "utf8");
 			if (!new RegExp(`\\b${slice.id}: `).test(sliceIndex)) {
@@ -51,7 +68,7 @@ expect.extend({
 			problems.push(`slice library index (${sliceIndexPath.href}) does not exist`);
 		}
 
-		const modelPath = new URL(`slices/${slice.name}/model.json`, project);
+		const modelPath = new URL(`${library}/${sliceDirectoryName}/model.json`, project);
 		try {
 			const model: SharedSlice = JSON.parse(await readFile(modelPath, "utf8"));
 			if (model.id !== slice.id) {
@@ -61,7 +78,7 @@ expect.extend({
 			problems.push(`slice model file (${modelPath.href}) does not exist`);
 		}
 
-		const componentPath = new URL(`slices/${slice.name}/index.jsx`, project);
+		const componentPath = new URL(`${library}/${sliceDirectoryName}/index.jsx`, project);
 		try {
 			const componentFile = await readFile(componentPath, "utf-8");
 			if (!componentFile.includes(slice.name)) {

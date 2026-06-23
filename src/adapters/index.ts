@@ -106,7 +106,7 @@ export abstract class Adapter {
 	}
 
 	async createSlice(model: SharedSlice, library?: URL): Promise<void> {
-		library ??= await this.getDefaultSliceLibrary();
+		library ??= (await this.getSliceLibraries())[0];
 		const sliceDirectoryName = pascalCase(model.name);
 		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
 		const modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
