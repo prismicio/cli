@@ -197,21 +197,15 @@ export async function readLocalCustomTypes(project: URL): Promise<CustomType[]> 
 	return result;
 }
 
-export async function getSliceLibraryPaths(project: URL): Promise<string[]> {
-	const configPath = new URL("prismic.config.json", project);
-	try {
-		const config: { libraries?: string[] } = JSON.parse(await readFile(configPath, "utf8"));
-		const libraries = config.libraries;
-		if (libraries && libraries.length >= 1) {
-			return libraries.map((library) => library.replace(/\\/g, "").replace(/^\.\//, ""));
-		}
-	} catch {}
-	return ["slices"];
+export async function getSliceLibraries(project: URL): Promise<URL[]> {
+	const { libraries = [] } = await getConfig(project);
+	if (libraries.length < 1) return [new URL("slices/", project)];
+	return libraries.map((library) => new URL(library.replace(/^\//, "") + "/", project));
 }
 
 export async function writeLocalSlice(project: URL, model: SharedSlice): Promise<void> {
-	const [library] = await getSliceLibraryPaths(project);
-	const path = new URL(`${library}/${pascalCase(model.name)}/model.json`, project);
+	const [library] = await getSliceLibraries(project);
+	const path = new URL(`${pascalCase(model.name)}/model.json`, library);
 	await mkdir(new URL(".", path), { recursive: true });
 	await writeFile(path, JSON.stringify(model, null, 2));
 }
@@ -222,18 +216,21 @@ export async function readLocalSlice(project: URL, id: string): Promise<SharedSl
 }
 
 export async function readLocalSlices(project: URL): Promise<SharedSlice[]> {
-	const libraries = await getSliceLibraryPaths(project);
+	const libraries = await getSliceLibraries(project);
 	const result: SharedSlice[] = [];
-
 	for (const library of libraries) {
-		const dir = new URL(`${library}/`, project);
-		const entries = await readdir(dir).catch(() => [] as string[]);
+		const entries = await readdir(library).catch(() => []);
 		for (const name of entries) {
 			try {
-				result.push(JSON.parse(await readFile(new URL(`${name}/model.json`, dir), "utf8")));
+				result.push(JSON.parse(await readFile(new URL(`${name}/model.json`, library), "utf8")));
 			} catch {}
 		}
 	}
-
 	return result;
+}
+
+async function getConfig(project: URL): Promise<{ libraries?: string[] }> {
+	const path = new URL("prismic.config.json", project);
+	const raw = await readFile(path, "utf8");
+	return JSON.parse(raw);
 }
