@@ -1,6 +1,7 @@
 import { writeFile, mkdir } from "node:fs/promises";
 import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pascalCase } from "change-case";
 import { x } from "tinyexec";
 
 import { buildCustomType, buildSlice, it } from "./it";
@@ -99,6 +100,35 @@ it.sequential("adds new slice to existing library on re-pull", async ({
 	expect(second.exitCode).toBe(0);
 	await expect(project).toContainSlice(sliceA);
 	await expect(project).toContainSlice(sliceB);
+});
+
+it.sequential("pulls new slices into the first configured library", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const slice = buildSlice();
+
+	await writeFile(
+		new URL("prismic.config.json", project),
+		JSON.stringify({
+			repositoryName: repo,
+			libraries: ["./slices/blog", "./slices/features"],
+		}),
+	);
+
+	await insertSlice(slice, { repo, token, host });
+
+	const { exitCode } = await prismic("pull", ["--repo", repo]);
+	expect(exitCode).toBe(0);
+
+	const sliceDirectoryName = pascalCase(slice.name);
+	await expect(project).toContainSlice(slice);
+	await expect(project).toHaveFile(`slices/blog/${sliceDirectoryName}/model.json`);
+	await expect(project).not.toHaveFile(`slices/${sliceDirectoryName}/model.json`);
 });
 
 it.sequential("removes deleted slice and updates index on re-pull", async ({

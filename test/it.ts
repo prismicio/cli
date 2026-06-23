@@ -197,8 +197,15 @@ export async function readLocalCustomTypes(project: URL): Promise<CustomType[]> 
 	return result;
 }
 
+export async function getSliceLibraries(project: URL): Promise<URL[]> {
+	const { libraries = [] } = await getConfig(project);
+	if (libraries.length < 1) return [new URL("slices/", project)];
+	return libraries.map((library) => new URL(library.replace(/^\//, "") + "/", project));
+}
+
 export async function writeLocalSlice(project: URL, model: SharedSlice): Promise<void> {
-	const path = new URL(`slices/${pascalCase(model.name)}/model.json`, project);
+	const [library] = await getSliceLibraries(project);
+	const path = new URL(`${pascalCase(model.name)}/model.json`, library);
 	await mkdir(new URL(".", path), { recursive: true });
 	await writeFile(path, JSON.stringify(model, null, 2));
 }
@@ -209,13 +216,21 @@ export async function readLocalSlice(project: URL, id: string): Promise<SharedSl
 }
 
 export async function readLocalSlices(project: URL): Promise<SharedSlice[]> {
-	const dir = new URL("slices/", project);
-	const entries = await readdir(dir).catch(() => [] as string[]);
+	const libraries = await getSliceLibraries(project);
 	const result: SharedSlice[] = [];
-	for (const name of entries) {
-		try {
-			result.push(JSON.parse(await readFile(new URL(`${name}/model.json`, dir), "utf8")));
-		} catch {}
+	for (const library of libraries) {
+		const entries = await readdir(library).catch(() => []);
+		for (const name of entries) {
+			try {
+				result.push(JSON.parse(await readFile(new URL(`${name}/model.json`, library), "utf8")));
+			} catch {}
+		}
 	}
 	return result;
+}
+
+async function getConfig(project: URL): Promise<{ libraries?: string[] }> {
+	const path = new URL("prismic.config.json", project);
+	const raw = await readFile(path, "utf8");
+	return JSON.parse(raw);
 }

@@ -1,7 +1,11 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+import { glob } from "tinyglobby";
 import { expect } from "vitest";
+
+import { getSliceLibraries } from "./it";
 
 declare module "vitest" {
 	// oxlint-disable-next-line no-explicit-any
@@ -39,36 +43,45 @@ expect.extend({
 	async toContainSlice(project, slice) {
 		const problems: string[] = [];
 
-		const sliceIndexPath = new URL("slices/index.js", project);
-		try {
-			const sliceIndex = await readFile(sliceIndexPath, "utf8");
-			if (!new RegExp(`\\b${slice.id}: `).test(sliceIndex)) {
-				problems.push(
-					`slice "${slice.id}" not found in slice library index (${sliceIndexPath.href})`,
-				);
+		const libraries = await getSliceLibraries(project);
+		let sliceDirectory;
+		for (const library of libraries) {
+			const sliceModelPaths = Array.from(
+				await glob("*/model.json", { absolute: true, cwd: library }),
+				(path) => pathToFileURL(path),
+			);
+			for (const sliceModelPath of sliceModelPaths) {
+				const model: SharedSlice = JSON.parse(await readFile(sliceModelPath, "utf8"));
+				if (model.id === slice.id) {
+					sliceDirectory = new URL(".", sliceModelPath);
+				}
 			}
-		} catch {
-			problems.push(`slice library index (${sliceIndexPath.href}) does not exist`);
 		}
 
-		const modelPath = new URL(`slices/${slice.name}/model.json`, project);
-		try {
-			const model: SharedSlice = JSON.parse(await readFile(modelPath, "utf8"));
-			if (model.id !== slice.id) {
-				problems.push(`slice model file (${modelPath.href}) has wrong ID`);
+		if (!sliceDirectory) {
+			problems.push(`slice model file does not exist`);
+		} else {
+			const sliceIndexPath = new URL("../index.js", sliceDirectory);
+			try {
+				const sliceIndex = await readFile(sliceIndexPath, "utf8");
+				if (!new RegExp(`\\b${slice.id}: `).test(sliceIndex)) {
+					problems.push(
+						`slice "${slice.id}" not found in slice library index (${sliceIndexPath.href})`,
+					);
+				}
+			} catch {
+				problems.push(`slice library index (${sliceIndexPath.href}) does not exist`);
 			}
-		} catch {
-			problems.push(`slice model file (${modelPath.href}) does not exist`);
-		}
 
-		const componentPath = new URL(`slices/${slice.name}/index.jsx`, project);
-		try {
-			const componentFile = await readFile(componentPath, "utf-8");
-			if (!componentFile.includes(slice.name)) {
-				problems.push(`slice component file (${componentPath.href}) does not contain slice name`);
+			const componentPath = new URL("index.jsx", sliceDirectory);
+			try {
+				const componentFile = await readFile(componentPath, "utf-8");
+				if (!componentFile.includes(slice.name)) {
+					problems.push(`slice component file (${componentPath.href}) does not contain slice name`);
+				}
+			} catch {
+				problems.push(`slice component file (${componentPath.href}) does not exist`);
 			}
-		} catch {
-			problems.push(`slice component file (${componentPath.href}) does not exist`);
 		}
 
 		return {
