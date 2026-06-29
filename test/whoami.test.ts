@@ -15,8 +15,18 @@ it("prints email of logged-in user", async ({ expect, prismic, login }) => {
 
 it("fails when not logged in", async ({ expect, prismic, logout }) => {
 	await logout();
-	const { exitCode } = await prismic("whoami");
+	const { stderr, exitCode } = await prismic("whoami");
 	expect(exitCode).not.toBe(0);
+	expect(stderr).toContain("Not logged in. Run `prismic login` first.");
+});
+
+it("reports invalid PRISMIC_TOKEN", async ({ expect, prismic, logout }) => {
+	await logout();
+	const { stderr, exitCode } = await prismic("whoami", [], {
+		nodeOptions: { env: { PRISMIC_TOKEN: "invalid-token" } },
+	});
+	expect(exitCode).not.toBe(0);
+	expect(stderr).toContain("PRISMIC_TOKEN is invalid or expired");
 });
 
 it("uses PRISMIC_TOKEN env var when set", async ({ expect, prismic, login, logout, token }) => {

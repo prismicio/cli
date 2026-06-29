@@ -28,8 +28,10 @@ import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { InvalidEnvironmentError } from "./environments";
 import { CommandError, createCommandRouter } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
+import { env } from "./env";
 import {
 	ForbiddenRequestError,
+	formatAuthErrorMessage,
 	NotFoundRequestError,
 	UnauthorizedRequestError,
 	UnknownRequestError,
@@ -265,7 +267,10 @@ async function main(): Promise<void> {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
 				trackCommandEnd(command, { error });
 			}
-			console.error("Not logged in. Run `prismic login` first.");
+			const token = await getToken();
+			console.error(
+				formatAuthErrorMessage(error, { hasToken: !!token, envToken: env.PRISMIC_TOKEN }),
+			);
 			return;
 		}
 

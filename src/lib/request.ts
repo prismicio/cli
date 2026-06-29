@@ -113,3 +113,19 @@ export class ForbiddenRequestError extends RequestError {
 export class UnauthorizedRequestError extends RequestError {
 	name = "UnauthorizedRequestError";
 }
+
+export function formatAuthErrorMessage(
+	error: UnauthorizedRequestError | ForbiddenRequestError,
+	options: { hasToken: boolean; envToken?: string },
+): string {
+	if (!options.hasToken) {
+		return "Not logged in. Run `prismic login` first.";
+	}
+	if (error instanceof UnauthorizedRequestError || options.envToken) {
+		if (options.envToken) {
+			return "PRISMIC_TOKEN is invalid or expired. Unset it to log in with a browser, or replace it with a valid token.";
+		}
+		return "Your session is invalid or expired. Run `prismic login` to sign in again.";
+	}
+	return "You do not have access to this repository. Check the repository name or log in with an account that has access.";
+}
