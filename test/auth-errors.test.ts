@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { env } from "../src/env";
 import {
 	ForbiddenRequestError,
 	formatAuthErrorMessage,
 	UnauthorizedRequestError,
 } from "../src/lib/request";
+
+vi.mock("../src/env", () => ({ env: { PRISMIC_TOKEN: undefined } }));
+
+afterEach(() => {
+	env.PRISMIC_TOKEN = undefined;
+});
 
 function mockResponse(status: number): Response {
 	return new Response(null, { status, statusText: status === 401 ? "Unauthorized" : "Forbidden" });
@@ -18,10 +25,11 @@ describe("formatAuthErrorMessage", () => {
 		);
 	});
 
-	it("returns invalid PRISMIC_TOKEN when unauthorized with env token", () => {
+	it("reports PRISMIC_TOKEN cause when unauthorized with env token", () => {
+		env.PRISMIC_TOKEN = "bad-token";
 		const error = new UnauthorizedRequestError(mockResponse(401));
-		expect(formatAuthErrorMessage(error, { hasToken: true, envToken: "bad-token" })).toBe(
-			"PRISMIC_TOKEN is invalid or expired. Unset it to log in with a browser, or replace it with a valid token.",
+		expect(formatAuthErrorMessage(error, { hasToken: true })).toBe(
+			"PRISMIC_TOKEN is invalid or expired, or doesn't have access to this repository. Unset it to log in with a browser, or replace it with a valid token.",
 		);
 	});
 
@@ -39,10 +47,11 @@ describe("formatAuthErrorMessage", () => {
 		);
 	});
 
-	it("returns invalid PRISMIC_TOKEN when forbidden with env token", () => {
+	it("reports PRISMIC_TOKEN cause when forbidden with env token", () => {
+		env.PRISMIC_TOKEN = "bad-token";
 		const error = new ForbiddenRequestError(mockResponse(403));
-		expect(formatAuthErrorMessage(error, { hasToken: true, envToken: "bad-token" })).toBe(
-			"PRISMIC_TOKEN is invalid or expired. Unset it to log in with a browser, or replace it with a valid token.",
+		expect(formatAuthErrorMessage(error, { hasToken: true })).toBe(
+			"PRISMIC_TOKEN is invalid or expired, or doesn't have access to this repository. Unset it to log in with a browser, or replace it with a valid token.",
 		);
 	});
 

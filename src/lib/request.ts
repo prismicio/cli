@@ -1,4 +1,5 @@
 import * as z from "zod/mini";
+import { env } from "../env";
 
 const USER_AGENT = "prismic-cli";
 
@@ -116,16 +117,18 @@ export class UnauthorizedRequestError extends RequestError {
 
 export function formatAuthErrorMessage(
 	error: UnauthorizedRequestError | ForbiddenRequestError,
-	options: { hasToken: boolean; envToken?: string },
+	options: { hasToken: boolean },
 ): string {
-	if (!options.hasToken) {
-		return "Not logged in. Run `prismic login` first.";
+	if (!options.hasToken) return "Not logged in. Run `prismic login` first.";
+	// The status code can't reliably separate "bad token" from "no access": the user
+	// service returns 403 for an invalid token, while repository endpoints return 401
+	// for a bad token and 403 for no access. So for an env token, cover both causes.
+	if (env.PRISMIC_TOKEN) {
+		return "PRISMIC_TOKEN is invalid or expired, or doesn't have access to this repository. Unset it to log in with a browser, or replace it with a valid token.";
 	}
-	if (error instanceof UnauthorizedRequestError || options.envToken) {
-		if (options.envToken) {
-			return "PRISMIC_TOKEN is invalid or expired. Unset it to log in with a browser, or replace it with a valid token.";
-		}
+	if (error instanceof UnauthorizedRequestError) {
 		return "Your session is invalid or expired. Run `prismic login` to sign in again.";
 	}
+
 	return "You do not have access to this repository. Check the repository name or log in with an account that has access.";
 }
