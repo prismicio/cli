@@ -25,12 +25,12 @@ import type_ from "./commands/type";
 import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
+import { env } from "./env";
 import { InvalidEnvironmentError } from "./environments";
 import { CommandError, createCommandRouter } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import {
 	ForbiddenRequestError,
-	formatAuthErrorMessage,
 	NotFoundRequestError,
 	UnauthorizedRequestError,
 	UnknownRequestError,
@@ -267,9 +267,19 @@ async function main(): Promise<void> {
 				trackCommandEnd(command, { error });
 			}
 			const token = await getToken();
-			console.error(
-				formatAuthErrorMessage(error, { hasToken: !!token }),
-			);
+			if (!token) {
+				console.error("Not logged in. Run `prismic login` first.");
+			} else if (env.PRISMIC_TOKEN) {
+				console.error(
+					"PRISMIC_TOKEN is invalid or expired, or doesn't have access to this repository. Unset it to log in with a browser, or replace it with a valid token.",
+				);
+			} else if (error instanceof UnauthorizedRequestError) {
+				console.error("Your session is invalid or expired. Run `prismic login` to sign in again.");
+			} else {
+				console.error(
+					"You do not have access to this repository. Check the repository name or log in with an account that has access.",
+				);
+			}
 			return;
 		}
 

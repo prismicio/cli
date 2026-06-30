@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+
 import { it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -27,6 +29,19 @@ it("reports invalid PRISMIC_TOKEN", async ({ expect, prismic, logout }) => {
 	});
 	expect(exitCode).not.toBe(0);
 	expect(stderr).toContain("PRISMIC_TOKEN is invalid or expired");
+});
+
+it("reports stored token auth failure", async ({ expect, prismic, home }) => {
+	const configDir = new URL(".config/prismic/", home);
+	await mkdir(configDir, { recursive: true });
+	await writeFile(
+		new URL("credentials.json", configDir),
+		JSON.stringify({ token: "invalid-token", host: "prismic.io" }),
+	);
+
+	const { stderr, exitCode } = await prismic("whoami");
+	expect(exitCode).not.toBe(0);
+	expect(stderr).toContain("You do not have access to this repository.");
 });
 
 it("uses PRISMIC_TOKEN env var when set", async ({ expect, prismic, login, logout, token }) => {
