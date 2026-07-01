@@ -58,12 +58,12 @@ export abstract class Adapter {
 	abstract getDefaultSliceLibrary(): Promise<URL>;
 	abstract getDefaultCustomTypeLibrary(): Promise<URL>;
 
-	async initProject(): Promise<void> {
+	async initProject({ setup = true }: { setup?: boolean } = {}): Promise<void> {
 		const libraries = await this.getSliceLibraries();
 		for (const library of libraries) {
 			await this.createSliceIndexFile(library);
 		}
-		await this.setupProject();
+		if (setup) await this.setupProject();
 		await this.onProjectInitialized();
 	}
 
