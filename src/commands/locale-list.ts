@@ -1,11 +1,10 @@
 import { getHost, getToken } from "../auth";
 import { getLocales } from "../clients/locale";
-import { resolveEnvironment } from "../environments";
+import { resolveEnvironment, resolveRepositoryName } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic locale list",
@@ -23,7 +22,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: parentRepo = await getRepositoryName(), env, json } = values;
+	const { repo: parentRepo = await resolveRepositoryName(), env, json } = values;
 
 	const token = await getToken();
 	const host = await getHost();

@@ -7,6 +7,7 @@ import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { cleanupLegacyAuthFile, getHost, getToken, spawnTokenRefresh } from "./auth";
 import { getProfile } from "./clients/user";
 import docs from "./commands/docs";
+import environment from "./commands/env";
 import field from "./commands/field";
 import gen from "./commands/gen";
 import init from "./commands/init";
@@ -101,6 +102,10 @@ const router = createCommandRouter({
 		repo: {
 			handler: repo,
 			description: "Manage repositories",
+		},
+		env: {
+			handler: environment,
+			description: "Manage the active environment",
 		},
 		type: {
 			handler: type_,

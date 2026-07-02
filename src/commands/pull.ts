@@ -2,13 +2,13 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { completeOnboardingStepsSilently } from "../clients/repository";
-import { resolveEnvironment } from "../environments";
+import { resolveEnvironment, resolveRepositoryName } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { isDescendant, relativePathname } from "../lib/url";
 import { canonicalizeModel } from "../models";
-import { findProjectRoot, getRepositoryName } from "../project";
+import { findProjectRoot } from "../project";
 
 const config = {
 	name: "prismic pull",
@@ -26,7 +26,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { force = false, repo: parentRepo = await getRepositoryName(), env } = values;
+	const { force = false, repo: parentRepo = await resolveRepositoryName(), env } = values;
 
 	const token = await getToken();
 	const host = await getHost();

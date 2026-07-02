@@ -4,14 +4,14 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { getProfile } from "../clients/user";
-import { resolveEnvironment } from "../environments";
+import { resolveEnvironment, resolveRepositoryName } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { dedent } from "../lib/string";
 import { isDescendant, relativePathname } from "../lib/url";
 import { canonicalizeModel } from "../models";
-import { findProjectRoot, getRepositoryName } from "../project";
+import { findProjectRoot } from "../project";
 
 const config = {
 	name: "prismic status",
@@ -28,7 +28,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: parentRepo = await getRepositoryName(), env } = values;
+	const { repo: parentRepo = await resolveRepositoryName(), env } = values;
 
 	const token = await getToken();
 	const host = await getHost();

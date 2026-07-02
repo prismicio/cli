@@ -28,6 +28,7 @@ import {
 
 export class SvelteKitAdapter extends Adapter {
 	readonly id = "sveltekit";
+	readonly repositoryEnvVar = "VITE_PRISMIC_ENVIRONMENT";
 
 	async setupProject(): Promise<void> {
 		await addDependencies({

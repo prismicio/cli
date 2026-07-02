@@ -44,6 +44,7 @@ export class NoSupportedFrameworkError extends Error {
 
 export abstract class Adapter {
 	abstract readonly id: string;
+	abstract readonly repositoryEnvVar: string;
 
 	abstract onProjectInitialized(): Promise<void> | void;
 	abstract onSliceCreated(model: SharedSlice, library: URL): Promise<void> | void;

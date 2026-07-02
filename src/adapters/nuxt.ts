@@ -21,6 +21,7 @@ const NUXT_PRISMIC = "@nuxtjs/prismic";
 
 export class NuxtAdapter extends Adapter {
 	readonly id = "nuxt";
+	readonly repositoryEnvVar = "NUXT_PUBLIC_PRISMIC_ENVIRONMENT";
 
 	async setupProject(): Promise<void> {
 		await addDependencies({

@@ -6,10 +6,9 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { completeOnboardingStepsSilently } from "../clients/repository";
 import { env } from "../env";
-import { resolveEnvironment } from "../environments";
+import { resolveEnvironment, resolveRepositoryName } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
-import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
 
 const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
@@ -35,7 +34,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: parentRepo = await getRepositoryName(), env: envFlag } = values;
+	const { repo: parentRepo = await resolveRepositoryName(), env: envFlag } = values;
 
 	const token = await getToken();
 	const host = await getHost();

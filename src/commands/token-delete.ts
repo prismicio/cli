@@ -5,10 +5,9 @@ import {
 	getOAuthApps,
 	getWriteTokens,
 } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
+import { resolveEnvironment, resolveRepositoryName } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic token delete",
@@ -29,7 +28,7 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [tokenValue] = positionals;
-	const { repo: parentRepo = await getRepositoryName(), env } = values;
+	const { repo: parentRepo = await resolveRepositoryName(), env } = values;
 
 	const token = await getToken();
 	const host = await getHost();

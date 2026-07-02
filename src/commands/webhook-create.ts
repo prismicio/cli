@@ -1,9 +1,8 @@
 import { getHost, getToken } from "../auth";
 import { createWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
+import { resolveEnvironment, resolveRepositoryName } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic webhook create",
@@ -54,7 +53,7 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
-	const { repo: parentRepo = await getRepositoryName(), env, name, secret, trigger = [] } = values;
+	const { repo: parentRepo = await resolveRepositoryName(), env, name, secret, trigger = [] } = values;
 
 	// Validate triggers
 	for (const t of trigger) {

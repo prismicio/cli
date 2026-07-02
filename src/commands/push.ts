@@ -21,14 +21,14 @@ import {
 	type OnboardingStep,
 } from "../clients/repository";
 import { getWorkingDocumentsUrlForCustomType, getCustomTypeListUrl } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
+import { resolveEnvironment, resolveRepositoryName } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { BadRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
 import { canonicalizeModel } from "../models";
-import { findProjectRoot, getRepositoryName } from "../project";
+import { findProjectRoot } from "../project";
 
 const config = {
 	name: "prismic push",
@@ -46,7 +46,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { force = false, repo: parentRepo = await getRepositoryName(), env } = values;
+	const { force = false, repo: parentRepo = await resolveRepositoryName(), env } = values;
 
 	const token = await getToken();
 	const host = await getHost();

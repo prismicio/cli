@@ -16,7 +16,8 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 			/**
 			 * The project's Prismic repository name.
 			 */
-			export const repositoryName = prismicConfig.repositoryName;
+			export const repositoryName =
+				import.meta.env.VITE_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 
 			/**
 			 * Creates a Prismic client for the project's repository. The client is used to
@@ -45,7 +46,8 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 		/**
 		 * The project's Prismic repository name.
 		 */
-		export const repositoryName = prismicConfig.repositoryName;
+		export const repositoryName =
+			import.meta.env.VITE_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 
 		/**
 		 * Creates a Prismic client for the project's repository. The client is used to

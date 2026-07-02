@@ -1,9 +1,8 @@
 import { getHost, getToken } from "../auth";
 import { addPreview } from "../clients/core";
-import { resolveEnvironment } from "../environments";
+import { resolveEnvironment, resolveRepositoryName } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic preview add",
@@ -25,7 +24,7 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;
-	const { repo: parentRepo = await getRepositoryName(), env, name } = values;
+	const { repo: parentRepo = await resolveRepositoryName(), env, name } = values;
 
 	let parsed: URL;
 	try {

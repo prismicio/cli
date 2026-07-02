@@ -5,11 +5,10 @@ import {
 	createWriteToken,
 	getOAuthApps,
 } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
+import { resolveEnvironment, resolveRepositoryName } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
-import { getRepositoryName } from "../project";
 
 const CLI_APP_NAME = "Prismic CLI";
 
@@ -40,7 +39,7 @@ const config = {
 
 export default createCommand(config, async ({ values }) => {
 	const {
-		repo: parentRepo = await getRepositoryName(),
+		repo: parentRepo = await resolveRepositoryName(),
 		env,
 		write,
 		"allow-releases": allowReleases,

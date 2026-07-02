@@ -26,6 +26,7 @@ import {
 
 export class NextJsAdapter extends Adapter {
 	readonly id = "next";
+	readonly repositoryEnvVar = "NEXT_PUBLIC_PRISMIC_ENVIRONMENT";
 
 	async setupProject(): Promise<void> {
 		await addDependencies({
