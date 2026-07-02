@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.12.0](https://github.com/prismicio/cli/compare/v1.11.0...v1.12.0) (2026-07-02)
+
+
+### Features
+
+* add `prismic init --no-setup` to skip framework scaffolding ([#206](https://github.com/prismicio/cli/issues/206)) ([5877f6e](https://github.com/prismicio/cli/commit/5877f6ec1225240d927b861ef47140fb0b9e0963))
+* direct users to `prismic pull` after init ([#198](https://github.com/prismicio/cli/issues/198)) ([a979254](https://github.com/prismicio/cli/commit/a979254da39300ff926ca0725719eef016758243))
+* set a master locale when creating a repository ([#208](https://github.com/prismicio/cli/issues/208)) ([7d0ffdf](https://github.com/prismicio/cli/commit/7d0ffdf06979fcd8c8bba46ff4d277ae1b5aeab9))
+* **token:** add --name and --json options to token create ([#205](https://github.com/prismicio/cli/issues/205)) ([a4208d6](https://github.com/prismicio/cli/commit/a4208d6723ad3fa5604b7e4770f84d07e85c9d70))
+* uninstall Slice Machine packages during init migration ([#196](https://github.com/prismicio/cli/issues/196)) ([294d15f](https://github.com/prismicio/cli/commit/294d15f7548849499cbe0fe809e1e34ff52c4914))
+
+
+### Bug Fixes
+
+* create new slices in the first configured library ([#199](https://github.com/prismicio/cli/issues/199)) ([b5dda43](https://github.com/prismicio/cli/commit/b5dda430d229fece066797bbd07be20923427be6))
+* differentiate auth errors for missing token vs no access ([#204](https://github.com/prismicio/cli/issues/204)) ([72c46d5](https://github.com/prismicio/cli/commit/72c46d502358fdcacd86b3b896da3f45e6460e3a))
+* resolve escaped &lt;/script&gt; in generated framework files ([#195](https://github.com/prismicio/cli/issues/195)) ([4192a7d](https://github.com/prismicio/cli/commit/4192a7dc00ff2b1ff91883933bca2de487fcb47c))
+
 ## [1.11.0](https://github.com/prismicio/cli/compare/v1.10.0...v1.11.0) (2026-06-17)
 
 
