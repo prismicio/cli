@@ -7,6 +7,7 @@ import {
 } from "../clients/wroom";
 import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
@@ -26,6 +27,12 @@ const config = {
 			type: "boolean",
 			description: "Allow access to releases (read tokens only)",
 		},
+		name: {
+			type: "string",
+			short: "n",
+			description: `Name to identify the token (default: "${CLI_APP_NAME}")`,
+		},
+		json: { type: "boolean", description: "Output as JSON" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
 		env: { type: "string", short: "e", description: "Environment domain" },
 	},
@@ -37,6 +44,8 @@ export default createCommand(config, async ({ values }) => {
 		env,
 		write,
 		"allow-releases": allowReleases,
+		name = CLI_APP_NAME,
+		json,
 	} = values;
 
 	if (write && allowReleases) {
@@ -48,17 +57,18 @@ export default createCommand(config, async ({ values }) => {
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	let createdToken: string;
+	let scope: string | undefined;
 	try {
 		if (write) {
-			const writeToken = await createWriteToken(CLI_APP_NAME, { repo, token, host });
+			const writeToken = await createWriteToken(name, { repo, token, host });
 			createdToken = writeToken.token;
 		} else {
-			const scope = allowReleases ? "master+releases" : "master";
+			scope = allowReleases ? "master+releases" : "master";
 
-			// Find or create the CLI OAuth app.
+			// Find or create the OAuth app.
 			const apps = await getOAuthApps({ repo, token, host });
-			let app = apps.find((a) => a.name === CLI_APP_NAME);
-			if (!app) app = await createOAuthApp(CLI_APP_NAME, { repo, token, host });
+			let app = apps.find((a) => a.name === name);
+			if (!app) app = await createOAuthApp(name, { repo, token, host });
 
 			const accessToken = await createOAuthAuthorization(app.id, scope, { repo, token, host });
 			createdToken = accessToken.token;
@@ -71,7 +81,18 @@ export default createCommand(config, async ({ values }) => {
 		throw error;
 	}
 
+	if (json) {
+		console.info(
+			stringify({
+				token: createdToken,
+				type: write ? "write" : "access",
+				name,
+				repository: repo,
+				...(scope ? { scope } : {}),
+			}),
+		);
+		return;
+	}
+
 	console.info(`Token created: ${createdToken}`);
-	const envVar = write ? "PRISMIC_WRITE_TOKEN" : "PRISMIC_ACCESS_TOKEN";
-	console.info(`Add it to your .env file: ${envVar}=${createdToken}`);
 });
