@@ -44,11 +44,20 @@ const config = {
 			type: "boolean",
 			description: "Skip opening the browser automatically during login",
 		},
+		"no-setup": {
+			type: "boolean",
+			description: "Skip framework scaffolding (dependencies and framework files)",
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: explicitRepo, lang, "no-browser": noBrowser } = values;
+	const {
+		repo: explicitRepo,
+		lang,
+		"no-browser": noBrowser,
+		"no-setup": noSetup,
+	} = values;
 
 	// Check for existing prismic.config.json
 	try {
@@ -166,16 +175,18 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Install dependencies and create framework files
-	await adapter.initProject();
+	await adapter.initProject({ setup: !noSetup });
 
 	// Run package manager install
-	try {
-		console.info("Installing dependencies...");
-		await installDependencies();
-	} catch {
-		console.warn(
-			"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
-		);
+	if (!noSetup) {
+		try {
+			console.info("Installing dependencies...");
+			await installDependencies();
+		} catch {
+			console.warn(
+				"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
+			);
+		}
 	}
 
 	// Sync models from remote and generate types

@@ -103,6 +103,22 @@ it("initializes a project with --repo when logged in", async ({
 	expect(config.repositoryName).toBe(repo);
 }, 60_000);
 
+it("skips framework scaffolding with --no-setup", async ({ expect, project, prismic, repo }) => {
+	await rm(new URL("prismic.config.json", project));
+
+	const { exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
+	expect(exitCode).toBe(0);
+
+	// The config file is still written.
+	const configRaw = await readFile(new URL("prismic.config.json", project), "utf-8");
+	expect(JSON.parse(configRaw).repositoryName).toBe(repo);
+
+	// No @prismicio/* packages are added and no install is run.
+	const packageJson = JSON.parse(await readFile(new URL("package.json", project), "utf-8"));
+	expect(packageJson.dependencies).not.toHaveProperty("@prismicio/client");
+	await expect(access(new URL("package-lock.json", project))).rejects.toThrow();
+}, 60_000);
+
 it("triggers login flow when not logged in", async ({ expect, project, prismic, logout, repo }) => {
 	await rm(new URL("prismic.config.json", project));
 	await logout();
