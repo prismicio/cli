@@ -1,5 +1,6 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
+import { upsertLocale } from "../clients/locale";
 import { completeOnboardingStepsSilently } from "../clients/repository";
 import { checkIsDomainAvailable, createRepository } from "../clients/wroom";
 import { detectAgent } from "../lib/ai";
@@ -13,15 +14,20 @@ const config = {
 	description: "Create a new Prismic repository.",
 	options: {
 		name: { type: "string", short: "n", description: "Display name for the repository" },
+		lang: {
+			type: "string",
+			short: "l",
+			description: "Master locale for the new repository (default: en-us)",
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { name } = values;
+	const { name, lang } = values;
 
 	const token = await getToken();
 	const host = await getHost();
-	const domain = await createRepo({ name, token, host });
+	const domain = await createRepo({ name, lang, token, host });
 
 	console.info(`Repository created: ${domain}`);
 	console.info(`URL: https://${domain}.${host}/`);
@@ -29,10 +35,11 @@ export default createCommand(config, async ({ values }) => {
 
 export async function createRepo(config: {
 	name?: string;
+	lang?: string;
 	token: string | undefined;
 	host: string;
 }): Promise<string> {
-	const { name, token, host } = config;
+	const { name, lang = "en-us", token, host } = config;
 
 	const domain = await findAvailableDomain({ token, host });
 	if (!domain) {
@@ -49,6 +56,17 @@ export async function createRepo(config: {
 		if (error instanceof UnknownRequestError) {
 			const message = await error.text();
 			throw new CommandError(`Failed to create repository: ${message}`);
+		}
+		throw error;
+	}
+
+	// A new repository has no locale, so set the master locale to make it usable.
+	try {
+		await upsertLocale({ id: lang, isMaster: true }, { repo: domain, token, host });
+	} catch (error) {
+		if (error instanceof UnknownRequestError) {
+			const message = await error.text();
+			throw new CommandError(`Failed to set master locale: ${message}`);
 		}
 		throw error;
 	}

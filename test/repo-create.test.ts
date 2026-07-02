@@ -1,7 +1,7 @@
 import { onTestFinished } from "vitest";
 
 import { it } from "./it";
-import { deleteRepository, getRepository } from "./prismic";
+import { deleteRepository, getLocales, getRepository } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("repo", ["create", "--help"]);
@@ -36,4 +36,18 @@ it("creates a repository with a name", async ({ expect, prismic, token, host, pa
 
 	const repository = await getRepository({ repo: domain!, token, host });
 	expect(repository.name).toBe(name);
+});
+
+it("sets the master locale with --lang", async ({ expect, prismic, token, host, password }) => {
+	const { stdout, exitCode } = await prismic("repo", ["create", "--lang", "fr-fr"]);
+	expect(exitCode).toBe(0);
+
+	const domain = stdout.match(/Repository created: (\S+)/)?.[1];
+	expect(domain).toBeDefined();
+
+	onTestFinished(() => deleteRepository(domain!, { token, password, host }));
+
+	const locales = await getLocales({ repo: domain!, token, host });
+	const master = locales.find((locale) => locale.isMaster);
+	expect(master?.id).toBe("fr-fr");
 });
