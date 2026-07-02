@@ -35,6 +35,11 @@ const config = {
 	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository name" },
+		lang: {
+			type: "string",
+			short: "l",
+			description: "Master locale for a new repository (default: en-us)",
+		},
 		"no-browser": {
 			type: "boolean",
 			description: "Skip opening the browser automatically during login",
@@ -43,7 +48,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: explicitRepo, "no-browser": noBrowser } = values;
+	const { repo: explicitRepo, lang, "no-browser": noBrowser } = values;
 
 	// Check for existing prismic.config.json
 	try {
@@ -119,7 +124,7 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
 
 	if (!repo) {
-		repo = await createRepo({ token, host });
+		repo = await createRepo({ lang, token, host });
 		console.info(`Created repository: ${repo}`);
 	}
 
