@@ -51,7 +51,7 @@ export async function addRegisterImport(candidates: string[]): Promise<void> {
 		if (!(await exists(configUrl))) continue;
 		const contents = await readFile(configUrl, "utf8");
 		if (!contents.includes("prismic/env/register")) {
-			await writeFile(configUrl, `import "prismic/env/register";\n${contents}`);
+			await writeFile(configUrl, `import "prismic/env/register";\n\n${contents}`);
 		}
 		return;
 	}
