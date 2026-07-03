@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter } from ".";
+import { Adapter, addRegisterImport } from ".";
 import { getHost, getToken } from "../auth";
 import { addPreview, getPreviews, getSimulatorUrl, setSimulatorUrl } from "../clients/core";
 import { exists, writeFileRecursive } from "../lib/file";
@@ -29,6 +29,7 @@ export class NextJsAdapter extends Adapter {
 
 	async setupProject(): Promise<void> {
 		await addDependencies({
+			prismic: `^${await getNpmPackageVersion("prismic")}`,
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
 			"@prismicio/react": `^${await getNpmPackageVersion("@prismicio/react")}`,
 			"@prismicio/next": `^${await getNpmPackageVersion("@prismicio/next")}`,
@@ -38,6 +39,7 @@ export class NextJsAdapter extends Adapter {
 		await createPreviewRoute();
 		await createExitPreviewRoute();
 		await createRevalidateRoute();
+		await addRegisterImport(["next.config.ts", "next.config.mjs", "next.config.js"]);
 	}
 
 	async onProjectInitialized(): Promise<void> {

@@ -4,6 +4,7 @@ import { readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
+import { getActiveEnvironment } from "./active-environment";
 import { getRepository } from "./clients/repository";
 import { env } from "./env";
 import { exists, findUpward } from "./lib/file";
@@ -212,6 +213,9 @@ export async function safeGetRepositoryName(): Promise<string | undefined> {
 }
 
 export async function getRepositoryName(): Promise<string> {
+	const activeEnvironment = getActiveEnvironment();
+	if (activeEnvironment) return activeEnvironment;
+
 	try {
 		const config = await readConfig();
 		return config.repositoryName;

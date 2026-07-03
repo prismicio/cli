@@ -6,6 +6,8 @@ const TEST = MODE === "test";
 export default defineConfig({
 	entry: {
 		index: "./src/index.ts",
+		env: "./src/exports/env.ts",
+		"env/register": "./src/exports/register.ts",
 		"subprocesses/refreshToken": "./src/subprocesses/refreshToken.ts",
 		"subprocesses/sendSegmentEvents": "./src/subprocesses/sendSegmentEvents.ts",
 		"subprocesses/updateVersionState": "./src/subprocesses/updateVersionState.ts",

@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter } from ".";
+import { Adapter, addRegisterImport } from ".";
 import { getHost, getToken } from "../auth";
 import { addPreview, getPreviews, getSimulatorUrl, setSimulatorUrl } from "../clients/core";
 import { exists, writeFileRecursive } from "../lib/file";
@@ -31,6 +31,7 @@ export class SvelteKitAdapter extends Adapter {
 
 	async setupProject(): Promise<void> {
 		await addDependencies({
+			prismic: `^${await getNpmPackageVersion("prismic")}`,
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
 			"@prismicio/svelte": `^${await getNpmPackageVersion("@prismicio/svelte")}`,
 		});
@@ -42,6 +43,7 @@ export class SvelteKitAdapter extends Adapter {
 		await createRootLayoutServerFile();
 		await createRootLayoutFile();
 		await modifyViteConfig();
+		await addRegisterImport(["vite.config.ts", "vite.config.js"]);
 	}
 
 	async onProjectInitialized(): Promise<void> {

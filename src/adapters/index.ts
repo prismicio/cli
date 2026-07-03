@@ -1,12 +1,12 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
-import { rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { readJsonFile, writeFileRecursive } from "../lib/file";
+import { exists, readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
@@ -40,6 +40,21 @@ export class NoSupportedFrameworkError extends Error {
 	name = "NoSupportedFrameworkError";
 	message =
 		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
+}
+
+// Adds `import "prismic/env/register"` to the first existing framework config so
+// the active environment is applied at build time.
+export async function addRegisterImport(candidates: string[]): Promise<void> {
+	const projectRoot = await findProjectRoot();
+	for (const candidate of candidates) {
+		const configUrl = new URL(candidate, projectRoot);
+		if (!(await exists(configUrl))) continue;
+		const contents = await readFile(configUrl, "utf8");
+		if (!contents.includes("prismic/env/register")) {
+			await writeFile(configUrl, `import "prismic/env/register";\n${contents}`);
+		}
+		return;
+	}
 }
 
 export abstract class Adapter {
