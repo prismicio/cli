@@ -1,7 +1,7 @@
-import { type Environment, getEnvironments as getAllEnvironments } from "./clients/core";
+import { type Environment, getEnvironments } from "./clients/core";
 import { getProfile } from "./clients/user";
 
-export async function getEnvironments(config: {
+export async function getUserEnvironments(config: {
 	repo: string;
 	token: string | undefined;
 	host: string;
@@ -10,7 +10,7 @@ export async function getEnvironments(config: {
 
 	const [profile, environments] = await Promise.all([
 		getProfile({ token, host }),
-		getAllEnvironments({ repo, token, host }),
+		getEnvironments({ repo, token, host }),
 	]);
 
 	return environments.filter(
@@ -24,7 +24,7 @@ export async function resolveEnvironment(
 	env: string,
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<string> {
-	const environments = await getEnvironments(config);
+	const environments = await getUserEnvironments(config);
 
 	const match = environments.find((environment) => environment.domain === env);
 	if (match) return match.domain;
