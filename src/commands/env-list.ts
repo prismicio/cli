@@ -24,14 +24,14 @@ export default createCommand(config, async ({ values }) => {
 	const host = await getHost();
 
 	const environments = await getUserEnvironments({ repo: repositoryName, token, host });
-	const activeDomain = getActiveEnvironment() ?? repositoryName;
+	const activeEnvironment = getActiveEnvironment() ?? repositoryName;
 
 	if (json) {
 		const results = environments.map((environment) => ({
 			kind: environment.kind,
 			name: environment.name,
 			domain: environment.domain,
-			active: environment.domain === activeDomain,
+			active: environment.domain === activeEnvironment,
 		}));
 		console.info(stringify(results));
 		return;
@@ -43,7 +43,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const rows = environments.map((environment) => {
-		const activeLabel = environment.domain === activeDomain ? " (active)" : "";
+		const activeLabel = environment.domain === activeEnvironment ? " (active)" : "";
 		return [environment.domain, `${environment.name}${activeLabel}`];
 	});
 	console.info(formatTable(rows, { headers: ["DOMAIN", "NAME"] }));

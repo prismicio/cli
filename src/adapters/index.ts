@@ -44,7 +44,7 @@ export class NoSupportedFrameworkError extends Error {
 
 // Adds `import "prismic/env/register"` to the first existing framework config so
 // the active environment is applied at build time.
-export async function addRegisterImport(candidates: string[]): Promise<void> {
+export async function addEnvRegisterImport(candidates: string[]): Promise<void> {
 	const projectRoot = await findProjectRoot();
 	for (const candidate of candidates) {
 		const configUrl = new URL(candidate, projectRoot);

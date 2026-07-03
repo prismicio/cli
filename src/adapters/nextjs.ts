@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter, addRegisterImport } from ".";
+import { Adapter, addEnvRegisterImport } from ".";
 import { getHost, getToken } from "../auth";
 import { addPreview, getPreviews, getSimulatorUrl, setSimulatorUrl } from "../clients/core";
 import { exists, writeFileRecursive } from "../lib/file";
@@ -39,7 +39,7 @@ export class NextJsAdapter extends Adapter {
 		await createPreviewRoute();
 		await createExitPreviewRoute();
 		await createRevalidateRoute();
-		await addRegisterImport(["next.config.ts", "next.config.mjs", "next.config.js"]);
+		await addEnvRegisterImport(["next.config.ts", "next.config.mjs", "next.config.js"]);
 	}
 
 	async onProjectInitialized(): Promise<void> {
