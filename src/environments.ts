@@ -1,7 +1,7 @@
-import { type Environment, getEnvironments } from "./clients/core";
+import { type Environment, getEnvironments as getAllEnvironments } from "./clients/core";
 import { getProfile } from "./clients/user";
 
-export async function listAvailableEnvironments(config: {
+export async function getEnvironments(config: {
 	repo: string;
 	token: string | undefined;
 	host: string;
@@ -10,7 +10,7 @@ export async function listAvailableEnvironments(config: {
 
 	const [profile, environments] = await Promise.all([
 		getProfile({ token, host }),
-		getEnvironments({ repo, token, host }),
+		getAllEnvironments({ repo, token, host }),
 	]);
 
 	return environments.filter(
@@ -24,12 +24,12 @@ export async function resolveEnvironment(
 	env: string,
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<string> {
-	const availableEnvironments = await listAvailableEnvironments(config);
+	const environments = await getEnvironments(config);
 
-	const match = availableEnvironments.find((environment) => environment.domain === env);
+	const match = environments.find((environment) => environment.domain === env);
 	if (match) return match.domain;
 
-	throw new InvalidEnvironmentError(env, availableEnvironments, config.repo);
+	throw new InvalidEnvironmentError(env, environments, config.repo);
 }
 
 export class InvalidEnvironmentError extends Error {

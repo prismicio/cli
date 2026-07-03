@@ -6,7 +6,7 @@ import * as z from "zod/mini";
 
 import packageJson from "../../package.json" with { type: "json" };
 import { stringify } from "./json";
-import { getNpmPackageVersion } from "./packageJson";
+import { getAddCommand, getNpmPackageVersion, readPackageJson } from "./packageJson";
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -29,7 +29,14 @@ export async function initUpdateNotifier(options: UpdateNotifierOptions): Promis
 		const currentVersion = packageJson.version;
 
 		if (state?.latestKnownVersion && isNewer(state.latestKnownVersion, currentVersion)) {
-			const message = `Update available: ${currentVersion} → ${state.latestKnownVersion}. Run \`npx ${options.npmPackageName}@latest --version\` to update.`;
+			const isInstalled = await isInstalledAsDependency(options.npmPackageName);
+
+			let updateCommand = `npx ${options.npmPackageName}@latest --version`;
+			if (isInstalled) {
+				updateCommand = await getAddCommand(`${options.npmPackageName}@latest`);
+			}
+
+			const message = `Update available: ${currentVersion} → ${state.latestKnownVersion}. Run \`${updateCommand}\` to update.`;
 			process.on("exit", () => {
 				try {
 					console.error(`\n${message}`);
@@ -46,6 +53,19 @@ export async function initUpdateNotifier(options: UpdateNotifierOptions): Promis
 		}
 	} catch {
 		// Never throw.
+	}
+}
+
+async function isInstalledAsDependency(name: string): Promise<boolean> {
+	try {
+		const packageJson = await readPackageJson();
+		return Boolean(
+			packageJson.dependencies?.[name] ||
+			packageJson.devDependencies?.[name] ||
+			packageJson.peerDependencies?.[name],
+		);
+	} catch {
+		return false;
 	}
 }
 

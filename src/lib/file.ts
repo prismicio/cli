@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
@@ -35,6 +36,22 @@ export async function findUpward(
 		if (parent.href === dir.href) {
 			return undefined;
 		}
+
+		dir = parent;
+	}
+}
+
+export function findUpwardSync(name: string, config: { start?: URL } = {}): URL | undefined {
+	const { start = pathToFileURL(process.cwd()) } = config;
+
+	let dir = appendTrailingSlash(start);
+
+	while (true) {
+		const path = new URL(name, dir);
+		if (existsSync(path)) return path;
+
+		const parent = new URL("..", dir);
+		if (parent.href === dir.href) return undefined;
 
 		dir = parent;
 	}

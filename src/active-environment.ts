@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 import { getConfigDir } from "./lib/config-dir";
+import { findUpwardSync } from "./lib/file";
 import { stringify } from "./lib/json";
 
 // The active environment lives in the CLI, keyed by project so nothing lands in
@@ -73,7 +74,9 @@ function writeState(state: Record<string, string>): void {
 }
 
 function findProjectRoot(): string | undefined {
-	return findUpward(CONFIG_FILENAME, (dir) => realpathSync(dir));
+	const configPath = findUpwardSync(CONFIG_FILENAME);
+	if (!configPath) return undefined;
+	return realpathSync(fileURLToPath(new URL(".", configPath)));
 }
 
 type PackageJson = {
@@ -83,17 +86,11 @@ type PackageJson = {
 };
 
 function readPackageJson(): PackageJson | undefined {
-	return findUpward("package.json", (dir) =>
-		JSON.parse(readFileSync(join(dir, "package.json"), "utf8")),
-	);
-}
-
-function findUpward<T>(filename: string, onFound: (dir: string) => T): T | undefined {
-	let dir = process.cwd();
-	while (true) {
-		if (existsSync(join(dir, filename))) return onFound(dir);
-		const parent = dirname(dir);
-		if (parent === dir) return undefined;
-		dir = parent;
+	const packageJsonPath = findUpwardSync("package.json");
+	if (!packageJsonPath) return undefined;
+	try {
+		return JSON.parse(readFileSync(packageJsonPath, "utf8"));
+	} catch {
+		return undefined;
 	}
 }

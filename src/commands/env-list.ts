@@ -1,6 +1,6 @@
 import { getActiveEnvironment } from "../active-environment";
 import { getHost, getToken } from "../auth";
-import { listAvailableEnvironments } from "../environments";
+import { getEnvironments } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { formatTable } from "../lib/string";
@@ -23,7 +23,7 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	const environments = await listAvailableEnvironments({ repo: repositoryName, token, host });
+	const environments = await getEnvironments({ repo: repositoryName, token, host });
 	const activeDomain = getActiveEnvironment() ?? repositoryName;
 
 	if (json) {

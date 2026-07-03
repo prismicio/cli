@@ -75,6 +75,18 @@ const INSTALL_COMMANDS = {
 	bun: ["bun", "install"],
 };
 
+const ADD_COMMANDS: Record<keyof typeof INSTALL_COMMANDS, string> = {
+	npm: "npm install",
+	yarn: "yarn add",
+	pnpm: "pnpm add",
+	bun: "bun add",
+};
+
+export async function getAddCommand(pkg: string): Promise<string> {
+	const packageManager = await detectPackageManager();
+	return `${ADD_COMMANDS[packageManager]} ${pkg}`;
+}
+
 export async function installDependencies(): Promise<void> {
 	const packageJsonPath = await findPackageJson();
 	const cwd = new URL(".", packageJsonPath);
