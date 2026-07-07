@@ -53,7 +53,19 @@ export default createCommand(config, async ({ values }) => {
 
 	const rows = repos.map((repo) => {
 		const name = repo.name || "(no name)";
-		return [repo.domain, name, repo.role ?? ""];
+		return [repo.domain, name, formatRole(repo.role)];
 	});
 	console.info(formatTable(rows, { headers: ["DOMAIN", "NAME", "ROLE"] }));
 });
+
+// A role can be locale-scoped, in which case it is a record of locale to role.
+// Display each role next to its locale, e.g. "Writer (en-us), Editor (de-de)".
+function formatRole(role: string | Record<string, string> | undefined): string {
+	if (typeof role === "string") return role;
+	if (role) {
+		return Object.entries(role)
+			.map(([locale, r]) => `${r} (${locale})`)
+			.join(", ");
+	}
+	return "";
+}

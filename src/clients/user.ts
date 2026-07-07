@@ -10,7 +10,10 @@ const ProfileSchema = z.object({
 		z.object({
 			domain: z.string(),
 			name: z.optional(z.string()),
-			role: z.nullish(z.string()),
+			// A role is a string (e.g. "Owner") for repositories with a single
+			// role, or a record of locale to role (e.g. { "de-de": "Writer" })
+			// for repositories with locale-scoped roles.
+			role: z.optional(z.union([z.string(), z.record(z.string(), z.string())])),
 		}),
 	),
 });
