@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.2](https://github.com/prismicio/cli/compare/v1.12.1...v1.12.2) (2026-07-07)
+
+
+### Bug Fixes
+
+* support locale-scoped repository roles ([#215](https://github.com/prismicio/cli/issues/215)) ([220eb6d](https://github.com/prismicio/cli/commit/220eb6dfe3a0f03c8578f3a928443cbc303f9a54))
+
 ## [1.12.1](https://github.com/prismicio/cli/compare/v1.12.0...v1.12.1) (2026-07-07)
 
 
