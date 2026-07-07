@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.12.1](https://github.com/prismicio/cli/compare/v1.12.0...v1.12.1) (2026-07-07)
+
+
+### Bug Fixes
+
+* accept null role in account repository list ([829eb5a](https://github.com/prismicio/cli/commit/829eb5a3833f28657ddebaa9e9f5ce9cb6fe4731))
+* accept null role in account repository list ([e73709f](https://github.com/prismicio/cli/commit/e73709feb41fe99fbeccbcd97766baf474b93c69))
+
 ## [1.12.0](https://github.com/prismicio/cli/compare/v1.11.0...v1.12.0) (2026-07-02)
 
 
