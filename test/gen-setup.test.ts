@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 import { it } from "./it";
 
@@ -59,6 +59,37 @@ it("generates valid script tags for SvelteKit", { timeout: 30_000 }, async ({
 	await expect(project).toHaveFile("src/routes/slice-simulator/+page.svelte", {
 		contains: "</script>",
 	});
+});
+
+it("adds the env register import to the framework config", { timeout: 30_000 }, async ({
+	expect,
+	project,
+	prismic,
+}) => {
+	const configPath = new URL("next.config.mjs", project);
+	await writeFile(configPath, "export default {};\n");
+
+	const { exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode).toBe(0);
+
+	const contents = await readFile(configPath, "utf8");
+	expect(contents).toBe('import "prismic/env/register";\n\nexport default {};\n');
+});
+
+it("skips the env register import for a CommonJS config", { timeout: 30_000 }, async ({
+	expect,
+	project,
+	prismic,
+}) => {
+	// The fixture's package.json has no "type": "module", so a .js config is CommonJS.
+	const configPath = new URL("next.config.js", project);
+	await writeFile(configPath, "module.exports = {};\n");
+
+	const { exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode).toBe(0);
+
+	const contents = await readFile(configPath, "utf8");
+	expect(contents).toBe("module.exports = {};\n");
 });
 
 it("skips installation with --no-install", async ({ expect, project, prismic }) => {

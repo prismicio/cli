@@ -6,7 +6,7 @@ import { readFile, rm } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter } from ".";
+import { Adapter, addEnvRegisterImport } from ".";
 import { getHost, getToken } from "../auth";
 import { addPreview, getPreviews, getSimulatorUrl, setSimulatorUrl } from "../clients/core";
 import { exists, writeFileRecursive } from "../lib/file";
@@ -31,6 +31,7 @@ export class NuxtAdapter extends Adapter {
 		await createSliceSimulatorPage();
 		await moveOrDeleteAppVue();
 		await modifySliceLibraryPath(this);
+		await addEnvRegisterImport(["nuxt.config.ts", "nuxt.config.js"]);
 	}
 
 	async onProjectInitialized(): Promise<void> {

@@ -1,6 +1,6 @@
 {
 	"name": "prismic",
-	"version": "1.12.2",
+	"version": "1.12.0",
 	"description": "Prismic's official command line tool",
 	"keywords": [
 		"prismic",
@@ -19,6 +19,10 @@
 		"./dist"
 	],
 	"type": "module",
+	"exports": {
+		"./env/register": "./dist/env/register.mjs",
+		"./package.json": "./package.json"
+	},
 	"publishConfig": {
 		"access": "public"
 	},

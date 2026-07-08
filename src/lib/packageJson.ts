@@ -12,6 +12,7 @@ const PackageJsonSchema = z.object({
 	devDependencies: z.optional(z.record(z.string(), z.string())),
 	peerDependencies: z.optional(z.record(z.string(), z.string())),
 	packageManager: z.optional(z.string()),
+	type: z.optional(z.string()),
 });
 type PackageJson = z.infer<typeof PackageJsonSchema>;
 

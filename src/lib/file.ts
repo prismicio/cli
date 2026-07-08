@@ -49,6 +49,12 @@ export async function exists(path: URL): Promise<boolean> {
 	}
 }
 
+export async function findFirstFile(candidates: URL[]): Promise<URL | undefined> {
+	for (const candidate of candidates) {
+		if (await exists(candidate)) return candidate;
+	}
+}
+
 export async function writeFileRecursive(
 	path: URL,
 	data: Parameters<typeof writeFile>[1],
