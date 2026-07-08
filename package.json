@@ -19,6 +19,10 @@
 		"./dist"
 	],
 	"type": "module",
+	"exports": {
+		"./env/register": "./dist/env/register.mjs",
+		"./package.json": "./package.json"
+	},
 	"publishConfig": {
 		"access": "public"
 	},

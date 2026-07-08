@@ -1,12 +1,12 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
-import { rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { readJsonFile, writeFileRecursive } from "../lib/file";
+import { findFirstFile, readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
@@ -205,4 +205,26 @@ export abstract class Adapter {
 		await writeFileRecursive(output, types);
 		return output;
 	}
+}
+
+export async function addEnvRegisterImport(configFilenames: string[]): Promise<void> {
+	const projectRoot = await findProjectRoot();
+	const configUrl = await findFirstFile(
+		configFilenames.map((filename) => new URL(filename, projectRoot)),
+	);
+	if (!configUrl) return;
+
+	// The register module uses top-level await, so it can only be
+	// imported from an ESM config file.
+	let isEsm = configUrl.pathname.endsWith(".mjs") || configUrl.pathname.endsWith(".ts");
+	if (!isEsm) {
+		const packageJson = await readPackageJson();
+		isEsm = packageJson.type === "module";
+	}
+	if (!isEsm) return;
+
+	const statement = 'import "prismic/env/register";';
+	const contents = await readFile(configUrl, "utf8");
+	if (contents.includes(statement)) return;
+	await writeFile(configUrl, `${statement}\n\n${contents}`);
 }

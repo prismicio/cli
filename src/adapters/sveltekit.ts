@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter } from ".";
+import { Adapter, addEnvRegisterImport } from ".";
 import { getHost, getToken } from "../auth";
 import { addPreview, getPreviews, getSimulatorUrl, setSimulatorUrl } from "../clients/core";
 import { exists, writeFileRecursive } from "../lib/file";
@@ -42,6 +42,7 @@ export class SvelteKitAdapter extends Adapter {
 		await createRootLayoutServerFile();
 		await createRootLayoutFile();
 		await modifyViteConfig();
+		await addEnvRegisterImport(["vite.config.ts", "vite.config.js"]);
 	}
 
 	async onProjectInitialized(): Promise<void> {
