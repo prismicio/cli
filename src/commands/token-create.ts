@@ -5,7 +5,7 @@ import {
 	createWriteToken,
 	getOAuthApps,
 } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
+import { getEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { UnknownRequestError } from "../lib/request";
@@ -33,15 +33,15 @@ const config = {
 			description: `Name to identify the token (default: "${CLI_APP_NAME}")`,
 		},
 		json: { type: "boolean", description: "Output as JSON" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
 	const {
-		repo: parentRepo = await getRepositoryName(),
 		env,
+		repo = env ?? (await getEnvironment()) ?? (await getRepositoryName()),
 		write,
 		"allow-releases": allowReleases,
 		name = CLI_APP_NAME,
@@ -54,7 +54,6 @@ export default createCommand(config, async ({ values }) => {
 
 	const token = await getToken();
 	const host = await getHost();
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	let createdToken: string;
 	let scope: string | undefined;

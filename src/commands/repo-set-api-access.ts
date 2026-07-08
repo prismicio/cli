@@ -1,5 +1,6 @@
 import { getHost, getToken } from "../auth";
 import { type RepositoryAccessLevel, setRepositoryAccess } from "../clients/wroom";
+import { getEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -18,13 +19,13 @@ const config = {
 		level: { description: `Access level (${VALID_LEVELS.join(", ")})`, required: true },
 	},
 	options: {
-		repo: { type: "string", short: "r", description: "Repository domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [level] = positionals;
-	const { repo = await getRepositoryName() } = values;
+	const { repo = (await getEnvironment()) ?? (await getRepositoryName()) } = values;
 
 	if (!VALID_LEVELS.includes(level as RepositoryAccessLevel)) {
 		throw new CommandError(

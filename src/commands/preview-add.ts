@@ -1,6 +1,6 @@
 import { getHost, getToken } from "../auth";
 import { addPreview } from "../clients/core";
-import { resolveEnvironment } from "../environments";
+import { getEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -18,14 +18,17 @@ const config = {
 	},
 	options: {
 		name: { type: "string", short: "n", description: "Display name (defaults to hostname)" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;
-	const { repo: parentRepo = await getRepositoryName(), env, name } = values;
+	const { env, name, repo = env ?? (await getEnvironment()) ?? (await getRepositoryName()) } = values;
+
+	const token = await getToken();
+	const host = await getHost();
 
 	let parsed: URL;
 	try {
@@ -37,10 +40,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const displayName = name || parsed.hostname;
 	const websiteURL = `${parsed.protocol}//${parsed.host}`;
 	const resolverPath = parsed.pathname === "/" ? undefined : parsed.pathname;
-
-	const token = await getToken();
-	const host = await getHost();
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	try {
 		await addPreview({ name: displayName, websiteURL, resolverPath }, { repo, token, host });

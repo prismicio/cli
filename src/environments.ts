@@ -56,17 +56,6 @@ export async function getUserEnvironments(config: {
 	return userEnvironments;
 }
 
-export async function resolveEnvironment(
-	env: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<string> {
-	const availableEnvironments = await getUserEnvironments(config);
-	const match = availableEnvironments.find((environment) => environment.domain === env);
-	if (match) return match.domain;
-
-	throw new InvalidEnvironmentError(env, availableEnvironments, config.repo);
-}
-
 export class InvalidEnvironmentError extends Error {
 	name = "InvalidEnvironmentError";
 	repo: string;

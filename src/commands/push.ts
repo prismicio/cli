@@ -1,6 +1,6 @@
-import { pascalCase } from "change-case";
-
 import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
+import { pascalCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
@@ -16,12 +16,9 @@ import {
 	updateCustomType,
 	updateSlice,
 } from "../clients/custom-types";
-import {
-	completeOnboardingStepsSilently,
-	type OnboardingStep,
-} from "../clients/repository";
+import { completeOnboardingStepsSilently, type OnboardingStep } from "../clients/repository";
 import { getWorkingDocumentsUrlForCustomType, getCustomTypeListUrl } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
+import { getEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
@@ -40,22 +37,20 @@ const config = {
 	`,
 	options: {
 		force: { type: "boolean", short: "f", description: "Skip safety checks" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { force = false, repo: parentRepo = await getRepositoryName(), env } = values;
+	const { env, force = false, repo = env ?? (await getEnvironment()) ?? (await getRepositoryName()) } = values;
 
 	const token = await getToken();
 	const host = await getHost();
 	const adapter = await getAdapter();
 	const projectRoot = await findProjectRoot();
 
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
-
-	console.info(`Pushing to repository: ${parentRepo}${env ? ` (env: ${env})` : ""}`);
+	console.info(`Pushing to repository: ${repo}`);
 
 	const [gitRoot, customTypeLibraries, sliceLibraries] = await Promise.all([
 		getGitRoot(projectRoot),
@@ -166,7 +161,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 	if (onboardingSteps.length > 0) {
 		await completeOnboardingStepsSilently({
-			repo: parentRepo,
+			repo,
 			token,
 			host,
 			stepIds: onboardingSteps,
@@ -201,9 +196,9 @@ async function removeCustomTypeWithDocumentHandling(
 		if (!(await isDocumentsInUseError(error))) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw new CommandError(
-				`Could not delete type "${id}": ${errorMessage}"` + 
-					"\nPlease try again, or manually deleting the type at: " + 
-					getCustomTypeListUrl({ repo, host, format: format ?? "custom" })
+				`Could not delete type "${id}": ${errorMessage}"` +
+					"\nPlease try again, or manually deleting the type at: " +
+					getCustomTypeListUrl({ repo, host, format: format ?? "custom" }),
 			);
 		}
 
@@ -213,7 +208,7 @@ async function removeCustomTypeWithDocumentHandling(
 		} catch {
 			throw new CommandError(
 				`Could not check whether type "${id}" has associated pages. ` +
-					"\nPlease try again, or manually delete any associated pages at: " + 
+					"\nPlease try again, or manually delete any associated pages at: " +
 					getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
 			);
 		}
@@ -222,7 +217,7 @@ async function removeCustomTypeWithDocumentHandling(
 		const pluralPages = documentCount === 1 ? "page" : "pages";
 		throw new CommandError(
 			`Could not delete type "${id}" because it has${countLabel} associated ${pluralPages}. ` +
-				`\nDelete any associated pages manually before pushing at: ` + 
+				`\nDelete any associated pages manually before pushing at: ` +
 				getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
 		);
 	}

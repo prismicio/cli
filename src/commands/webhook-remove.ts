@@ -1,6 +1,6 @@
 import { getHost, getToken } from "../auth";
 import { deleteWebhook, getWebhooks } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
+import { getEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
@@ -17,18 +17,17 @@ const config = {
 		url: { description: "Webhook URL", required: true },
 	},
 	options: {
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
-	const { repo: parentRepo = await getRepositoryName(), env } = values;
+	const { env, repo = env ?? (await getEnvironment()) ?? (await getRepositoryName()) } = values;
 
 	const token = await getToken();
 	const host = await getHost();
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 	let webhooks;
 	try {
 		webhooks = await getWebhooks({ repo, token, host });

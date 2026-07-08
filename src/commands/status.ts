@@ -4,7 +4,7 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { getProfile } from "../clients/user";
-import { resolveEnvironment } from "../environments";
+import { getEnvironment } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
@@ -22,13 +22,17 @@ const config = {
 		model files with uncommitted git changes that would block pull and push.
 	`,
 	options: {
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: parentRepo = await getRepositoryName(), env } = values;
+	const { env, repo: repoArg } = values;
+	const repoFlag = repoArg ?? env;
+	const environment = repoFlag ? undefined : await getEnvironment();
+	const baseRepo = repoFlag ?? (await getRepositoryName());
+	const repo = environment ?? baseRepo;
 
 	const token = await getToken();
 	const host = await getHost();
@@ -44,14 +48,10 @@ export default createCommand(config, async ({ values }) => {
 			adapter.getSlices(),
 		]);
 
-	let repo = parentRepo;
 	let userEmail: string | undefined;
 	let customTypeOps: ArrayDiff<CustomType> | undefined;
 	let sliceOps: ArrayDiff<SharedSlice> | undefined;
 	if (token) {
-		if (env) {
-			repo = await resolveEnvironment(env, { repo: parentRepo, token, host });
-		}
 		const [profile, remoteCustomTypes, remoteSlices] = await Promise.all([
 			getProfile({ token, host }),
 			getCustomTypes({ repo, token, host }),
@@ -92,9 +92,9 @@ export default createCommand(config, async ({ values }) => {
 			.map((path) => relativePathname(projectRoot, path));
 	}
 
-	console.info(`Repository: ${parentRepo}`);
-	if (env) {
-		console.info(`Environment: ${env}`);
+	console.info(`Repository: ${baseRepo}`);
+	if (environment) {
+		console.info(`Environment: ${environment}`);
 	}
 	if (userEmail) {
 		console.info(`Authenticated as: ${userEmail}`);

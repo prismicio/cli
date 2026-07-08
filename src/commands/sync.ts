@@ -6,7 +6,7 @@ import { getHost, getToken } from "../auth";
 import { getCustomTypes, getSlices } from "../clients/custom-types";
 import { completeOnboardingStepsSilently } from "../clients/repository";
 import { env } from "../env";
-import { resolveEnvironment } from "../environments";
+import { getEnvironment } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getRepositoryName } from "../project";
@@ -29,21 +29,17 @@ const config = {
 			description: "Watch for changes and sync continuously",
 			required: true,
 		},
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: parentRepo = await getRepositoryName(), env: envFlag } = values;
+	const { env, repo = env ?? (await getEnvironment()) ?? (await getRepositoryName()) } = values;
 
 	const token = await getToken();
 	const host = await getHost();
 	const adapter = await getAdapter();
-
-	const repo = envFlag
-		? await resolveEnvironment(envFlag, { repo: parentRepo, token, host })
-		: parentRepo;
 
 	trackCommandStart("sync", { watch: true });
 	process.on("SIGINT", () => {
@@ -53,7 +49,7 @@ export default createCommand(config, async ({ values }) => {
 	});
 
 	console.info(
-		`Watching repository: ${parentRepo}${envFlag ? ` (env: ${envFlag})` : ""} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
+		`Watching repository: ${repo} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
 	);
 
 	let lastHash = "";
@@ -118,7 +114,7 @@ export default createCommand(config, async ({ values }) => {
 
 				if (isInitial) {
 					await completeOnboardingStepsSilently({
-						repo: parentRepo,
+						repo,
 						token,
 						host,
 						stepIds: ["connectPrismic"],
