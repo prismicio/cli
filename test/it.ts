@@ -2,7 +2,7 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 import type { Result } from "tinyexec";
 
 import { pascalCase } from "change-case";
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -33,8 +33,8 @@ export const it = test.extend<Fixtures>({
 	},
 	// oxlint-disable-next-line no-empty-pattern
 	home: async ({}, use) => {
-		const dir = await mkdtemp(join(tmpdir(), "prismic-test-"));
-		await use(pathToFileURL(dir + "/"));
+		const dir = await realpath(await mkdtemp(join(tmpdir(), "prismic-test-")));
+		await use(pathToFileURL(`${dir}/`));
 		try {
 			await rm(dir, { recursive: true, force: true });
 		} catch {
