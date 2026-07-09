@@ -9,7 +9,7 @@ import { stringify } from "./lib/json";
 import { findProjectRoot } from "./project";
 
 const EnvironmentsSchema = z.partialRecord(z.string(), z.string());
-type Environments = z.infer<typeof EnvironmentsSchema>;
+export type Environments = z.infer<typeof EnvironmentsSchema>;
 
 export async function getEnvironment(): Promise<string | undefined> {
 	const projectRoot = await findProjectRoot();
