@@ -74,6 +74,10 @@ it("adds the env register import to the framework config", { timeout: 30_000 }, 
 
 	const contents = await readFile(configPath, "utf8");
 	expect(contents).toBe('import "prismic/env/register";\n\nexport default {};\n');
+
+	// The import needs `prismic` installed to resolve, so it is added as a dependency.
+	const packageJson = JSON.parse(await readFile(new URL("package.json", project), "utf8"));
+	expect(packageJson.dependencies).toHaveProperty("prismic");
 });
 
 it("skips the env register import for a CommonJS config", { timeout: 30_000 }, async ({

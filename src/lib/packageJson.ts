@@ -76,6 +76,31 @@ const INSTALL_COMMANDS = {
 	bun: ["bun", "install"],
 };
 
+const ADD_COMMANDS = {
+	npm: "npm install",
+	yarn: "yarn add",
+	pnpm: "pnpm add",
+	bun: "bun add",
+};
+
+// Returns a package-manager-specific command to update a dependency to its
+// latest version, or undefined if the package is not a project dependency.
+export async function getUpdateCommand(name: string): Promise<string | undefined> {
+	let packageJson: PackageJson;
+	try {
+		packageJson = await readPackageJson();
+	} catch {
+		return undefined;
+	}
+	const installed =
+		packageJson.dependencies?.[name] ??
+		packageJson.devDependencies?.[name] ??
+		packageJson.peerDependencies?.[name];
+	if (!installed) return undefined;
+	const packageManager = await detectPackageManager();
+	return `${ADD_COMMANDS[packageManager]} ${name}@latest`;
+}
+
 export async function installDependencies(): Promise<void> {
 	const packageJsonPath = await findPackageJson();
 	const cwd = new URL(".", packageJsonPath);

@@ -6,7 +6,7 @@ import * as z from "zod/mini";
 
 import packageJson from "../../package.json" with { type: "json" };
 import { stringify } from "./json";
-import { getNpmPackageVersion } from "./packageJson";
+import { getNpmPackageVersion, getUpdateCommand } from "./packageJson";
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
@@ -29,7 +29,14 @@ export async function initUpdateNotifier(options: UpdateNotifierOptions): Promis
 		const currentVersion = packageJson.version;
 
 		if (state?.latestKnownVersion && isNewer(state.latestKnownVersion, currentVersion)) {
-			const message = `Update available: ${currentVersion} → ${state.latestKnownVersion}. Run \`npx ${options.npmPackageName}@latest --version\` to update.`;
+			// When `prismic` is a project dependency, `npx` would fetch a fresh
+			// copy instead of updating the installed one, so point the user at
+			// their package manager instead.
+			const updateCommand = await getUpdateCommand(options.npmPackageName);
+			const instruction = updateCommand
+				? `Run \`${updateCommand}\` to update.`
+				: `Run \`npx ${options.npmPackageName}@latest --version\` to update.`;
+			const message = `Update available: ${currentVersion} → ${state.latestKnownVersion}. ${instruction}`;
 			process.on("exit", () => {
 				try {
 					console.error(`\n${message}`);

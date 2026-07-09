@@ -8,7 +8,7 @@ import { glob } from "tinyglobby";
 
 import { findFirstFile, readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
-import { readPackageJson } from "../lib/packageJson";
+import { addDependencies, getNpmPackageVersion, readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
 import { addRoute, removeRoute, updateRoute } from "../project";
 import { findProjectRoot, getLibraries } from "../project";
@@ -227,4 +227,8 @@ export async function addEnvRegisterImport(configFilenames: string[]): Promise<v
 	const contents = await readFile(configUrl, "utf8");
 	if (contents.includes(statement)) return;
 	await writeFile(configUrl, `${statement}\n\n${contents}`);
+
+	// The config now imports `prismic/env/register`, so the project needs
+	// `prismic` installed to resolve it.
+	await addDependencies({ prismic: `^${await getNpmPackageVersion("prismic")}` });
 }
