@@ -11,12 +11,14 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 		return dedent`
 			import { createClient as baseCreateClient } from "@prismicio/client";
 			import { type CreateClientConfig, enableAutoPreviews } from '@prismicio/svelte/kit';
+			import { env } from '$env/dynamic/public';
 			import prismicConfig from "../../prismic.config.json";
 
 			/**
 			 * The project's Prismic repository name.
 			 */
-			export const repositoryName = prismicConfig.repositoryName;
+			export const repositoryName =
+				env.PUBLIC_PRISMIC_ENVIRONMENT ?? prismicConfig.repositoryName;
 
 			/**
 			 * Creates a Prismic client for the project's repository. The client is used to
@@ -40,12 +42,14 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 	return dedent`
 		import { createClient as baseCreateClient } from "@prismicio/client";
 		import { enableAutoPreviews } from '@prismicio/svelte/kit';
+		import { env } from '$env/dynamic/public';
 		import prismicConfig from "../../prismic.config.json";
 
 		/**
 		 * The project's Prismic repository name.
 		 */
-		export const repositoryName = prismicConfig.repositoryName;
+		export const repositoryName =
+			env.PUBLIC_PRISMIC_ENVIRONMENT ?? prismicConfig.repositoryName;
 
 		/**
 		 * Creates a Prismic client for the project's repository. The client is used to
