@@ -2,7 +2,12 @@ import type { Profile } from "../clients/user";
 
 import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
-import { getCustomTypes, getSlices } from "../clients/custom-types";
+import {
+	getCustomTypes,
+	getSlices,
+	insertCustomType,
+	insertSlice,
+} from "../clients/custom-types";
 import { getProfile } from "../clients/user";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
@@ -18,6 +23,7 @@ import {
 	readConfig,
 	readLegacySliceMachineConfig,
 	UnknownProjectRootError,
+	updateConfig,
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 import { createRepo } from "./repo-create";
@@ -32,9 +38,16 @@ const config = {
 		Use --repo to connect to an existing repository instead. If a
 		slicemachine.config.json exists, its repository and settings will be
 		migrated.
+
+		Use --new to create an empty repository and push the project's local
+		models to it, instead of pulling. Useful for starting from a template.
 	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository name" },
+		new: {
+			type: "boolean",
+			description: "Create a new repository and push local models to it",
+		},
 		lang: {
 			type: "string",
 			short: "l",
@@ -57,30 +70,31 @@ export default createCommand(config, async ({ values }) => {
 		lang,
 		"no-browser": noBrowser,
 		"no-setup": noSetup,
+		new: isNew,
 	} = values;
 
-	// Check for existing prismic.config.json
+	if (isNew && explicitRepo) {
+		throw new CommandError(
+			"`--new` creates a new repository and cannot be combined with `--repo`.",
+		);
+	}
+
+	// `--new` repoints an existing config (e.g. a starter's) at a new
+	// repository, so a config is allowed with `--new`. Otherwise, a config
+	// means the project is already initialized.
+	let hasConfig = false;
 	try {
 		await readConfig();
-		throw new CommandError(
-			"A prismic.config.json file exists. This project is already initialized.",
-		);
+		hasConfig = true;
 	} catch (error) {
-		if (error instanceof MissingPrismicConfigError) {
-			// No config found — proceed with initialization.
-		} else {
+		if (!(error instanceof MissingPrismicConfigError)) {
 			throw error;
 		}
 	}
-
-	// Load legacy slicemachine.config.json
-	let legacySliceMachineConfig;
-	try {
-		legacySliceMachineConfig = await readLegacySliceMachineConfig();
-	} catch (error) {
-		if (error instanceof InvalidLegacySliceMachineConfigError) {
-			console.warn("Could not read slicemachine.config.json, ignoring.");
-		}
+	if (hasConfig && !isNew) {
+		throw new CommandError(
+			"A prismic.config.json file exists. This project is already initialized.",
+		);
 	}
 
 	let token = await getToken();
@@ -115,6 +129,91 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
+	const adapter = await getAdapter();
+
+	// `prismic init --new`: create a new empty repository and push the project's
+	// local models to it. `--new` always creates a new repository and pushes —
+	// it never connects to an existing repository or pulls, so it can't delete
+	// local models. An existing config (a starter's) is repointed at the new
+	// repository; otherwise a fresh config is created.
+	if (isNew) {
+		const repo = await createRepo({ lang, token, host });
+		console.info(`Created repository: ${repo}`);
+
+		const documentAPIEndpoint =
+			host !== DEFAULT_PRISMIC_HOST ? `https://${repo}.cdn.${host}/api/v2/` : undefined;
+
+		// Without a config, create one first so the adapter and project setup can
+		// resolve the project. With a config (a starter), it is repointed after
+		// the push so a failed push doesn't leave the config switched.
+		if (!hasConfig) {
+			try {
+				await createConfig({ repositoryName: repo, documentAPIEndpoint, routes: [] });
+			} catch (error) {
+				if (error instanceof UnknownProjectRootError) {
+					throw new CommandError(
+						"Could not find a package.json file. Run this command from a project directory.",
+					);
+				}
+				throw new CommandError("Failed to create prismic.config.json.");
+			}
+		}
+
+		const [localCustomTypes, localSlices] = await Promise.all([
+			adapter.getCustomTypes(),
+			adapter.getSlices(),
+		]);
+		for (const slice of localSlices) {
+			await insertSlice(slice.model, { repo, token, host });
+		}
+		for (const customType of localCustomTypes) {
+			await insertCustomType(customType.model, { repo, token, host });
+		}
+
+		if (hasConfig) {
+			await updateConfig(
+				documentAPIEndpoint
+					? { repositoryName: repo, documentAPIEndpoint }
+					: { repositoryName: repo },
+			);
+		}
+
+		// Configure the project: regenerate the slice index and set the slice
+		// simulator and a preview on the new repository. Scaffold framework files
+		// only when the project doesn't already have them (i.e. there was no
+		// config).
+		await adapter.initProject({ setup: !noSetup && !hasConfig });
+		if (!noSetup) {
+			try {
+				console.info("Installing dependencies...");
+				await installDependencies();
+			} catch {
+				console.warn(
+					"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
+				);
+			}
+		}
+
+		await adapter.generateTypes();
+
+		console.info(`\nInitialized Prismic for new repository "${repo}".`);
+		console.info(`Pushed ${localCustomTypes.length} type(s), ${localSlices.length} slice(s).`);
+		return;
+	}
+
+	// Default flow: create a new repository (or connect to one with --repo) and
+	// pull its models.
+
+	// Load legacy slicemachine.config.json
+	let legacySliceMachineConfig;
+	try {
+		legacySliceMachineConfig = await readLegacySliceMachineConfig();
+	} catch (error) {
+		if (error instanceof InvalidLegacySliceMachineConfigError) {
+			console.warn("Could not read slicemachine.config.json, ignoring.");
+		}
+	}
+
 	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
 	if (repo) {
 		const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
@@ -129,8 +228,6 @@ export default createCommand(config, async ({ values }) => {
 			throw new TypeBuilderRequiredError();
 		}
 	}
-
-	const adapter = await getAdapter();
 
 	if (!repo) {
 		repo = await createRepo({ lang, token, host });
