@@ -1,6 +1,7 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
 import { upsertLocale } from "../clients/locale";
+import { activateMCP } from "../clients/mcp";
 import { completeOnboardingStepsSilently } from "../clients/repository";
 import { checkIsDomainAvailable, createRepository } from "../clients/wroom";
 import { detectAgent } from "../lib/ai";
@@ -77,6 +78,8 @@ export async function createRepo(config: {
 		host,
 		stepIds: ["createPrismicProject"],
 	});
+
+	await activateMCP({ repo: domain, token, host }).catch(() => {});
 
 	return domain;
 }
