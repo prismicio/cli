@@ -407,3 +407,16 @@ export async function getRepositoryAccess(config: RepoConfig): Promise<string> {
 	const data = await res.json();
 	return data.repository.api_access;
 }
+
+export async function getMCPActivationStatus(config: RepoConfig): Promise<string> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("mcp/activation", `https://api.internal.${host}/`);
+	url.searchParams.set("repository", config.repo);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok)
+		throw new Error(`Failed to get MCP activation status: ${res.status} ${await res.text()}`);
+	const data = await res.json();
+	return data.status;
+}
