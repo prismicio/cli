@@ -2,7 +2,6 @@ import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getWebhooks, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
 import { resolveEnvironment } from "../lib/prismic/environments";
-import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -29,16 +28,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
-	let webhooks;
-	try {
-		webhooks = await getWebhooks({ repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to fetch webhook details: ${message}`);
-		}
-		throw error;
-	}
+	const webhooks = await getWebhooks({ repo, token, host });
 
 	const webhook = webhooks.find((webhook) => webhook.config.url === webhookUrl);
 	if (!webhook) {

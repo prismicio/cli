@@ -25,6 +25,7 @@ export async function getPreviews(config: CoreConfig): Promise<Preview[]> {
 	const url = new URL("core/repository/preview_configs", getCoreServiceUrl(repo, host));
 	const response = await coreServiceRequest(url, config, {
 		schema: GetPreviewsResponseSchema,
+		unknownErrorMessage: "Failed to load previews",
 	});
 	return response.results;
 }
@@ -46,6 +47,7 @@ export async function addPreview(
 			websiteURL: previewConfig.websiteURL,
 			resolverPath: previewConfig.resolverPath,
 		},
+		unknownErrorMessage: "Failed to add preview",
 	});
 }
 
@@ -56,6 +58,7 @@ export async function removePreview(id: string, config: CoreConfig): Promise<voi
 		method: "POST",
 		json: {},
 		notFoundMessage: "Preview not found",
+		unknownErrorMessage: "Failed to remove preview",
 	});
 }
 
@@ -85,6 +88,7 @@ export async function getSimulatorUrl(config: CoreConfig): Promise<string | unde
 	const url = new URL("core/repository", getCoreServiceUrl(repo, host));
 	const response = await coreServiceRequest(url, config, {
 		schema: RepositoryResponseSchema,
+		unknownErrorMessage: "Failed to load simulator URL",
 	});
 	return response.simulator_url;
 }
@@ -95,6 +99,7 @@ export async function setSimulatorUrl(simulatorUrl: string, config: CoreConfig):
 	await coreServiceRequest(url, config, {
 		method: "PATCH",
 		json: { simulator_url: simulatorUrl },
+		unknownErrorMessage: "Failed to set simulator URL",
 	});
 }
 

@@ -25,7 +25,10 @@ type DocsPage = z.infer<typeof DocsPageSchema>;
 
 export async function getDocsIndex(): Promise<DocsIndexEntry[]> {
 	const url = new URL("api/index/", getDocsServiceUrl());
-	return request(url, { schema: z.array(DocsIndexEntrySchema) });
+	return request(url, {
+		schema: z.array(DocsIndexEntrySchema),
+		unknownErrorMessage: "Failed to fetch documentation index",
+	});
 }
 
 export async function getDocsPageIndex(path: string): Promise<DocsPage> {
@@ -33,6 +36,7 @@ export async function getDocsPageIndex(path: string): Promise<DocsPage> {
 	return request(url, {
 		schema: DocsPageSchema,
 		notFoundMessage: `Documentation page not found: ${path}`,
+		unknownErrorMessage: "Failed to fetch documentation index",
 	});
 }
 
@@ -42,6 +46,7 @@ export async function getDocsPageContent(path: string): Promise<string> {
 		headers: { Accept: "text/markdown" },
 		schema: z.string(),
 		notFoundMessage: `Page not found: ${path}`,
+		unknownErrorMessage: "Failed to fetch documentation page",
 	});
 }
 

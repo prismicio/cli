@@ -5,6 +5,7 @@ const USER_AGENT = "prismic-cli";
 type CustomRequestInit = Omit<RequestInit, "body" | "credentials"> & {
 	credentials?: Record<string, string | undefined>;
 	notFoundMessage?: string;
+	unknownErrorMessage?: string;
 };
 
 type RequestBody = { body?: BodyInit | null; json?: never } | { body?: never; json?: unknown };
@@ -18,7 +19,7 @@ export async function request<T = unknown>(
 	input: RequestInfo | URL,
 	init: RequestOptions<T> = {},
 ): Promise<T> {
-	const { credentials, json, notFoundMessage, schema, ...requestInit } = init;
+	const { credentials, json, notFoundMessage, unknownErrorMessage, schema, ...requestInit } = init;
 
 	const headers = new Headers(init.headers);
 	if (!headers.has("Accept")) {
@@ -53,21 +54,20 @@ export async function request<T = unknown>(
 	}
 
 	if (response.ok) {
-		if (schema) {
-			return z.parse(schema, value);
-		}
+		return schema ? z.parse(schema, value) : (value as T);
+	}
 
-		return value as T;
-	} else {
-		if (response.status === 400) throw new BadRequestError(response, value, rawBody);
-		if (response.status === 401) {
+	switch (response.status) {
+		case 400:
+			throw new BadRequestError(response, value, rawBody);
+		case 401:
 			throw new UnauthorizedRequestError(response, value, rawBody);
-		}
-		if (response.status === 403) throw new ForbiddenRequestError(response, value, rawBody);
-		if (response.status === 404) {
+		case 403:
+			throw new ForbiddenRequestError(response, value, rawBody);
+		case 404:
 			throw new NotFoundRequestError(response, value, rawBody, notFoundMessage);
-		}
-		throw new UnknownRequestError(response, value, rawBody);
+		default:
+			throw new UnknownRequestError(response, value, rawBody, unknownErrorMessage);
 	}
 }
 
@@ -103,6 +103,10 @@ export class RequestError extends Error {
 
 export class UnknownRequestError extends RequestError {
 	name = "UnknownRequestError";
+
+	constructor(response: Response, body: unknown, rawBody: string, message = "") {
+		super(response, body, rawBody, message);
+	}
 }
 export class BadRequestError extends RequestError {
 	name = "BadRequestError";

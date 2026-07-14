@@ -1,9 +1,8 @@
 import { getHost, getToken } from "../auth";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getPreviews, getSimulatorUrl } from "../lib/prismic/clients/core";
 import { resolveEnvironment } from "../lib/prismic/environments";
-import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
@@ -29,20 +28,10 @@ export default createCommand(config, async ({ values }) => {
 	const host = await getHost();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
-	let previews;
-	let simulatorUrl;
-	try {
-		[previews, simulatorUrl] = await Promise.all([
-			getPreviews({ repo, token, host }),
-			getSimulatorUrl({ repo, token, host }),
-		]);
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to list previews: ${message}`);
-		}
-		throw error;
-	}
+	const [previews, simulatorUrl] = await Promise.all([
+		getPreviews({ repo, token, host }),
+		getSimulatorUrl({ repo, token, host }),
+	]);
 
 	if (json) {
 		console.info(

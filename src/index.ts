@@ -350,6 +350,13 @@ async function main(): Promise<void> {
 		}
 
 		if (error instanceof UnknownRequestError) {
+			if (error.message) {
+				if (!UNTRACKED_COMMANDS.includes(command)) {
+					trackCommandEnd(command);
+				}
+				console.error(error.message);
+				return;
+			}
 			if (!UNTRACKED_COMMANDS.includes(command)) {
 				trackCommandEnd(command, { error });
 			}

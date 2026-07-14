@@ -1,9 +1,8 @@
 import { getHost, getToken } from "../auth";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getOAuthApps, getWriteTokens } from "../lib/prismic/clients/wroom";
 import { resolveEnvironment } from "../lib/prismic/environments";
-import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
@@ -29,20 +28,10 @@ export default createCommand(config, async ({ values }) => {
 	const host = await getHost();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
-	let apps;
-	let writeTokensInfo;
-	try {
-		[apps, writeTokensInfo] = await Promise.all([
-			getOAuthApps({ repo, token, host }),
-			getWriteTokens({ repo, token, host }),
-		]);
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to list tokens: ${message}`);
-		}
-		throw error;
-	}
+	const [apps, writeTokensInfo] = await Promise.all([
+		getOAuthApps({ repo, token, host }),
+		getWriteTokens({ repo, token, host }),
+	]);
 
 	const accessTokens = apps.flatMap((app) =>
 		app.wroom_auths.map((auth) => ({

@@ -1,8 +1,7 @@
 import { getHost, getToken } from "../auth";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { upsertLocale } from "../lib/prismic/clients/locale";
 import { resolveEnvironment } from "../lib/prismic/environments";
-import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -32,15 +31,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const host = await getHost();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
-	try {
-		await upsertLocale({ id: code, isMaster: master, customName: name }, { repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to add locale: ${message}`);
-		}
-		throw error;
-	}
+	await upsertLocale({ id: code, isMaster: master, customName: name }, { repo, token, host });
 
 	console.info(`Locale added: ${code}`);
 });

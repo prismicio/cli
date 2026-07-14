@@ -21,6 +21,7 @@ export async function getLocales(config: LocaleConfig): Promise<Locale[]> {
 	const url = new URL("repository/locales", getLocaleServiceUrl(config.host));
 	const response = await localeServiceRequest(url, config, {
 		schema: z.object({ results: z.array(LocaleSchema) }),
+		unknownErrorMessage: "Failed to load locales",
 	});
 	return response.results;
 }
@@ -38,6 +39,7 @@ export async function upsertLocale(
 			...(locale.customName ? { customName: locale.customName } : {}),
 		},
 		schema: LocaleSchema,
+		unknownErrorMessage: "Failed to save locale",
 	});
 }
 
@@ -46,7 +48,10 @@ export async function removeLocale(code: string, config: LocaleConfig): Promise<
 		`repository/locales/${encodeURIComponent(code)}`,
 		getLocaleServiceUrl(config.host),
 	);
-	await localeServiceRequest(url, config, { method: "DELETE" });
+	await localeServiceRequest(url, config, {
+		method: "DELETE",
+		unknownErrorMessage: "Failed to remove locale",
+	});
 }
 
 function localeServiceRequest<T>(

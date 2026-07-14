@@ -1,8 +1,7 @@
 import { getHost, getToken } from "../auth";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getProfile } from "../lib/prismic/clients/user";
-import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 
 const config = {
@@ -19,16 +18,7 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 
-	let profile;
-	try {
-		profile = await getProfile({ token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to list repositories: ${message}`);
-		}
-		throw error;
-	}
+	const profile = await getProfile({ token, host });
 
 	const repos = profile.repositories;
 

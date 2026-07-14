@@ -1,9 +1,8 @@
 import { getHost, getToken } from "../auth";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getWebhooks } from "../lib/prismic/clients/wroom";
 import { resolveEnvironment } from "../lib/prismic/environments";
-import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
@@ -28,16 +27,7 @@ export default createCommand(config, async ({ values }) => {
 	const token = await getToken();
 	const host = await getHost();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
-	let webhooks;
-	try {
-		webhooks = await getWebhooks({ repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to list webhooks: ${message}`);
-		}
-		throw error;
-	}
+	const webhooks = await getWebhooks({ repo, token, host });
 
 	if (json) {
 		console.info(stringify(webhooks.map((webhook) => webhook.config)));

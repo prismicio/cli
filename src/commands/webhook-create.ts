@@ -2,7 +2,6 @@ import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { createWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
 import { resolveEnvironment } from "../lib/prismic/environments";
-import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -71,28 +70,20 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const defaultValue = trigger.length > 0 ? false : true;
 
-	try {
-		await createWebhook(
-			{
-				url: webhookUrl,
-				name: name ?? null,
-				secret: secret ?? null,
-				documentsPublished: trigger.includes("documentsPublished") || defaultValue,
-				documentsUnpublished: trigger.includes("documentsUnpublished") || defaultValue,
-				releasesCreated: trigger.includes("releasesCreated") || defaultValue,
-				releasesUpdated: trigger.includes("releasesUpdated") || defaultValue,
-				tagsCreated: trigger.includes("tagsCreated") || defaultValue,
-				tagsDeleted: trigger.includes("tagsDeleted") || defaultValue,
-			},
-			{ repo, token, host },
-		);
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to create webhook: ${message}`);
-		}
-		throw error;
-	}
+	await createWebhook(
+		{
+			url: webhookUrl,
+			name: name ?? null,
+			secret: secret ?? null,
+			documentsPublished: trigger.includes("documentsPublished") || defaultValue,
+			documentsUnpublished: trigger.includes("documentsUnpublished") || defaultValue,
+			releasesCreated: trigger.includes("releasesCreated") || defaultValue,
+			releasesUpdated: trigger.includes("releasesUpdated") || defaultValue,
+			tagsCreated: trigger.includes("tagsCreated") || defaultValue,
+			tagsDeleted: trigger.includes("tagsDeleted") || defaultValue,
+		},
+		{ repo, token, host },
+	);
 
 	console.info(`Webhook created: ${webhookUrl}`);
 	console.info(`Run \`prismic webhook set-triggers ${webhookUrl}\` to configure triggers.`);

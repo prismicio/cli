@@ -1,7 +1,6 @@
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getDocsIndex, getDocsPageIndex } from "../lib/prismic/clients/docs";
-import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 
 const config = {
@@ -27,16 +26,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const { json } = values;
 
 	if (path) {
-		let entry;
-		try {
-			entry = await getDocsPageIndex(path);
-		} catch (error) {
-			if (error instanceof UnknownRequestError) {
-				const message = await error.text();
-				throw new CommandError(`Failed to fetch documentation index: ${message}`);
-			}
-			throw error;
-		}
+		const entry = await getDocsPageIndex(path);
 
 		if (json) {
 			console.info(stringify(entry));
@@ -51,16 +41,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		const rows = entry.anchors.map((anchor) => [`${path}#${anchor.slug}`, anchor.excerpt]);
 		console.info(formatTable(rows, { headers: ["PATH", "EXCERPT"] }));
 	} else {
-		let pages;
-		try {
-			pages = await getDocsIndex();
-		} catch (error) {
-			if (error instanceof UnknownRequestError) {
-				const message = await error.text();
-				throw new CommandError(`Failed to fetch documentation index: ${message}`);
-			}
-			throw error;
-		}
+		const pages = await getDocsIndex();
 
 		pages.sort((a, b) => a.path.localeCompare(b.path));
 

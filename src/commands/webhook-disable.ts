@@ -2,7 +2,6 @@ import { getHost, getToken } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getWebhooks, updateWebhook } from "../lib/prismic/clients/wroom";
 import { resolveEnvironment } from "../lib/prismic/environments";
-import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -29,16 +28,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const token = await getToken();
 	const host = await getHost();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
-	let webhooks;
-	try {
-		webhooks = await getWebhooks({ repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to disable webhook: ${message}`);
-		}
-		throw error;
-	}
+	const webhooks = await getWebhooks({ repo, token, host });
 
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
@@ -55,15 +45,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const updatedConfig = structuredClone(webhook.config);
 	updatedConfig.active = false;
 
-	try {
-		await updateWebhook(id, updatedConfig, { repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to disable webhook: ${message}`);
-		}
-		throw error;
-	}
+	await updateWebhook(id, updatedConfig, { repo, token, host });
 
 	console.info(`Webhook disabled: ${webhookUrl}`);
 });

@@ -1,9 +1,8 @@
 import { getHost, getToken } from "../auth";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getLocales } from "../lib/prismic/clients/locale";
 import { resolveEnvironment } from "../lib/prismic/environments";
-import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
@@ -29,16 +28,7 @@ export default createCommand(config, async ({ values }) => {
 	const host = await getHost();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
-	let locales;
-	try {
-		locales = await getLocales({ repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to list locales: ${message}`);
-		}
-		throw error;
-	}
+	const locales = await getLocales({ repo, token, host });
 
 	if (json) {
 		console.info(stringify(locales));

@@ -26,7 +26,10 @@ export type Profile = z.infer<typeof ProfileSchema>;
 
 export async function getProfile(config: UserConfig): Promise<Profile> {
 	const url = new URL("profile", getUserServiceUrl(config.host));
-	return userServiceRequest(url, config, { schema: ProfileSchema });
+	return userServiceRequest(url, config, {
+		schema: ProfileSchema,
+		unknownErrorMessage: "Failed to load your profile",
+	});
 }
 
 function userServiceRequest<T>(

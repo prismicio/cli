@@ -6,7 +6,6 @@ import { upsertLocale } from "../lib/prismic/clients/locale";
 import { activateMCP } from "../lib/prismic/clients/mcp";
 import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
 import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients/wroom";
-import { UnknownRequestError } from "../lib/request";
 
 const MAX_DOMAIN_TRIES = 5;
 
@@ -51,26 +50,10 @@ export async function createRepo(config: {
 	const framework = adapter?.id ?? "other";
 	const agent = await detectAgent();
 
-	try {
-		await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to create repository: ${message}`);
-		}
-		throw error;
-	}
+	await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
 
 	// A new repository has no locale, so set the master locale to make it usable.
-	try {
-		await upsertLocale({ id: lang, isMaster: true }, { repo: domain, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to set master locale: ${message}`);
-		}
-		throw error;
-	}
+	await upsertLocale({ id: lang, isMaster: true }, { repo: domain, token, host });
 
 	await completeOnboardingStepsSilently({
 		repo: domain,

@@ -36,6 +36,7 @@ export function getWebhooks(config: WroomConfig): Promise<Webhook[]> {
 	const url = new URL("app/settings/webhooks", getWroomRepoServiceUrl(repo, host));
 	return wroomRepoServiceRequest(url, config, {
 		schema: z.array(WebhookSchema),
+		unknownErrorMessage: "Failed to load webhooks",
 	});
 }
 
@@ -57,7 +58,11 @@ export async function createWebhook(
 	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
 	const { repo, host } = config;
 	const url = new URL("app/settings/webhooks/create", getWroomRepoServiceUrl(repo, host));
-	await wroomRepoServiceRequest(url, config, { method: "POST", body });
+	await wroomRepoServiceRequest(url, config, {
+		method: "POST",
+		body,
+		unknownErrorMessage: "Failed to create webhook",
+	});
 }
 
 export async function updateWebhook(
@@ -86,6 +91,7 @@ export async function updateWebhook(
 		method: "POST",
 		body,
 		notFoundMessage: "Webhook not found",
+		unknownErrorMessage: "Failed to update webhook",
 	});
 }
 
@@ -98,6 +104,7 @@ export async function deleteWebhook(id: string, config: WroomConfig): Promise<vo
 	await wroomRepoServiceRequest(url, config, {
 		method: "POST",
 		notFoundMessage: "Webhook not found",
+		unknownErrorMessage: "Failed to delete webhook",
 	});
 }
 
@@ -132,7 +139,10 @@ type WriteTokensInfo = z.infer<typeof WriteTokensInfoSchema>;
 export function getOAuthApps(config: WroomConfig): Promise<OAuthApp[]> {
 	const { repo, host } = config;
 	const url = new URL("settings/security/contentapi", getWroomRepoServiceUrl(repo, host));
-	return wroomRepoServiceRequest(url, config, { schema: z.array(OAuthAppSchema) });
+	return wroomRepoServiceRequest(url, config, {
+		schema: z.array(OAuthAppSchema),
+		unknownErrorMessage: "Failed to load OAuth apps",
+	});
 }
 
 export async function createOAuthApp(name: string, config: WroomConfig): Promise<OAuthApp> {
@@ -142,6 +152,7 @@ export async function createOAuthApp(name: string, config: WroomConfig): Promise
 		method: "POST",
 		json: { app_name: name },
 		schema: OAuthAppSchema,
+		unknownErrorMessage: "Failed to create OAuth app",
 	});
 }
 
@@ -156,6 +167,7 @@ export async function createOAuthAuthorization(
 		method: "POST",
 		json: { app: appId, scope },
 		schema: AccessTokenSchema,
+		unknownErrorMessage: "Failed to create token",
 	});
 }
 
@@ -168,6 +180,7 @@ export async function deleteOAuthAuthorization(authId: string, config: WroomConf
 	await wroomRepoServiceRequest(url, config, {
 		method: "DELETE",
 		notFoundMessage: "Token not found",
+		unknownErrorMessage: "Failed to delete token",
 	});
 }
 
@@ -176,6 +189,7 @@ export function getWriteTokens(config: WroomConfig): Promise<WriteTokensInfo> {
 	const url = new URL("settings/security/customtypesapi", getWroomRepoServiceUrl(repo, host));
 	return wroomRepoServiceRequest(url, config, {
 		schema: WriteTokensInfoSchema,
+		unknownErrorMessage: "Failed to load write tokens",
 	});
 }
 
@@ -186,6 +200,7 @@ export async function createWriteToken(name: string, config: WroomConfig): Promi
 		method: "POST",
 		json: { app_name: name },
 		schema: WriteTokenSchema,
+		unknownErrorMessage: "Failed to create write token",
 	});
 }
 
@@ -198,6 +213,7 @@ export async function deleteWriteToken(tokenValue: string, config: WroomConfig):
 	await wroomRepoServiceRequest(url, config, {
 		method: "DELETE",
 		notFoundMessage: `Token not found: ${tokenValue}`,
+		unknownErrorMessage: "Failed to delete write token",
 	});
 }
 
@@ -229,6 +245,7 @@ export async function createRepository(config: {
 	await wroomServiceRequest(url, config, {
 		method: "POST",
 		json: { domain, name, framework, plan: "personal" },
+		unknownErrorMessage: "Failed to create repository",
 	});
 }
 
@@ -241,7 +258,10 @@ const SyncStateSchema = z.object({
 export async function getRepositoryAccess(config: WroomConfig): Promise<string> {
 	const { repo, host } = config;
 	const url = new URL("syncState", getWroomRepoServiceUrl(repo, host));
-	const response = await wroomRepoServiceRequest(url, config, { schema: SyncStateSchema });
+	const response = await wroomRepoServiceRequest(url, config, {
+		schema: SyncStateSchema,
+		unknownErrorMessage: "Failed to load repository access",
+	});
 	return response.repository.api_access;
 }
 
@@ -256,6 +276,7 @@ export async function setRepositoryAccess(
 	await wroomRepoServiceRequest(url, config, {
 		method: "POST",
 		json: { api_access: level },
+		unknownErrorMessage: "Failed to set repository access",
 	});
 }
 
@@ -274,6 +295,7 @@ export async function setRepositoryName(name: string, config: WroomConfig): Prom
 		method: "POST",
 		body: formData,
 		schema: SetNameResponseSchema,
+		unknownErrorMessage: "Failed to set repository name",
 	});
 	return response.repository.name;
 }
