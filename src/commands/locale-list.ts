@@ -1,8 +1,8 @@
 import { getHost, getToken } from "../auth";
-import { getLocales } from "../clients/locale";
-import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { getLocales } from "../lib/prismic/clients/locale";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";

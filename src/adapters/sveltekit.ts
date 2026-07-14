@@ -9,9 +9,14 @@ import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
 import { getHost, getToken } from "../auth";
-import { addPreview, getPreviews, getSimulatorUrl, setSimulatorUrl } from "../clients/core";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
+import {
+	addPreview,
+	getPreviews,
+	getSimulatorUrl,
+	setSimulatorUrl,
+} from "../lib/prismic/clients/core";
 import { dedent } from "../lib/string";
 import { appendTrailingSlash } from "../lib/url";
 import { buildRoutePath, getRepositoryName } from "../project";

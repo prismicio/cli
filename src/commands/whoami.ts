@@ -1,6 +1,6 @@
 import { getHost, getToken } from "../auth";
-import { getProfile } from "../clients/user";
 import { createCommand, type CommandConfig } from "../lib/command";
+import { getProfile } from "../lib/prismic/clients/user";
 
 const config = {
 	name: "prismic whoami",

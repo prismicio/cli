@@ -1,11 +1,11 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { upsertLocale } from "../clients/locale";
-import { activateMCP } from "../clients/mcp";
-import { completeOnboardingStepsSilently } from "../clients/repository";
-import { checkIsDomainAvailable, createRepository } from "../clients/wroom";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { upsertLocale } from "../lib/prismic/clients/locale";
+import { activateMCP } from "../lib/prismic/clients/mcp";
+import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
+import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients/wroom";
 import { UnknownRequestError } from "../lib/request";
 
 const MAX_DOMAIN_TRIES = 5;

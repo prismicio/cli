@@ -2,15 +2,15 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getCustomTypes, getSlices } from "../clients/custom-types";
-import { getProfile } from "../clients/user";
-import { resolveEnvironment } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
+import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { getProfile } from "../lib/prismic/clients/user";
+import { resolveEnvironment } from "../lib/prismic/environments";
+import { canonicalizeModel } from "../lib/prismic/models";
 import { dedent } from "../lib/string";
 import { isDescendant, relativePathname } from "../lib/url";
-import { canonicalizeModel } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {

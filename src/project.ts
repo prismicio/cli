@@ -4,11 +4,11 @@ import { readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
-import { getRepository } from "./clients/repository";
 import { env } from "./env";
 import { exists, findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
+import { getRepository } from "./lib/prismic/clients/repository";
 import { appendTrailingSlash } from "./lib/url";
 
 const CONFIG_FILENAME = "prismic.config.json";

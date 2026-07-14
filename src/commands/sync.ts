@@ -3,12 +3,12 @@ import { setTimeout } from "node:timers/promises";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getCustomTypes, getSlices } from "../clients/custom-types";
-import { completeOnboardingStepsSilently } from "../clients/repository";
 import { env } from "../env";
-import { resolveEnvironment } from "../environments";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
+import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
 

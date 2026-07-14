@@ -1,10 +1,13 @@
-import { pascalCase } from "change-case";
-
 import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+
+import { pascalCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getDocumentTotalByCustomTypes } from "../clients/core";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { diffArrays } from "../lib/diff";
+import { getDirtyPaths, getGitRoot } from "../lib/git";
+import { getDocumentTotalByCustomTypes } from "../lib/prismic/clients/core";
 import {
 	deleteScreenshots,
 	getCustomTypes,
@@ -15,19 +18,19 @@ import {
 	removeSlice,
 	updateCustomType,
 	updateSlice,
-} from "../clients/custom-types";
+} from "../lib/prismic/clients/custom-types";
 import {
 	completeOnboardingStepsSilently,
 	type OnboardingStep,
-} from "../clients/repository";
-import { getWorkingDocumentsUrlForCustomType, getCustomTypeListUrl } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { diffArrays } from "../lib/diff";
-import { getDirtyPaths, getGitRoot } from "../lib/git";
+} from "../lib/prismic/clients/repository";
+import {
+	getCustomTypeListUrl,
+	getWorkingDocumentsUrlForCustomType,
+} from "../lib/prismic/clients/wroom";
+import { resolveEnvironment } from "../lib/prismic/environments";
+import { canonicalizeModel } from "../lib/prismic/models";
 import { BadRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
-import { canonicalizeModel } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
@@ -201,9 +204,9 @@ async function removeCustomTypeWithDocumentHandling(
 		if (!(await isDocumentsInUseError(error))) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw new CommandError(
-				`Could not delete type "${id}": ${errorMessage}"` + 
-					"\nPlease try again, or manually deleting the type at: " + 
-					getCustomTypeListUrl({ repo, host, format: format ?? "custom" })
+				`Could not delete type "${id}": ${errorMessage}"` +
+					"\nPlease try again, or manually deleting the type at: " +
+					getCustomTypeListUrl({ repo, host, format: format ?? "custom" }),
 			);
 		}
 
@@ -213,7 +216,7 @@ async function removeCustomTypeWithDocumentHandling(
 		} catch {
 			throw new CommandError(
 				`Could not check whether type "${id}" has associated pages. ` +
-					"\nPlease try again, or manually delete any associated pages at: " + 
+					"\nPlease try again, or manually delete any associated pages at: " +
 					getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
 			);
 		}
@@ -222,7 +225,7 @@ async function removeCustomTypeWithDocumentHandling(
 		const pluralPages = documentCount === 1 ? "page" : "pages";
 		throw new CommandError(
 			`Could not delete type "${id}" because it has${countLabel} associated ${pluralPages}. ` +
-				`\nDelete any associated pages manually before pushing at: ` + 
+				`\nDelete any associated pages manually before pushing at: ` +
 				getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
 		);
 	}

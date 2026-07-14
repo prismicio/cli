@@ -1,7 +1,7 @@
 import { getHost, getToken } from "../auth";
-import { getProfile } from "../clients/user";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { getProfile } from "../lib/prismic/clients/user";
 import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 

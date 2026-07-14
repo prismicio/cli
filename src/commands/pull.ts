@@ -1,13 +1,13 @@
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { getCustomTypes, getSlices } from "../clients/custom-types";
-import { completeOnboardingStepsSilently } from "../clients/repository";
-import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
+import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
+import { resolveEnvironment } from "../lib/prismic/environments";
+import { canonicalizeModel } from "../lib/prismic/models";
 import { isDescendant, relativePathname } from "../lib/url";
-import { canonicalizeModel } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {

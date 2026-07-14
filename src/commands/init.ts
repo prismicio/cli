@@ -1,14 +1,14 @@
-import type { Profile } from "../clients/user";
+import type { Profile } from "../lib/prismic/clients/user";
 
 import { getAdapter } from "../adapters";
 import { createLoginSession, getHost, getToken } from "../auth";
-import { getCustomTypes, getSlices } from "../clients/custom-types";
-import { getProfile } from "../clients/user";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { installDependencies, readPackageJson, removeDependencies } from "../lib/packageJson";
+import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { getProfile } from "../lib/prismic/clients/user";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
 	createConfig,
@@ -52,12 +52,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const {
-		repo: explicitRepo,
-		lang,
-		"no-browser": noBrowser,
-		"no-setup": noSetup,
-	} = values;
+	const { repo: explicitRepo, lang, "no-browser": noBrowser, "no-setup": noSetup } = values;
 
 	// Check for existing prismic.config.json
 	try {

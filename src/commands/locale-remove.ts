@@ -1,7 +1,7 @@
 import { getHost, getToken } from "../auth";
-import { removeLocale } from "../clients/locale";
-import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { removeLocale } from "../lib/prismic/clients/locale";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 

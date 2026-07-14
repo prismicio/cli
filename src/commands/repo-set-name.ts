@@ -1,6 +1,6 @@
 import { getHost, getToken } from "../auth";
-import { setRepositoryName } from "../clients/wroom";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { setRepositoryName } from "../lib/prismic/clients/wroom";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 

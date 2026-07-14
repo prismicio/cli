@@ -1,8 +1,8 @@
 import { capitalCase } from "change-case";
 
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { getExistingField, SOURCE_OPTIONS } from "../fields";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { resolveFieldContainer, resolveFieldTarget, SOURCE_OPTIONS } from "../models";
 
 const config = {
 	name: "prismic field view",
@@ -19,13 +19,7 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
 
-	const [fields] = await resolveFieldContainer(id, values);
-	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
-
-	const field = targetFields[fieldId];
-	if (!field) {
-		throw new CommandError(`Field "${id}" does not exist.`);
-	}
+	const { field, fieldId } = await getExistingField(id, values);
 
 	if (values.json) {
 		console.info(stringify({ id: fieldId, ...field }));

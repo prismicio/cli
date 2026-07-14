@@ -1,13 +1,13 @@
 import { getHost, getToken } from "../auth";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { stringify } from "../lib/json";
 import {
 	createOAuthAuthorization,
 	createOAuthApp,
 	createWriteToken,
 	getOAuthApps,
-} from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { stringify } from "../lib/json";
+} from "../lib/prismic/clients/wroom";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 

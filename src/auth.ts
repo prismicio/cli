@@ -5,11 +5,11 @@ import { homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
-import { refreshToken as baseRefreshToken } from "./clients/auth";
 import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { exists, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
+import { refreshToken as baseRefreshToken } from "./lib/prismic/clients/auth";
 import { appendTrailingSlash } from "./lib/url";
 
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes

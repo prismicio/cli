@@ -1,9 +1,9 @@
 import { getHost, getToken } from "../auth";
-import { getProfile } from "../clients/user";
-import { getRepositoryAccess } from "../clients/wroom";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { getProfile } from "../lib/prismic/clients/user";
+import { getRepositoryAccess } from "../lib/prismic/clients/wroom";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 

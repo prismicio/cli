@@ -9,7 +9,14 @@ export type CommandConfig = {
 	description: string;
 	sections?: Record<string, string>;
 	positionals?: Record<string, { description: string; required?: boolean }>;
-	options?: Record<string, ParseArgsOptionDescriptor & { description: string; required?: boolean }>;
+	options?: Record<
+		string,
+		ParseArgsOptionDescriptor & {
+			description: string;
+			required?: boolean;
+			dependsOn?: string | string[];
+		}
+	>;
 };
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
@@ -63,6 +70,14 @@ export function createCommand<T extends CommandConfig>(
 		for (const [name, config] of Object.entries(options)) {
 			if (config.required && !(name in result.values)) {
 				throw new CommandError(`Missing required option: --${name}`);
+			}
+			if (config.dependsOn && name in result.values) {
+				const deps = Array.isArray(config.dependsOn) ? config.dependsOn : [config.dependsOn];
+				for (const dep of deps) {
+					if (!(dep in result.values)) {
+						throw new CommandError(`--${name} can only be used with --${dep}.`);
+					}
+				}
 			}
 		}
 
@@ -206,6 +221,42 @@ function buildRouterHelp(config: CreateCommandRouterConfig): string {
 	lines.push(`  Use \`${name} <command> --help\` for more information about a command.`);
 
 	return lines.join("\n");
+}
+
+export function exclusiveOptions<T extends Record<string, unknown>>(
+	values: T,
+	names: readonly (keyof T)[],
+): void {
+	const provided = names.filter((name) => name in values);
+	if (provided.length > 1) {
+		const list = names.map((name) => `--${String(name)}`).join(" or ");
+		throw new CommandError(`Only one of ${list} can be specified.`);
+	}
+}
+
+export function requireOneOption<T extends Record<string, unknown>>(
+	values: T,
+	names: readonly (keyof T)[],
+): void {
+	const provided = names.filter((name) => name in values);
+	if (provided.length === 0) {
+		const list = names.map((name) => `--${String(name)}`).join(" or ");
+		throw new CommandError(`Specify one of ${list}.`);
+	}
+}
+
+type SelectedOption<T, K extends keyof T> = K extends unknown
+	? { key: K; value: NonNullable<T[K]> }
+	: never;
+
+export function exactlyOneOption<T extends Record<string, unknown>, K extends keyof T>(
+	values: T,
+	names: readonly K[],
+): SelectedOption<T, K> {
+	exclusiveOptions(values, names);
+	requireOneOption(values, names);
+	const key = names.find((name) => name in values)!;
+	return { key, value: values[key] } as SelectedOption<T, K>;
 }
 
 export class CommandError extends Error {

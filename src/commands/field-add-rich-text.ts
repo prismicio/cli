@@ -2,13 +2,9 @@ import type { RichText } from "@prismicio/types-internal/lib/customtypes";
 
 import { capitalCase } from "change-case";
 
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import {
-	getPostFieldAddMessage,
-	resolveFieldTarget,
-	resolveModel,
-	TARGET_OPTIONS,
-} from "../models";
+import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
+import { createCommand, type CommandConfig } from "../lib/command";
+import { addField } from "../lib/prismic/models";
 
 const ALL_BLOCKS =
 	"paragraph,preformatted,heading1,heading2,heading3,heading4,heading5,heading6,strong,em,hyperlink,image,embed,list-item,o-list-item,rtl";
@@ -56,8 +52,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		"allow-target-blank": allowTargetBlank,
 	} = values;
 
-	const [fields, saveModel, modelKind] = await resolveModel(values);
-	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
+	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
 	const field: RichText = {
 		type: "StructuredText",
@@ -69,12 +64,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		},
 	};
 
-	if (fieldId in targetFields) throw new CommandError(`Field "${id}" already exists.`);
-	targetFields[fieldId] = field;
-	await saveModel();
+	addField(fields, fieldId, field);
+	await save();
 
 	console.info(`Field added: ${id}`);
-
-	const targetId = values["to-slice"] ?? values["to-type"]!;
-	console.info(getPostFieldAddMessage({ targetId, modelKind }));
 });

@@ -3,9 +3,9 @@ import { pathToFileURL } from "node:url";
 
 import { getAdapter } from "../adapters";
 import { getHost, getToken } from "../auth";
-import { UnsupportedFileTypeError, uploadScreenshot } from "../clients/custom-types";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { readURLFile } from "../lib/file";
+import { UnsupportedFileTypeError, uploadScreenshot } from "../lib/prismic/clients/custom-types";
 import { getRepositoryName } from "../project";
 
 const config = {

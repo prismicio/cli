@@ -1,7 +1,7 @@
 import { getHost, getToken } from "../auth";
-import { getWebhooks, WEBHOOK_TRIGGERS } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { getWebhooks, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { UnknownRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 

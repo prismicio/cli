@@ -1,6 +1,6 @@
-import { getDocsIndex, getDocsPageIndex } from "../clients/docs";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { getDocsIndex, getDocsPageIndex } from "../lib/prismic/clients/docs";
 import { UnknownRequestError } from "../lib/request";
 import { formatTable } from "../lib/string";
 

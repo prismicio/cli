@@ -1,8 +1,8 @@
 import GithubSlugger from "github-slugger";
 
-import { getDocsPageContent } from "../clients/docs";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { getDocsPageContent } from "../lib/prismic/clients/docs";
 import { UnknownRequestError } from "../lib/request";
 
 const config = {
