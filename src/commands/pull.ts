@@ -1,5 +1,5 @@
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
@@ -28,8 +28,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { force = false, repo: parentRepo = await getRepositoryName(), env } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const adapter = await getAdapter();
 	const projectRoot = await findProjectRoot();
 

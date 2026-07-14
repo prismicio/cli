@@ -22,23 +22,18 @@ const CredentialsSchema = z.looseObject({
 });
 type Credentials = z.infer<typeof CredentialsSchema>;
 
-export async function getToken(): Promise<string | undefined> {
-	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
+export async function getCredentials(): Promise<{ token: string | undefined; host: string }> {
 	const credentials = await readCredentials();
-	return credentials?.token;
-}
-
-export async function getHost(): Promise<string> {
-	if (env.PRISMIC_HOST) return env.PRISMIC_HOST;
-	const credentials = await readCredentials();
-	return credentials?.host || DEFAULT_PRISMIC_HOST;
+	return {
+		token: env.PRISMIC_TOKEN || credentials?.token,
+		host: env.PRISMIC_HOST || credentials?.host || DEFAULT_PRISMIC_HOST,
+	};
 }
 
 export async function refreshToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return;
-	const token = await getToken();
+	const { token, host } = await getCredentials();
 	if (!token) return;
-	const host = await getHost();
 	const newToken = await baseRefreshToken(token, { host });
 	await saveCredentials({ token: newToken, host });
 	return newToken;
@@ -73,7 +68,7 @@ async function saveCredentials(credentials: Credentials): Promise<void> {
 export async function createLoginSession(options?: {
 	onReady?: (url: URL) => void;
 }): Promise<{ email: string }> {
-	const host = await getHost();
+	const { host } = await getCredentials();
 	const corsOrigin = `https://${host}`;
 
 	return new Promise((resolve, reject) => {

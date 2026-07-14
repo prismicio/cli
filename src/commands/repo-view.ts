@@ -1,4 +1,4 @@
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
@@ -24,8 +24,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo = await getRepositoryName(), web, json } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const url = `https://${repo}.${host}/`;
 
 	if (web) {

@@ -1,4 +1,4 @@
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { type RepositoryAccessLevel, setRepositoryAccess } from "../lib/prismic/clients/wroom";
 import { getRepositoryName } from "../project";
@@ -31,8 +31,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		);
 	}
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 
 	await setRepositoryAccess(level as RepositoryAccessLevel, { repo, token, host });
 

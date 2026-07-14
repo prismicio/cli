@@ -1,5 +1,5 @@
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { upsertLocale } from "../lib/prismic/clients/locale";
@@ -25,8 +25,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { name, lang } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const domain = await createRepo({ name, lang, token, host });
 
 	console.info(`Repository created: ${domain}`);

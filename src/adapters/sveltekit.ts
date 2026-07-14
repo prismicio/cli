@@ -8,7 +8,7 @@ import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
 import {
@@ -51,8 +51,7 @@ export class SvelteKitAdapter extends Adapter {
 
 	async onProjectInitialized(): Promise<void> {
 		const repo = await getRepositoryName();
-		const token = await getToken();
-		const host = await getHost();
+		const { token, host } = await getCredentials();
 
 		const simulatorUrl = await getSimulatorUrl({ repo, token, host });
 		if (!simulatorUrl) {

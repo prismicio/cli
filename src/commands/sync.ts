@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
 import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
@@ -37,8 +37,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo: parentRepo = await getRepositoryName(), env: envFlag } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const adapter = await getAdapter();
 
 	const repo = envFlag

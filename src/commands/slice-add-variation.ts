@@ -2,7 +2,7 @@ import { camelCase } from "change-case";
 import { pathToFileURL } from "node:url";
 
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { readURLFile } from "../lib/file";
 import { UnsupportedFileTypeError, uploadScreenshot } from "../lib/prismic/clients/custom-types";
@@ -35,8 +35,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	let imageUrl = "";
 	if (screenshot) {
 		const repo = await getRepositoryName();
-		const token = await getToken();
-		const host = await getHost();
+		const { token, host } = await getCredentials();
 
 		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
 		const blob = await readURLFile(url);

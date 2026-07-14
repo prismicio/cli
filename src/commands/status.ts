@@ -1,7 +1,7 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
@@ -30,8 +30,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo: parentRepo = await getRepositoryName(), env } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const adapter = await getAdapter();
 	const projectRoot = await findProjectRoot();
 

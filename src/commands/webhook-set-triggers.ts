@@ -1,4 +1,4 @@
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
 import { resolveEnvironment } from "../lib/prismic/environments";
@@ -51,8 +51,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 	}
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 	const webhooks = await getWebhooks({ repo, token, host });
 

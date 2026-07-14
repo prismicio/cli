@@ -1,7 +1,7 @@
 import type { Profile } from "../lib/prismic/clients/user";
 
 import { getAdapter } from "../adapters";
-import { createLoginSession, getHost, getToken } from "../auth";
+import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -78,8 +78,8 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	let token = await getToken();
-	const host = await getHost();
+	const { host, token: initialToken } = await getCredentials();
+	let token = initialToken;
 	let profile: Profile;
 	try {
 		profile = await getProfile({ token, host });
@@ -103,7 +103,8 @@ export default createCommand(config, async ({ values }) => {
 				},
 			});
 			console.info(`Logged in as ${email}`);
-			token = await getToken();
+			const loggedIn = await getCredentials();
+			token = loggedIn.token;
 			profile = await getProfile({ token, host });
 		} else {
 			throw error;

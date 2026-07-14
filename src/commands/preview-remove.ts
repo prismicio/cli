@@ -1,4 +1,4 @@
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getPreviews, removePreview } from "../lib/prismic/clients/core";
 import { resolveEnvironment } from "../lib/prismic/environments";
@@ -25,8 +25,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;
 	const { repo: parentRepo = await getRepositoryName(), env } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	const previews = await getPreviews({ repo, token, host });
