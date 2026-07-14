@@ -50,6 +50,7 @@ export async function removeLocale(code: string, config: LocaleConfig): Promise<
 	);
 	await localeServiceRequest(url, config, {
 		method: "DELETE",
+		notFoundMessage: `Locale not found: ${code}`,
 		unknownErrorMessage: "Failed to remove locale",
 	});
 }
