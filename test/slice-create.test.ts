@@ -34,7 +34,12 @@ it("creates a slice with a custom id", async ({ expect, prismic, project }) => {
 	expect(created).toBeDefined();
 });
 
-it("creates a slice in the first configured library", async ({ expect, prismic, project, repo }) => {
+it("creates a slice in the first configured library", async ({
+	expect,
+	prismic,
+	project,
+	repo,
+}) => {
 	await writeFile(
 		new URL("prismic.config.json", project),
 		JSON.stringify({

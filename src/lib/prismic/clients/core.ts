@@ -1,6 +1,12 @@
 import * as z from "zod/mini";
 
-import { NotFoundRequestError, request } from "../../request";
+import { request, type RequestOptions } from "../../request";
+
+type CoreConfig = {
+	repo: string;
+	token: string | undefined;
+	host: string;
+};
 
 const PreviewSchema = z.object({
 	id: z.string(),
@@ -14,25 +20,13 @@ const GetPreviewsResponseSchema = z.object({
 
 export type Preview = z.infer<typeof PreviewSchema>;
 
-export async function getPreviews(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<Preview[]> {
-	const { repo, token, host } = config;
-	const url = new URL("core/repository/preview_configs", getCoreBaseUrl(repo, host));
-	try {
-		const response = await request(url, {
-			credentials: { "prismic-auth": token },
-			schema: GetPreviewsResponseSchema,
-		});
-		return response.results;
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+export async function getPreviews(config: CoreConfig): Promise<Preview[]> {
+	const { repo, host } = config;
+	const url = new URL("core/repository/preview_configs", getCoreServiceUrl(repo, host));
+	const response = await coreServiceRequest(url, config, {
+		schema: GetPreviewsResponseSchema,
+	});
+	return response.results;
 }
 
 export async function addPreview(
@@ -41,46 +35,28 @@ export async function addPreview(
 		websiteURL: string;
 		resolverPath: string | undefined;
 	},
-	config: { repo: string; token: string | undefined; host: string },
+	config: CoreConfig,
 ): Promise<void> {
-	const { repo, token, host } = config;
-	const url = new URL("previews/new", getCoreBaseUrl(repo, host));
-	try {
-		await request(url, {
-			method: "POST",
-			body: {
-				name: previewConfig.name,
-				websiteURL: previewConfig.websiteURL,
-				resolverPath: previewConfig.resolverPath,
-			},
-			credentials: { "prismic-auth": token },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+	const { repo, host } = config;
+	const url = new URL("previews/new", getCoreServiceUrl(repo, host));
+	await coreServiceRequest(url, config, {
+		method: "POST",
+		json: {
+			name: previewConfig.name,
+			websiteURL: previewConfig.websiteURL,
+			resolverPath: previewConfig.resolverPath,
+		},
+	});
 }
 
-export async function removePreview(
-	id: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const url = new URL(`previews/delete/${id}`, getCoreBaseUrl(repo, host));
-	try {
-		await request(url, {
-			method: "POST",
-			body: {},
-			credentials: { "prismic-auth": token },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = "Preview not found";
-		}
-		throw error;
-	}
+export async function removePreview(id: string, config: CoreConfig): Promise<void> {
+	const { repo, host } = config;
+	const url = new URL(`previews/delete/${encodeURIComponent(id)}`, getCoreServiceUrl(repo, host));
+	await coreServiceRequest(url, config, {
+		method: "POST",
+		json: {},
+		notFoundMessage: "Preview not found",
+	});
 }
 
 const EnvironmentSchema = z.object({
@@ -91,70 +67,35 @@ const EnvironmentSchema = z.object({
 });
 export type Environment = z.infer<typeof EnvironmentSchema>;
 
-export async function getEnvironments(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<Environment[]> {
-	const { repo, token, host } = config;
-	const url = new URL("core/environments", getCoreBaseUrl(repo, host));
-	try {
-		const response = await request(url, {
-			credentials: { "prismic-auth": token },
-			schema: z.object({ results: z.array(EnvironmentSchema) }),
-		});
-		return response.results;
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+export async function getEnvironments(config: CoreConfig): Promise<Environment[]> {
+	const { repo, host } = config;
+	const url = new URL("core/environments", getCoreServiceUrl(repo, host));
+	const response = await coreServiceRequest(url, config, {
+		schema: z.object({ results: z.array(EnvironmentSchema) }),
+	});
+	return response.results;
 }
 
 const RepositoryResponseSchema = z.object({
 	simulator_url: z.optional(z.string()),
 });
 
-export async function getSimulatorUrl(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<string | undefined> {
-	const { repo, token, host } = config;
-	const url = new URL("core/repository", getCoreBaseUrl(repo, host));
-	try {
-		const response = await request(url, {
-			credentials: { "prismic-auth": token },
-			schema: RepositoryResponseSchema,
-		});
-		return response.simulator_url;
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+export async function getSimulatorUrl(config: CoreConfig): Promise<string | undefined> {
+	const { repo, host } = config;
+	const url = new URL("core/repository", getCoreServiceUrl(repo, host));
+	const response = await coreServiceRequest(url, config, {
+		schema: RepositoryResponseSchema,
+	});
+	return response.simulator_url;
 }
 
-export async function setSimulatorUrl(
-	simulatorUrl: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const url = new URL("core/repository", getCoreBaseUrl(repo, host));
-	try {
-		await request(url, {
-			method: "PATCH",
-			body: { simulator_url: simulatorUrl },
-			credentials: { "prismic-auth": token },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+export async function setSimulatorUrl(simulatorUrl: string, config: CoreConfig): Promise<void> {
+	const { repo, host } = config;
+	const url = new URL("core/repository", getCoreServiceUrl(repo, host));
+	await coreServiceRequest(url, config, {
+		method: "PATCH",
+		json: { simulator_url: simulatorUrl },
+	});
 }
 
 const DocumentSearchTotalSchema = z.object({
@@ -163,26 +104,30 @@ const DocumentSearchTotalSchema = z.object({
 
 export async function getDocumentTotalByCustomTypes(
 	customTypeId: string,
-	config: { repo: string; token: string | undefined; host: string },
+	config: CoreConfig,
 ): Promise<number> {
-	const { repo, token, host } = config;
-	const url = new URL("core/documents/search", getCoreBaseUrl(repo, host));
-	try {
-		const response = await request(url, {
-			method: "POST",
-			body: { customTypes: [customTypeId], limit: 0 },
-			credentials: { "prismic-auth": token },
-			schema: DocumentSearchTotalSchema,
-		});
-		return response.total;
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+	const { repo, host } = config;
+	const url = new URL("core/documents/search", getCoreServiceUrl(repo, host));
+	const response = await coreServiceRequest(url, config, {
+		method: "POST",
+		json: { customTypes: [customTypeId], limit: 0 },
+		schema: DocumentSearchTotalSchema,
+	});
+	return response.total;
 }
 
-function getCoreBaseUrl(repo: string, host: string): URL {
+function coreServiceRequest<T>(
+	url: URL,
+	config: CoreConfig,
+	options: RequestOptions<T> = {},
+): Promise<T> {
+	return request(url, {
+		credentials: { "prismic-auth": config.token },
+		notFoundMessage: `Repository not found: ${config.repo}`,
+		...options,
+	});
+}
+
+function getCoreServiceUrl(repo: string, host: string): URL {
 	return new URL(`https://${repo}.${host}/`);
 }

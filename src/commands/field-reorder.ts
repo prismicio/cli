@@ -1,10 +1,5 @@
 import { getFieldReorderTargets, SOURCE_OPTIONS } from "../fields";
-import {
-	CommandError,
-	createCommand,
-	exactlyOneOption,
-	type CommandConfig,
-} from "../lib/command";
+import { CommandError, createCommand, exactlyOneOption, type CommandConfig } from "../lib/command";
 import { reorderField } from "../lib/prismic/models";
 
 const config = {

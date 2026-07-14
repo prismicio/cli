@@ -23,10 +23,6 @@ import {
 	completeOnboardingStepsSilently,
 	type OnboardingStep,
 } from "../lib/prismic/clients/repository";
-import {
-	getCustomTypeListUrl,
-	getWorkingDocumentsUrlForCustomType,
-} from "../lib/prismic/clients/wroom";
 import { resolveEnvironment } from "../lib/prismic/environments";
 import { canonicalizeModel } from "../lib/prismic/models";
 import { BadRequestError } from "../lib/request";
@@ -235,4 +231,25 @@ async function isDocumentsInUseError(error: unknown): Promise<boolean> {
 	if (!(error instanceof BadRequestError)) return false;
 	const body = await error.text();
 	return body.includes("associated documents") || body.includes("Delete all documents belonging");
+}
+
+function getCustomTypeListUrl(args: {
+	repo: string;
+	host: string;
+	format: "custom" | "page";
+}): string {
+	const { repo, host, format } = args;
+	const type = format === "custom" ? "custom-types" : "page-types";
+	return new URL(`builder/types/${type}`, `https://${repo}.${host}/`).href;
+}
+
+function getWorkingDocumentsUrlForCustomType(args: {
+	repo: string;
+	host: string;
+	customTypeId: string;
+}): string {
+	const { repo, host, customTypeId } = args;
+	const url = new URL("builder/working", `https://${repo}.${host}/`);
+	url.searchParams.set("customTypes", customTypeId);
+	return url.href;
 }

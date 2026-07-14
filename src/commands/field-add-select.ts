@@ -36,12 +36,7 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const {
-		label,
-		placeholder,
-		"default-value": default_value,
-		option: options,
-	} = values;
+	const { label, placeholder, "default-value": default_value, option: options } = values;
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 

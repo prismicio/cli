@@ -2,13 +2,12 @@ import * as z from "zod/mini";
 
 import { request } from "../../request";
 
-export async function refreshToken(token: string, config: { host: string }): Promise<string> {
-	const { host } = config;
-	const authServiceUrl = getAuthServiceUrl(host);
-	const url = new URL("refreshtoken", authServiceUrl);
+type AuthConfig = { host: string };
+
+export async function refreshToken(token: string, config: AuthConfig): Promise<string> {
+	const url = new URL("refreshtoken", getAuthServiceUrl(config.host));
 	url.searchParams.set("token", token);
-	const refreshedToken = await request(url, { schema: z.string() });
-	return refreshedToken;
+	return request(url, { schema: z.string() });
 }
 
 function getAuthServiceUrl(host: string): URL {

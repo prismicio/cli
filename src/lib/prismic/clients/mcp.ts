@@ -1,19 +1,29 @@
-import { request } from "../../request";
+import { request, type RequestOptions } from "../../request";
 
-export async function activateMCP(config: {
+type MCPConfig = {
 	repo: string;
 	token: string | undefined;
 	host: string;
-}): Promise<void> {
-	const { repo, token, host } = config;
-	const url = new URL("./activation", getMCPServiceUrl(host));
-	url.searchParams.set("repository", repo);
-	await request(url, {
-		method: "POST",
-		credentials: { "prismic-auth": token },
+};
+
+export async function activateMCP(config: MCPConfig): Promise<void> {
+	const url = new URL("activation", getMcpServiceUrl(config.host));
+	await mcpServiceRequest(url, config, { method: "POST" });
+}
+
+function mcpServiceRequest<T>(
+	url: URL,
+	config: MCPConfig,
+	options: RequestOptions<T> = {},
+): Promise<T> {
+	const scopedUrl = new URL(url);
+	scopedUrl.searchParams.set("repository", config.repo);
+	return request(scopedUrl, {
+		credentials: { "prismic-auth": config.token },
+		...options,
 	});
 }
 
-function getMCPServiceUrl(host: string): URL {
+function getMcpServiceUrl(host: string): URL {
 	return new URL(`https://api.internal.${host}/mcp/`);
 }

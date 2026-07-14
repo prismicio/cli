@@ -1,6 +1,12 @@
 import * as z from "zod/mini";
 
-import { NotFoundRequestError, request } from "../../request";
+import { request, type RequestOptions } from "../../request";
+
+type WroomConfig = {
+	repo: string;
+	token: string | undefined;
+	host: string;
+};
 
 const WebhookTriggersSchema = z.object({
 	documentsPublished: z.boolean(),
@@ -25,34 +31,18 @@ const WebhookSchema = z.object({
 });
 type Webhook = z.infer<typeof WebhookSchema>;
 
-export async function getWebhooks(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<Webhook[]> {
-	const { repo, token, host } = config;
-	const wroomUrl = getWroomUrl(repo, host);
-	const url = new URL("app/settings/webhooks", wroomUrl);
-	try {
-		return await request(url, {
-			credentials: { "prismic-auth": token },
-			schema: z.array(WebhookSchema),
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+export function getWebhooks(config: WroomConfig): Promise<Webhook[]> {
+	const { repo, host } = config;
+	const url = new URL("app/settings/webhooks", getWroomRepoServiceUrl(repo, host));
+	return wroomRepoServiceRequest(url, config, {
+		schema: z.array(WebhookSchema),
+	});
 }
 
 export async function createWebhook(
 	webhookConfig: Omit<Webhook["config"], "_id" | "active" | "headers">,
-	config: { repo: string; token: string | undefined; host: string },
+	config: WroomConfig,
 ): Promise<void> {
-	const { repo, token, host } = config;
-	const wroomUrl = getWroomUrl(repo, host);
-	const url = new URL(`app/settings/webhooks/create`, wroomUrl);
 	const body = new FormData();
 	body.set("url", webhookConfig.url);
 	body.set("name", webhookConfig.name ?? "");
@@ -65,28 +55,16 @@ export async function createWebhook(
 	body.set("releasesUpdated", webhookConfig.releasesUpdated.toString());
 	body.set("tagsCreated", webhookConfig.tagsCreated.toString());
 	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
-	try {
-		await request(url, {
-			method: "POST",
-			body,
-			credentials: { "prismic-auth": token },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+	const { repo, host } = config;
+	const url = new URL("app/settings/webhooks/create", getWroomRepoServiceUrl(repo, host));
+	await wroomRepoServiceRequest(url, config, { method: "POST", body });
 }
 
 export async function updateWebhook(
 	id: string,
 	webhookConfig: Omit<Webhook["config"], "_id">,
-	config: { repo: string; token: string | undefined; host: string },
+	config: WroomConfig,
 ): Promise<void> {
-	const { repo, token, host } = config;
-	const wroomUrl = getWroomUrl(repo, host);
-	const url = new URL(`app/settings/webhooks/${id}`, wroomUrl);
 	const body = new FormData();
 	body.set("url", webhookConfig.url);
 	body.set("name", webhookConfig.name ?? "");
@@ -99,38 +77,28 @@ export async function updateWebhook(
 	body.set("releasesUpdated", webhookConfig.releasesUpdated.toString());
 	body.set("tagsCreated", webhookConfig.tagsCreated.toString());
 	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
-	try {
-		await request(url, {
-			method: "POST",
-			body,
-			credentials: { "prismic-auth": token },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = "Webhook not found";
-		}
-		throw error;
-	}
+	const { repo, host } = config;
+	const url = new URL(
+		`app/settings/webhooks/${encodeURIComponent(id)}`,
+		getWroomRepoServiceUrl(repo, host),
+	);
+	await wroomRepoServiceRequest(url, config, {
+		method: "POST",
+		body,
+		notFoundMessage: "Webhook not found",
+	});
 }
 
-export async function deleteWebhook(
-	id: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const wroomUrl = getWroomUrl(repo, host);
-	const url = new URL(`app/settings/webhooks/${id}/delete`, wroomUrl);
-	try {
-		await request(url, {
-			method: "POST",
-			credentials: { "prismic-auth": token },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = "Webhook not found";
-		}
-		throw error;
-	}
+export async function deleteWebhook(id: string, config: WroomConfig): Promise<void> {
+	const { repo, host } = config;
+	const url = new URL(
+		`app/settings/webhooks/${encodeURIComponent(id)}/delete`,
+		getWroomRepoServiceUrl(repo, host),
+	);
+	await wroomRepoServiceRequest(url, config, {
+		method: "POST",
+		notFoundMessage: "Webhook not found",
+	});
 }
 
 const AccessTokenSchema = z.object({
@@ -161,145 +129,76 @@ const WriteTokensInfoSchema = z.object({
 });
 type WriteTokensInfo = z.infer<typeof WriteTokensInfoSchema>;
 
-export async function getOAuthApps(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<OAuthApp[]> {
-	const url = new URL("settings/security/contentapi", getWroomUrl(config.repo, config.host));
-	try {
-		return await request(url, {
-			credentials: { "prismic-auth": config.token },
-			schema: z.array(OAuthAppSchema),
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${config.repo}`;
-		}
-		throw error;
-	}
+export function getOAuthApps(config: WroomConfig): Promise<OAuthApp[]> {
+	const { repo, host } = config;
+	const url = new URL("settings/security/contentapi", getWroomRepoServiceUrl(repo, host));
+	return wroomRepoServiceRequest(url, config, { schema: z.array(OAuthAppSchema) });
 }
 
-export async function createOAuthApp(
-	name: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<OAuthApp> {
-	const url = new URL("settings/security/oauthapp", getWroomUrl(config.repo, config.host));
-	try {
-		return await request(url, {
-			method: "POST",
-			body: { app_name: name },
-			credentials: { "prismic-auth": config.token },
-			schema: OAuthAppSchema,
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${config.repo}`;
-		}
-		throw error;
-	}
+export async function createOAuthApp(name: string, config: WroomConfig): Promise<OAuthApp> {
+	const { repo, host } = config;
+	const url = new URL("settings/security/oauthapp", getWroomRepoServiceUrl(repo, host));
+	return wroomRepoServiceRequest(url, config, {
+		method: "POST",
+		json: { app_name: name },
+		schema: OAuthAppSchema,
+	});
 }
 
 export async function createOAuthAuthorization(
 	appId: string,
 	scope: string,
-	config: { repo: string; token: string | undefined; host: string },
+	config: WroomConfig,
 ): Promise<AccessToken> {
-	const url = new URL("settings/security/authorizations", getWroomUrl(config.repo, config.host));
-	try {
-		return await request(url, {
-			method: "POST",
-			body: { app: appId, scope },
-			credentials: { "prismic-auth": config.token },
-			schema: AccessTokenSchema,
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${config.repo}`;
-		}
-		throw error;
-	}
+	const { repo, host } = config;
+	const url = new URL("settings/security/authorizations", getWroomRepoServiceUrl(repo, host));
+	return wroomRepoServiceRequest(url, config, {
+		method: "POST",
+		json: { app: appId, scope },
+		schema: AccessTokenSchema,
+	});
 }
 
-export async function deleteOAuthAuthorization(
-	authId: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
+export async function deleteOAuthAuthorization(authId: string, config: WroomConfig): Promise<void> {
+	const { repo, host } = config;
 	const url = new URL(
 		`settings/security/authorizations/${encodeURIComponent(authId)}`,
-		getWroomUrl(config.repo, config.host),
+		getWroomRepoServiceUrl(repo, host),
 	);
-	try {
-		await request(url, {
-			method: "DELETE",
-			credentials: { "prismic-auth": config.token },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = "Token not found";
-		}
-		throw error;
-	}
+	await wroomRepoServiceRequest(url, config, {
+		method: "DELETE",
+		notFoundMessage: "Token not found",
+	});
 }
 
-export async function getWriteTokens(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<WriteTokensInfo> {
-	const url = new URL("settings/security/customtypesapi", getWroomUrl(config.repo, config.host));
-	try {
-		return await request(url, {
-			credentials: { "prismic-auth": config.token },
-			schema: WriteTokensInfoSchema,
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${config.repo}`;
-		}
-		throw error;
-	}
+export function getWriteTokens(config: WroomConfig): Promise<WriteTokensInfo> {
+	const { repo, host } = config;
+	const url = new URL("settings/security/customtypesapi", getWroomRepoServiceUrl(repo, host));
+	return wroomRepoServiceRequest(url, config, {
+		schema: WriteTokensInfoSchema,
+	});
 }
 
-export async function createWriteToken(
-	name: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<WriteToken> {
-	const url = new URL("settings/security/token", getWroomUrl(config.repo, config.host));
-	try {
-		return await request(url, {
-			method: "POST",
-			body: { app_name: name },
-			credentials: { "prismic-auth": config.token },
-			schema: WriteTokenSchema,
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${config.repo}`;
-		}
-		throw error;
-	}
+export async function createWriteToken(name: string, config: WroomConfig): Promise<WriteToken> {
+	const { repo, host } = config;
+	const url = new URL("settings/security/token", getWroomRepoServiceUrl(repo, host));
+	return wroomRepoServiceRequest(url, config, {
+		method: "POST",
+		json: { app_name: name },
+		schema: WriteTokenSchema,
+	});
 }
 
-export async function deleteWriteToken(
-	tokenValue: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
+export async function deleteWriteToken(tokenValue: string, config: WroomConfig): Promise<void> {
+	const { repo, host } = config;
 	const url = new URL(
 		`settings/security/token/${encodeURIComponent(tokenValue)}`,
-		getWroomUrl(config.repo, config.host),
+		getWroomRepoServiceUrl(repo, host),
 	);
-	try {
-		await request(url, {
-			method: "DELETE",
-			credentials: { "prismic-auth": config.token },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Token not found: ${tokenValue}`;
-		}
-		throw error;
-	}
+	await wroomRepoServiceRequest(url, config, {
+		method: "DELETE",
+		notFoundMessage: `Token not found: ${tokenValue}`,
+	});
 }
 
 export async function checkIsDomainAvailable(config: {
@@ -307,13 +206,12 @@ export async function checkIsDomainAvailable(config: {
 	token: string | undefined;
 	host: string;
 }): Promise<boolean> {
-	const { domain, token, host } = config;
-	const url = new URL(`app/dashboard/repositories/${domain}/exists`, getDashboardUrl(host));
-	const response = await request(url, {
-		credentials: { "prismic-auth": token },
-		schema: z.boolean(),
-	});
-	return response;
+	const { domain, host } = config;
+	const url = new URL(
+		`app/dashboard/repositories/${encodeURIComponent(domain)}/exists`,
+		getWroomServiceUrl(host),
+	);
+	return wroomServiceRequest(url, config, { schema: z.boolean() });
 }
 
 export async function createRepository(config: {
@@ -324,14 +222,13 @@ export async function createRepository(config: {
 	token: string | undefined;
 	host: string;
 }): Promise<void> {
-	const { domain, name, framework, agent, token, host } = config;
-	const url = new URL("app/dashboard/repositories", getDashboardUrl(host));
+	const { domain, name, framework, agent, host } = config;
+	const url = new URL("app/dashboard/repositories", getWroomServiceUrl(host));
 	url.searchParams.set("app", "cli");
 	if (agent) url.searchParams.set("agent", agent);
-	await request(url, {
+	await wroomServiceRequest(url, config, {
 		method: "POST",
-		body: { domain, name, framework, plan: "personal" },
-		credentials: { "prismic-auth": token },
+		json: { domain, name, framework, plan: "personal" },
 	});
 }
 
@@ -341,47 +238,25 @@ const SyncStateSchema = z.object({
 	}),
 });
 
-export async function getRepositoryAccess(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<string> {
-	const { repo, token, host } = config;
-	const url = new URL("syncState", getWroomUrl(repo, host));
-	try {
-		const response = await request(url, {
-			credentials: { "prismic-auth": token },
-			schema: SyncStateSchema,
-		});
-		return response.repository.api_access;
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+export async function getRepositoryAccess(config: WroomConfig): Promise<string> {
+	const { repo, host } = config;
+	const url = new URL("syncState", getWroomRepoServiceUrl(repo, host));
+	const response = await wroomRepoServiceRequest(url, config, { schema: SyncStateSchema });
+	return response.repository.api_access;
 }
 
 export type RepositoryAccessLevel = "private" | "public" | "open";
 
 export async function setRepositoryAccess(
 	level: RepositoryAccessLevel,
-	config: { repo: string; token: string | undefined; host: string },
+	config: WroomConfig,
 ): Promise<void> {
-	const { repo, token, host } = config;
-	const url = new URL("settings/security/apiaccess", getWroomUrl(repo, host));
-	try {
-		await request(url, {
-			method: "POST",
-			body: { api_access: level },
-			credentials: { "prismic-auth": token },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+	const { repo, host } = config;
+	const url = new URL("settings/security/apiaccess", getWroomRepoServiceUrl(repo, host));
+	await wroomRepoServiceRequest(url, config, {
+		method: "POST",
+		json: { api_access: level },
+	});
 }
 
 const SetNameResponseSchema = z.object({
@@ -390,59 +265,46 @@ const SetNameResponseSchema = z.object({
 	}),
 });
 
-export async function setRepositoryName(
-	name: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<string> {
-	const { repo, token, host } = config;
-	const url = new URL("app/settings/repository", getWroomUrl(repo, host));
+export async function setRepositoryName(name: string, config: WroomConfig): Promise<string> {
 	const formData = new FormData();
 	formData.set("displayname", name);
-	try {
-		const response = await request(url, {
-			method: "POST",
-			body: formData,
-			credentials: { "prismic-auth": token },
-			schema: SetNameResponseSchema,
-		});
-		return response.repository.name;
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+	const { repo, host } = config;
+	const url = new URL("app/settings/repository", getWroomRepoServiceUrl(repo, host));
+	const response = await wroomRepoServiceRequest(url, config, {
+		method: "POST",
+		body: formData,
+		schema: SetNameResponseSchema,
+	});
+	return response.repository.name;
 }
 
-function getDashboardUrl(host: string): URL {
-	return new URL(`https://${host}/`);
+function wroomRepoServiceRequest<T>(
+	url: URL,
+	config: WroomConfig,
+	options: RequestOptions<T> = {},
+): Promise<T> {
+	return request(url, {
+		credentials: { "prismic-auth": config.token },
+		notFoundMessage: `Repository not found: ${config.repo}`,
+		...options,
+	});
 }
 
-function getWroomUrl(repo: string, host: string): URL {
+function wroomServiceRequest<T>(
+	url: URL,
+	config: { token: string | undefined; host: string },
+	options: RequestOptions<T> = {},
+): Promise<T> {
+	return request(url, {
+		credentials: { "prismic-auth": config.token },
+		...options,
+	});
+}
+
+function getWroomRepoServiceUrl(repo: string, host: string): URL {
 	return new URL(`https://${repo}.${host}/`);
 }
 
-/** Editor parity: document list filtered by custom type (sidebar / working view). */
-export function getWorkingDocumentsUrlForCustomType(args: {
-	repo: string;
-	host: string;
-	customTypeId: string;
-}): string {
-	const { repo, host, customTypeId } = args;
-	const url = new URL("builder/working", getWroomUrl(repo, host));
-	url.searchParams.set("customTypes", customTypeId);
-	return url.href;
-}
-
-type GetCustomTypePagesUrlArgs = {
-	repo: string;
-	host: string;
-	format: "custom" | "page";
-};
-
-export function getCustomTypeListUrl(args: GetCustomTypePagesUrlArgs): string {
-	const { repo, host, format } = args;
-	const path = ["builder", "types", format === "custom" ? "custom-types" : "page-types"].join("/");
-	const url = new URL(path, getWroomUrl(repo, host));
-	return url.href;
+function getWroomServiceUrl(host: string): URL {
+	return new URL(`https://${host}/`);
 }

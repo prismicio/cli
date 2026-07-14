@@ -3,168 +3,94 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 import { createHash } from "node:crypto";
 import * as z from "zod/mini";
 
-import { NotFoundRequestError, request } from "../../request";
+import { request, type RequestOptions } from "../../request";
 import { appendTrailingSlash } from "../../url";
 
-export async function getCustomTypes(config: {
+type CustomTypesConfig = {
 	repo: string;
 	token: string | undefined;
 	host: string;
-}): Promise<CustomType[]> {
-	const { repo, token, host } = config;
-	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL("customtypes", customTypesServiceUrl);
-	try {
-		const response = await request<CustomType[]>(url, {
-			headers: { repository: repo, Authorization: `Bearer ${token}` },
-		});
-		return response;
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+};
+
+export function getCustomTypes(config: CustomTypesConfig): Promise<CustomType[]> {
+	const url = new URL("customtypes", getCustomTypesServiceUrl(config.host));
+	return customTypesServiceRequest<CustomType[]>(url, config);
 }
 
-export async function getCustomType(
-	id: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<CustomType> {
-	const { repo, token, host } = config;
-	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL(`customtypes/${encodeURIComponent(id)}`, customTypesServiceUrl);
-	try {
-		return await request<CustomType>(url, {
-			headers: { repository: repo, Authorization: `Bearer ${token}` },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Type not found: ${id}`;
-		}
-		throw error;
-	}
+export async function getCustomType(id: string, config: CustomTypesConfig): Promise<CustomType> {
+	const url = new URL(
+		`customtypes/${encodeURIComponent(id)}`,
+		getCustomTypesServiceUrl(config.host),
+	);
+	return customTypesServiceRequest<CustomType>(url, config, {
+		notFoundMessage: `Type not found: ${id}`,
+	});
 }
 
 export async function insertCustomType(
 	model: CustomType,
-	config: { repo: string; token: string | undefined; host: string },
+	config: CustomTypesConfig,
 ): Promise<void> {
-	const { repo, token, host } = config;
-	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL("customtypes/insert", customTypesServiceUrl);
-	await request(url, {
+	const url = new URL("customtypes/insert", getCustomTypesServiceUrl(config.host));
+	await customTypesServiceRequest(url, config, {
 		method: "POST",
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
-		body: model,
+		json: model,
 	});
 }
 
 export async function updateCustomType(
 	model: CustomType,
-	config: { repo: string; token: string | undefined; host: string },
+	config: CustomTypesConfig,
 ): Promise<void> {
-	const { repo, token, host } = config;
-	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL("customtypes/update", customTypesServiceUrl);
-	await request(url, {
+	const url = new URL("customtypes/update", getCustomTypesServiceUrl(config.host));
+	await customTypesServiceRequest(url, config, {
 		method: "POST",
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
-		body: model,
+		json: model,
 	});
 }
 
-export async function removeCustomType(
-	id: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL(`customtypes/${encodeURIComponent(id)}`, customTypesServiceUrl);
-	await request(url, {
+export async function removeCustomType(id: string, config: CustomTypesConfig): Promise<void> {
+	const url = new URL(
+		`customtypes/${encodeURIComponent(id)}`,
+		getCustomTypesServiceUrl(config.host),
+	);
+	await customTypesServiceRequest(url, config, {
 		method: "DELETE",
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
 	});
 }
 
-export async function getSlices(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<SharedSlice[]> {
-	const { repo, token, host } = config;
-	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL("slices", customTypesServiceUrl);
-	try {
-		const response = await request<SharedSlice[]>(url, {
-			headers: { repository: repo, Authorization: `Bearer ${token}` },
-		});
-		return response;
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+export function getSlices(config: CustomTypesConfig): Promise<SharedSlice[]> {
+	const url = new URL("slices", getCustomTypesServiceUrl(config.host));
+	return customTypesServiceRequest<SharedSlice[]>(url, config);
 }
 
-export async function getSlice(
-	id: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<SharedSlice> {
-	const { repo, token, host } = config;
-	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL(`slices/${encodeURIComponent(id)}`, customTypesServiceUrl);
-	try {
-		return await request<SharedSlice>(url, {
-			headers: { repository: repo, Authorization: `Bearer ${token}` },
-		});
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Slice not found: ${id}`;
-		}
-		throw error;
-	}
+export async function getSlice(id: string, config: CustomTypesConfig): Promise<SharedSlice> {
+	const url = new URL(`slices/${encodeURIComponent(id)}`, getCustomTypesServiceUrl(config.host));
+	return customTypesServiceRequest<SharedSlice>(url, config, {
+		notFoundMessage: `Slice not found: ${id}`,
+	});
 }
 
-export async function insertSlice(
-	model: SharedSlice,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL("slices/insert", customTypesServiceUrl);
-	await request(url, {
+export async function insertSlice(model: SharedSlice, config: CustomTypesConfig): Promise<void> {
+	const url = new URL("slices/insert", getCustomTypesServiceUrl(config.host));
+	await customTypesServiceRequest(url, config, {
 		method: "POST",
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
-		body: model,
+		json: model,
 	});
 }
 
-export async function updateSlice(
-	model: SharedSlice,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL("slices/update", customTypesServiceUrl);
-	await request(url, {
+export async function updateSlice(model: SharedSlice, config: CustomTypesConfig): Promise<void> {
+	const url = new URL("slices/update", getCustomTypesServiceUrl(config.host));
+	await customTypesServiceRequest(url, config, {
 		method: "POST",
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
-		body: model,
+		json: model,
 	});
 }
 
-export async function removeSlice(
-	id: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const customTypesServiceUrl = getCustomTypesServiceUrl(host);
-	const url = new URL(`slices/${encodeURIComponent(id)}`, customTypesServiceUrl);
-	await request(url, {
+export async function removeSlice(id: string, config: CustomTypesConfig): Promise<void> {
+	const url = new URL(`slices/${encodeURIComponent(id)}`, getCustomTypesServiceUrl(config.host));
+	await customTypesServiceRequest(url, config, {
 		method: "DELETE",
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
 	});
 }
 
@@ -183,17 +109,11 @@ const SUPPORTED_IMAGE_MIME_TYPES: Record<string, string> = {
 	"image/webp": ".webp",
 };
 
-export async function deleteScreenshots(
-	sliceId: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const url = new URL("delete", getScreenshotServiceUrl(host));
-	url.searchParams.set("repository", repo);
-	await request(url, {
+export async function deleteScreenshots(sliceId: string, config: CustomTypesConfig): Promise<void> {
+	const url = new URL("delete", getScreenshotServiceUrl(config.host));
+	await screenshotServiceRequest(url, config, {
 		method: "POST",
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
-		body: { sliceId },
+		json: { sliceId },
 	});
 }
 
@@ -207,7 +127,7 @@ export async function uploadScreenshot(
 		host: string;
 	},
 ): Promise<URL> {
-	const { sliceId, variationId, repo, token, host } = config;
+	const { sliceId, variationId, repo, host } = config;
 
 	const type = blob.type;
 	if (!(type in SUPPORTED_IMAGE_MIME_TYPES)) {
@@ -215,9 +135,7 @@ export async function uploadScreenshot(
 	}
 
 	const presignedUrl = new URL("presigned-url", getScreenshotServiceUrl(host));
-	presignedUrl.searchParams.set("repository", repo);
-	const presigned = await request(presignedUrl, {
-		headers: { repository: repo, Authorization: `Bearer ${token}` },
+	const presigned = await screenshotServiceRequest(presignedUrl, config, {
 		schema: ScreenshotPresignedUrlResponseSchema,
 	});
 
@@ -252,6 +170,37 @@ export class UnsupportedFileTypeError extends Error {
 			`Unsupported file type: ${mimeType || "unknown"}. Supported: ${supportedTypes.join(", ")}`,
 		);
 	}
+}
+
+function customTypesServiceRequest<T>(
+	url: URL,
+	config: CustomTypesConfig,
+	options: RequestOptions<T> = {},
+): Promise<T> {
+	return request(url, {
+		headers: {
+			repository: config.repo,
+			Authorization: `Bearer ${config.token}`,
+		},
+		notFoundMessage: `Repository not found: ${config.repo}`,
+		...options,
+	});
+}
+
+function screenshotServiceRequest<T>(
+	url: URL,
+	config: CustomTypesConfig,
+	options: RequestOptions<T> = {},
+): Promise<T> {
+	const scopedUrl = new URL(url);
+	scopedUrl.searchParams.set("repository", config.repo);
+	return request(scopedUrl, {
+		headers: {
+			repository: config.repo,
+			Authorization: `Bearer ${config.token}`,
+		},
+		...options,
+	});
 }
 
 function getCustomTypesServiceUrl(host: string): URL {

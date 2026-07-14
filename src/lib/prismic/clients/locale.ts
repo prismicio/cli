@@ -1,6 +1,12 @@
 import * as z from "zod/mini";
 
-import { NotFoundRequestError, request } from "../../request";
+import { request, type RequestOptions } from "../../request";
+
+type LocaleConfig = {
+	repo: string;
+	token: string | undefined;
+	host: string;
+};
 
 const LocaleSchema = z.object({
 	id: z.string(),
@@ -11,65 +17,49 @@ const LocaleSchema = z.object({
 
 export type Locale = z.infer<typeof LocaleSchema>;
 
-export async function getLocales(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<Locale[]> {
-	const { repo, token, host } = config;
-	const url = new URL("repository/locales", getLocaleServiceUrl(host));
-	url.searchParams.set("repository", repo);
-	try {
-		const response = await request(url, {
-			headers: { Authorization: `Bearer ${token}` },
-			schema: z.object({ results: z.array(LocaleSchema) }),
-		});
-		return response.results;
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+export async function getLocales(config: LocaleConfig): Promise<Locale[]> {
+	const url = new URL("repository/locales", getLocaleServiceUrl(config.host));
+	const response = await localeServiceRequest(url, config, {
+		schema: z.object({ results: z.array(LocaleSchema) }),
+	});
+	return response.results;
 }
 
 export async function upsertLocale(
 	locale: { id: string; isMaster?: boolean; customName?: string },
-	config: { repo: string; token: string | undefined; host: string },
+	config: LocaleConfig,
 ): Promise<Locale> {
-	const { repo, token, host } = config;
-	const url = new URL("repository/locales", getLocaleServiceUrl(host));
-	url.searchParams.set("repository", repo);
-	try {
-		const response = await request(url, {
-			method: "POST",
-			body: {
-				id: locale.id,
-				isMaster: locale.isMaster ?? false,
-				...(locale.customName ? { customName: locale.customName } : {}),
-			},
-			headers: { Authorization: `Bearer ${token}` },
-			schema: LocaleSchema,
-		});
-		return response;
-	} catch (error) {
-		if (error instanceof NotFoundRequestError) {
-			error.message = `Repository not found: ${repo}`;
-		}
-		throw error;
-	}
+	const url = new URL("repository/locales", getLocaleServiceUrl(config.host));
+	return localeServiceRequest(url, config, {
+		method: "POST",
+		json: {
+			id: locale.id,
+			isMaster: locale.isMaster ?? false,
+			...(locale.customName ? { customName: locale.customName } : {}),
+		},
+		schema: LocaleSchema,
+	});
 }
 
-export async function removeLocale(
-	code: string,
-	config: { repo: string; token: string | undefined; host: string },
-): Promise<void> {
-	const { repo, token, host } = config;
-	const url = new URL(`repository/locales/${encodeURIComponent(code)}`, getLocaleServiceUrl(host));
-	url.searchParams.set("repository", repo);
-	await request(url, {
-		method: "DELETE",
-		headers: { Authorization: `Bearer ${token}` },
+export async function removeLocale(code: string, config: LocaleConfig): Promise<void> {
+	const url = new URL(
+		`repository/locales/${encodeURIComponent(code)}`,
+		getLocaleServiceUrl(config.host),
+	);
+	await localeServiceRequest(url, config, { method: "DELETE" });
+}
+
+function localeServiceRequest<T>(
+	url: URL,
+	config: LocaleConfig,
+	options?: RequestOptions<T>,
+): Promise<T> {
+	const scopedUrl = new URL(url);
+	scopedUrl.searchParams.set("repository", config.repo);
+	return request(scopedUrl, {
+		headers: { Authorization: `Bearer ${config.token}` },
+		notFoundMessage: `Repository not found: ${config.repo}`,
+		...options,
 	});
 }
 
