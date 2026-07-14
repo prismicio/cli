@@ -13,9 +13,8 @@ export default createCommand(config, async ({ positionals }) => {
 	const [id] = positionals;
 
 	const adapter = await getAdapter();
-	const { model: customType } = await adapter.getCustomType(id);
 
-	await adapter.deleteCustomType(customType.id);
+	await adapter.deleteCustomType(id);
 	await adapter.generateTypes();
 
 	console.info(`Type removed: ${id}`);
