@@ -35,31 +35,31 @@ it("skips existing files", { timeout: 30_000 }, async ({ expect, project, prismi
 	await expect(project).toHaveFile("prismicio.js", { contains: "// custom client file" });
 });
 
-it("generates valid script tags for SvelteKit", { timeout: 30_000 }, async ({
-	expect,
-	project,
-	prismic,
-}) => {
-	// Reconfigure the fixture as a SvelteKit project so a file with a <script>
-	// block is generated (the simulator page).
-	await writeFile(
-		new URL("package.json", project),
-		JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
-	);
-	await mkdir(new URL("node_modules/svelte/", project), { recursive: true });
-	await writeFile(
-		new URL("node_modules/svelte/package.json", project),
-		JSON.stringify({ version: "5.0.0" }),
-	);
+it(
+	"generates valid script tags for SvelteKit",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		// Reconfigure the fixture as a SvelteKit project so a file with a <script>
+		// block is generated (the simulator page).
+		await writeFile(
+			new URL("package.json", project),
+			JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
+		);
+		await mkdir(new URL("node_modules/svelte/", project), { recursive: true });
+		await writeFile(
+			new URL("node_modules/svelte/package.json", project),
+			JSON.stringify({ version: "5.0.0" }),
+		);
 
-	const { exitCode } = await prismic("gen", ["setup", "--no-install"]);
-	expect(exitCode).toBe(0);
+		const { exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode).toBe(0);
 
-	// The closing tag must be "</script>", not the bundler-escaped "<\/script>".
-	await expect(project).toHaveFile("src/routes/slice-simulator/+page.svelte", {
-		contains: "</script>",
-	});
-});
+		// The closing tag must be "</script>", not the bundler-escaped "<\/script>".
+		await expect(project).toHaveFile("src/routes/slice-simulator/+page.svelte", {
+			contains: "</script>",
+		});
+	},
+);
 
 it("skips installation with --no-install", async ({ expect, project, prismic }) => {
 	const { exitCode, stdout } = await prismic("gen", ["setup", "--no-install"]);

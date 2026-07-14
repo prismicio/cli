@@ -138,7 +138,8 @@ export async function listScreenshotFiles(config: RepoConfig): Promise<string[]>
 	const res = await fetch(url, {
 		headers: { Authorization: `Bearer ${config.token}` },
 	});
-	if (!res.ok) throw new Error(`Failed to list screenshot files: ${res.status} ${await res.text()}`);
+	if (!res.ok)
+		throw new Error(`Failed to list screenshot files: ${res.status} ${await res.text()}`);
 	const data = (await res.json()) as { keys: string[] };
 	return data.keys;
 }
