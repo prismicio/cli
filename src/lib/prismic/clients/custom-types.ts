@@ -46,6 +46,7 @@ export async function updateCustomType(
 	await customTypesServiceRequest(url, config, {
 		method: "POST",
 		json: model,
+		notFoundMessage: `Type not found: ${model.id}`,
 	});
 }
 
@@ -56,6 +57,7 @@ export async function removeCustomType(id: string, config: CustomTypesConfig): P
 	);
 	await customTypesServiceRequest(url, config, {
 		method: "DELETE",
+		notFoundMessage: `Type not found: ${id}`,
 	});
 }
 
@@ -84,6 +86,7 @@ export async function updateSlice(model: SharedSlice, config: CustomTypesConfig)
 	await customTypesServiceRequest(url, config, {
 		method: "POST",
 		json: model,
+		notFoundMessage: `Slice not found: ${model.id}`,
 	});
 }
 
@@ -91,6 +94,7 @@ export async function removeSlice(id: string, config: CustomTypesConfig): Promis
 	const url = new URL(`slices/${encodeURIComponent(id)}`, getCustomTypesServiceUrl(config.host));
 	await customTypesServiceRequest(url, config, {
 		method: "DELETE",
+		notFoundMessage: `Slice not found: ${id}`,
 	});
 }
 
