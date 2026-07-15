@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { request } from "../lib/request";
+import { request } from "../../request";
 
 const ProfileSchema = z.object({
 	email: z.string(),

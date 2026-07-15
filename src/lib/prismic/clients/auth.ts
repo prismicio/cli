@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { request } from "../lib/request";
+import { request } from "../../request";
 
 export async function refreshToken(token: string, config: { host: string }): Promise<string> {
 	const { host } = config;

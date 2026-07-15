@@ -1,7 +1,7 @@
 import * as z from "zod/mini";
 
-import { DEFAULT_PRISMIC_HOST, WROOM_PRISMIC_HOST } from "../env";
-import { request } from "../lib/request";
+import { DEFAULT_PRISMIC_HOST, WROOM_PRISMIC_HOST } from "../../../env";
+import { request } from "../../request";
 
 const PROD_API_KEY = "client-q1CoIFNVeFUqxmRSCGXVqO3vK2zQ6bDa";
 const WROOM_API_KEY = "client-Gx378hyvV904fpcQbJnWy7i5p4nBkMZa";

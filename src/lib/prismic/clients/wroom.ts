@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { NotFoundRequestError, request } from "../lib/request";
+import { NotFoundRequestError, request } from "../../request";
 
 const WebhookTriggersSchema = z.object({
 	documentsPublished: z.boolean(),
@@ -423,9 +423,11 @@ function getWroomUrl(repo: string, host: string): URL {
 }
 
 /** Editor parity: document list filtered by custom type (sidebar / working view). */
-export function getWorkingDocumentsUrlForCustomType(
-	args: { repo: string; host: string; customTypeId: string },
-): string {
+export function getWorkingDocumentsUrlForCustomType(args: {
+	repo: string;
+	host: string;
+	customTypeId: string;
+}): string {
 	const { repo, host, customTypeId } = args;
 	const url = new URL("builder/working", getWroomUrl(repo, host));
 	url.searchParams.set("customTypes", customTypeId);

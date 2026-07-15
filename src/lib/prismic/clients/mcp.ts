@@ -1,4 +1,4 @@
-import { request } from "../lib/request";
+import { request } from "../../request";
 
 export async function activateMCP(config: {
 	repo: string;

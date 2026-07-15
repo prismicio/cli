@@ -3,8 +3,8 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 import { createHash } from "node:crypto";
 import * as z from "zod/mini";
 
-import { NotFoundRequestError, request } from "../lib/request";
-import { appendTrailingSlash } from "../lib/url";
+import { NotFoundRequestError, request } from "../../request";
+import { appendTrailingSlash } from "../../url";
 
 export async function getCustomTypes(config: {
 	repo: string;

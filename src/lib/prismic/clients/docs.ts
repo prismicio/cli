@@ -1,7 +1,7 @@
 import * as z from "zod/mini";
 
-import { DEFAULT_PRISMIC_HOST, env } from "../env";
-import { NotFoundRequestError, request } from "../lib/request";
+import { DEFAULT_PRISMIC_HOST, env } from "../../../env";
+import { NotFoundRequestError, request } from "../../request";
 
 const DocsIndexEntrySchema = z.object({
 	path: z.string(),

@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { NotFoundRequestError, request } from "../lib/request";
+import { NotFoundRequestError, request } from "../../request";
 
 const LocaleSchema = z.object({
 	id: z.string(),
