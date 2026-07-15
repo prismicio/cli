@@ -248,13 +248,18 @@ async function main(): Promise<void> {
 			trackCommandEnd(command, { error: message ?? error });
 		}
 
+		// Report unexpected failures: errors we can't explain, and unexpected
+		// server responses that we only show a friendly message for.
+		if (message === undefined || error instanceof UnknownRequestError) {
+			await sentryCaptureError(error);
+		}
+
 		if (message !== undefined) {
 			console.error(message);
 			return;
 		}
 
-		// Unknown error: report it and rethrow so the stack is printed.
-		await sentryCaptureError(error);
+		// Unknown error: rethrow so the stack is printed.
 		throw error;
 	}
 }
