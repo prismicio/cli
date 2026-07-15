@@ -122,7 +122,7 @@ export default createCommand(config, async ({ values }) => {
 
 		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
 		if (!isTypeBuilderEnabled) {
-			throw new TypeBuilderRequiredError();
+			throw new TypeBuilderRequiredError(repo, host);
 		}
 	}
 

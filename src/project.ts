@@ -232,4 +232,11 @@ export async function checkIsTypeBuilderEnabled(
 
 export class TypeBuilderRequiredError extends Error {
 	name = "TypeBuilderRequired";
+	repo: string;
+	host: string;
+	constructor(repo: string, host: string) {
+		super();
+		this.repo = repo;
+		this.host = host;
+	}
 }

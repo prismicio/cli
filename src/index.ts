@@ -182,7 +182,14 @@ async function main(): Promise<void> {
 	if (!help) {
 		const { token, host } = await getCredentials();
 
-		setupSentry();
+		if (env.PRISMIC_SENTRY_ENABLED ?? env.PROD) {
+			setupSentry({
+				dsn: env.PRISMIC_SENTRY_DSN,
+				appName: packageJson.name,
+				appVersion: packageJson.version,
+				environment: env.PRISMIC_SENTRY_ENVIRONMENT,
+			});
+		}
 		await initTracking({ host });
 
 		if (repo) {
@@ -230,184 +237,126 @@ async function main(): Promise<void> {
 	} catch (error) {
 		process.exitCode = 1;
 
-		if (error instanceof CommandError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(dedent(error.message));
-			return;
-		}
+		const message = await formatError(error);
 
-		if (error instanceof FieldExistsError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(`Field "${error.id}" already exists.`);
-			return;
-		}
-
-		if (error instanceof FieldNotFoundError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(`Field "${error.id}" does not exist.`);
-			return;
-		}
-
-		if (error instanceof UnsupportedNestedFieldError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(`Field "${error.id}" does not support nested fields.`);
-			return;
-		}
-
-		if (error instanceof FieldSelectionError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(error.message);
-			return;
-		}
-
-		if (error instanceof TabNotFoundError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(`Tab "${error.id}" does not exist on type "${error.customTypeId}".`);
-			return;
-		}
-
-		if (error instanceof SliceVariationNotFoundError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(`Variation "${error.id}" does not exist on slice "${error.sliceId}".`);
-			return;
-		}
-
-		if (error instanceof NoSupportedFrameworkError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command, { error });
-			}
-			console.error(error.message);
-			return;
-		}
-
-		if (error instanceof InvalidEnvironmentError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			if (
-				error.availableEnvironments.length === 1 &&
-				error.repo === error.availableEnvironments[0].domain
-			) {
-				console.error(`No environments available on repository "${error.repo}".`);
-			} else {
-				const list = error.availableEnvironments
-					.map((environment) => environment.domain)
-					.join("\n");
-				console.error(dedent`
-					Environment "${error.env}" not found on repository "${error.repo}".
-
-					Available environments:
-					  ${list}
-				`);
-			}
-			return;
-		}
-
-		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command, { error });
-			}
-			const { token } = await getCredentials();
-			if (!token) {
-				console.error("Not logged in. Run `prismic login` first.");
-			} else if (env.PRISMIC_TOKEN) {
-				console.error(
-					"PRISMIC_TOKEN is invalid or expired, or doesn't have access to this repository. Unset it to log in with a browser, or replace it with a valid token.",
-				);
-			} else if (error instanceof UnauthorizedRequestError) {
-				console.error("Your session is invalid or expired. Run `prismic login` to sign in again.");
-			} else {
-				console.error(
-					"You do not have access to this repository. Check the repository name or log in with an account that has access.",
-				);
-			}
-			return;
-		}
-
-		if (error instanceof NotFoundRequestError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(
-				error.message || "Not found. Verify the repository and any specified identifiers exist.",
-			);
-			return;
-		}
-
-		if (error instanceof UnknownRequestError) {
-			if (error.message) {
-				if (!UNTRACKED_COMMANDS.includes(command)) {
-					trackCommandEnd(command);
-				}
-				console.error(error.message);
-				return;
-			}
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command, { error });
-			}
-			const url = new URL(error.response.url);
-			// Prevent logging sensitive data like a token
-			url.search = "";
-			console.error(dedent`
-				A network request failed unexpectedly:
-
-				  ${url}
-
-				If this error happens repeatedly, report the issue here: https://github.com/prismicio/cli/issues
-			`);
-			return;
-		}
-
-		if (error instanceof InvalidPrismicConfigError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(`${error.message} Run \`prismic init\` to re-create a config.`);
-			return;
-		}
-
-		if (error instanceof MissingPrismicConfigError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(`${error.message} Run \`prismic init\` to create a config.`);
-			return;
-		}
-
-		if (error instanceof TypeBuilderRequiredError) {
-			if (!UNTRACKED_COMMANDS.includes(command)) {
-				trackCommandEnd(command);
-			}
-			console.error(dedent`
-				This command requires the Type Builder in your repository.
-
-				As of March 2026, the Type Builder is rolling out incrementally as Slice
-				Machine's replacement. Your repository may not have access yet. Continue using
-				Slice Machine until your repository can upgrade.
-
-				Learn more at https://prismic.io/docs/type-builder
-			`);
-			return;
-		}
-
-		if (!UNTRACKED_COMMANDS.includes(command)) {
+		if (command && !UNTRACKED_COMMANDS.includes(command)) {
 			trackCommandEnd(command, { error });
 		}
+
+		if (message !== undefined) {
+			console.error(message);
+			return;
+		}
+
+		// Unknown error: report it and rethrow so the stack is printed.
 		await sentryCaptureError(error);
 		throw error;
 	}
+}
+
+// Maps a known error to its user-facing message, or `undefined` if the error is
+// unexpected and should be reported to Sentry.
+async function formatError(error: unknown): Promise<string | undefined> {
+	if (error instanceof CommandError) {
+		return dedent(error.message);
+	}
+
+	if (error instanceof FieldExistsError) {
+		return `Field "${error.id}" already exists.`;
+	}
+
+	if (error instanceof FieldNotFoundError) {
+		return `Field "${error.id}" does not exist.`;
+	}
+
+	if (error instanceof UnsupportedNestedFieldError) {
+		return `Field "${error.id}" does not support nested fields.`;
+	}
+
+	if (error instanceof FieldSelectionError) {
+		return error.message;
+	}
+
+	if (error instanceof TabNotFoundError) {
+		return `Tab "${error.id}" does not exist on type "${error.customTypeId}".`;
+	}
+
+	if (error instanceof SliceVariationNotFoundError) {
+		return `Variation "${error.id}" does not exist on slice "${error.sliceId}".`;
+	}
+
+	if (error instanceof NoSupportedFrameworkError) {
+		return error.message;
+	}
+
+	if (error instanceof InvalidEnvironmentError) {
+		if (
+			error.availableEnvironments.length === 1 &&
+			error.repo === error.availableEnvironments[0].domain
+		) {
+			return `No environments available on repository "${error.repo}".`;
+		}
+		const list = error.availableEnvironments.map((environment) => environment.domain).join("\n");
+		return dedent`
+			Environment "${error.env}" not found on repository "${error.repo}".
+
+			Available environments:
+			  ${list}
+		`;
+	}
+
+	if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
+		const { token } = await getCredentials();
+		if (!token) {
+			return "Not logged in. Run `prismic login` first.";
+		}
+		if (env.PRISMIC_TOKEN) {
+			return "PRISMIC_TOKEN is invalid or expired, or doesn't have access to this repository. Unset it to log in with a browser, or replace it with a valid token.";
+		}
+		if (error instanceof UnauthorizedRequestError) {
+			return "Your session is invalid or expired. Run `prismic login` to sign in again.";
+		}
+		return "You do not have access to this repository. Check the repository name or log in with an account that has access.";
+	}
+
+	if (error instanceof NotFoundRequestError) {
+		return error.message || "Not found. Verify the repository and any specified identifiers exist.";
+	}
+
+	if (error instanceof UnknownRequestError) {
+		if (error.message) {
+			return error.message;
+		}
+		const url = new URL(error.response.url);
+		// Prevent logging sensitive data like a token
+		url.search = "";
+		return dedent`
+			A network request failed unexpectedly:
+
+			  ${url}
+
+			If this error happens repeatedly, report the issue here: https://github.com/prismicio/cli/issues
+		`;
+	}
+
+	if (error instanceof InvalidPrismicConfigError) {
+		return `${error.message} Run \`prismic init\` to re-create a config.`;
+	}
+
+	if (error instanceof MissingPrismicConfigError) {
+		return `${error.message} Run \`prismic init\` to create a config.`;
+	}
+
+	if (error instanceof TypeBuilderRequiredError) {
+		return dedent`
+			This command requires the Type Builder in your repository.
+
+			Enable it by turning off Legacy Builder in your repository settings:
+			https://${error.repo}.${error.host}/settings/repository/
+
+			Learn more at https://prismic.io/docs/type-builder
+		`;
+	}
+
+	return undefined;
 }
