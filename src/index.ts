@@ -237,10 +237,15 @@ async function main(): Promise<void> {
 	} catch (error) {
 		process.exitCode = 1;
 
-		const message = await formatError(error);
+		let message: string | undefined;
+		try {
+			message = await formatError(error);
+		} catch {
+			// If formatting fails, fall through to reporting the original error.
+		}
 
 		if (command && !UNTRACKED_COMMANDS.includes(command)) {
-			trackCommandEnd(command, { error });
+			trackCommandEnd(command, { error: message ?? error });
 		}
 
 		if (message !== undefined) {
