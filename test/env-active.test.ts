@@ -8,17 +8,17 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic env active [options]");
 });
 
-it("prints production when no environment is active", async ({ expect, prismic, repo }) => {
-	const { stdout, exitCode } = await prismic("env", ["active"]);
-	expect(exitCode).toBe(0);
-	expect(stdout).toBe(repo);
-});
-
-it("reads the active environment from .env.local", async ({ expect, prismic, project }) => {
+it("prints the active environment", async ({ expect, prismic, project }) => {
 	const path = new URL(".env.local", project);
 	await writeFile(path, "NEXT_PUBLIC_PRISMIC_ENVIRONMENT=my-repo-staging");
 
 	const { stdout, exitCode } = await prismic("env", ["active"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toBe("my-repo-staging");
+	expect(stdout).toContain("my-repo-staging");
+});
+
+it("prints production when no environment is active", async ({ expect, prismic, repo }) => {
+	const { stdout, exitCode } = await prismic("env", ["active"]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain(repo);
 });

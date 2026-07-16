@@ -1,5 +1,6 @@
 import { createCommandRouter } from "../lib/command";
 import docs from "./docs";
+import env from "./env";
 import field from "./field";
 import gen from "./gen";
 import init from "./init";
@@ -55,6 +56,10 @@ export default createCommandRouter({
 		status: {
 			handler: status,
 			description: "Show local vs remote model differences",
+		},
+		env: {
+			handler: env,
+			description: "Manage the active environment",
 		},
 		locale: {
 			handler: locale,

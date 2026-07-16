@@ -12,7 +12,7 @@ it("supports --help", async ({ expect, prismic }) => {
 // one. It should write the environment's domain to .env.local as the active
 // repository. The test repository only has production, so it can't be covered yet.
 
-it("setting production clears the active environment", async ({
+it("clears the active environment when setting to production", async ({
 	expect,
 	prismic,
 	project,
