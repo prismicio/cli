@@ -7,6 +7,7 @@ import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
 import {
+	exists,
 	readEnvFile,
 	readJsonFile,
 	setEnvFileVar,
@@ -222,8 +223,9 @@ export abstract class Adapter {
 	async getEnvironment(): Promise<string | undefined> {
 		const projectRoot = await findProjectRoot();
 		const envLocalPath = new URL(".env.local", projectRoot);
-		const envLocalVars = await readEnvFile(envLocalPath).catch(() => {});
-		return envLocalVars?.[this.environmentEnvVarName] || undefined;
+		if (!(await exists(envLocalPath))) return undefined;
+		const envLocalVars = await readEnvFile(envLocalPath);
+		return envLocalVars[this.environmentEnvVarName] || undefined;
 	}
 
 	async setEnvironment(environment: string): Promise<void> {

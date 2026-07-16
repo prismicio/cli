@@ -120,7 +120,7 @@ export async function setEnvFileVar(path: URL, key: string, value: string): Prom
 		parseEnv(contents); // Verify the format
 	}
 
-	const pattern = new RegExp(`^${key}=.*$`, "m");
+	const pattern = new RegExp(`^${key}=.*$`, "mg");
 	const line = `${key}=${value}`;
 	const hasEnvironmentVar = pattern.test(contents);
 
@@ -141,7 +141,7 @@ export async function unsetEnvFileVar(path: URL, key: string): Promise<void> {
 	let contents = await readFile(path, "utf8");
 	parseEnv(contents); // Verify the format
 
-	const pattern = new RegExp(`^${key}=.*$\n?`, "m");
+	const pattern = new RegExp(`^${key}=.*$\n?`, "mg");
 	contents = contents.replace(pattern, "");
 
 	await writeFile(path, contents);
