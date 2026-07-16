@@ -103,6 +103,10 @@ export class RequestError extends Error {
 
 export class UnknownRequestError extends RequestError {
 	name = "UnknownRequestError";
+
+	constructor(response: Response, body: unknown, rawBody: string, message = "") {
+		super(response, body, rawBody, message);
+	}
 }
 export class BadRequestError extends RequestError {
 	name = "BadRequestError";
