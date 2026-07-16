@@ -103,6 +103,8 @@ export const it = test.extend<Fixtures>({
 			const env = {
 				...process.env,
 				PRISMIC_TYPE_BUILDER_ENABLED: "true",
+				PRISMIC_SENTRY_ENABLED: "false",
+				PRISMIC_TELEMETRY_ENABLED: "false",
 				NO_UPDATE_NOTIFIER: "1",
 				PRISMIC_CONFIG_DIR: fileURLToPath(configDir),
 				...options?.nodeOptions?.env,

@@ -35,6 +35,7 @@ export async function insertCustomType(
 	await customTypesServiceRequest(url, config, {
 		method: "POST",
 		json: model,
+		unknownErrorMessage: `Failed to create type "${model.id}"`,
 	});
 }
 
@@ -47,6 +48,7 @@ export async function updateCustomType(
 		method: "POST",
 		json: model,
 		notFoundMessage: `Type not found: ${model.id}`,
+		unknownErrorMessage: `Failed to update type "${model.id}"`,
 	});
 }
 
@@ -58,6 +60,7 @@ export async function removeCustomType(id: string, config: CustomTypesConfig): P
 	await customTypesServiceRequest(url, config, {
 		method: "DELETE",
 		notFoundMessage: `Type not found: ${id}`,
+		unknownErrorMessage: `Failed to delete type "${id}"`,
 	});
 }
 
@@ -78,6 +81,7 @@ export async function insertSlice(model: SharedSlice, config: CustomTypesConfig)
 	await customTypesServiceRequest(url, config, {
 		method: "POST",
 		json: model,
+		unknownErrorMessage: `Failed to create slice "${model.id}"`,
 	});
 }
 
@@ -87,6 +91,7 @@ export async function updateSlice(model: SharedSlice, config: CustomTypesConfig)
 		method: "POST",
 		json: model,
 		notFoundMessage: `Slice not found: ${model.id}`,
+		unknownErrorMessage: `Failed to update slice "${model.id}"`,
 	});
 }
 
@@ -95,6 +100,7 @@ export async function removeSlice(id: string, config: CustomTypesConfig): Promis
 	await customTypesServiceRequest(url, config, {
 		method: "DELETE",
 		notFoundMessage: `Slice not found: ${id}`,
+		unknownErrorMessage: `Failed to delete slice "${id}"`,
 	});
 }
 
@@ -118,6 +124,7 @@ export async function deleteScreenshots(sliceId: string, config: CustomTypesConf
 	await screenshotServiceRequest(url, config, {
 		method: "POST",
 		json: { sliceId },
+		unknownErrorMessage: `Failed to delete screenshots for slice "${sliceId}"`,
 	});
 }
 

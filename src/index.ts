@@ -5,28 +5,13 @@ import { parseArgs } from "node:util";
 import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
 import { cleanupLegacyAuthFile, getCredentials, spawnTokenRefresh } from "./auth";
-import docs from "./commands/docs";
-import field from "./commands/field";
-import gen from "./commands/gen";
-import init from "./commands/init";
-import locale from "./commands/locale";
-import login from "./commands/login";
-import logout from "./commands/logout";
-import preview from "./commands/preview";
-import pull from "./commands/pull";
-import push from "./commands/push";
-import repo from "./commands/repo";
-import slice from "./commands/slice";
-import status from "./commands/status";
-import sync from "./commands/sync";
-import token from "./commands/token";
-import type_ from "./commands/type";
-import webhook from "./commands/webhook";
-import whoami from "./commands/whoami";
+import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
-import { CommandError, createCommandRouter } from "./lib/command";
+import { CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
+import { MissingPackageJson } from "./lib/packageJson";
+import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
 import { getProfile } from "./lib/prismic/clients/user";
 import { InvalidEnvironmentError } from "./lib/prismic/environments";
 import {
@@ -38,6 +23,7 @@ import {
 	UnsupportedNestedFieldError,
 } from "./lib/prismic/models";
 import {
+	BadRequestError,
 	ForbiddenRequestError,
 	NotFoundRequestError,
 	UnauthorizedRequestError,
@@ -52,11 +38,17 @@ import {
 } from "./lib/sentry";
 import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
-import { InvalidPrismicConfigError, MissingPrismicConfigError } from "./project";
-import { safeGetRepositoryName, TypeBuilderRequiredError } from "./project";
+import {
+	InvalidLegacySliceMachineConfigError,
+	InvalidPrismicConfigError,
+	MissingPrismicConfigError,
+	safeGetRepositoryName,
+	TypeBuilderRequiredError,
+	UnknownProjectRootError,
+} from "./project";
 import {
 	initTracking,
-	setTrackedRepository,
+	isTelemetryEnabled,
 	trackCommandEnd,
 	trackCommandStart,
 	trackUser,
@@ -64,90 +56,31 @@ import {
 
 const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs", "status"];
 
-const router = createCommandRouter({
-	name: "prismic",
-	description: "Prismic CLI for managing repositories and configurations.",
-	sections: {
-		DOCUMENTATION: `
-			Run \`prismic docs list\` to browse available documentation topics.
-			Run \`prismic docs view <path>\` to read a topic.
-		`,
-	},
-	commands: {
-		init: {
-			handler: init,
-			description: "Initialize a Prismic project",
-		},
-		docs: {
-			handler: docs,
-			description: "Browse Prismic documentation",
-		},
-		gen: {
-			handler: gen,
-			description: "Generate files from local models",
-		},
-		pull: {
-			handler: pull,
-			description: "Pull types and slices from Prismic",
-		},
-		push: {
-			handler: push,
-			description: "Push types and slices to Prismic",
-		},
-		sync: {
-			handler: sync,
-			description: "Sync types and slices from Prismic",
-		},
-		status: {
-			handler: status,
-			description: "Show local vs remote model differences",
-		},
-		locale: {
-			handler: locale,
-			description: "Manage locales",
-		},
-		repo: {
-			handler: repo,
-			description: "Manage repositories",
-		},
-		type: {
-			handler: type_,
-			description: "Manage content types",
-		},
-		field: {
-			handler: field,
-			description: "Manage fields",
-		},
-		slice: {
-			handler: slice,
-			description: "Manage slices",
-		},
-		preview: {
-			handler: preview,
-			description: "Manage preview configurations",
-		},
-		token: {
-			handler: token,
-			description: "Manage API tokens",
-		},
-		webhook: {
-			handler: webhook,
-			description: "Manage webhooks",
-		},
-		login: {
-			handler: login,
-			description: "Log in to Prismic",
-		},
-		logout: {
-			handler: logout,
-			description: "Log out of Prismic",
-		},
-		whoami: {
-			handler: whoami,
-			description: "Show the currently logged in user",
-		},
-	},
-});
+const KNOWN_ERRORS = [
+	CommandError,
+	FieldExistsError,
+	FieldNotFoundError,
+	UnsupportedNestedFieldError,
+	FieldSelectionError,
+	TabNotFoundError,
+	SliceVariationNotFoundError,
+	UnsupportedFileTypeError,
+	NoSupportedFrameworkError,
+	InvalidEnvironmentError,
+	InvalidPrismicConfigError,
+	MissingPrismicConfigError,
+	InvalidLegacySliceMachineConfigError,
+	MissingPackageJson,
+	UnknownProjectRootError,
+	TypeBuilderRequiredError,
+	NotFoundRequestError,
+	UnauthorizedRequestError,
+	ForbiddenRequestError,
+	BadRequestError,
+	UnknownRequestError,
+];
+
+const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError, TypeBuilderRequiredError];
 
 await main();
 
@@ -159,9 +92,9 @@ async function main(): Promise<void> {
 
 	cleanupLegacyAuthFile().catch(() => {});
 
-	let {
-		positionals: [command],
-		values: { version, help, repo = await safeGetRepositoryName() },
+	const {
+		positionals: [command = ""],
+		values: { version, help, repo: repoValue = await safeGetRepositoryName() },
 	} = parseArgs({
 		options: {
 			version: { type: "boolean", short: "v" },
@@ -177,32 +110,18 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	if (typeof repo !== "string") repo = "";
+	const repo = typeof repoValue === "string" ? repoValue : undefined;
 
 	if (!help) {
 		const { token, host } = await getCredentials();
 
-		if (env.PRISMIC_SENTRY_ENABLED ?? env.PROD) {
-			setupSentry({
-				dsn: env.PRISMIC_SENTRY_DSN,
-				appName: packageJson.name,
-				appVersion: packageJson.version,
-				environment: env.PRISMIC_SENTRY_ENVIRONMENT,
-			});
-		}
-		await initTracking({ host });
+		const telemetryEnabled = await isTelemetryEnabled();
 
-		if (repo) {
-			setTrackedRepository(repo);
-			sentrySetTag("repository", repo);
-			sentrySetContext("Repository Data", { name: repo });
+		if (env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD)) {
+			await initSentry({ host, repo });
 		}
-
-		try {
-			const adapter = await getAdapter();
-			sentrySetTag("framework", adapter.id);
-		} catch {
-			// noop - it's okay if we can't set the framework
+		if (env.PRISMIC_TELEMETRY_ENABLED ?? telemetryEnabled) {
+			await initTracking({ host, repo });
 		}
 
 		if (token) {
@@ -222,100 +141,61 @@ async function main(): Promise<void> {
 					.catch(() => {});
 			}
 		}
-
-		if (command && !UNTRACKED_COMMANDS.includes(command)) {
-			trackCommandStart(command);
-		}
 	}
 
-	try {
-		await router();
+	const isTracked = !help && command && !UNTRACKED_COMMANDS.includes(command);
 
-		if (command && !UNTRACKED_COMMANDS.includes(command)) {
-			trackCommandEnd(command);
-		}
+	try {
+		if (isTracked) trackCommandStart(command);
+		await router();
+		if (isTracked) trackCommandEnd(command);
 	} catch (error) {
 		process.exitCode = 1;
 
-		let message: string | undefined;
-		try {
-			message = await formatError(error);
-		} catch {
-			// If formatting fails, fall through to reporting the original error.
-		}
+		const message = await getErrorMessage(error).catch(() => undefined);
+		if (isTracked) trackCommandEnd(command, { error: message ?? error });
 
-		if (command && !UNTRACKED_COMMANDS.includes(command)) {
-			trackCommandEnd(command, { error: message ?? error });
-		}
-
-		if (message !== undefined) {
+		if (KNOWN_ERRORS.some((type) => error instanceof type)) {
 			console.error(message);
-		}
-
-		// Report unexpected failures: errors we can't explain, and unexpected
-		// server responses that we only show a friendly message for.
-		if (message === undefined || error instanceof UnknownRequestError) {
+			if (REPORTED_KNOWN_ERRORS.some((type) => error instanceof type)) {
+				await sentryCaptureError(error);
+			}
+		} else {
+			console.error(
+				"The CLI reached a bug. Report this if it keeps happening: https://github.com/prismicio/cli/issues",
+			);
 			await sentryCaptureError(error);
-		}
-
-		// Unknown error: rethrow so the stack is printed.
-		if (message === undefined) {
 			throw error;
 		}
 	}
 }
 
-// Maps a known error to its user-facing message, or `undefined` if the error is
-// unexpected and should be reported to Sentry.
-async function formatError(error: unknown): Promise<string | undefined> {
-	if (error instanceof CommandError) {
-		return dedent(error.message);
+async function initSentry(options: { host: string; repo: string | undefined }): Promise<void> {
+	const { host, repo } = options;
+
+	setupSentry({
+		dsn: env.PRISMIC_SENTRY_DSN,
+		appName: packageJson.name,
+		appVersion: packageJson.version,
+		environment: env.PRISMIC_SENTRY_ENVIRONMENT,
+	});
+
+	sentrySetTag("host", host);
+
+	if (repo) {
+		sentrySetTag("repository", repo);
+		sentrySetContext("Repository Data", { name: repo });
 	}
 
-	if (error instanceof FieldExistsError) {
-		return `Field "${error.id}" already exists.`;
+	try {
+		const adapter = await getAdapter();
+		sentrySetTag("framework", adapter.id);
+	} catch {
+		// noop - it's okay if we can't set the framework
 	}
+}
 
-	if (error instanceof FieldNotFoundError) {
-		return `Field "${error.id}" does not exist.`;
-	}
-
-	if (error instanceof UnsupportedNestedFieldError) {
-		return `Field "${error.id}" does not support nested fields.`;
-	}
-
-	if (error instanceof FieldSelectionError) {
-		return error.message;
-	}
-
-	if (error instanceof TabNotFoundError) {
-		return `Tab "${error.id}" does not exist on type "${error.customTypeId}".`;
-	}
-
-	if (error instanceof SliceVariationNotFoundError) {
-		return `Variation "${error.id}" does not exist on slice "${error.sliceId}".`;
-	}
-
-	if (error instanceof NoSupportedFrameworkError) {
-		return error.message;
-	}
-
-	if (error instanceof InvalidEnvironmentError) {
-		if (
-			error.availableEnvironments.length === 1 &&
-			error.repo === error.availableEnvironments[0].domain
-		) {
-			return `No environments available on repository "${error.repo}".`;
-		}
-		const list = error.availableEnvironments.map((environment) => environment.domain).join("\n");
-		return dedent`
-			Environment "${error.env}" not found on repository "${error.repo}".
-
-			Available environments:
-			  ${list}
-		`;
-	}
-
+async function getErrorMessage(error: unknown): Promise<string | undefined> {
 	if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 		const { token } = await getCredentials();
 		if (!token) {
@@ -330,44 +210,21 @@ async function formatError(error: unknown): Promise<string | undefined> {
 		return "You do not have access to this repository. Check the repository name or log in with an account that has access.";
 	}
 
-	if (error instanceof NotFoundRequestError) {
-		return error.message || "Not found. Verify the repository and any specified identifiers exist.";
-	}
-
-	if (error instanceof UnknownRequestError) {
-		if (error.message) {
-			return error.message;
-		}
+	if (error instanceof BadRequestError || error instanceof UnknownRequestError) {
 		const url = new URL(error.response.url);
 		// Prevent logging sensitive data like a token
 		url.search = "";
+		const context = error.message ? `${error.message}\n\n` : "";
 		return dedent`
-			A network request failed unexpectedly:
+			${context}Prismic responded with an unexpected error. Try again, and report it if it keeps happening.
 
-			  ${url}
-
-			If this error happens repeatedly, report the issue here: https://github.com/prismicio/cli/issues
+			  Status:  ${error.status} ${error.statusText}
+			  URL:     ${url}
+			  Report:  https://github.com/prismicio/cli/issues
 		`;
 	}
 
-	if (error instanceof InvalidPrismicConfigError) {
-		return `${error.message} Run \`prismic init\` to re-create a config.`;
+	if (error instanceof Error) {
+		return dedent(error.message);
 	}
-
-	if (error instanceof MissingPrismicConfigError) {
-		return `${error.message} Run \`prismic init\` to create a config.`;
-	}
-
-	if (error instanceof TypeBuilderRequiredError) {
-		return dedent`
-			This command requires the Type Builder in your repository.
-
-			Enable it by turning off Legacy Builder in your repository settings:
-			https://${error.repo}.${error.host}/settings/repository/
-
-			Learn more at https://prismic.io/docs/type-builder
-		`;
-	}
-
-	return undefined;
 }

@@ -9,6 +9,7 @@ import { exists, findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
 import { getRepository } from "./lib/prismic/clients/repository";
+import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
 
 const CONFIG_FILENAME = "prismic.config.json";
@@ -48,7 +49,7 @@ export async function readConfig(): Promise<Config> {
 
 export class InvalidPrismicConfigError extends Error {
 	name = "InvalidPrismicConfigError";
-	message = `${CONFIG_FILENAME} is invalid.`;
+	message = `${CONFIG_FILENAME} is invalid. Run \`prismic init\` to re-create a config.`;
 }
 
 export async function updateConfig(updates: Partial<Config>): Promise<Config> {
@@ -67,7 +68,7 @@ async function findConfigPath(): Promise<URL> {
 
 export class MissingPrismicConfigError extends Error {
 	name = "MissingPrismicConfigError";
-	message = `Could not find a ${CONFIG_FILENAME} file.`;
+	message = `Could not find a ${CONFIG_FILENAME} file. Run \`prismic init\` to create a config.`;
 }
 
 async function findSuggestedConfigPath(): Promise<URL> {
@@ -77,7 +78,7 @@ async function findSuggestedConfigPath(): Promise<URL> {
 		return suggestedConfigPath;
 	} catch (error) {
 		if (error instanceof MissingPackageJson) {
-			throw new UnknownProjectRootError(undefined, { cause: error });
+			throw new UnknownProjectRootError({ cause: error });
 		}
 		throw error;
 	}
@@ -85,6 +86,9 @@ async function findSuggestedConfigPath(): Promise<URL> {
 
 export class UnknownProjectRootError extends Error {
 	name = "UnknownProjectRootError";
+	constructor(options?: ErrorOptions) {
+		super("Could not find your project root.", options);
+	}
 }
 
 export async function addRoute(pageType: CustomType): Promise<void> {
@@ -232,11 +236,14 @@ export async function checkIsTypeBuilderEnabled(
 
 export class TypeBuilderRequiredError extends Error {
 	name = "TypeBuilderRequired";
-	repo: string;
-	host: string;
 	constructor(repo: string, host: string) {
-		super();
-		this.repo = repo;
-		this.host = host;
+		super(dedent`
+			This command requires the Type Builder in your repository.
+
+			Enable it by turning off Legacy Builder in your repository settings:
+			  https://${repo}.${host}/settings/repository/
+
+			Learn more at https://prismic.io/docs/type-builder
+		`);
 	}
 }
