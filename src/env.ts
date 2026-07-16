@@ -13,6 +13,7 @@ const Env = z.object({
 	PRISMIC_SENTRY_DSN: z._default(z.httpUrl(), DEFAULT_PRISMIC_SENTRY_DSN),
 	PRISMIC_SENTRY_ENVIRONMENT: z.optional(z.string()),
 	PRISMIC_SENTRY_ENABLED: z.optional(z.stringbool()),
+	PRISMIC_TELEMETRY_ENABLED: z.optional(z.stringbool()),
 	PRISMIC_HOST: z.optional(z.string()),
 	PRISMIC_TOKEN: z.optional(z.string()),
 	PRISMIC_DOCS_HOST: z.optional(z.string()),

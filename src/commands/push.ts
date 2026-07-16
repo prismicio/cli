@@ -151,7 +151,7 @@ export default createCommand(config, async ({ values }) => {
 		await removeSlice(id, { repo, token, host });
 		await deleteScreenshots(id, { repo, token, host }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
-			console.warn(`Failed to delete screenshots for slice "${id}": ${message}`);
+			console.warn(`Failed to delete screenshots for slice "${id}"${message ? `: ${message}` : "."}`);
 		});
 	}
 

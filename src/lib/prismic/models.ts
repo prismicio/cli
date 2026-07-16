@@ -219,7 +219,7 @@ export class FieldExistsError extends Error {
 	id: string;
 
 	constructor(id: string) {
-		super();
+		super(`Field "${id}" already exists.`);
 		this.id = id;
 	}
 }
@@ -229,7 +229,7 @@ export class FieldNotFoundError extends Error {
 	id: string;
 
 	constructor(id: string) {
-		super();
+		super(`Field "${id}" does not exist.`);
 		this.id = id;
 	}
 }
@@ -239,7 +239,7 @@ export class UnsupportedNestedFieldError extends Error {
 	id: string;
 
 	constructor(id: string) {
-		super();
+		super(`Field "${id}" does not support nested fields.`);
 		this.id = id;
 	}
 }
@@ -254,7 +254,7 @@ export class TabNotFoundError extends Error {
 	customTypeId: string;
 
 	constructor(id: string, customTypeId: string) {
-		super();
+		super(`Tab "${id}" does not exist on type "${customTypeId}".`);
 		this.id = id;
 		this.customTypeId = customTypeId;
 	}
@@ -266,7 +266,7 @@ export class SliceVariationNotFoundError extends Error {
 	sliceId: string;
 
 	constructor(id: string, sliceId: string) {
-		super();
+		super(`Variation "${id}" does not exist on slice "${sliceId}".`);
 		this.id = id;
 		this.sliceId = sliceId;
 	}

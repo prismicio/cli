@@ -78,7 +78,7 @@ export class RequestError extends Error {
 	#rawBody: string;
 
 	constructor(response: Response, body: unknown, rawBody: string, message?: string) {
-		super(message ?? `fetch failed: ${response.url}`);
+		super(message);
 		this.response = response;
 		this.body = body;
 		this.#rawBody = rawBody;
@@ -113,8 +113,12 @@ export class BadRequestError extends RequestError {
 }
 export class NotFoundRequestError extends RequestError {
 	name = "NotFoundRequestError";
-
-	constructor(response: Response, body: unknown, rawBody: string, message = "") {
+	constructor(
+		response: Response,
+		body: unknown,
+		rawBody: string,
+		message = "The requested resource was not found.",
+	) {
 		super(response, body, rawBody, message);
 	}
 }

@@ -4,7 +4,7 @@ import * as z from "zod/mini";
 
 import type { Profile } from "./lib/prismic/clients/user";
 
-import { DEFAULT_PRISMIC_HOST, env } from "./env";
+import { DEFAULT_PRISMIC_HOST } from "./env";
 import { detectAgent } from "./lib/ai";
 import { readJsonFile } from "./lib/file";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
@@ -16,18 +16,12 @@ const STAGING_WRITE_KEY = "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG";
 let repository: string | undefined;
 let agent: string | undefined;
 
-export async function initTracking(config: { host: string }): Promise<void> {
-	if (env.TEST) return;
-	const { host } = config;
-	const enabled = await isTelemetryEnabled();
-	if (!enabled) return;
+export async function initTracking(config: { host: string; repo?: string }): Promise<void> {
+	const { host, repo } = config;
+	if (repo) repository = repo;
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
 	agent = await detectAgent();
 	await initSegment({ writeKey });
-}
-
-export function setTrackedRepository(repo: string): void {
-	repository = repo;
 }
 
 export function trackUser(profile: Profile): void {
@@ -72,7 +66,7 @@ const PrismicRcSchema = z.object({
 	telemetry: z.boolean(),
 });
 
-async function isTelemetryEnabled(): Promise<boolean> {
+export async function isTelemetryEnabled(): Promise<boolean> {
 	try {
 		// Check user-level .prismicrc
 		const userRc = await readJsonFile(

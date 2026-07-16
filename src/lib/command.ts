@@ -46,15 +46,28 @@ export function createCommand<T extends CommandConfig>(
 		const args = process.argv.slice(1 + depth);
 		const allowPositionals = Object.keys(positionals).length > 0;
 
-		const result = parseArgs({
-			args,
-			options: {
-				...options,
-				help: { type: "boolean", short: "h" },
-			},
-			allowPositionals,
-			strict: true,
-		});
+		let result;
+		try {
+			result = parseArgs({
+				args,
+				options: {
+					...options,
+					help: { type: "boolean", short: "h" },
+				},
+				allowPositionals,
+				strict: true,
+			});
+		} catch (error) {
+			if (
+				error instanceof TypeError &&
+				"code" in error &&
+				typeof error.code === "string" &&
+				error.code.startsWith("ERR_PARSE_ARGS_")
+			) {
+				throw new CommandError(error.message);
+			}
+			throw error;
+		}
 
 		if (result.values.help) {
 			console.info(buildCommandHelp(config));
