@@ -93,9 +93,8 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	console.info(`Repository: ${repositoryName}`);
-	const environment = env ?? activeEnvironment;
-	if (environment && environment !== repositoryName) {
-		console.info(`Environment: ${environment}`);
+	if (repo !== repositoryName) {
+		console.info(`Environment: ${repo}`);
 	}
 	if (userEmail) {
 		console.info(`Authenticated as: ${userEmail}`);
