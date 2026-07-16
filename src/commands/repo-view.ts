@@ -1,10 +1,9 @@
-import { getHost, getToken } from "../auth";
-import { getProfile } from "../clients/user";
-import { getRepositoryAccess } from "../clients/wroom";
+import { getCredentials } from "../auth";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { UnknownRequestError } from "../lib/request";
+import { getProfile } from "../lib/prismic/clients/user";
+import { getRepositoryAccess } from "../lib/prismic/clients/wroom";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -25,8 +24,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo = await getRepositoryName(), web, json } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const url = `https://${repo}.${host}/`;
 
 	if (web) {
@@ -35,20 +33,10 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	let profile;
-	let access;
-	try {
-		[profile, access] = await Promise.all([
-			getProfile({ token, host }),
-			getRepositoryAccess({ repo, token, host }),
-		]);
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to fetch repository details: ${message}`);
-		}
-		throw error;
-	}
+	const [profile, access] = await Promise.all([
+		getProfile({ token, host }),
+		getRepositoryAccess({ repo, token, host }),
+	]);
 
 	const repoData = profile.repositories.find((r) => r.domain === repo);
 	if (!repoData) {

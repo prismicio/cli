@@ -1,12 +1,11 @@
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
-import { upsertLocale } from "../clients/locale";
-import { activateMCP } from "../clients/mcp";
-import { completeOnboardingStepsSilently } from "../clients/repository";
-import { checkIsDomainAvailable, createRepository } from "../clients/wroom";
+import { getCredentials } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { upsertLocale } from "../lib/prismic/clients/locale";
+import { activateMCP } from "../lib/prismic/clients/mcp";
+import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
+import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients/wroom";
 
 const MAX_DOMAIN_TRIES = 5;
 
@@ -26,8 +25,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { name, lang } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const domain = await createRepo({ name, lang, token, host });
 
 	console.info(`Repository created: ${domain}`);
@@ -51,26 +49,10 @@ export async function createRepo(config: {
 	const framework = adapter?.id ?? "other";
 	const agent = await detectAgent();
 
-	try {
-		await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to create repository: ${message}`);
-		}
-		throw error;
-	}
+	await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
 
 	// A new repository has no locale, so set the master locale to make it usable.
-	try {
-		await upsertLocale({ id: lang, isMaster: true }, { repo: domain, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to set master locale: ${message}`);
-		}
-		throw error;
-	}
+	await upsertLocale({ id: lang, isMaster: true }, { repo: domain, token, host });
 
 	await completeOnboardingStepsSilently({
 		repo: domain,

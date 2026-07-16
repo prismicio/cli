@@ -83,10 +83,7 @@ function isNewer(latest: string, current: string): boolean {
 	return false;
 }
 
-export async function updateVersionState(
-	npmPackageName: string,
-	statePath: URL,
-): Promise<void> {
+export async function updateVersionState(npmPackageName: string, statePath: URL): Promise<void> {
 	const version = await getNpmPackageVersion(npmPackageName);
 	const filePath = fileURLToPath(statePath);
 	await mkdir(dirname(filePath), { recursive: true });
@@ -98,9 +95,7 @@ export async function updateVersionState(
 
 function spawnBackgroundCheck(npmPackageName: string, statePath: URL): void {
 	try {
-		const script = fileURLToPath(
-			new URL("./subprocesses/updateVersionState.mjs", import.meta.url),
-		);
+		const script = fileURLToPath(new URL("./subprocesses/updateVersionState.mjs", import.meta.url));
 		const child = spawn(process.execPath, [script, npmPackageName, statePath.href], {
 			detached: true,
 			stdio: "ignore",

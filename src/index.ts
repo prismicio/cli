@@ -4,8 +4,7 @@ import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
 import { getAdapter, NoSupportedFrameworkError } from "./adapters";
-import { cleanupLegacyAuthFile, getHost, getToken, spawnTokenRefresh } from "./auth";
-import { getProfile } from "./clients/user";
+import { cleanupLegacyAuthFile, getCredentials, spawnTokenRefresh } from "./auth";
 import docs from "./commands/docs";
 import field from "./commands/field";
 import gen from "./commands/gen";
@@ -26,9 +25,18 @@ import webhook from "./commands/webhook";
 import whoami from "./commands/whoami";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
-import { InvalidEnvironmentError } from "./environments";
 import { CommandError, createCommandRouter } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
+import { getProfile } from "./lib/prismic/clients/user";
+import { InvalidEnvironmentError } from "./lib/prismic/environments";
+import {
+	FieldExistsError,
+	FieldNotFoundError,
+	FieldSelectionError,
+	SliceVariationNotFoundError,
+	TabNotFoundError,
+	UnsupportedNestedFieldError,
+} from "./lib/prismic/models";
 import {
 	ForbiddenRequestError,
 	NotFoundRequestError,
@@ -172,7 +180,7 @@ async function main(): Promise<void> {
 	if (typeof repo !== "string") repo = "";
 
 	if (!help) {
-		const host = await getHost();
+		const { token, host } = await getCredentials();
 
 		setupSentry();
 		await initTracking({ host });
@@ -190,7 +198,6 @@ async function main(): Promise<void> {
 			// noop - it's okay if we can't set the framework
 		}
 
-		const token = await getToken();
 		if (token) {
 			const exp = decodePayload(token)?.exp;
 			const now = Date.now() / 1000;
@@ -231,6 +238,54 @@ async function main(): Promise<void> {
 			return;
 		}
 
+		if (error instanceof FieldExistsError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				trackCommandEnd(command);
+			}
+			console.error(`Field "${error.id}" already exists.`);
+			return;
+		}
+
+		if (error instanceof FieldNotFoundError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				trackCommandEnd(command);
+			}
+			console.error(`Field "${error.id}" does not exist.`);
+			return;
+		}
+
+		if (error instanceof UnsupportedNestedFieldError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				trackCommandEnd(command);
+			}
+			console.error(`Field "${error.id}" does not support nested fields.`);
+			return;
+		}
+
+		if (error instanceof FieldSelectionError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				trackCommandEnd(command);
+			}
+			console.error(error.message);
+			return;
+		}
+
+		if (error instanceof TabNotFoundError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				trackCommandEnd(command);
+			}
+			console.error(`Tab "${error.id}" does not exist on type "${error.customTypeId}".`);
+			return;
+		}
+
+		if (error instanceof SliceVariationNotFoundError) {
+			if (!UNTRACKED_COMMANDS.includes(command)) {
+				trackCommandEnd(command);
+			}
+			console.error(`Variation "${error.id}" does not exist on slice "${error.sliceId}".`);
+			return;
+		}
+
 		if (error instanceof NoSupportedFrameworkError) {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
 				trackCommandEnd(command, { error });
@@ -266,7 +321,7 @@ async function main(): Promise<void> {
 			if (!UNTRACKED_COMMANDS.includes(command)) {
 				trackCommandEnd(command, { error });
 			}
-			const token = await getToken();
+			const { token } = await getCredentials();
 			if (!token) {
 				console.error("Not logged in. Run `prismic login` first.");
 			} else if (env.PRISMIC_TOKEN) {
@@ -294,6 +349,13 @@ async function main(): Promise<void> {
 		}
 
 		if (error instanceof UnknownRequestError) {
+			if (error.message) {
+				if (!UNTRACKED_COMMANDS.includes(command)) {
+					trackCommandEnd(command);
+				}
+				console.error(error.message);
+				return;
+			}
 			if (!UNTRACKED_COMMANDS.includes(command)) {
 				trackCommandEnd(command, { error });
 			}

@@ -1,8 +1,7 @@
-import { getHost, getToken } from "../auth";
-import { createWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { createWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -65,34 +64,25 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 	}
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	const defaultValue = trigger.length > 0 ? false : true;
 
-	try {
-		await createWebhook(
-			{
-				url: webhookUrl,
-				name: name ?? null,
-				secret: secret ?? null,
-				documentsPublished: trigger.includes("documentsPublished") || defaultValue,
-				documentsUnpublished: trigger.includes("documentsUnpublished") || defaultValue,
-				releasesCreated: trigger.includes("releasesCreated") || defaultValue,
-				releasesUpdated: trigger.includes("releasesUpdated") || defaultValue,
-				tagsCreated: trigger.includes("tagsCreated") || defaultValue,
-				tagsDeleted: trigger.includes("tagsDeleted") || defaultValue,
-			},
-			{ repo, token, host },
-		);
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to create webhook: ${message}`);
-		}
-		throw error;
-	}
+	await createWebhook(
+		{
+			url: webhookUrl,
+			name: name ?? null,
+			secret: secret ?? null,
+			documentsPublished: trigger.includes("documentsPublished") || defaultValue,
+			documentsUnpublished: trigger.includes("documentsUnpublished") || defaultValue,
+			releasesCreated: trigger.includes("releasesCreated") || defaultValue,
+			releasesUpdated: trigger.includes("releasesUpdated") || defaultValue,
+			tagsCreated: trigger.includes("tagsCreated") || defaultValue,
+			tagsDeleted: trigger.includes("tagsDeleted") || defaultValue,
+		},
+		{ repo, token, host },
+	);
 
 	console.info(`Webhook created: ${webhookUrl}`);
 	console.info(`Run \`prismic webhook set-triggers ${webhookUrl}\` to configure triggers.`);

@@ -1,10 +1,5 @@
+import { getContentRelationshipFieldSelection, getExistingField, SOURCE_OPTIONS } from "../fields";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import {
-	resolveFieldContainer,
-	resolveFieldSelection,
-	resolveFieldTarget,
-	SOURCE_OPTIONS,
-} from "../models";
 
 const config = {
 	name: "prismic field edit",
@@ -99,13 +94,7 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
 
-	const [fields, saveModel] = await resolveFieldContainer(id, values);
-	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
-
-	const field = targetFields[fieldId];
-	if (!field) {
-		throw new CommandError(`Field "${id}" does not exist.`);
-	}
+	const { field, save } = await getExistingField(id, values);
 	field.config ??= {};
 
 	if ("label" in values) field.config.label = values.label;
@@ -186,7 +175,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 					);
 				}
 				const ctId = typeof cts[0] === "string" ? cts[0] : cts[0].id;
-				const resolvedFields = await resolveFieldSelection(values.field!, ctId);
+				const resolvedFields = await getContentRelationshipFieldSelection(values.field!, ctId);
 				field.config.customtypes = [
 					{ id: ctId, fields: resolvedFields },
 				] as typeof field.config.customtypes;
@@ -197,7 +186,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 	}
 
-	await saveModel();
+	await save();
 
 	console.info(`Field updated: ${id}`);
 });

@@ -91,7 +91,11 @@ it("errors when dot syntax targets a non-existent field", async ({ expect, prism
 	expect(stderr).toContain('Field "nonexistent" does not exist.');
 });
 
-it("errors when dot syntax targets a non-group field", async ({ expect, prismic, project }) => {
+it("errors when dot syntax targets a field that does not support nesting", async ({
+	expect,
+	prismic,
+	project,
+}) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.my_text = { type: "Text", config: { label: "My Text" } };
 	await writeLocalSlice(project, slice);
@@ -104,5 +108,5 @@ it("errors when dot syntax targets a non-group field", async ({ expect, prismic,
 		slice.id,
 	]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain('Field "my_text" is not a group field.');
+	expect(stderr).toContain('Field "my_text" does not support nested fields.');
 });

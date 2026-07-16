@@ -2,14 +2,9 @@ import type { Link } from "@prismicio/types-internal/lib/customtypes";
 
 import { capitalCase } from "change-case";
 
+import { getContentRelationshipFieldSelection, getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import {
-	getPostFieldAddMessage,
-	resolveFieldSelection,
-	resolveFieldTarget,
-	resolveModel,
-	TARGET_OPTIONS,
-} from "../models";
+import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add content-relationship",
@@ -80,12 +75,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError("--field requires exactly one --custom-type.");
 	}
 
-	const [fields, saveModel, modelKind] = await resolveModel(values);
-	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
+	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
 	let resolvedCustomTypes: NonNullable<Link["config"]>["customtypes"] = customtypes;
 	if (fieldSelection && customtypes) {
-		const resolvedFields = await resolveFieldSelection(fieldSelection, customtypes[0]);
+		const resolvedFields = await getContentRelationshipFieldSelection(
+			fieldSelection,
+			customtypes[0],
+		);
 		resolvedCustomTypes = [
 			{ id: customtypes[0], fields: resolvedFields },
 		] as typeof resolvedCustomTypes;
@@ -101,12 +98,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		},
 	};
 
-	if (fieldId in targetFields) throw new CommandError(`Field "${id}" already exists.`);
-	targetFields[fieldId] = field;
-	await saveModel();
+	addField(fields, fieldId, field);
+	await save();
 
 	console.info(`Field added: ${id}`);
-
-	const targetId = values["to-slice"] ?? values["to-type"]!;
-	console.info(getPostFieldAddMessage({ targetId, modelKind }));
 });

@@ -1,8 +1,7 @@
-import { getHost, getToken } from "../auth";
-import { addPreview } from "../clients/core";
-import { resolveEnvironment } from "../environments";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { addPreview } from "../lib/prismic/clients/core";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -38,19 +37,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const websiteURL = `${parsed.protocol}//${parsed.host}`;
 	const resolverPath = parsed.pathname === "/" ? undefined : parsed.pathname;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
-	try {
-		await addPreview({ name: displayName, websiteURL, resolverPath }, { repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to add preview: ${message}`);
-		}
-		throw error;
-	}
+	await addPreview({ name: displayName, websiteURL, resolverPath }, { repo, token, host });
 
 	console.info(`Preview added: ${previewUrl}`);
 	console.info("Run `prismic preview set-simulator <url>` to set the slice simulator URL.");

@@ -1,12 +1,7 @@
 import { onTestFinished } from "vitest";
 
 import { it } from "./it";
-import {
-	deleteRepository,
-	getLocales,
-	getMCPActivationStatus,
-	getRepository,
-} from "./prismic";
+import { deleteRepository, getLocales, getMCPActivationStatus, getRepository } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("repo", ["create", "--help"]);

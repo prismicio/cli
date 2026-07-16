@@ -1,4 +1,4 @@
-import {isAbsolute, relative } from "node:path";
+import { isAbsolute, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export function appendTrailingSlash(url: string | URL): URL {
@@ -17,10 +17,10 @@ export function getExtension(url: URL): string | undefined {
 	return url.pathname.slice(dotIndex + 1).toLowerCase() || undefined;
 }
 
-  export function isDescendant(a: URL, b: URL): boolean {
-        const rel = relative(fileURLToPath(a), fileURLToPath(b));
-        if (!rel) return false; // same path, not a descendant
-        if (rel.startsWith("..")) return false; // outside parent
-        if (isAbsolute(rel)) return false; // different drive (Windows)
-        return true;
-  }
+export function isDescendant(a: URL, b: URL): boolean {
+	const rel = relative(fileURLToPath(a), fileURLToPath(b));
+	if (!rel) return false; // same path, not a descendant
+	if (rel.startsWith("..")) return false; // outside parent
+	if (isAbsolute(rel)) return false; // different drive (Windows)
+	return true;
+}

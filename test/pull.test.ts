@@ -1,7 +1,7 @@
+import { pascalCase } from "change-case";
 import { writeFile, mkdir } from "node:fs/promises";
 import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { pascalCase } from "change-case";
 import { x } from "tinyexec";
 
 import { buildCustomType, buildSlice, it } from "./it";

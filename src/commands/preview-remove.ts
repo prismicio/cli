@@ -1,8 +1,7 @@
-import { getHost, getToken } from "../auth";
-import { getPreviews, removePreview } from "../clients/core";
-import { resolveEnvironment } from "../environments";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { getPreviews, removePreview } from "../lib/prismic/clients/core";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -26,35 +25,17 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;
 	const { repo: parentRepo = await getRepositoryName(), env } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
-	let previews;
-	try {
-		previews = await getPreviews({ repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to remove preview: ${message}`);
-		}
-		throw error;
-	}
+	const previews = await getPreviews({ repo, token, host });
 
 	const preview = previews.find((p) => p.url === previewUrl);
 	if (!preview) {
 		throw new CommandError(`Preview not found: ${previewUrl}`);
 	}
 
-	try {
-		await removePreview(preview.id, { repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to remove preview: ${message}`);
-		}
-		throw error;
-	}
+	await removePreview(preview.id, { repo, token, host });
 
 	console.info(`Preview removed: ${previewUrl}`);
 });

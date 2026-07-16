@@ -1,7 +1,6 @@
-import { getHost, getToken } from "../auth";
-import { setRepositoryName } from "../clients/wroom";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { getCredentials } from "../auth";
+import { createCommand, type CommandConfig } from "../lib/command";
+import { setRepositoryName } from "../lib/prismic/clients/wroom";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -24,19 +23,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [displayName] = positionals;
 	const { repo = await getRepositoryName() } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 
-	let confirmedName;
-	try {
-		confirmedName = await setRepositoryName(displayName, { repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to set repository name: ${message}`);
-		}
-		throw error;
-	}
+	const confirmedName = await setRepositoryName(displayName, { repo, token, host });
 
 	console.info(`Repository name set to: ${confirmedName}`);
 });

@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
-import type { Profile } from "./clients/user";
+import type { Profile } from "./lib/prismic/clients/user";
 
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { detectAgent } from "./lib/ai";
