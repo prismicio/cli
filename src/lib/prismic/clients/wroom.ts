@@ -90,7 +90,7 @@ export async function updateWebhook(
 	await wroomRepoServiceRequest(url, config, {
 		method: "POST",
 		body,
-		notFoundMessage: "Webhook not found",
+		notFoundMessage: `Webhook not found: ${id}`,
 		unknownErrorMessage: "Failed to update webhook",
 	});
 }
@@ -103,7 +103,7 @@ export async function deleteWebhook(id: string, config: WroomConfig): Promise<vo
 	);
 	await wroomRepoServiceRequest(url, config, {
 		method: "POST",
-		notFoundMessage: "Webhook not found",
+		notFoundMessage: `Webhook not found: ${id}`,
 		unknownErrorMessage: "Failed to delete webhook",
 	});
 }
@@ -179,7 +179,7 @@ export async function deleteOAuthAuthorization(authId: string, config: WroomConf
 	);
 	await wroomRepoServiceRequest(url, config, {
 		method: "DELETE",
-		notFoundMessage: "Token not found",
+		notFoundMessage: `Token not found: ${authId}`,
 		unknownErrorMessage: "Failed to delete token",
 	});
 }
@@ -212,7 +212,7 @@ export async function deleteWriteToken(tokenValue: string, config: WroomConfig):
 	);
 	await wroomRepoServiceRequest(url, config, {
 		method: "DELETE",
-		notFoundMessage: `Token not found: ${tokenValue}`,
+		notFoundMessage: "Token not found",
 		unknownErrorMessage: "Failed to delete write token",
 	});
 }

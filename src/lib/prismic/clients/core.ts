@@ -57,7 +57,7 @@ export async function removePreview(id: string, config: CoreConfig): Promise<voi
 	await coreServiceRequest(url, config, {
 		method: "POST",
 		json: {},
-		notFoundMessage: "Preview not found",
+		notFoundMessage: `Preview not found: ${id}`,
 		unknownErrorMessage: "Failed to remove preview",
 	});
 }
