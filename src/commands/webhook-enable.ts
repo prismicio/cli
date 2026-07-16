@@ -1,8 +1,7 @@
+import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getWebhooks, updateWebhook } from "../lib/prismic/clients/wroom";
-import { resolveEnvironment } from "../lib/prismic/environments";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic webhook enable",
@@ -16,17 +15,19 @@ const config = {
 		url: { description: "Webhook URL", required: true },
 	},
 	options: {
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
-	const { repo: parentRepo = await getRepositoryName(), env } = values;
+	const {
+		env,
+		repo = env ?? (await getActiveRepositoryName()),
+	} = values;
 
 	const { token, host } = await getCredentials();
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 	const webhooks = await getWebhooks({ repo, token, host });
 
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);

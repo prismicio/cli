@@ -1,10 +1,9 @@
+import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getLocales } from "../lib/prismic/clients/locale";
-import { resolveEnvironment } from "../lib/prismic/environments";
 import { formatTable } from "../lib/string";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic locale list",
@@ -16,16 +15,19 @@ const config = {
 	`,
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: parentRepo = await getRepositoryName(), env, json } = values;
+	const {
+		env,
+		repo = env ?? (await getActiveRepositoryName()),
+		json,
+	} = values;
 
 	const { token, host } = await getCredentials();
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	const locales = await getLocales({ repo, token, host });
 

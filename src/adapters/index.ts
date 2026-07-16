@@ -17,7 +17,7 @@ import {
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
-import { addRoute, removeRoute, updateRoute } from "../project";
+import { addRoute, getRepositoryName, removeRoute, updateRoute } from "../project";
 import { findProjectRoot, getLibraries } from "../project";
 
 const TYPES_FILENAME = "prismicio-types.d.ts";
@@ -47,6 +47,11 @@ export class NoSupportedFrameworkError extends Error {
 	name = "NoSupportedFrameworkError";
 	message =
 		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
+}
+
+export async function getActiveRepositoryName(): Promise<string> {
+	const adapter = await getAdapter();
+	return (await adapter.getEnvironment()) ?? (await getRepositoryName());
 }
 
 export abstract class Adapter {

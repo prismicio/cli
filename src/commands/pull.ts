@@ -5,7 +5,6 @@ import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
-import { resolveEnvironment } from "../lib/prismic/environments";
 import { canonicalizeModel } from "../lib/prismic/models";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -20,21 +19,24 @@ const config = {
 	`,
 	options: {
 		force: { type: "boolean", short: "f", description: "Overwrite local changes" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { force = false, repo: parentRepo = await getRepositoryName(), env } = values;
+	const adapter = await getAdapter();
+
+	const {
+		force = false,
+		env,
+		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
+	} = values;
 
 	const { token, host } = await getCredentials();
-	const adapter = await getAdapter();
 	const projectRoot = await findProjectRoot();
 
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
-
-	console.info(`Pulling from repository: ${parentRepo}${env ? ` (env: ${env})` : ""}`);
+	console.info(`Pulling from repository: ${repo}`);
 
 	const [gitRoot, customTypeLibraries, sliceLibraries] = await Promise.all([
 		getGitRoot(projectRoot),
@@ -139,7 +141,7 @@ export default createCommand(config, async ({ values }) => {
 	await adapter.generateTypes();
 
 	await completeOnboardingStepsSilently({
-		repo: parentRepo,
+		repo,
 		token,
 		host,
 		stepIds: ["connectPrismic"],
