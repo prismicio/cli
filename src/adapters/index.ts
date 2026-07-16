@@ -6,7 +6,13 @@ import { pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { readJsonFile, writeFileRecursive } from "../lib/file";
+import {
+	readEnvFile,
+	readJsonFile,
+	setEnvFileVar,
+	unsetEnvFileVar,
+	writeFileRecursive,
+} from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
 import { appendTrailingSlash } from "../lib/url";
@@ -44,6 +50,8 @@ export class NoSupportedFrameworkError extends Error {
 
 export abstract class Adapter {
 	abstract readonly id: string;
+
+	abstract readonly environmentEnvVarName: string;
 
 	abstract onProjectInitialized(): Promise<void> | void;
 	abstract onSliceCreated(model: SharedSlice, library: URL): Promise<void> | void;
@@ -204,5 +212,24 @@ export abstract class Adapter {
 		});
 		await writeFileRecursive(output, types);
 		return output;
+	}
+
+	async getEnvironment(): Promise<string | undefined> {
+		const projectRoot = await findProjectRoot();
+		const envLocalPath = new URL(".env.local", projectRoot);
+		const envLocalVars = await readEnvFile(envLocalPath).catch(() => {});
+		return envLocalVars?.[this.environmentEnvVarName] || undefined;
+	}
+
+	async setEnvironment(environment: string): Promise<void> {
+		const projectRoot = await findProjectRoot();
+		const envLocalPath = new URL(".env.local", projectRoot);
+		await setEnvFileVar(envLocalPath, this.environmentEnvVarName, environment);
+	}
+
+	async unsetEnvironment(): Promise<void> {
+		const projectRoot = await findProjectRoot();
+		const envLocalPath = new URL(".env.local", projectRoot);
+		await unsetEnvFileVar(envLocalPath, this.environmentEnvVarName);
 	}
 }
