@@ -2,13 +2,14 @@ import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
-import { getCustomTypes, getSlices } from "../clients/custom-types";
-import { completeOnboardingStepsSilently } from "../clients/repository";
+import { getCredentials } from "../auth";
 import { env } from "../env";
-import { resolveEnvironment } from "../environments";
-import { createCommand, type CommandConfig } from "../lib/command";
+import { getErrorMessage } from "../error";
+import { createCommand, type CommandConfig, CommandError } from "../lib/command";
 import { diffArrays } from "../lib/diff";
+import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
 
@@ -37,8 +38,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo: parentRepo = await getRepositoryName(), env: envFlag } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const adapter = await getAdapter();
 
 	const repo = envFlag
@@ -133,10 +133,12 @@ export default createCommand(config, async ({ values }) => {
 			consecutiveErrors = 0;
 		} catch (error) {
 			consecutiveErrors++;
-			const message = error instanceof Error ? error.message : "Unknown error";
+			const message = (await getErrorMessage(error)) ?? "Unknown error";
 			console.error(`Error checking for changes: ${message}`);
 			if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-				throw new Error(`Too many consecutive errors (${MAX_CONSECUTIVE_ERRORS}), stopping watch.`);
+				throw new CommandError(
+					`Too many consecutive errors (${MAX_CONSECUTIVE_ERRORS}), stopping watch.`,
+				);
 			}
 		}
 

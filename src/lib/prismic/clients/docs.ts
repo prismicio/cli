@@ -1,0 +1,56 @@
+import * as z from "zod/mini";
+
+import { DEFAULT_PRISMIC_HOST, env } from "../../../env";
+import { request } from "../../request";
+
+const DocsIndexEntrySchema = z.object({
+	path: z.string(),
+	title: z.string(),
+	description: z.optional(z.string()),
+});
+type DocsIndexEntry = z.infer<typeof DocsIndexEntrySchema>;
+
+const DocsPageSchema = z.object({
+	path: z.string(),
+	title: z.string(),
+	description: z.optional(z.string()),
+	anchors: z.array(
+		z.object({
+			slug: z.string(),
+			excerpt: z.string(),
+		}),
+	),
+});
+type DocsPage = z.infer<typeof DocsPageSchema>;
+
+export async function getDocsIndex(): Promise<DocsIndexEntry[]> {
+	const url = new URL("api/index/", getDocsServiceUrl());
+	return request(url, {
+		schema: z.array(DocsIndexEntrySchema),
+		unknownErrorMessage: "Failed to fetch documentation index",
+	});
+}
+
+export async function getDocsPageIndex(path: string): Promise<DocsPage> {
+	const url = new URL(`api/index/${path}`, getDocsServiceUrl());
+	return request(url, {
+		schema: DocsPageSchema,
+		notFoundMessage: `Documentation page not found: ${path}`,
+		unknownErrorMessage: "Failed to fetch documentation index",
+	});
+}
+
+export async function getDocsPageContent(path: string): Promise<string> {
+	const url = new URL(path, getDocsServiceUrl());
+	return request(url, {
+		headers: { Accept: "text/markdown" },
+		schema: z.string(),
+		notFoundMessage: `Page not found: ${path}`,
+		unknownErrorMessage: "Failed to fetch documentation page",
+	});
+}
+
+function getDocsServiceUrl(): URL {
+	const host = env.PRISMIC_DOCS_HOST ?? DEFAULT_PRISMIC_HOST;
+	return new URL(`https://${host}/docs/`);
+}

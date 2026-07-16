@@ -84,3 +84,119 @@ it("adds a content relationship field with --field", async ({ expect, prismic, p
 		},
 	});
 });
+
+it("adds a content relationship field with grouped fields", async ({
+	expect,
+	prismic,
+	project,
+}) => {
+	const target = buildCustomType();
+	target.json.Main.authors = {
+		type: "Group",
+		config: {
+			label: "Authors",
+			fields: {
+				name: { type: "Text", config: { label: "Name" } },
+				role: { type: "Text", config: { label: "Role" } },
+			},
+		},
+	};
+	await writeLocalCustomType(project, target);
+
+	const owner = buildCustomType();
+	await writeLocalCustomType(project, owner);
+
+	const { exitCode } = await prismic("field", [
+		"add",
+		"content-relationship",
+		"my_link",
+		"--to-type",
+		owner.id,
+		"--custom-type",
+		target.id,
+		"--field",
+		"authors.name",
+		"--field",
+		"authors.role",
+	]);
+	expect(exitCode).toBe(0);
+
+	const updated = await readLocalCustomType(project, owner.id);
+	expect(updated.json.Main.my_link).toMatchObject({
+		config: {
+			customtypes: [
+				{
+					id: target.id,
+					fields: [{ id: "authors", fields: ["name", "role"] }],
+				},
+			],
+		},
+	});
+});
+
+it("adds a content relationship field with a nested relationship field", async ({
+	expect,
+	prismic,
+	project,
+}) => {
+	const nestedTarget = buildCustomType();
+	nestedTarget.json.Main.title = { type: "Text", config: { label: "Title" } };
+	await writeLocalCustomType(project, nestedTarget);
+
+	const target = buildCustomType();
+	target.json.Main.authors = {
+		type: "Group",
+		config: {
+			label: "Authors",
+			fields: {
+				author: {
+					type: "Link",
+					config: {
+						label: "Author",
+						select: "document",
+						customtypes: [nestedTarget.id],
+					},
+				},
+			},
+		},
+	};
+	await writeLocalCustomType(project, target);
+
+	const owner = buildCustomType();
+	await writeLocalCustomType(project, owner);
+
+	const { exitCode } = await prismic("field", [
+		"add",
+		"content-relationship",
+		"my_link",
+		"--to-type",
+		owner.id,
+		"--custom-type",
+		target.id,
+		"--field",
+		"authors.author.title",
+	]);
+	expect(exitCode).toBe(0);
+
+	const updated = await readLocalCustomType(project, owner.id);
+	expect(updated.json.Main.my_link).toMatchObject({
+		config: {
+			customtypes: [
+				{
+					id: target.id,
+					fields: [
+						{
+							id: "authors",
+							fields: [
+								{
+									id: "author",
+									customtypes: [{ id: nestedTarget.id, fields: ["title"] }],
+								},
+							],
+						},
+					],
+				},
+			],
+		},
+	});
+});

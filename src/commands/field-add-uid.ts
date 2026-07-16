@@ -1,14 +1,15 @@
 import type { UID } from "@prismicio/types-internal/lib/customtypes";
 
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { getPostFieldAddMessage, resolveModel } from "../models";
+import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
+import { createCommand, type CommandConfig } from "../lib/command";
+import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add uid",
 	description: "Add a UID field to a content type.",
 	options: {
-		"to-type": { type: "string", description: "Name of the target content type" },
-		tab: { type: "string", description: 'Content type tab name (default: "Main")' },
+		"to-type": TARGET_OPTIONS["to-type"],
+		tab: TARGET_OPTIONS.tab,
 		label: { type: "string", description: "Field label" },
 		placeholder: { type: "string", description: "Placeholder text" },
 	},
@@ -17,7 +18,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { label = "UID", placeholder } = values;
 
-	const [fields, saveModel, modelKind] = await resolveModel(values);
+	const { fields, fieldId, save } = await getNewFieldTarget("uid", values);
 
 	const field: UID = {
 		type: "UID",
@@ -27,12 +28,8 @@ export default createCommand(config, async ({ values }) => {
 		},
 	};
 
-	if ("uid" in fields) throw new CommandError('Field "uid" already exists.');
-	fields.uid = field;
-	await saveModel();
+	addField(fields, fieldId, field);
+	await save();
 
 	console.info("Field added: uid");
-
-	const targetId = values["to-type"]!;
-	console.info(getPostFieldAddMessage({ targetId, modelKind }));
 });

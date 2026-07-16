@@ -3,15 +3,23 @@ import * as z from "zod/mini";
 const USER_AGENT = "prismic-cli";
 
 type CustomRequestInit = Omit<RequestInit, "body" | "credentials"> & {
-	body?: RequestInit["body"] | Record<PropertyKey, unknown>;
 	credentials?: Record<string, string | undefined>;
+	notFoundMessage?: string;
+	unknownErrorMessage?: string;
 };
 
-export async function request<T>(
+type RequestBody = { body?: BodyInit | null; json?: never } | { body?: never; json?: unknown };
+
+export type RequestOptions<T = unknown> = CustomRequestInit &
+	RequestBody & {
+		schema?: z.ZodMiniType<T>;
+	};
+
+export async function request<T = unknown>(
 	input: RequestInfo | URL,
-	init: CustomRequestInit & { schema?: z.ZodMiniType<T> } = {},
+	init: RequestOptions<T> = {},
 ): Promise<T> {
-	const { credentials, ...otherInit } = init;
+	const { credentials, json, notFoundMessage, unknownErrorMessage, schema, ...requestInit } = init;
 
 	const headers = new Headers(init.headers);
 	if (!headers.has("Accept")) {
@@ -27,55 +35,61 @@ export async function request<T>(
 		}
 		headers.set("Cookie", cookies.join("; "));
 	}
-	if (!headers.has("Content-Type") && init.body) {
+	if ("json" in init && !headers.has("Content-Type")) {
 		headers.set("Content-Type", "application/json");
 	}
-	if (init.body instanceof FormData) {
-		headers.delete("Content-Type");
+
+	const body = "json" in init ? JSON.stringify(json) : init.body;
+
+	const response = await fetch(input, { ...requestInit, body, headers });
+
+	const rawBody = await response.text();
+	let value: unknown;
+	if (rawBody) {
+		try {
+			value = JSON.parse(rawBody);
+		} catch {
+			value = rawBody;
+		}
 	}
 
-	const body =
-		headers.get("Content-Type") === "application/json"
-			? JSON.stringify(init.body)
-			: (init.body as RequestInit["body"]);
-
-	const response = await fetch(input, { ...otherInit, body, headers });
-
-	const value = await response
-		.clone()
-		.json()
-		.catch(() => response.clone().text());
-
 	if (response.ok) {
-		if (init.schema) {
-			return z.parse(init.schema, value);
-		}
+		return schema ? z.parse(schema, value) : (value as T);
+	}
 
-		return value;
-	} else {
-		if (response.status === 400) throw new BadRequestError(response, value);
-		if (response.status === 401) throw new UnauthorizedRequestError(response);
-		if (response.status === 403) throw new ForbiddenRequestError(response);
-		if (response.status === 404) throw new NotFoundRequestError(response);
-		throw new UnknownRequestError(response);
+	switch (response.status) {
+		case 400:
+			throw new BadRequestError(response, value, rawBody);
+		case 401:
+			throw new UnauthorizedRequestError(response, value, rawBody);
+		case 403:
+			throw new ForbiddenRequestError(response, value, rawBody);
+		case 404:
+			throw new NotFoundRequestError(response, value, rawBody, notFoundMessage);
+		default:
+			throw new UnknownRequestError(response, value, rawBody, unknownErrorMessage);
 	}
 }
 
 export class RequestError extends Error {
 	name = "RequestError";
 	response: Response;
+	body: unknown;
+	#rawBody: string;
 
-	constructor(response: Response) {
-		super(`fetch failed: ${response.url}`);
+	constructor(response: Response, body: unknown, rawBody: string, message?: string) {
+		super(message);
 		this.response = response;
+		this.body = body;
+		this.#rawBody = rawBody;
 	}
 
 	async text(): Promise<string> {
-		return this.response.clone().text();
+		return this.#rawBody;
 	}
 
 	async json(): Promise<unknown> {
-		return this.response.clone().json();
+		return JSON.parse(this.#rawBody);
 	}
 
 	get status(): number {
@@ -89,22 +103,23 @@ export class RequestError extends Error {
 
 export class UnknownRequestError extends RequestError {
 	name = "UnknownRequestError";
+
+	constructor(response: Response, body: unknown, rawBody: string, message = "") {
+		super(response, body, rawBody, message);
+	}
 }
 export class BadRequestError extends RequestError {
 	name = "BadRequestError";
-	body: unknown;
-
-	constructor(response: Response, body: unknown) {
-		super(response);
-		this.body = body;
-	}
 }
 export class NotFoundRequestError extends RequestError {
 	name = "NotFoundRequestError";
-
-	constructor(response: Response) {
-		super(response);
-		this.message = "";
+	constructor(
+		response: Response,
+		body: unknown,
+		rawBody: string,
+		message = "The requested resource was not found.",
+	) {
+		super(response, body, rawBody, message);
 	}
 }
 export class ForbiddenRequestError extends RequestError {

@@ -138,7 +138,8 @@ export async function listScreenshotFiles(config: RepoConfig): Promise<string[]>
 	const res = await fetch(url, {
 		headers: { Authorization: `Bearer ${config.token}` },
 	});
-	if (!res.ok) throw new Error(`Failed to list screenshot files: ${res.status} ${await res.text()}`);
+	if (!res.ok)
+		throw new Error(`Failed to list screenshot files: ${res.status} ${await res.text()}`);
 	const data = (await res.json()) as { keys: string[] };
 	return data.keys;
 }
@@ -406,4 +407,17 @@ export async function getRepositoryAccess(config: RepoConfig): Promise<string> {
 		throw new Error(`Failed to get repository access: ${res.status} ${await res.text()}`);
 	const data = await res.json();
 	return data.repository.api_access;
+}
+
+export async function getMCPActivationStatus(config: RepoConfig): Promise<string> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("mcp/activation", `https://api.internal.${host}/`);
+	url.searchParams.set("repository", config.repo);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok)
+		throw new Error(`Failed to get MCP activation status: ${res.status} ${await res.text()}`);
+	const data = await res.json();
+	return data.status;
 }

@@ -2,13 +2,9 @@ import type { Number as NumberField } from "@prismicio/types-internal/lib/custom
 
 import { capitalCase } from "change-case";
 
+import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import {
-	getPostFieldAddMessage,
-	resolveFieldTarget,
-	resolveModel,
-	TARGET_OPTIONS,
-} from "../models";
+import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add number",
@@ -34,8 +30,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const max = parseNumber(values.max, "max");
 	const step = parseNumber(values.step, "step");
 
-	const [fields, saveModel, modelKind] = await resolveModel(values);
-	const [targetFields, fieldId] = resolveFieldTarget(fields, id);
+	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
 	const field: NumberField = {
 		type: "Number",
@@ -48,14 +43,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 		},
 	};
 
-	if (fieldId in targetFields) throw new CommandError(`Field "${id}" already exists.`);
-	targetFields[fieldId] = field;
-	await saveModel();
+	addField(fields, fieldId, field);
+	await save();
 
 	console.info(`Field added: ${id}`);
-
-	const targetId = values["to-slice"] ?? values["to-type"]!;
-	console.info(getPostFieldAddMessage({ targetId, modelKind }));
 });
 
 function parseNumber(value: string | undefined, optionName: string): number | undefined {

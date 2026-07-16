@@ -1,8 +1,7 @@
-import { getHost, getToken } from "../auth";
-import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -52,19 +51,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 	}
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
-	let webhooks;
-	try {
-		webhooks = await getWebhooks({ repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to update webhook triggers: ${message}`);
-		}
-		throw error;
-	}
+	const webhooks = await getWebhooks({ repo, token, host });
 
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
@@ -73,27 +62,19 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const id = webhook.config._id;
 
-	try {
-		await updateWebhook(
-			id,
-			{
-				...webhook.config,
-				documentsPublished: trigger.includes("documentsPublished"),
-				documentsUnpublished: trigger.includes("documentsUnpublished"),
-				releasesCreated: trigger.includes("releasesCreated"),
-				releasesUpdated: trigger.includes("releasesUpdated"),
-				tagsCreated: trigger.includes("tagsCreated"),
-				tagsDeleted: trigger.includes("tagsDeleted"),
-			},
-			{ repo, token, host },
-		);
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to update webhook triggers: ${message}`);
-		}
-		throw error;
-	}
+	await updateWebhook(
+		id,
+		{
+			...webhook.config,
+			documentsPublished: trigger.includes("documentsPublished"),
+			documentsUnpublished: trigger.includes("documentsUnpublished"),
+			releasesCreated: trigger.includes("releasesCreated"),
+			releasesUpdated: trigger.includes("releasesUpdated"),
+			tagsCreated: trigger.includes("tagsCreated"),
+			tagsDeleted: trigger.includes("tagsDeleted"),
+		},
+		{ repo, token, host },
+	);
 
 	console.info(`Webhook triggers updated: ${trigger.join(", ")}`);
 });

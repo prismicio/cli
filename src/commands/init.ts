@@ -1,14 +1,14 @@
-import type { Profile } from "../clients/user";
+import type { Profile } from "../lib/prismic/clients/user";
 
 import { getAdapter } from "../adapters";
-import { createLoginSession, getHost, getToken } from "../auth";
-import { getCustomTypes, getSlices } from "../clients/custom-types";
-import { getProfile } from "../clients/user";
+import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { installDependencies, readPackageJson, removeDependencies } from "../lib/packageJson";
+import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { getProfile } from "../lib/prismic/clients/user";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
 	createConfig,
@@ -52,12 +52,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const {
-		repo: explicitRepo,
-		lang,
-		"no-browser": noBrowser,
-		"no-setup": noSetup,
-	} = values;
+	const { repo: explicitRepo, lang, "no-browser": noBrowser, "no-setup": noSetup } = values;
 
 	// Check for existing prismic.config.json
 	try {
@@ -83,8 +78,8 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	let token = await getToken();
-	const host = await getHost();
+	const { host, token: initialToken } = await getCredentials();
+	let token = initialToken;
 	let profile: Profile;
 	try {
 		profile = await getProfile({ token, host });
@@ -108,7 +103,8 @@ export default createCommand(config, async ({ values }) => {
 				},
 			});
 			console.info(`Logged in as ${email}`);
-			token = await getToken();
+			const loggedIn = await getCredentials();
+			token = loggedIn.token;
 			profile = await getProfile({ token, host });
 		} else {
 			throw error;
@@ -126,7 +122,7 @@ export default createCommand(config, async ({ values }) => {
 
 		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
 		if (!isTypeBuilderEnabled) {
-			throw new TypeBuilderRequiredError();
+			throw new TypeBuilderRequiredError(repo, host);
 		}
 	}
 

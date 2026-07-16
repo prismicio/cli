@@ -1,13 +1,12 @@
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import {
 	deleteOAuthAuthorization,
 	deleteWriteToken,
 	getOAuthApps,
 	getWriteTokens,
-} from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+} from "../lib/prismic/clients/wroom";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -31,38 +30,19 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [tokenValue] = positionals;
 	const { repo: parentRepo = await getRepositoryName(), env } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
-	let apps;
-	let writeTokensInfo;
-	try {
-		[apps, writeTokensInfo] = await Promise.all([
-			getOAuthApps({ repo, token, host }),
-			getWriteTokens({ repo, token, host }),
-		]);
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to delete token: ${message}`);
-		}
-		throw error;
-	}
+	const [apps, writeTokensInfo] = await Promise.all([
+		getOAuthApps({ repo, token, host }),
+		getWriteTokens({ repo, token, host }),
+	]);
 
 	// Search access tokens
 	const accessTokenAuths = apps.flatMap((app) => app.wroom_auths);
 	const accessToken = accessTokenAuths.find((auth) => auth.token === tokenValue);
 	if (accessToken) {
-		try {
-			await deleteOAuthAuthorization(accessToken.id, { repo, token, host });
-		} catch (error) {
-			if (error instanceof UnknownRequestError) {
-				const message = await error.text();
-				throw new CommandError(`Failed to delete token: ${message}`);
-			}
-			throw error;
-		}
+		await deleteOAuthAuthorization(accessToken.id, { repo, token, host });
 		console.info("Token deleted");
 		return;
 	}
@@ -70,15 +50,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	// Search write tokens
 	const writeToken = writeTokensInfo.tokens.find((t) => t.token === tokenValue);
 	if (writeToken) {
-		try {
-			await deleteWriteToken(writeToken.token, { repo, token, host });
-		} catch (error) {
-			if (error instanceof UnknownRequestError) {
-				const message = await error.text();
-				throw new CommandError(`Failed to delete token: ${message}`);
-			}
-			throw error;
-		}
+		await deleteWriteToken(writeToken.token, { repo, token, host });
 		console.info("Token deleted");
 		return;
 	}

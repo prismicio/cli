@@ -1,8 +1,7 @@
-import { getHost, getToken } from "../auth";
-import { removeLocale } from "../clients/locale";
-import { resolveEnvironment } from "../environments";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { getCredentials } from "../auth";
+import { createCommand, type CommandConfig } from "../lib/command";
+import { removeLocale } from "../lib/prismic/clients/locale";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -26,19 +25,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [code] = positionals;
 	const { repo: parentRepo = await getRepositoryName(), env } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
-	try {
-		await removeLocale(code, { repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to remove locale: ${message}`);
-		}
-		throw error;
-	}
+	await removeLocale(code, { repo, token, host });
 
 	console.info(`Locale removed: ${code}`);
 });

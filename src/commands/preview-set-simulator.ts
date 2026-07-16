@@ -1,8 +1,7 @@
-import { getHost, getToken } from "../auth";
-import { setSimulatorUrl } from "../clients/core";
-import { resolveEnvironment } from "../environments";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { setSimulatorUrl } from "../lib/prismic/clients/core";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -44,19 +43,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 	const simulatorUrl = parsed.toString();
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
-	try {
-		await setSimulatorUrl(simulatorUrl, { repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to set simulator URL: ${message}`);
-		}
-		throw error;
-	}
+	await setSimulatorUrl(simulatorUrl, { repo, token, host });
 
 	console.info(`Simulator URL set: ${simulatorUrl}`);
 });

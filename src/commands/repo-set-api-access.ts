@@ -1,7 +1,6 @@
-import { getHost, getToken } from "../auth";
-import { type RepositoryAccessLevel, setRepositoryAccess } from "../clients/wroom";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { type RepositoryAccessLevel, setRepositoryAccess } from "../lib/prismic/clients/wroom";
 import { getRepositoryName } from "../project";
 
 const VALID_LEVELS: RepositoryAccessLevel[] = ["private", "public", "open"];
@@ -32,18 +31,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 		);
 	}
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 
-	try {
-		await setRepositoryAccess(level as RepositoryAccessLevel, { repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to set repository access: ${message}`);
-		}
-		throw error;
-	}
+	await setRepositoryAccess(level as RepositoryAccessLevel, { repo, token, host });
 
 	console.info(`Repository access set to: ${level}`);
 });

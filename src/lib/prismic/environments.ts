@@ -1,3 +1,4 @@
+import { dedent } from "../string";
 import { type Environment, getEnvironments } from "./clients/core";
 import { getProfile } from "./clients/user";
 
@@ -29,7 +30,18 @@ export class InvalidEnvironmentError extends Error {
 	env: string;
 	availableEnvironments: Environment[];
 	constructor(env: string, availableEnvironments: Environment[], repo: string) {
-		super();
+		if (availableEnvironments.length === 1 && repo === availableEnvironments[0].domain) {
+			super(`No environments available on repository "${repo}".`);
+		} else {
+			const list = availableEnvironments.map((environment) => environment.domain).join("\n");
+			super(dedent`
+				Environment "${env}" not found on repository "${repo}".
+
+				Available environments:
+				  ${list}
+			`);
+		}
+
 		this.repo = repo;
 		this.env = env;
 		this.availableEnvironments = availableEnvironments;

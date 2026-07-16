@@ -1,8 +1,7 @@
-import { getHost, getToken } from "../auth";
-import { getWebhooks, updateWebhook } from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
+import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { UnknownRequestError } from "../lib/request";
+import { getWebhooks, updateWebhook } from "../lib/prismic/clients/wroom";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -26,19 +25,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
 	const { repo: parentRepo = await getRepositoryName(), env } = values;
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
-	let webhooks;
-	try {
-		webhooks = await getWebhooks({ repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to enable webhook: ${message}`);
-		}
-		throw error;
-	}
+	const webhooks = await getWebhooks({ repo, token, host });
 
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
@@ -55,15 +44,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const updatedConfig = structuredClone(webhook.config);
 	updatedConfig.active = true;
 
-	try {
-		await updateWebhook(id, updatedConfig, { repo, token, host });
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to enable webhook: ${message}`);
-		}
-		throw error;
-	}
+	await updateWebhook(id, updatedConfig, { repo, token, host });
 
 	console.info(`Webhook enabled: ${webhookUrl}`);
 });

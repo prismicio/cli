@@ -1,6 +1,6 @@
 import { createLoginSession } from "../auth";
-import { createCommand, type CommandConfig } from "../lib/command";
 import { openBrowser } from "../lib/browser";
+import { createCommand, type CommandConfig } from "../lib/command";
 
 const config = {
 	name: "prismic login",

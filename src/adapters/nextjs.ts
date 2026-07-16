@@ -6,10 +6,15 @@ import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Adapter } from ".";
-import { getHost, getToken } from "../auth";
-import { addPreview, getPreviews, getSimulatorUrl, setSimulatorUrl } from "../clients/core";
+import { getCredentials } from "../auth";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
+import {
+	addPreview,
+	getPreviews,
+	getSimulatorUrl,
+	setSimulatorUrl,
+} from "../lib/prismic/clients/core";
 import { dedent } from "../lib/string";
 import { appendTrailingSlash } from "../lib/url";
 import { buildRoutePath, getRepositoryName } from "../project";
@@ -42,8 +47,7 @@ export class NextJsAdapter extends Adapter {
 
 	async onProjectInitialized(): Promise<void> {
 		const repo = await getRepositoryName();
-		const token = await getToken();
-		const host = await getHost();
+		const { token, host } = await getCredentials();
 
 		const simulatorUrl = await getSimulatorUrl({ repo, token, host });
 		if (!simulatorUrl) {

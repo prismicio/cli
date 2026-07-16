@@ -1,14 +1,13 @@
-import { getHost, getToken } from "../auth";
+import { getCredentials } from "../auth";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { stringify } from "../lib/json";
 import {
 	createOAuthAuthorization,
 	createOAuthApp,
 	createWriteToken,
 	getOAuthApps,
-} from "../clients/wroom";
-import { resolveEnvironment } from "../environments";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { stringify } from "../lib/json";
-import { UnknownRequestError } from "../lib/request";
+} from "../lib/prismic/clients/wroom";
+import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 
 const CLI_APP_NAME = "Prismic CLI";
@@ -52,33 +51,24 @@ export default createCommand(config, async ({ values }) => {
 		throw new CommandError("--allow-releases is only valid for access tokens (not with --write)");
 	}
 
-	const token = await getToken();
-	const host = await getHost();
+	const { token, host } = await getCredentials();
 	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	let createdToken: string;
 	let scope: string | undefined;
-	try {
-		if (write) {
-			const writeToken = await createWriteToken(name, { repo, token, host });
-			createdToken = writeToken.token;
-		} else {
-			scope = allowReleases ? "master+releases" : "master";
+	if (write) {
+		const writeToken = await createWriteToken(name, { repo, token, host });
+		createdToken = writeToken.token;
+	} else {
+		scope = allowReleases ? "master+releases" : "master";
 
-			// Find or create the OAuth app.
-			const apps = await getOAuthApps({ repo, token, host });
-			let app = apps.find((a) => a.name === name);
-			if (!app) app = await createOAuthApp(name, { repo, token, host });
+		// Find or create the OAuth app.
+		const apps = await getOAuthApps({ repo, token, host });
+		let app = apps.find((a) => a.name === name);
+		if (!app) app = await createOAuthApp(name, { repo, token, host });
 
-			const accessToken = await createOAuthAuthorization(app.id, scope, { repo, token, host });
-			createdToken = accessToken.token;
-		}
-	} catch (error) {
-		if (error instanceof UnknownRequestError) {
-			const message = await error.text();
-			throw new CommandError(`Failed to create token: ${message}`);
-		}
-		throw error;
+		const accessToken = await createOAuthAuthorization(app.id, scope, { repo, token, host });
+		createdToken = accessToken.token;
 	}
 
 	if (json) {
