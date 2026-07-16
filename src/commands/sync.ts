@@ -5,7 +5,7 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { env } from "../env";
 import { getErrorMessage } from "../error";
-import { createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig, CommandError } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
@@ -136,7 +136,9 @@ export default createCommand(config, async ({ values }) => {
 			const message = (await getErrorMessage(error)) ?? "Unknown error";
 			console.error(`Error checking for changes: ${message}`);
 			if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-				throw new Error(`Too many consecutive errors (${MAX_CONSECUTIVE_ERRORS}), stopping watch.`);
+				throw new CommandError(
+					`Too many consecutive errors (${MAX_CONSECUTIVE_ERRORS}), stopping watch.`,
+				);
 			}
 		}
 
