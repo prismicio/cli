@@ -124,7 +124,6 @@ export async function deleteScreenshots(sliceId: string, config: CustomTypesConf
 	await screenshotServiceRequest(url, config, {
 		method: "POST",
 		json: { sliceId },
-		unknownErrorMessage: `Failed to delete screenshots for slice "${sliceId}"`,
 	});
 }
 
