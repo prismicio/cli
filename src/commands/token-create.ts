@@ -1,3 +1,4 @@
+import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
@@ -7,8 +8,6 @@ import {
 	createWriteToken,
 	getOAuthApps,
 } from "../lib/prismic/clients/wroom";
-import { resolveEnvironment } from "../lib/prismic/environments";
-import { getRepositoryName } from "../project";
 
 const CLI_APP_NAME = "Prismic CLI";
 
@@ -32,15 +31,15 @@ const config = {
 			description: `Name to identify the token (default: "${CLI_APP_NAME}")`,
 		},
 		json: { type: "boolean", description: "Output as JSON" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
 	const {
-		repo: parentRepo = await getRepositoryName(),
 		env,
+		repo = env ?? (await getActiveRepositoryName()),
 		write,
 		"allow-releases": allowReleases,
 		name = CLI_APP_NAME,
@@ -52,7 +51,6 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const { token, host } = await getCredentials();
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	let createdToken: string;
 	let scope: string | undefined;

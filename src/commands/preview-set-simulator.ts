@@ -1,8 +1,7 @@
+import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { setSimulatorUrl } from "../lib/prismic/clients/core";
-import { resolveEnvironment } from "../lib/prismic/environments";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic preview set-simulator",
@@ -22,14 +21,17 @@ const config = {
 		},
 	},
 	options: {
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [urlArg] = positionals;
-	const { repo: parentRepo = await getRepositoryName(), env } = values;
+	const {
+		env,
+		repo = env ?? (await getActiveRepositoryName()),
+	} = values;
 
 	let parsed: URL;
 	try {
@@ -44,7 +46,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const simulatorUrl = parsed.toString();
 
 	const { token, host } = await getCredentials();
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 
 	await setSimulatorUrl(simulatorUrl, { repo, token, host });
 

@@ -1,8 +1,7 @@
+import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
-import { resolveEnvironment } from "../lib/prismic/environments";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic webhook set-triggers",
@@ -23,8 +22,8 @@ const config = {
 			description: "Trigger events (can be repeated)",
 			required: true,
 		},
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 	sections: {
 		TRIGGERS: `
@@ -40,7 +39,11 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
-	const { repo: parentRepo = await getRepositoryName(), env, trigger = [] } = values;
+	const {
+		env,
+		repo = env ?? (await getActiveRepositoryName()),
+		trigger = [],
+	} = values;
 
 	// Validate triggers
 	for (const t of trigger) {
@@ -52,7 +55,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	const { token, host } = await getCredentials();
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
 	const webhooks = await getWebhooks({ repo, token, host });
 
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);

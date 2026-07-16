@@ -23,7 +23,6 @@ import {
 	completeOnboardingStepsSilently,
 	type OnboardingStep,
 } from "../lib/prismic/clients/repository";
-import { resolveEnvironment } from "../lib/prismic/environments";
 import { canonicalizeModel } from "../lib/prismic/models";
 import { BadRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
@@ -39,21 +38,24 @@ const config = {
 	`,
 	options: {
 		force: { type: "boolean", short: "f", description: "Skip safety checks" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { force = false, repo: parentRepo = await getRepositoryName(), env } = values;
+	const adapter = await getAdapter();
+
+	const {
+		force = false,
+		env,
+		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
+	} = values;
 
 	const { token, host } = await getCredentials();
-	const adapter = await getAdapter();
 	const projectRoot = await findProjectRoot();
 
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
-
-	console.info(`Pushing to repository: ${parentRepo}${env ? ` (env: ${env})` : ""}`);
+	console.info(`Pushing to repository: ${repo}`);
 
 	const [gitRoot, customTypeLibraries, sliceLibraries] = await Promise.all([
 		getGitRoot(projectRoot),
@@ -164,7 +166,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 	if (onboardingSteps.length > 0) {
 		await completeOnboardingStepsSilently({
-			repo: parentRepo,
+			repo,
 			token,
 			host,
 			stepIds: onboardingSteps,
