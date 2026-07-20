@@ -3,6 +3,7 @@
 // [E]fficiency, [N]egative.
 
 import dedent from "dedent";
+
 import {
 	buildCustomType,
 	readLocalCustomType,
@@ -41,9 +42,7 @@ it("models a page type with sensible field types", async ({ project, agent, expe
 	const author = buildCustomType({ id: "author", label: "Author" });
 	await writeLocalCustomType(project, author);
 
-	await agent(
-		`model a Prismic blog post: a title, publish date, hero image, author, and body`,
-	);
+	await agent(`model a Prismic blog post: a title, publish date, hero image, author, and body`);
 
 	const models = (await readLocalCustomTypes(project)).filter((model) => model.id !== author.id);
 
@@ -51,6 +50,7 @@ it("models a page type with sensible field types", async ({ project, agent, expe
 		dedent`
 			These are Prismic models. Are the models sensible for a blog post? Expect a rich text title, a date or timestamp for the publish date, a content relationship for the author, an image for the hero, and rich text for the body.
 		`,
+		0,
 	);
 });
 
@@ -60,7 +60,11 @@ it("models a page type with sensible field types", async ({ project, agent, expe
 // Right field type for the job: designs that tempt a wrong choice (a "rating" ->
 // number vs select; a "CTA" -> link vs separate text+url). Judge the
 // appropriateness. [Q]
-it("models a title as single-heading rich text and a social media handle as key text", async ({ project, agent, expect }) => {
+it("models a title as single-heading rich text and a social media handle as key text", async ({
+	project,
+	agent,
+	expect,
+}) => {
 	const customType = buildCustomType({ id: "blog_post", label: "Blog Post" });
 	await writeLocalCustomType(project, customType);
 	await agent(`Set up the "blog_post" type: it needs a title and the author's Bluesky handle.`);
@@ -73,6 +77,7 @@ it("models a title as single-heading rich text and a social media handle as key 
 			The Bluesky handle should be key text (type "Text"): a short single-line string with no formatting.
 			Score high only if both match; penalize key text (or plain rich text with no single-heading limit) for the title, and rich text for the handle.
 		`,
+		0.5,
 	);
 });
 

@@ -53,7 +53,7 @@ export default defineConfig({
 						{
 							test: {
 								name: "evals",
-								setupFiles: ["./test/setup.ts", "./eval/setup.ts"],
+								setupFiles: ["./test/setup.ts"],
 								include: ["./eval/**/*.eval.ts"],
 								sequence: { concurrent: false },
 								fileParallelism: false,
