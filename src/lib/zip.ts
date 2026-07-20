@@ -1,4 +1,4 @@
-import { unzip } from "fflate";
+import { unzipSync } from "fflate";
 import { mkdir, mkdtemp, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, win32 } from "node:path";
 
@@ -10,7 +10,7 @@ export async function extractZip(data: Uint8Array, destination: string): Promise
 	const temporaryDirectory = await mkdtemp(join(parent, `.${basename(destination)}-`));
 
 	try {
-		const files = await unzipArchive(data);
+		const files = unzipSync(data);
 		for (const [entryName, contents] of Object.entries(files)) {
 			const relativePath = normalizeEntryPath(entryName);
 			if (!relativePath) continue;
@@ -45,18 +45,6 @@ async function assertEmptyOrMissingDirectory(destination: string): Promise<void>
 		if (isMissingFileError(error)) return;
 		throw error;
 	}
-}
-
-function unzipArchive(data: Uint8Array): Promise<Record<string, Uint8Array>> {
-	return new Promise((resolve, reject) => {
-		unzip(data, (error, files) => {
-			if (error) {
-				reject(error);
-			} else {
-				resolve(files);
-			}
-		});
-	});
 }
 
 function normalizeEntryPath(entryName: string): string {

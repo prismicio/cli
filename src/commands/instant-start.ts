@@ -32,11 +32,6 @@ const config = {
 
 export default createCommand(config, async ({ values }) => {
 	const { export: repositoryToExport } = values;
-	await runInstantStart({ repositoryToExport });
-});
-
-export async function runInstantStart(options: { repositoryToExport?: string }): Promise<void> {
-	const { repositoryToExport } = options;
 	const { token, host } = await getCredentials();
 
 	console.info("Checking Prismic login...");
@@ -106,7 +101,7 @@ Run:
 		}
 		throw error;
 	}
-}
+});
 
 function assertRepositoryName(repositoryId: string): void {
 	if (!/^[a-z0-9][a-z0-9-]*$/.test(repositoryId)) {

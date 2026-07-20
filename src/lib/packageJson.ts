@@ -15,8 +15,8 @@ const PackageJsonSchema = z.object({
 });
 type PackageJson = z.infer<typeof PackageJsonSchema>;
 
-export async function readPackageJson(config: { start?: URL } = {}): Promise<PackageJson> {
-	const packageJsonPath = await findPackageJson(config);
+export async function readPackageJson(): Promise<PackageJson> {
+	const packageJsonPath = await findPackageJson();
 	const packageJson = await readJsonFile(packageJsonPath, { schema: PackageJsonSchema });
 	return packageJson;
 }
