@@ -18,6 +18,7 @@ export type Fixtures = {
 	host: string;
 	home: URL;
 	project: URL;
+	exec: typeof x;
 	prismic: typeof x;
 	login: () => Promise<{ token: string; email: string }>;
 	logout: () => Promise<void>;
@@ -94,12 +95,11 @@ export const it = test.extend<Fixtures>({
 			await rm(new URL(".config/prismic/credentials.json", home), { force: true });
 		});
 	},
-	prismic: async ({ home, project, login }, use) => {
-		await login();
+	exec: async ({ project, home }, use) => {
 		const binDir = new URL("bin/", home);
 		const configDir = new URL(".config/prismic/", home);
 		const procs: Result[] = [];
-		await use((command, args = [], options) => {
+		await use((command, args, options) => {
 			const env = {
 				...process.env,
 				PRISMIC_TYPE_BUILDER_ENABLED: "true",
@@ -111,7 +111,7 @@ export const it = test.extend<Fixtures>({
 				PATH: `${fileURLToPath(binDir)}:${process.env.PATH}`,
 				HOME: fileURLToPath(home),
 			};
-			const proc = x("node", [BIN, command, ...args].filter(Boolean), {
+			const proc = x(command, args, {
 				...options,
 				nodeOptions: {
 					cwd: fileURLToPath(project),
@@ -125,6 +125,12 @@ export const it = test.extend<Fixtures>({
 		for (const proc of procs) {
 			if (proc.exitCode === undefined) proc.kill();
 		}
+	},
+	prismic: async ({ exec, login }, use) => {
+		await login();
+		await use((command, args = [], options) =>
+			exec("node", [BIN, command, ...args].filter(Boolean), options),
+		);
 	},
 	// oxlint-disable-next-line no-empty-pattern
 	password: async ({}, use) => {
