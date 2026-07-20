@@ -33,6 +33,9 @@
 		"unit:watch": "concurrently --raw --kill-others \"cross-env MODE=test tsdown --watch --logLevel=warn\" \"vitest watch\"",
 		"test": "npm run lint && npm run types && npm run unit"
 	},
+	"dependencies": {
+		"fflate": "^0.8.3"
+	},
 	"devDependencies": {
 		"@prismicio/types-internal": "3.16.1",
 		"@types/node": "25.0.9",
