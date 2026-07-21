@@ -33,6 +33,17 @@ export async function createRepository(domain: string, config: AuthConfig): Prom
 		throw new Error(`Failed to create repository ${domain}: ${res.status} ${await res.text()}`);
 }
 
+export async function listRepositories(config: AuthConfig): Promise<string[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("profile", `https://user-service.${host}/`);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok) throw new Error(`Failed to list repositories: ${res.status} ${await res.text()}`);
+	const data = await res.json();
+	return data.repositories.map((repository: { domain: string }) => repository.domain);
+}
+
 export async function deleteRepository(
 	domain: string,
 	config: AuthConfig & { password: string },

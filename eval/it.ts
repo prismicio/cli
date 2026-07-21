@@ -59,7 +59,11 @@ declare module "vitest" {
 
 export const it = base.extend<{
 	agent: (prompt: string) => Promise<string[]>;
+	repo: string;
 }>({
+	// Evals run concurrently and agents may push to or mutate the repository,
+	// so each test gets its own instead of the shared one.
+	repo: async ({ isolatedRepo }, use) => use(isolatedRepo),
 	agent: async ({ home, project, login, task }, use) => {
 		await login();
 

@@ -9,6 +9,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { x } from "tinyexec";
 import { inject, test } from "vitest";
 
+import { createRepository, deleteRepository, upsertLocale } from "./prismic";
+
 const BIN = fileURLToPath(new URL("../dist/index.mjs", import.meta.url));
 
 const E2E_PRISMIC_EMAIL = process.env.E2E_PRISMIC_EMAIL!;
@@ -25,6 +27,22 @@ export type Fixtures = {
 	token: string;
 	password: string;
 	repo: string;
+	/**
+	 * A throwaway repository created for a single test. Swap it in for `repo` to
+	 * isolate tests from the shared repository.
+	 *
+	 * @example
+	 * ```ts
+	 * describe("locales", () => {
+	 * 	it.scoped({ repo: async ({ isolatedRepo }, use) => use(isolatedRepo) });
+	 *
+	 * 	it("adds a locale", async ({ prismic, repo }) => {
+	 * 		// `repo` is a fresh repository unique to this test.
+	 * 	});
+	 * });
+	 * ```
+	 */
+	isolatedRepo: string;
 };
 
 export const it = test.extend<Fixtures>({
@@ -139,6 +157,13 @@ export const it = test.extend<Fixtures>({
 	// oxlint-disable-next-line no-empty-pattern
 	repo: async ({}, use) => {
 		await use(inject("repo"));
+	},
+	isolatedRepo: async ({ token, host, password }, use) => {
+		const repo = `prismic-cli-isolated-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+		await createRepository(repo, { token, host });
+		await upsertLocale("en-us", { isMaster: true, repo, token, host });
+		await use(repo);
+		await deleteRepository(repo, { token, password, host });
 	},
 });
 
