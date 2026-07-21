@@ -1,4 +1,6 @@
-// Drafts are it.skip; enable evals as they are validated.
+// Evals are measurements, not gates: an enabled eval may fail, and its pass
+// rate is the signal. Drafts start as it.skip until validated once; keep an
+// eval skipped only when the CLI cannot pass it (missing feature).
 
 import dedent from "dedent";
 import { readdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -14,10 +16,12 @@ import {
 	writeLocalSlice,
 } from "../test/it";
 import {
+	addPreview,
 	getAccessTokens,
 	getCustomTypes,
 	getLocales,
 	getPreviews,
+	getRepository,
 	getWebhooks,
 	insertCustomType,
 } from "../test/prismic";
@@ -50,6 +54,21 @@ it.for(trials)(
 		expect(config.repositoryName).toBeTruthy();
 		const page = await readFile(new URL("app/page.tsx", project), "utf8");
 		expect(page).toContain("KEEP-ME");
+	},
+);
+
+it.for(trials)(
+	"initializes with an existing repository",
+	async (_, { project, agent, expect, repo }) => {
+		await rm(new URL("prismic.config.json", project));
+
+		const result = await agent(
+			`Set up Prismic in this project using the existing "${repo}" Prismic repository.`,
+		);
+
+		expect(result).toHaveRun("prismic", ["init"]);
+		const config = JSON.parse(await readFile(new URL("prismic.config.json", project), "utf8"));
+		expect(config.repositoryName).toBe(repo);
 	},
 );
 
@@ -97,6 +116,22 @@ it.for(trials)(
 );
 
 it.for(trials)(
+	"models pages as page types and data as custom types",
+	async (_, { project, agent, expect }) => {
+		const result = await agent(`Model a landing page and a global navigation menu.`);
+
+		expect(result).toHaveRun("prismic", ["type", "create"]);
+		const models = await readLocalCustomTypes(project);
+		const landingPage = models.find((model) => /landing/.test(model.id));
+		const navigation = models.find((model) => /nav/.test(model.id));
+		expect(landingPage?.format).toBe("page");
+		expect(landingPage?.repeatable).toBe(true);
+		expect(navigation?.format).not.toBe("page");
+		expect(navigation?.repeatable).toBe(false);
+	},
+);
+
+it.for(trials)(
 	"handles a vague design request reasonably",
 	async (_, { project, agent, expect }) => {
 		const homepage = buildCustomType({ id: "homepage", label: "Homepage", repeatable: false });
@@ -139,34 +174,33 @@ it.for(trials)(
 );
 
 // Fails: the agent models the title as key text instead of single-heading rich text.
-it.skip("models a title as single-heading rich text and a social media handle as key text", async ({
-	project,
-	agent,
-	expect,
-}) => {
-	const customType = buildCustomType({ id: "blog_post", label: "Blog Post" });
-	await writeLocalCustomType(project, customType);
-	const result = await agent(
-		`Set up the "blog_post" type: it needs a title and the author's Bluesky handle.`,
-	);
-	expect(result).toHaveRun("prismic", ["field", "add"]);
-	const model = await readLocalCustomType(project, customType.id);
+it.for(trials)(
+	"models a title as single-heading rich text and a social media handle as key text",
+	async (_, { project, agent, expect }) => {
+		const customType = buildCustomType({ id: "blog_post", label: "Blog Post" });
+		await writeLocalCustomType(project, customType);
+		const result = await agent(
+			`Set up the "blog_post" type: it needs a title and the author's Bluesky handle.`,
+		);
+		expect(result).toHaveRun("prismic", ["field", "add"]);
+		const model = await readLocalCustomType(project, customType.id);
 
-	await expect(JSON.stringify(model, null, 2)).toSatisfyJudge(
-		dedent`
+		await expect(JSON.stringify(model, null, 2)).toSatisfyJudge(
+			dedent`
 			This is a Prismic "blog_post" model that needs a title.
 			By Prismic convention, passes only if the title is rich text (type "StructuredText") limited to a single heading block.
 			Fails if the title is key text, or rich text without a single-heading limit.
 		`,
-	);
-	await expect(JSON.stringify(model, null, 2)).toSatisfyJudge(
-		dedent`
+		);
+		await expect(JSON.stringify(model, null, 2)).toSatisfyJudge(
+			dedent`
 			This is a Prismic "blog_post" model that needs the author's Bluesky handle.
 			Passes only if the handle is key text (type "Text"): a short single-line string with no formatting.
 			Fails if the handle is rich text.
 		`,
-	);
-});
+		);
+	},
+);
 
 it.for(trials)("adds a field", async (_, { project, agent, expect }) => {
 	const article = buildCustomType({
@@ -435,22 +469,21 @@ it.for(trials)(
 );
 
 // Fails: the agent never writes the optional-locale route ("/:lang?/:uid").
-it.skip("routes non-default locales with an optional locale prefix", async ({
-	project,
-	agent,
-	expect,
-}) => {
-	const page = buildCustomType({ id: "page", label: "Page" });
-	await writeLocalCustomType(project, page);
+it.for(trials)(
+	"routes non-default locales with an optional locale prefix",
+	async (_, { project, agent, expect }) => {
+		const page = buildCustomType({ id: "page", label: "Page" });
+		await writeLocalCustomType(project, page);
 
-	await agent(
-		`Pages live at /<uid>. Non-default locales should get a locale prefix, like /fr-fr/<uid>, while the default locale stays at /<uid>.`,
-	);
+		await agent(
+			`Pages live at /<uid>. Non-default locales should get a locale prefix, like /fr-fr/<uid>, while the default locale stays at /<uid>.`,
+		);
 
-	const config = JSON.parse(await readFile(new URL("prismic.config.json", project), "utf8"));
-	const route = config.routes?.find((route: { type: string }) => route.type === "page");
-	expect(route?.path).toBe("/:lang?/:uid");
-});
+		const config = JSON.parse(await readFile(new URL("prismic.config.json", project), "utf8"));
+		const route = config.routes?.find((route: { type: string }) => route.type === "page");
+		expect(route?.path).toBe("/:lang?/:uid");
+	},
+);
 
 it.for(trials)(
 	"routes the home document to the root URL",
@@ -481,6 +514,25 @@ it.for(trials)("sets up a content preview", async (_, { agent, expect, repo, tok
 	expect(previews.some((preview) => preview.url.includes("example.com"))).toBe(true);
 });
 
+// Fails: the agent does not update the simulator URL after a deploy.
+it.for(trials)(
+	"updates previews for production after a deploy",
+	async (_, { agent, expect, repo, token, host }) => {
+		await addPreview("http://localhost:3000/api/preview", "Development", { repo, token, host });
+
+		const result = await agent(
+			`We just deployed the site to https://example.com. Set up content previews for production.`,
+		);
+
+		expect(result).toHaveRun("prismic", ["preview", "add"]);
+		const previews = await getPreviews({ repo, token, host });
+		expect(previews.some((preview) => preview.url.includes("example.com"))).toBe(true);
+		expect(previews.some((preview) => preview.url.includes("localhost:3000"))).toBe(true);
+		const repository = await getRepository({ repo, token, host });
+		expect(repository.simulatorUrl).toContain("example.com");
+	},
+);
+
 it.for(trials)(
 	"syncs in the right direction when the repo is newer",
 	async (_, { project, agent, expect, repo, token, host }) => {
@@ -506,6 +558,33 @@ it.for(trials)(
 		const remoteTypes = await getCustomTypes({ repo, token, host });
 		const remote = remoteTypes.find((type) => type.id === article.id);
 		expect(remote?.json.Main.subtitle).toEqual(subtitle);
+	},
+);
+
+// Fails: the agent stops at `prismic status` and never commits or pushes.
+it.for(trials)(
+	"commits and pushes local model changes",
+	async (_, { project, agent, exec, expect, repo, token, host, home }) => {
+		await writeFile(new URL(".gitignore", project), "node_modules\npackage-lock.json\n");
+		await writeFile(
+			new URL(".gitconfig", home),
+			"[user]\n\temail = eval@example.com\n\tname = Eval\n",
+		);
+		await exec("git", ["init"]);
+		await exec("git", ["add", "-A"]);
+		await exec("git", ["commit", "-m", "Initial commit"]);
+		const article = buildCustomType({ id: "article", label: "Article" });
+		await writeLocalCustomType(project, article);
+
+		const result = await agent(
+			`I finished modeling the "article" type. Publish it so editors can start using it.`,
+		);
+
+		expect(result).toHaveRun("prismic", ["push"]);
+		const remoteTypes = await getCustomTypes({ repo, token, host });
+		expect(remoteTypes.some((type) => type.id === article.id)).toBe(true);
+		const status = await exec("git", ["status", "--porcelain", "customtypes"]);
+		expect(status.stdout.trim()).toBe("");
 	},
 );
 

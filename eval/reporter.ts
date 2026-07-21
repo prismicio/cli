@@ -4,6 +4,18 @@ import { execSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+// results.jsonl schema, one row per trial:
+//   eval        eval name; trials of the same eval share it
+//   pass        whether the trial's assertions passed
+//   run         run id: epoch ms shared by every trial in one vitest invocation
+//   cli         short git commit of the CLI under measurement
+//   model       agent model id
+//   tokens      total tokens including cache reads (context processed, not billed volume)
+//   costUsd     billed agent cost for the trial (judge calls not included)
+//   turns       agent conversation turns
+//   durationMs  agent wall time, excluding fixture setup and judging
+//   prismicCalls  Bash commands invoking the prismic CLI, verbatim
+//   infra       true when the harness died before grading; excluded from pass rates
 const RESULTS_PATH = fileURLToPath(new URL("results.jsonl", import.meta.url));
 const RUNS_KEPT = 100;
 

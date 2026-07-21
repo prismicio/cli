@@ -186,13 +186,18 @@ async function createTempClaudeConfigDir(): Promise<string> {
 	return dir;
 }
 
+// Evaluates each shell segment separately so `prismic push --help` in a
+// compound command neither counts as running `push` nor hides a real run.
 function ranCommand(command: string, bin: string, positionals: string[]): boolean {
-	const words = command.split(/\s+/).filter(Boolean);
-	const start = words.findIndex((w) => w === bin || w.startsWith(`${bin}@`));
-	if (start === -1) return false;
+	return command.split(/&&|\|\||;|\||\n/).some((segment) => {
+		const words = segment.split(/\s+/).filter(Boolean);
+		if (words.includes("--help") || words.includes("-h")) return false;
+		const start = words.findIndex((w) => w === bin || w.startsWith(`${bin}@`));
+		if (start === -1) return false;
 
-	const got = words.slice(start + 1).filter((w) => !w.startsWith("-"));
-	return positionals.every((p, i) => got[i] === p);
+		const got = words.slice(start + 1).filter((w) => !w.startsWith("-"));
+		return positionals.every((p, i) => got[i] === p);
+	});
 }
 
 async function judge(content: string, criterion: string): Promise<z.infer<typeof VerdictSchema>> {
