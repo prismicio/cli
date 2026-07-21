@@ -50,7 +50,7 @@ it("models a page type with sensible field types", async ({ project, agent, expe
 		dedent`
 			These are Prismic models. Are the models sensible for a blog post? Expect a rich text title, a date or timestamp for the publish date, a content relationship for the author, an image for the hero, and rich text for the body.
 		`,
-		0,
+		0.75,
 	);
 });
 
