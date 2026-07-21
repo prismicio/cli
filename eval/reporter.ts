@@ -11,6 +11,7 @@ const TRIAL_SUFFIX = / \(trial (\d+)\)$/;
 // excluded from the rates.
 export default class EvalReporter implements Reporter {
 	onTestRunEnd(testModules: ReadonlyArray<TestModule>): void {
+		const run = Date.now();
 		const tallies = new Map<
 			string,
 			{ passed: number; failed: number; infra: number; costUsd: number }
@@ -24,7 +25,7 @@ export default class EvalReporter implements Reporter {
 				const name = test.name.replace(TRIAL_SUFFIX, "");
 				const trial = Number(test.name.match(TRIAL_SUFFIX)?.[1] ?? "1");
 				const agent = test.meta().agent;
-				const row = { eval: name, trial, pass: state === "passed", ts: Date.now(), ...agent };
+				const row = { eval: name, trial, pass: state === "passed", run, ...agent };
 				appendFileSync(RESULTS_PATH, `${JSON.stringify(row)}\n`);
 
 				const tally = tallies.get(name) ?? { passed: 0, failed: 0, infra: 0, costUsd: 0 };
