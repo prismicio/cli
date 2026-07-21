@@ -4,6 +4,7 @@ import { pascalCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
+import { canonicalizeCustomType, canonicalizeSlice } from "../canonicalize";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
@@ -24,7 +25,6 @@ import {
 	type OnboardingStep,
 } from "../lib/prismic/clients/repository";
 import { resolveEnvironment } from "../lib/prismic/environments";
-import { canonicalizeModel } from "../lib/prismic/models";
 import { BadRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -98,7 +98,7 @@ export default createCommand(config, async ({ values }) => {
 		{
 			getKey: (model) => model.id,
 			equals: (a, b) =>
-				JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+				JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
 		},
 	);
 	const sliceOps = diffArrays(
@@ -107,7 +107,7 @@ export default createCommand(config, async ({ values }) => {
 		{
 			getKey: (model) => model.id,
 			equals: (a, b) =>
-				JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+				JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
 		},
 	);
 

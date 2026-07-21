@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
+import { canonicalizeCustomType, canonicalizeSlice } from "../canonicalize";
 import { readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
@@ -110,14 +111,14 @@ export abstract class Adapter {
 		const sliceDirectoryName = pascalCase(model.name);
 		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
 		const modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
-		await writeFileRecursive(modelPath, stringify(model));
+		await writeFileRecursive(modelPath, stringify(canonicalizeSlice(model)));
 		await this.createSliceIndexFile(library);
 		await this.onSliceCreated(model, library);
 	}
 
 	async updateSlice(model: SharedSlice): Promise<void> {
 		const slice = await this.getSlice(model.id);
-		await writeFileRecursive(slice.modelPath, stringify(model));
+		await writeFileRecursive(slice.modelPath, stringify(canonicalizeSlice(model)));
 		await this.onSliceUpdated(model);
 	}
 
@@ -168,14 +169,14 @@ export abstract class Adapter {
 		library ??= await this.getDefaultCustomTypeLibrary();
 		const customTypeDirectory = new URL(model.id, appendTrailingSlash(library));
 		const modelPath = new URL("index.json", appendTrailingSlash(customTypeDirectory));
-		await writeFileRecursive(modelPath, stringify(model));
+		await writeFileRecursive(modelPath, stringify(canonicalizeCustomType(model)));
 		if (model.format === "page") await addRoute(model);
 		await this.onCustomTypeCreated(model);
 	}
 
 	async updateCustomType(model: CustomType): Promise<void> {
 		const customType = await this.getCustomType(model.id);
-		await writeFileRecursive(customType.modelPath, stringify(model));
+		await writeFileRecursive(customType.modelPath, stringify(canonicalizeCustomType(model)));
 		await updateRoute(model);
 		await this.onCustomTypeUpdated(model);
 	}

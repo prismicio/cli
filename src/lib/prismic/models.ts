@@ -5,20 +5,6 @@ import type {
 	SharedSlice,
 } from "@prismicio/types-internal/lib/customtypes";
 
-export function canonicalizeModel<T extends CustomType | SharedSlice>(model: T): T {
-	const canonicalizedModel = sortKeys(model);
-	if ("variations" in canonicalizedModel) {
-		canonicalizedModel.variations = canonicalizedModel.variations.map((variation) =>
-			sortKeys(variation),
-		);
-	}
-	return canonicalizedModel;
-}
-
-function sortKeys<T extends Record<string, unknown>>(obj: T): T {
-	return Object.fromEntries(Object.entries(obj).sort(([a], [b]) => a.localeCompare(b))) as T;
-}
-
 type Fields = Record<string, DynamicWidget>;
 
 export type ContentRelationshipFieldSelection =
