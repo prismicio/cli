@@ -78,14 +78,17 @@ export default createCommand(config, async ({ values }) => {
 		});
 
 		console.info(`
-Your project is ready.
+Your project is ready 🎉
 
-Project: ${destination}
-Page Builder: https://${repositoryId}.${host}/builder
+Here's what you can do next:
 
-Run:
-  cd ${repositoryId}
+1. Start the development server:
+  cd ${destination}
   npm run dev
+
+2. Preview your pages live at https://${repositoryId}.${host}/builder
+
+Start building 🚀
 `);
 	} catch (error) {
 		if (extractedProject) {
