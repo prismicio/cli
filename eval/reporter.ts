@@ -5,7 +5,6 @@ import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const RESULTS_PATH = fileURLToPath(new URL("results.jsonl", import.meta.url));
-const TRIAL_SUFFIX = / \(trial (\d+)\)$/;
 const RUNS_KEPT = 100;
 
 // Appends one row per trial to results.jsonl and prints per-eval pass rates.
@@ -28,10 +27,9 @@ export default class EvalReporter implements Reporter {
 				const state = test.result().state;
 				if (state !== "passed" && state !== "failed") continue;
 
-				const name = test.name.replace(TRIAL_SUFFIX, "");
-				const trial = Number(test.name.match(TRIAL_SUFFIX)?.[1] ?? "1");
+				const name = test.name;
 				const agent = test.meta().agent;
-				const row = { eval: name, trial, pass: state === "passed", run, cli, ...agent };
+				const row = { eval: name, pass: state === "passed", run, cli, ...agent };
 				appendFileSync(RESULTS_PATH, `${JSON.stringify(row)}\n`);
 
 				const tally = tallies.get(name) ?? { passed: 0, failed: 0, infra: 0, costUsd: 0 };

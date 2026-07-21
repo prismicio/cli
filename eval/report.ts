@@ -8,7 +8,6 @@ import { fileURLToPath } from "node:url";
 
 type Row = {
 	eval: string;
-	trial: number;
 	pass: boolean;
 	run: number;
 	cli?: string;

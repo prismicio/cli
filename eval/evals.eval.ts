@@ -293,7 +293,7 @@ it.skip("is idempotent when the same task runs twice", async ({ project, agent, 
 // Add a rich text field to an existing type. The simplest capability eval, the
 // cheap regression backbone, and the smoke test. [C][E]
 it.for(trials)(
-	"adds a rich text field to a type (trial %i)",
+	"adds a rich text field to a type",
 	async (_, { project, agent, expect }) => {
 		const customType = buildCustomType({ id: "homepage", label: "Homepage" });
 		await writeLocalCustomType(project, customType);
