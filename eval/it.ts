@@ -1,19 +1,23 @@
 import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import dedent from "dedent";
-import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, afterEach, expect } from "vitest";
+import { afterEach, expect } from "vitest";
 import * as z from "zod/mini";
 
 import { it as base } from "../test/it";
 
 const BIN = new URL("../dist/index.mjs", import.meta.url);
-const RESULTS_PATH = new URL("results.jsonl", import.meta.url);
 const MODEL = process.env.EVAL_MODEL ?? "claude-sonnet-5";
 const JUDGE_MODEL = process.env.EVAL_JUDGE_MODEL ?? "claude-haiku-4-5-20251001";
+const TRIALS = Number(process.env.EVAL_TRIALS ?? "3");
+
+// Each eval registers once per trial via `it.for(trials)`, so every trial is a
+// separate test with fresh fixtures. The reporter aggregates trials into
+// per-eval pass rates.
+export const trials = Array.from({ length: TRIALS }, (_, i) => i + 1);
 
 const PRISMIC_GUIDANCE = dedent`
 	The \`prismic\` CLI manages Prismic content models, repository settings, and docs.
@@ -28,7 +32,11 @@ declare module "vitest" {
 	// oxlint-disable-next-line no-explicit-any
 	interface Matchers<T = any> {
 		toHaveRun(bin: string, positionals?: string[]): T;
-		toSatisfyJudge(rubric: string, best?: number): Promise<T>;
+		toSatisfyJudge(criterion: string): Promise<T>;
+	}
+
+	interface TaskMeta {
+		agent?: AgentRecord;
 	}
 }
 
@@ -98,6 +106,12 @@ export const it = base.extend<{
 					commands.filter((c) => /(^|\s)(npx\s+)?prismic(@|\s|$)/.test(c)),
 				);
 				return commands;
+			} catch (error) {
+				// The agent harness failed before the eval could be graded; the
+				// reporter excludes these trials from pass rates.
+				pending ??= newPending();
+				pending.infra = true;
+				throw error;
 			} finally {
 				await rm(claudeConfig, { recursive: true, force: true });
 			}
@@ -119,78 +133,30 @@ expect.extend({
 		};
 	},
 
-	async toSatisfyJudge(content: string, rubric: string, best = 0) {
-		const loc = callSite();
-		const { score, reason } = await judge(content, rubric);
-		pending ??= newPending();
-		pending.score = score;
-		ratchet(loc, best, score);
+	async toSatisfyJudge(content: string, criterion: string) {
+		const { pass, reason } = await judge(content, criterion);
 		return {
-			pass: score >= best,
-			message: () => `judge scored ${score} (bar ${best}): ${reason}`,
+			pass,
+			message: () => `judge: ${reason}`,
 		};
 	},
 });
 
-const raisable = new Set<string>();
-
-// vitest's -u/--update flag. Read from snapshot state, not process.argv, which
-// is empty in the worker process that runs the tests.
-function updateMode(): boolean {
-	const snapshot = expect.getState().snapshotState as unknown as { _updateSnapshot?: string };
-	return snapshot?._updateSnapshot === "all";
-}
-
-function ratchet(loc: CallSite | undefined, best: number, candidate: number): void {
-	if (candidate <= best || !loc) return;
-	if (updateMode()) raiseLiteral(loc, candidate);
-	else raisable.add(`${loc.file.split("/").pop()}:${loc.line}  ${best} → ${candidate}`);
-}
-
-afterAll(() => {
-	if (raisable.size === 0) return;
-	console.info("\nBars can be raised (rerun with `node --run evals -- -u`):");
-	for (const line of raisable) console.info(`  ${line}`);
-});
-
-type CallSite = { file: string; line: number };
-
-function callSite(): CallSite | undefined {
-	for (const frame of (new Error().stack ?? "").split("\n")) {
-		const match = frame.match(/\(?(\/[^()]+\.eval\.ts):(\d+):\d+\)?/);
-		if (match) return { file: match[1], line: Number(match[2]) };
-	}
-	return undefined;
-}
-
-function raiseLiteral(loc: CallSite, value: number): void {
-	const lines = readFileSync(loc.file, "utf8").split("\n");
-	for (let i = loc.line - 1; i < lines.length; i++) {
-		const match =
-			lines[i].match(/^(\s*)-?\d*\.?\d+(\s*,?\s*)$/) ??
-			lines[i].match(/^(.*,\s*)-?\d*\.?\d+(\s*\)[\s;]*)$/);
-		if (match) {
-			lines[i] = `${match[1]}${value}${match[2]}`;
-			writeFileSync(loc.file, lines.join("\n"));
-			return;
-		}
-		if (lines[i].includes(");")) return;
-	}
-}
-
-type Pending = {
+type AgentRecord = {
 	tokens: number;
+	costUsd: number;
 	turns: number;
 	durationMs: number;
 	model: string;
 	prismicCalls: string[];
-	score?: number;
+	infra?: boolean;
 };
 
-let pending: Pending | undefined;
+let pending: AgentRecord | undefined;
 
-const newPending = (): Pending => ({
+const newPending = (): AgentRecord => ({
 	tokens: 0,
+	costUsd: 0,
 	turns: 0,
 	durationMs: 0,
 	model: MODEL,
@@ -204,6 +170,7 @@ function recordAgent(result: SDKResultMessage, prismicCalls: string[]): void {
 		result.usage.output_tokens +
 		result.usage.cache_read_input_tokens +
 		result.usage.cache_creation_input_tokens;
+	pending.costUsd += result.total_cost_usd;
 	pending.turns += result.num_turns;
 	pending.durationMs += result.duration_ms;
 	pending.prismicCalls.push(...prismicCalls);
@@ -211,8 +178,7 @@ function recordAgent(result: SDKResultMessage, prismicCalls: string[]): void {
 
 afterEach(({ task }) => {
 	if (!pending) return;
-	const row = { eval: task.name, pass: task.result?.state === "pass", ts: Date.now(), ...pending };
-	appendFileSync(RESULTS_PATH, `${JSON.stringify(row)}\n`);
+	task.meta.agent = pending;
 	pending = undefined;
 });
 
@@ -227,20 +193,19 @@ function ranCommand(command: string, bin: string, positionals: string[]): boolea
 
 const VerdictSchema = z.object({
 	reason: z.string(),
-	score: z.number().check(z.minimum(0), z.maximum(1)),
+	pass: z.boolean(),
 });
 const VerdictJsonSchema: Record<string, unknown> = z.toJSONSchema(VerdictSchema);
 delete VerdictJsonSchema.$schema;
 
-async function judge(content: string, rubric: string): Promise<z.infer<typeof VerdictSchema>> {
+async function judge(content: string, criterion: string): Promise<z.infer<typeof VerdictSchema>> {
 	const prompt = dedent`
-		You are grading an AI agent's work against the rubric.
-		First write a short reason, then score how well the work meets the rubric:
-		1 = fully meets, 0.75 = mostly, 0.5 = partial, 0.25 = barely, 0 = fails.
+		You are judging an AI agent's work against a criterion.
+		First write a short reason, then decide whether the work satisfies the criterion.
 
-		<rubric>
-		${rubric}
-		</rubric>
+		<criterion>
+		${criterion}
+		</criterion>
 
 		<work>
 		${content}
@@ -260,10 +225,15 @@ async function judge(content: string, rubric: string): Promise<z.infer<typeof Ve
 				maxTurns: 2,
 				persistSession: false,
 				outputFormat: { type: "json_schema", schema: VerdictJsonSchema },
-				env: { ...process.env, CLAUDE_CONFIG_DIR: claudeConfig, CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" },
+				env: {
+					...process.env,
+					CLAUDE_CONFIG_DIR: claudeConfig,
+					CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
+				},
 			},
 		})) {
-			if (message.type === "result" && message.subtype === "success") verdict = message.structured_output;
+			if (message.type === "result" && message.subtype === "success")
+				verdict = message.structured_output;
 		}
 	} finally {
 		await rm(claudeConfig, { recursive: true, force: true });

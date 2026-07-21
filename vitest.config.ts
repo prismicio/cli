@@ -23,6 +23,7 @@ export default defineConfig({
 		globalSetup: ["./test/setup.global.ts"],
 		forceRerunTriggers: ["**/dist/index.mjs"],
 		typecheck: { enabled: true },
+		reporters: runEvals ? ["default", "./eval/reporter.ts"] : ["default"],
 		projects: [
 			{
 				test: {
