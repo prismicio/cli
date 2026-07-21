@@ -5,6 +5,9 @@
 package-lock.json -diff
 yarn.lock -diff
 
+# eval results are append-only; keep both sides on merge
+eval/results.jsonl merge=union
+
 # treats assets as binaries
 *.png binary
 *.jpg binary

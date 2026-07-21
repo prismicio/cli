@@ -11,6 +11,7 @@ type Row = {
 	trial: number;
 	pass: boolean;
 	run: number;
+	cli?: string;
 	tokens: number;
 	costUsd: number;
 	turns: number;
@@ -42,9 +43,11 @@ for (const row of rows) {
 	evals.set(row.eval, runs);
 }
 
+const RUNS_SHOWN = 10;
+
 for (const [name, runs] of evals) {
 	console.info(name);
-	for (const run of [...runs.keys()].sort((a, b) => a - b)) {
+	for (const run of [...runs.keys()].sort((a, b) => a - b).slice(-RUNS_SHOWN)) {
 		console.info(`  ${formatRunLine(run, runs.get(run)!)}`);
 	}
 	console.info("");
@@ -81,8 +84,9 @@ function formatRunLine(run: number, trials: Row[]): string {
 	const turns = mean(trials.map((row) => row.turns));
 	const duration = mean(trials.map((row) => row.durationMs));
 	const note = infra > 0 ? `   (${infra} infra excluded)` : "";
+	const cli = trials.find((row) => row.cli)?.cli;
 	return (
-		`${formatDate(run)}   ${rate}   $${cost.toFixed(2)}   ` +
+		`${formatDate(run)}${cli ? ` @ ${cli}` : ""}   ${rate}   $${cost.toFixed(2)}   ` +
 		`${Math.round(tokens / 1000)}k tok   ${turns.toFixed(1)} turns   ` +
 		`${Math.round(duration / 1000)}s${note}`
 	);
