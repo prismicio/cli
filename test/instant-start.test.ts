@@ -4,10 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it as unitTest, onTestFinished, vi } from "vitest";
 
-import {
-	getOrCreateInstantStartExport,
-	provisionInstantStart,
-} from "../src/lib/prismic/clients/website-generator";
+import { getOrCreateInstantStartExport } from "../src/lib/prismic/clients/website-generator";
 import { extractZip } from "../src/lib/zip";
 import { it } from "./it";
 
@@ -18,32 +15,15 @@ it("supports instant-start --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("--export string");
 });
 
+it("requires --export", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("instant-start");
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Missing required option: --export");
+});
+
 describe.sequential("Instant Start API client", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
-	});
-
-	unitTest("provisions an Instant Start repository", async () => {
-		const fetchMock = vi.fn<typeof fetch>(async () =>
-			jsonResponse({
-				repositoryId: "my-repo",
-				repositoryUrl: "https://my-repo.prismic.io",
-				redirectDocumentId: "document-id",
-			}),
-		);
-		vi.stubGlobal("fetch", fetchMock);
-
-		const provisioned = await provisionInstantStart({
-			token: "test-token",
-			host: "prismic.io",
-		});
-
-		expect(provisioned.repositoryId).toBe("my-repo");
-		expect(fetchMock).toHaveBeenCalledOnce();
-		const [url, init] = fetchMock.mock.calls[0];
-		expect(url.toString()).toBe("https://api.internal.prismic.io/website-generator/instant-start");
-		expect(init?.method).toBe("POST");
-		expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer test-token");
 	});
 
 	unitTest("reuses an export that is already ready", async () => {

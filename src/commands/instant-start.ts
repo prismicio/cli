@@ -8,24 +8,19 @@ import { exists, readURLFile } from "../lib/file";
 import { installDependencies } from "../lib/packageJson";
 import { setSimulatorUrl } from "../lib/prismic/clients/core";
 import { getProfile } from "../lib/prismic/clients/user";
-import {
-	getOrCreateInstantStartExport,
-	provisionInstantStart,
-} from "../lib/prismic/clients/website-generator";
+import { getOrCreateInstantStartExport } from "../lib/prismic/clients/website-generator";
 import { extractZip } from "../lib/zip";
 
 const config = {
 	name: "prismic instant-start",
 	description: `
-		Create a ready-to-run Prismic website from the Instant Start template.
-
-		Use --export to download and set up an existing repository instead of
-		creating a new one.
+		Download and set up an existing Instant Start repository.
 	`,
 	options: {
 		export: {
 			type: "string",
 			description: "Existing repository to export",
+			required: true,
 		},
 	},
 } satisfies CommandConfig;
@@ -38,17 +33,7 @@ export default createCommand(config, async ({ values }) => {
 	const profile = await getProfile({ token, host });
 	console.info(`Logged in as ${profile.email}`);
 
-	let repositoryId = repositoryToExport?.toLowerCase();
-	let createdRepository = false;
-
-	if (!repositoryId) {
-		console.info("Creating your Instant Start repository...");
-		const provisioned = await provisionInstantStart({ token, host });
-		repositoryId = provisioned.repositoryId;
-		createdRepository = true;
-		console.info(`Created repository: ${repositoryId}`);
-	}
-
+	const repositoryId = repositoryToExport.toLowerCase();
 	assertRepositoryName(repositoryId);
 
 	let extractedProject: { destination: string; destinationExisted: boolean } | undefined;
@@ -96,11 +81,6 @@ Start building 🚀
 			if (extractedProject.destinationExisted) {
 				await mkdir(extractedProject.destination);
 			}
-		}
-		if (createdRepository) {
-			console.error(
-				`Repository "${repositoryId}" was created. Retry setup with:\n  npx prismic@latest instant-start --export ${repositoryId}`,
-			);
 		}
 		throw error;
 	}

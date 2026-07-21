@@ -7,13 +7,6 @@ export type WebsiteGeneratorConfig = {
 	host: string;
 };
 
-const ProvisionInstantStartResponseSchema = z.object({
-	repositoryId: z.string(),
-	repositoryUrl: z.url(),
-	redirectDocumentId: z.optional(z.string()),
-});
-export type ProvisionInstantStartResponse = z.infer<typeof ProvisionInstantStartResponseSchema>;
-
 const InstantStartExportNotPreparedSchema = z.object({
 	status: z.literal("not-prepared"),
 });
@@ -31,17 +24,6 @@ const InstantStartExportStatusSchema = z.union([
 	InstantStartExportReadySchema,
 ]);
 export type InstantStartExportStatus = z.infer<typeof InstantStartExportStatusSchema>;
-
-export function provisionInstantStart(
-	config: WebsiteGeneratorConfig,
-): Promise<ProvisionInstantStartResponse> {
-	const url = new URL("instant-start", getWebsiteGeneratorServiceUrl(config.host));
-	return websiteGeneratorRequest(url, config, {
-		method: "POST",
-		schema: ProvisionInstantStartResponseSchema,
-		unknownErrorMessage: "Failed to create an Instant Start repository",
-	});
-}
 
 export function getInstantStartExportStatus(
 	repositoryId: string,
