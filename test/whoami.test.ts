@@ -3,15 +3,15 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("whoami", ["--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("whoami", ["--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic whoami [options]");
 });
 
 it("prints email of logged-in user", async ({ expect, prismic, login }) => {
 	const { email } = await login();
-	const { stdout, exitCode } = await prismic("whoami");
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("whoami");
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(email);
 });
 
@@ -47,9 +47,9 @@ it("reports stored token auth failure", async ({ expect, prismic, home }) => {
 it("uses PRISMIC_TOKEN env var when set", async ({ expect, prismic, login, logout, token }) => {
 	const { email } = await login();
 	await logout();
-	const { stdout, exitCode } = await prismic("whoami", [], {
+	const { stdout, stderr, exitCode } = await prismic("whoami", [], {
 		nodeOptions: { env: { PRISMIC_TOKEN: token } },
 	});
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(email);
 });

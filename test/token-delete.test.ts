@@ -2,16 +2,16 @@ import { it } from "./it";
 import { createAccessToken, createWriteToken, getAccessTokens, getWriteTokens } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("token", ["delete", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("token", ["delete", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic token delete <token> [options]");
 });
 
 it("deletes an access token", async ({ expect, prismic, repo, token, host }) => {
 	const created = await createAccessToken({ repo, token, host });
 
-	const { stdout, exitCode } = await prismic("token", ["delete", created.token]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("token", ["delete", created.token]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Token deleted");
 
 	const apps = await getAccessTokens({ repo, token, host });
@@ -22,8 +22,8 @@ it("deletes an access token", async ({ expect, prismic, repo, token, host }) => 
 it("deletes a write token", async ({ expect, prismic, repo, token, host }) => {
 	const created = await createWriteToken({ repo, token, host });
 
-	const { stdout, exitCode } = await prismic("token", ["delete", created.token]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("token", ["delete", created.token]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Token deleted");
 
 	const writeTokensInfo = await getWriteTokens({ repo, token, host });

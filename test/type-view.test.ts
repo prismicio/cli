@@ -1,8 +1,8 @@
 import { buildCustomType, it, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("type", ["view", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("type", ["view", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic type view <id> [options]");
 });
 
@@ -10,8 +10,8 @@ it("views a type", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({ format: "custom" });
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("type", ["view", customType.id]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("type", ["view", customType.id]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`ID: ${customType.id}`);
 	expect(stdout).toContain(`Name: ${customType.label}`);
 	expect(stdout).toContain("Format: custom");
@@ -33,8 +33,8 @@ it("shows fields per tab", async ({ expect, prismic, project }) => {
 	});
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("type", ["view", customType.id]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("type", ["view", customType.id]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Main:");
 	expect(stdout).toMatch(/title\s+StructuredText\s+Title\s+"Enter title"/);
 	expect(stdout).toMatch(/is_active\s+Boolean\s+Is Active/);
@@ -46,8 +46,8 @@ it("views a type as JSON", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({ format: "custom" });
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("type", ["view", customType.id, "--json"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("type", ["view", customType.id, "--json"]);
+	expect(exitCode, stderr).toBe(0);
 	const parsed = JSON.parse(stdout);
 	expect(parsed).toMatchObject({ id: customType.id, label: customType.label, format: "custom" });
 });

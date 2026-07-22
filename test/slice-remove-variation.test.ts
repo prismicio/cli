@@ -1,8 +1,8 @@
 import { buildSlice, it, readLocalSlice, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("slice", ["remove-variation", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["remove-variation", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic slice remove-variation <id> [options]");
 });
 
@@ -27,13 +27,13 @@ it("removes a variation from a slice", async ({ expect, prismic, project }) => {
 
 	await writeLocalSlice(project, sliceWithVariation);
 
-	const { stdout, exitCode } = await prismic("slice", [
+	const { stdout, stderr, exitCode } = await prismic("slice", [
 		"remove-variation",
 		variationId,
 		"--from",
 		slice.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Removed variation "${variationId}" from slice "${slice.id}"`);
 
 	const updated = await readLocalSlice(project, slice.id);

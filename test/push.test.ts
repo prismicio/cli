@@ -11,8 +11,8 @@ import {
 } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("push", ["--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("push", ["--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic push [options]");
 });
 
@@ -34,13 +34,13 @@ describe("with an isolated repository", () => {
 		host,
 	}) => {
 		const pull = await prismic("pull", ["--repo", repo]);
-		expect(pull.exitCode).toBe(0);
+		expect(pull.exitCode, pull.stderr).toBe(0);
 
 		const customType = buildCustomType();
 		await writeLocalCustomType(project, customType);
 
-		const { exitCode } = await prismic("push", ["--repo", repo]);
-		expect(exitCode).toBe(0);
+		const { stderr, exitCode } = await prismic("push", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 
 		const remote = await getCustomTypes({ repo, token, host });
 		expect(remote.map((t) => t.id)).toContain(customType.id);
@@ -58,12 +58,12 @@ describe("with an isolated repository", () => {
 		await insertCustomType(customType, { repo, token, host });
 
 		const pull = await prismic("pull", ["--repo", repo]);
-		expect(pull.exitCode).toBe(0);
+		expect(pull.exitCode, pull.stderr).toBe(0);
 
 		await writeLocalCustomType(project, { ...customType, label: "Modified" });
 
-		const { exitCode } = await prismic("push", ["--repo", repo]);
-		expect(exitCode).toBe(0);
+		const { stderr, exitCode } = await prismic("push", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 
 		const remote = await getCustomTypes({ repo, token, host });
 		const updated = remote.find((t) => t.id === customType.id);
@@ -79,13 +79,13 @@ describe("with an isolated repository", () => {
 		host,
 	}) => {
 		const pull = await prismic("pull", ["--repo", repo, "--force"]);
-		expect(pull.exitCode).toBe(0);
+		expect(pull.exitCode, pull.stderr).toBe(0);
 
 		const slice = buildSlice();
 		await writeLocalSlice(project, slice);
 
 		const insert = await prismic("push", ["--repo", repo]);
-		expect(insert.exitCode).toBe(0);
+		expect(insert.exitCode, insert.stderr).toBe(0);
 
 		const screenshotPath = fileURLToPath(
 			new URL("./fixtures/slice-screenshot.png", import.meta.url),
@@ -99,10 +99,10 @@ describe("with an isolated repository", () => {
 			"--screenshot",
 			screenshotPath,
 		]);
-		expect(editVariation.exitCode).toBe(0);
+		expect(editVariation.exitCode, editVariation.stderr).toBe(0);
 
 		const update = await prismic("push", ["--repo", repo]);
-		expect(update.exitCode).toBe(0);
+		expect(update.exitCode, update.stderr).toBe(0);
 
 		const screenshotPrefix = getScreenshotPrefix({ repo, token, host }, slice.id);
 		await expect
@@ -113,10 +113,10 @@ describe("with an isolated repository", () => {
 			.toBe(true);
 
 		const remove = await prismic("slice", ["remove", slice.id]);
-		expect(remove.exitCode).toBe(0);
+		expect(remove.exitCode, remove.stderr).toBe(0);
 
 		const pushDelete = await prismic("push", ["--repo", repo, "--force"]);
-		expect(pushDelete.exitCode).toBe(0);
+		expect(pushDelete.exitCode, pushDelete.stderr).toBe(0);
 
 		await expect
 			.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), {

@@ -1,8 +1,8 @@
 import { buildCustomType, it, readLocalCustomType, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("type", ["edit-tab", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("type", ["edit-tab", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic type edit-tab <name> [options]");
 });
 
@@ -12,7 +12,7 @@ it("edits a tab name", async ({ expect, prismic, project }) => {
 
 	const newName = `Tab${crypto.randomUUID().split("-")[0]}`;
 
-	const { stdout, exitCode } = await prismic("type", [
+	const { stdout, stderr, exitCode } = await prismic("type", [
 		"edit-tab",
 		"OldName",
 		"--from-type",
@@ -20,7 +20,7 @@ it("edits a tab name", async ({ expect, prismic, project }) => {
 		"--name",
 		newName,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Tab updated: "OldName" in "${customType.id}"`);
 
 	const updated = await readLocalCustomType(project, customType.id);
@@ -32,14 +32,14 @@ it("adds a slice zone to a tab", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType();
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("type", [
+	const { stdout, stderr, exitCode } = await prismic("type", [
 		"edit-tab",
 		"Main",
 		"--from-type",
 		customType.id,
 		"--with-slice-zone",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Tab updated: "Main" in "${customType.id}"`);
 
 	const updated = await readLocalCustomType(project, customType.id);
@@ -61,14 +61,14 @@ it("removes a slice zone from a tab", async ({ expect, prismic, project }) => {
 	});
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("type", [
+	const { stdout, stderr, exitCode } = await prismic("type", [
 		"edit-tab",
 		"Main",
 		"--from-type",
 		customType.id,
 		"--without-slice-zone",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Tab updated: "Main" in "${customType.id}"`);
 
 	const updated = await readLocalCustomType(project, customType.id);

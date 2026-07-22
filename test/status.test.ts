@@ -4,8 +4,8 @@ import { buildCustomType, buildSlice, it, writeLocalCustomType } from "./it";
 import { insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("status", ["--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("status", ["--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic status [options]");
 });
 
@@ -17,8 +17,8 @@ it("rejects an unknown --env", async ({ expect, prismic, repo }) => {
 
 it("warns and skips --env when not logged in", async ({ expect, prismic, logout, repo }) => {
 	await logout();
-	const { stdout, exitCode } = await prismic("status", ["--repo", repo, "--env", "anything"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo, "--env", "anything"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Repository: ${repo}`);
 	expect(stdout).toContain("Environment: anything");
 });
@@ -28,10 +28,10 @@ describe("with an isolated repository", () => {
 
 	it("reports in-sync when local matches remote", async ({ expect, prismic, repo }) => {
 		const pull = await prismic("pull", ["--repo", repo]);
-		expect(pull.exitCode).toBe(0);
+		expect(pull.exitCode, pull.stderr).toBe(0);
 
-		const { stdout, exitCode } = await prismic("status", ["--repo", repo]);
-		expect(exitCode).toBe(0);
+		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain(`Repository: ${repo}`);
 		expect(stdout).toContain("Already up to date.");
 	});
@@ -43,13 +43,13 @@ describe("with an isolated repository", () => {
 		repo,
 	}) => {
 		const pull = await prismic("pull", ["--repo", repo]);
-		expect(pull.exitCode).toBe(0);
+		expect(pull.exitCode, pull.stderr).toBe(0);
 
 		const customType = buildCustomType();
 		await writeLocalCustomType(project, customType);
 
-		const { stdout, exitCode } = await prismic("status", ["--repo", repo]);
-		expect(exitCode).toBe(0);
+		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Local-only:");
 		expect(stdout).toContain(`${customType.id} (custom type)`);
 		expect(stdout).toContain("Next:");
@@ -64,13 +64,13 @@ describe("with an isolated repository", () => {
 		host,
 	}) => {
 		const pull = await prismic("pull", ["--repo", repo]);
-		expect(pull.exitCode).toBe(0);
+		expect(pull.exitCode, pull.stderr).toBe(0);
 
 		const slice = buildSlice();
 		await insertSlice(slice, { repo, token, host });
 
-		const { stdout, exitCode } = await prismic("status", ["--repo", repo]);
-		expect(exitCode).toBe(0);
+		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Remote-only:");
 		expect(stdout).toContain(`${slice.id} (slice)`);
 		expect(stdout).toContain("prismic pull");
@@ -88,12 +88,12 @@ describe("with an isolated repository", () => {
 		await insertCustomType(customType, { repo, token, host });
 
 		const pull = await prismic("pull", ["--repo", repo]);
-		expect(pull.exitCode).toBe(0);
+		expect(pull.exitCode, pull.stderr).toBe(0);
 
 		await writeLocalCustomType(project, { ...customType, label: "Modified" });
 
-		const { stdout, exitCode } = await prismic("status", ["--repo", repo]);
-		expect(exitCode).toBe(0);
+		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Differ:");
 		expect(stdout).toContain(`${customType.id} (custom type)`);
 	});

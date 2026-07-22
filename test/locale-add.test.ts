@@ -4,8 +4,8 @@ import { it } from "./it";
 import { getLocales } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("locale", ["add", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("locale", ["add", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic locale add <code> [options]");
 });
 
@@ -13,8 +13,8 @@ describe("with an isolated repository", () => {
 	it.scoped({ isolateRepo: true });
 
 	it("adds a locale", async ({ expect, prismic, repo, token, host }) => {
-		const { stdout, exitCode } = await prismic("locale", ["add", "fr-fr"]);
-		expect(exitCode).toBe(0);
+		const { stdout, stderr, exitCode } = await prismic("locale", ["add", "fr-fr"]);
+		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Locale added: fr-fr");
 
 		const locales = await getLocales({ repo, token, host });
@@ -23,13 +23,13 @@ describe("with an isolated repository", () => {
 	});
 
 	it("adds a locale with a custom name", async ({ expect, prismic, repo, token, host }) => {
-		const { stdout, exitCode } = await prismic("locale", [
+		const { stdout, stderr, exitCode } = await prismic("locale", [
 			"add",
 			"ab-cd",
 			"--name",
 			"Custom Locale",
 		]);
-		expect(exitCode).toBe(0);
+		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Locale added: ab-cd");
 
 		const locales = await getLocales({ repo, token, host });
@@ -38,8 +38,8 @@ describe("with an isolated repository", () => {
 	});
 
 	it("adds a locale as master", async ({ expect, prismic, repo, token, host }) => {
-		const { stdout, exitCode } = await prismic("locale", ["add", "fr-fr", "--master"]);
-		expect(exitCode).toBe(0);
+		const { stdout, stderr, exitCode } = await prismic("locale", ["add", "fr-fr", "--master"]);
+		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Locale added: fr-fr");
 
 		const locales = await getLocales({ repo, token, host });

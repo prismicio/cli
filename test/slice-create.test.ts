@@ -4,16 +4,16 @@ import { writeFile } from "node:fs/promises";
 import { buildSlice, it, readLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("slice", ["create", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["create", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic slice create <name> [options]");
 });
 
 it("creates a slice", async ({ expect, prismic, project }) => {
 	const { name } = buildSlice();
 
-	const { stdout, exitCode } = await prismic("slice", ["create", name]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["create", name]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Created slice "${name}"`);
 
 	const id = snakeCase(name);
@@ -26,8 +26,8 @@ it("creates a slice with a custom id", async ({ expect, prismic, project }) => {
 	const { name } = buildSlice();
 	const id = `slice_${crypto.randomUUID().split("-")[0]}`;
 
-	const { stdout, exitCode } = await prismic("slice", ["create", name, "--id", id]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["create", name, "--id", id]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Created slice "${name}" (id: "${id}")`);
 
 	const created = await readLocalSlice(project, id);
@@ -51,8 +51,8 @@ it("creates a slice in the first configured library", async ({
 	const { name } = buildSlice();
 	const id = snakeCase(name);
 
-	const { exitCode } = await prismic("slice", ["create", name]);
-	expect(exitCode).toBe(0);
+	const { stderr, exitCode } = await prismic("slice", ["create", name]);
+	expect(exitCode, stderr).toBe(0);
 
 	const created = await readLocalSlice(project, id);
 	expect(created).toBeDefined();
