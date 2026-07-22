@@ -30,7 +30,7 @@ const config = {
 	`,
 	sections: {
 		SUBCOMMANDS: `
-			instant  Download and set up a generated project
+			instant  Instantly start a ready-to-run Prismic project
 		`,
 	},
 	options: {

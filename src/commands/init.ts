@@ -9,7 +9,7 @@ export default createCommandRouter({
 	commands: {
 		instant: {
 			handler: instant,
-			description: "Download and set up a generated project",
+			description: "Instantly start a ready-to-run Prismic project",
 		},
 	},
 });

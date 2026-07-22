@@ -12,7 +12,7 @@ import { authenticateInit } from "./init-auth";
 
 const config = {
 	name: "prismic init instant",
-	description: "Download and set up an existing generated Prismic project.",
+	description: "Instantly start a ready-to-run Prismic project.",
 	options: {
 		repo: {
 			type: "string",
