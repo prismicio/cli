@@ -1,5 +1,7 @@
 import type { TestProject } from "vitest/node";
 
+import { build } from "tsdown";
+
 import { upsertLocale, createRepository, deleteRepository, login } from "./prismic";
 
 declare module "vitest" {
@@ -9,7 +11,12 @@ declare module "vitest" {
 	}
 }
 
-export default async function ({ provide }: TestProject): Promise<() => Promise<void>> {
+export default async function (project: TestProject): Promise<() => Promise<void>> {
+	await build();
+	project.onTestsRerun(async () => {
+		await build();
+	});
+
 	try {
 		process.loadEnvFile(".env.test.local");
 	} catch {
@@ -24,13 +31,13 @@ export default async function ({ provide }: TestProject): Promise<() => Promise<
 
 	console.info(`Logging in to ${host} with ${email}`);
 	const token = await login(email, password, { host });
-	provide("token", token);
+	project.provide("token", token);
 
 	const repo = `prismic-cli-test-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
 	console.info(`Creating shared test repository: ${repo}`);
 	await createRepository(repo, { token, host });
 	await upsertLocale("en-us", { isMaster: true, repo, token, host });
-	provide("repo", repo);
+	project.provide("repo", repo);
 
 	return async () => {
 		try {
