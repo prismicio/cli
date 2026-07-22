@@ -3,7 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	test: {
 		globalSetup: ["./test/setup.global.ts"],
-		forceRerunTriggers: ["**/dist/index.mjs"],
+		forceRerunTriggers: ["**/src/**", "**/tsdown.config.ts"],
 		// Bare `vitest` runs only unit tests; evals require an explicit `--project
 		// evals`. Vitest honors `project` in config but only types it as a CLI flag.
 		// @ts-expect-error -- untyped config passthrough of the --project flag
