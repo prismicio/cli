@@ -6,19 +6,77 @@ import { afterEach, describe, expect, it as unitTest, onTestFinished, vi } from 
 
 import { getOrCreateInstantStartExport } from "../src/lib/prismic/clients/website-generator";
 import { extractZip } from "../src/lib/zip";
-import { it } from "./it";
+import { captureOutput, it } from "./it";
 
-it("supports instant-start --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("instant-start", ["--help"]);
+it("supports init instant --help", async ({ expect, prismic }) => {
+	const { stdout, exitCode } = await prismic("init", ["instant", "--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic instant-start [options]");
-	expect(stdout).toContain("--export string");
+	expect(stdout).toContain("prismic init instant [options]");
+	expect(stdout).toContain("--repo string");
+	expect(stdout).toContain("(required)");
 });
 
-it("requires --export", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("instant-start");
+it("requires --repo in instant mode", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("init", ["instant"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Missing required option: --export");
+	expect(stderr).toContain("Missing required option: --repo");
+});
+
+it("rejects an unknown init subcommand", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("init", ["unknown"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Unknown command: unknown");
+});
+
+it("rejects extra instant arguments", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("init", ["instant", "extra", "--repo", "my-repo"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("extra");
+});
+
+it("rejects --lang in instant mode", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("init", [
+		"instant",
+		"--repo",
+		"my-repo",
+		"--lang",
+		"en-us",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("--lang");
+});
+
+it("rejects --no-setup in instant mode", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("init", [
+		"instant",
+		"--repo",
+		"my-repo",
+		"--no-setup",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("--no-setup");
+});
+
+it("dispatches instant mode before checking the current project", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("init", ["instant", "--repo", "invalid_repository"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Invalid repository name");
+	expect(stderr).not.toContain("already initialized");
+});
+
+it("uses the init login flow", async ({ expect, logout, prismic, repo }) => {
+	await logout();
+	const proc = prismic("init", ["instant", "--repo", repo, "--no-browser"]);
+	const output = captureOutput(proc);
+
+	await expect.poll(output, { timeout: 15_000 }).toMatch(/port=(\d+)/);
+	proc.kill();
+});
+
+it("does not list instant-start as a top-level command", async ({ expect, prismic }) => {
+	const { stdout, exitCode } = await prismic("", ["--help"]);
+	expect(exitCode).toBe(0);
+	expect(stdout).not.toContain("instant-start");
 });
 
 describe.sequential("Instant Start API client", () => {

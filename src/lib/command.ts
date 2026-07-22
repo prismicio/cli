@@ -167,6 +167,7 @@ type CreateCommandRouterConfig = {
 	name: string;
 	description: string;
 	sections?: Record<string, string>;
+	defaultHandler?: () => Promise<void>;
 	commands: Record<string, RouterCommand>;
 };
 type RouterCommand = { handler: () => Promise<void>; description: string };
@@ -176,6 +177,11 @@ export function createCommandRouter(config: CreateCommandRouterConfig): () => Pr
 
 	return async function () {
 		const args = process.argv.slice(1 + depth);
+
+		if (config.defaultHandler && (args.length === 0 || args[0].startsWith("-"))) {
+			await config.defaultHandler();
+			return;
+		}
 
 		const {
 			positionals: [subcommand],

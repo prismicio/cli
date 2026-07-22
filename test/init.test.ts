@@ -15,6 +15,8 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("init", ["--help"]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("prismic init [options]");
+	expect(stdout).toContain("SUBCOMMANDS");
+	expect(stdout).toContain("instant");
 });
 
 it("fails if prismic.config.json already exists", async ({ expect, prismic }) => {

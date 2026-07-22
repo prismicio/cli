@@ -3,7 +3,6 @@ import docs from "./docs";
 import field from "./field";
 import gen from "./gen";
 import init from "./init";
-import instantStart from "./instant-start";
 import locale from "./locale";
 import login from "./login";
 import logout from "./logout";
@@ -32,10 +31,6 @@ export default createCommandRouter({
 		init: {
 			handler: init,
 			description: "Initialize a Prismic project",
-		},
-		"instant-start": {
-			handler: instantStart,
-			description: "Create and set up an Instant Start project",
 		},
 		docs: {
 			handler: docs,

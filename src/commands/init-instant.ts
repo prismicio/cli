@@ -2,48 +2,49 @@ import { mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { exists, readURLFile } from "../lib/file";
 import { installDependencies } from "../lib/packageJson";
 import { setSimulatorUrl } from "../lib/prismic/clients/core";
-import { getProfile } from "../lib/prismic/clients/user";
 import { getOrCreateInstantStartExport } from "../lib/prismic/clients/website-generator";
 import { extractZip } from "../lib/zip";
+import { authenticateInit } from "./init-auth";
 
 const config = {
-	name: "prismic instant-start",
-	description: `
-		Download and set up an existing Instant Start repository.
-	`,
+	name: "prismic init instant",
+	description: "Download and set up an existing generated Prismic project.",
 	options: {
-		export: {
+		repo: {
 			type: "string",
-			description: "Existing repository to export",
+			short: "r",
+			description: "Repository name",
 			required: true,
+		},
+		"no-browser": {
+			type: "boolean",
+			description: "Skip opening the browser automatically during login",
 		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { export: repositoryToExport } = values;
-	const { token, host } = await getCredentials();
+	const { repo, "no-browser": noBrowser } = values;
+	const { token, host } = await authenticateInit(noBrowser);
+	await setupInstantProject(repo, { token, host });
+});
 
-	console.info("Checking Prismic login...");
-	const profile = await getProfile({ token, host });
-	console.info(`Logged in as ${profile.email}`);
-
-	const repositoryId = repositoryToExport.toLowerCase();
+async function setupInstantProject(
+	repository: string,
+	config: { token: string | undefined; host: string },
+): Promise<void> {
+	const repositoryId = repository.toLowerCase();
 	assertRepositoryName(repositoryId);
 
 	let extractedProject: { destination: string; destinationExisted: boolean } | undefined;
 
 	try {
 		console.info("Preparing the project export...");
-		const readyExport = await getOrCreateInstantStartExport(repositoryId, {
-			token,
-			host,
-		});
+		const readyExport = await getOrCreateInstantStartExport(repositoryId, config);
 
 		console.info("Downloading the project...");
 		const archive = await readURLFile(new URL(readyExport.downloadUrl));
@@ -58,8 +59,7 @@ export default createCommand(config, async ({ values }) => {
 		console.info("Setting local simulator URL...");
 		await setSimulatorUrl("http://localhost:3000/slice-simulator", {
 			repo: repositoryId,
-			token,
-			host,
+			...config,
 		});
 
 		console.info(`
@@ -71,7 +71,7 @@ Here's what you can do next:
   cd ${destination}
   npm run dev
 
-2. Preview your pages live at https://${repositoryId}.${host}/builder
+2. Preview your pages live at https://${repositoryId}.${config.host}/builder
 
 Start building 🚀
 `);
@@ -84,7 +84,7 @@ Start building 🚀
 		}
 		throw error;
 	}
-});
+}
 
 function assertRepositoryName(repositoryId: string): void {
 	if (!/^[a-z0-9][a-z0-9-]*$/.test(repositoryId)) {
