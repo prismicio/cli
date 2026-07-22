@@ -92,25 +92,17 @@ function formatRunLine(run: number, trials: Row[]): string {
 }
 
 function mean(values: number[]): number {
-	return values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+	return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function formatDate(ts: number): string {
-	const months = [
-		"Jan",
-		"Feb",
-		"Mar",
-		"Apr",
-		"May",
-		"Jun",
-		"Jul",
-		"Aug",
-		"Sep",
-		"Oct",
-		"Nov",
-		"Dec",
-	];
-	const date = new Date(ts);
-	const pad = (n: number): string => String(n).padStart(2, "0");
-	return `${months[date.getMonth()]} ${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+	return new Date(ts)
+		.toLocaleString("en-US", {
+			month: "short",
+			day: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: false,
+		})
+		.replace(",", "");
 }
