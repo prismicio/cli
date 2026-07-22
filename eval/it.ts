@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { x } from "tinyexec";
+import { type Result, x } from "tinyexec";
 import { expect } from "vitest";
 import * as z from "zod/mini";
 
@@ -60,26 +60,19 @@ declare module "vitest" {
 
 export const it = base.extend<{
 	agent: (prompt: string) => Promise<string[]>;
-	exec: typeof x;
+	git: (...args: string[]) => Result;
 	isolateRepo: boolean;
 }>({
 	// Evals run concurrently and agents may push to or mutate the repository,
 	// so each test gets its own instead of the shared one.
 	isolateRepo: true,
-	// Runs arbitrary commands (e.g. git) in the project directory with the
-	// test's isolated HOME.
-	exec: async ({ project, home }, use) => {
-		await use((command, args, options) =>
-			x(command, args, {
-				...options,
+	git: async ({ project, home }, use) => {
+		await use((...args) =>
+			x("git", args, {
+				throwOnError: true,
 				nodeOptions: {
 					cwd: fileURLToPath(project),
-					...options?.nodeOptions,
-					env: {
-						...process.env,
-						...options?.nodeOptions?.env,
-						HOME: fileURLToPath(home),
-					},
+					env: { ...process.env, HOME: fileURLToPath(home) },
 				},
 			}),
 		);

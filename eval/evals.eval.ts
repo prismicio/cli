@@ -564,15 +564,15 @@ it.for(trials)(
 // Fails: the agent stops at `prismic status` and never commits or pushes.
 it.for(trials)(
 	"commits and pushes local model changes",
-	async (_, { project, agent, exec, expect, repo, token, host, home }) => {
+	async (_, { project, agent, git, expect, repo, token, host, home }) => {
 		await writeFile(new URL(".gitignore", project), "node_modules\npackage-lock.json\n");
 		await writeFile(
 			new URL(".gitconfig", home),
 			"[user]\n\temail = eval@example.com\n\tname = Eval\n",
 		);
-		await exec("git", ["init"]);
-		await exec("git", ["add", "-A"]);
-		await exec("git", ["commit", "-m", "Initial commit"]);
+		await git("init");
+		await git("add", "-A");
+		await git("commit", "-m", "Initial commit");
 		const article = buildCustomType({ id: "article", label: "Article" });
 		await writeLocalCustomType(project, article);
 
@@ -583,7 +583,7 @@ it.for(trials)(
 		expect(result).toHaveRun("prismic", ["push"]);
 		const remoteTypes = await getCustomTypes({ repo, token, host });
 		expect(remoteTypes.some((type) => type.id === article.id)).toBe(true);
-		const status = await exec("git", ["status", "--porcelain", "customtypes"]);
+		const status = await git("status", "--porcelain", "customtypes");
 		expect(status.stdout.trim()).toBe("");
 	},
 );
