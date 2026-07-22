@@ -4,18 +4,20 @@ import { execSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-// results.jsonl schema, one row per trial:
-//   eval        eval name; trials of the same eval share it
-//   pass        whether the trial's assertions passed
-//   run         run id: epoch ms shared by every trial in one vitest invocation
-//   cli         short git commit of the CLI under measurement
-//   model       agent model id
-//   tokens      total tokens including cache reads (context processed, not billed volume)
-//   costUsd     billed agent cost for the trial (judge calls not included)
-//   turns       agent conversation turns
-//   durationMs  agent wall time, excluding fixture setup and judging
-//   prismicCalls  Bash commands invoking the prismic CLI, verbatim
-//   infra       true when the harness died before grading; excluded from pass rates
+import type { AgentRecord } from "./it.ts";
+
+// One results.jsonl row per trial.
+export type Row = AgentRecord & {
+	// Eval name; trials of the same eval share it.
+	eval: string;
+	// Whether the trial's assertions passed.
+	pass: boolean;
+	// Run id: epoch ms shared by every trial in one vitest invocation.
+	run: number;
+	// Short git commit of the CLI under measurement.
+	cli?: string;
+};
+
 const RESULTS_PATH = fileURLToPath(new URL("results.jsonl", import.meta.url));
 const RUNS_KEPT = 100;
 
@@ -41,14 +43,15 @@ export default class EvalReporter implements Reporter {
 
 				const name = test.name;
 				const agent = test.meta().agent;
-				const row = { eval: name, pass: state === "passed", run, cli, ...agent };
+				if (!agent) continue;
+				const row: Row = { eval: name, pass: state === "passed", run, cli, ...agent };
 				appendFileSync(RESULTS_PATH, `${JSON.stringify(row)}\n`);
 
 				const tally = tallies.get(name) ?? { passed: 0, failed: 0, infra: 0, costUsd: 0 };
-				if (agent?.infra) tally.infra += 1;
+				if (agent.infra) tally.infra += 1;
 				else if (state === "passed") tally.passed += 1;
 				else tally.failed += 1;
-				tally.costUsd += agent?.costUsd ?? 0;
+				tally.costUsd += agent.costUsd;
 				tallies.set(name, tally);
 			}
 		}

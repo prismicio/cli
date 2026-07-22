@@ -49,13 +49,18 @@ const PRISMIC_GUIDANCE = dedent`
 	5. If the CLI cannot do something, say so instead of working around it.
 `;
 
-type AgentRecord = {
+export type AgentRecord = {
+	// Total tokens including cache reads (context processed, not billed volume).
 	tokens: number;
+	// Billed agent cost for the trial; judge calls not included.
 	costUsd: number;
 	turns: number;
+	// Agent wall time, excluding fixture setup and judging.
 	durationMs: number;
 	model: string;
+	// Bash commands invoking the prismic CLI, verbatim.
 	prismicCalls: string[];
+	// True when the harness died before grading; excluded from pass rates.
 	infra?: boolean;
 };
 

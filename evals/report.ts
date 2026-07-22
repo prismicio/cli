@@ -7,19 +7,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-type Row = {
-	eval: string;
-	pass: boolean;
-	run: number;
-	cli?: string;
-	tokens: number;
-	costUsd: number;
-	turns: number;
-	durationMs: number;
-	model: string;
-	prismicCalls: string[];
-	infra?: boolean;
-};
+import type { Row } from "./reporter.ts";
 
 const RESULTS_PATH = fileURLToPath(new URL("results.jsonl", import.meta.url));
 
