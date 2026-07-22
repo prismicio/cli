@@ -38,6 +38,10 @@ const config = {
 			description: "Comma-separated allowed block types (e.g. heading1,heading2,paragraph)",
 		},
 		single: { type: "boolean", description: "Restrict to a single block" },
+		labels: {
+			type: "string",
+			description: "Comma-separated custom labels for styling text spans (e.g. highlight,quote)",
+		},
 		"allow-target-blank": { type: "boolean", description: "Allow opening links in new tab" },
 	},
 } satisfies CommandConfig;
@@ -49,6 +53,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		placeholder,
 		allow = ALL_BLOCKS,
 		single: isSingle,
+		labels,
 		"allow-target-blank": allowTargetBlank,
 	} = values;
 
@@ -60,6 +65,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			label: label ?? capitalCase(fieldId),
 			placeholder,
 			...(isSingle ? { single: allow } : { multi: allow }),
+			labels: labels?.split(","),
 			allowTargetBlank,
 		},
 	};
