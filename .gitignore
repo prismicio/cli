@@ -45,6 +45,3 @@ coverage
 
 # Eval debug stream dump (EVAL_DEBUG=1)
 evals/last-run.json
-
-# Eval secrets (API key); mirrored as a GitHub secret in CI
-.env.test.local
