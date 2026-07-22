@@ -2,8 +2,8 @@ import { it } from "./it";
 import { addPreview, getPreviews } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("preview", ["remove", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("preview", ["remove", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic preview remove <url> [options]");
 });
 
@@ -12,8 +12,8 @@ it("removes a preview", async ({ expect, prismic, repo, token, host }) => {
 
 	await addPreview(previewUrl, "Test Preview", { repo, token, host });
 
-	const { stdout, exitCode } = await prismic("preview", ["remove", previewUrl]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("preview", ["remove", previewUrl]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Preview removed: ${previewUrl}`);
 
 	const previews = await getPreviews({ repo, token, host });

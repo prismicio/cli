@@ -9,8 +9,8 @@ import {
 } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("field", ["add", "content-relationship", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("field", ["add", "content-relationship", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add content-relationship <id> [options]");
 });
 
@@ -18,14 +18,14 @@ it("adds a content relationship field to a slice", async ({ expect, prismic, pro
 	const slice = buildSlice();
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"add",
 		"content-relationship",
 		"my_link",
 		"--to-slice",
 		slice.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field added: my_link");
 
 	const updated = await readLocalSlice(project, slice.id);
@@ -37,14 +37,14 @@ it("adds a content relationship field to a custom type", async ({ expect, prismi
 	const customType = buildCustomType();
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"add",
 		"content-relationship",
 		"my_link",
 		"--to-type",
 		customType.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field added: my_link");
 
 	const updated = await readLocalCustomType(project, customType.id);
@@ -60,7 +60,7 @@ it("adds a content relationship field with --field", async ({ expect, prismic, p
 	const owner = buildCustomType();
 	await writeLocalCustomType(project, owner);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"add",
 		"content-relationship",
 		"my_link",
@@ -71,7 +71,7 @@ it("adds a content relationship field with --field", async ({ expect, prismic, p
 		"--field",
 		"title",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field added: my_link");
 
 	const updated = await readLocalCustomType(project, owner.id);
@@ -106,7 +106,7 @@ it("adds a content relationship field with grouped fields", async ({
 	const owner = buildCustomType();
 	await writeLocalCustomType(project, owner);
 
-	const { exitCode } = await prismic("field", [
+	const { stderr, exitCode } = await prismic("field", [
 		"add",
 		"content-relationship",
 		"my_link",
@@ -119,7 +119,7 @@ it("adds a content relationship field with grouped fields", async ({
 		"--field",
 		"authors.role",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 
 	const updated = await readLocalCustomType(project, owner.id);
 	expect(updated.json.Main.my_link).toMatchObject({
@@ -165,7 +165,7 @@ it("adds a content relationship field with a nested relationship field", async (
 	const owner = buildCustomType();
 	await writeLocalCustomType(project, owner);
 
-	const { exitCode } = await prismic("field", [
+	const { stderr, exitCode } = await prismic("field", [
 		"add",
 		"content-relationship",
 		"my_link",
@@ -176,7 +176,7 @@ it("adds a content relationship field with a nested relationship field", async (
 		"--field",
 		"authors.author.title",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 
 	const updated = await readLocalCustomType(project, owner.id);
 	expect(updated.json.Main.my_link).toMatchObject({

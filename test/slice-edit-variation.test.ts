@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 import { buildSlice, it, readLocalSlice, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("slice", ["edit-variation", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["edit-variation", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic slice edit-variation <id> [options]");
 });
 
@@ -32,7 +32,7 @@ it("edits a variation name", async ({ expect, prismic, project }) => {
 
 	const newName = `Variation${crypto.randomUUID().split("-")[0]}`;
 
-	const { stdout, exitCode } = await prismic("slice", [
+	const { stdout, stderr, exitCode } = await prismic("slice", [
 		"edit-variation",
 		variationId,
 		"--from-slice",
@@ -40,7 +40,7 @@ it("edits a variation name", async ({ expect, prismic, project }) => {
 		"--name",
 		newName,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Variation updated: "${variationId}" in slice "${slice.id}"`);
 
 	const updated = await readLocalSlice(project, slice.id);
@@ -52,7 +52,7 @@ it("sets a screenshot on a variation", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("slice", [
+	const { stdout, stderr, exitCode } = await prismic("slice", [
 		"edit-variation",
 		"default",
 		"--from-slice",
@@ -60,7 +60,7 @@ it("sets a screenshot on a variation", async ({ expect, prismic, project }) => {
 		"--screenshot",
 		"https://images.prismic.io/slice-machine/621a5ec4-0387-4bc5-9860-2dd46cbc07cd_default_ss.png",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Variation updated: "default" in slice "${slice.id}"`);
 
 	const updated = await readLocalSlice(project, slice.id);
@@ -81,7 +81,7 @@ it("sets a local screenshot file on a variation", async ({ expect, prismic, proj
 	await writeFile(screenshotFileUrl, data);
 	const screenshotPath = fileURLToPath(screenshotFileUrl);
 
-	const { stdout, exitCode } = await prismic("slice", [
+	const { stdout, stderr, exitCode } = await prismic("slice", [
 		"edit-variation",
 		"default",
 		"--from-slice",
@@ -89,7 +89,7 @@ it("sets a local screenshot file on a variation", async ({ expect, prismic, proj
 		"--screenshot",
 		screenshotPath,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Variation updated: "default" in slice "${slice.id}"`);
 
 	const updated = await readLocalSlice(project, slice.id);

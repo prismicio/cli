@@ -3,14 +3,14 @@ import { readFile } from "node:fs/promises";
 import { it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("logout", ["--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("logout", ["--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic logout [options]");
 });
 
 it("logs out and deletes auth file", async ({ expect, home, prismic }) => {
-	const { stdout, exitCode } = await prismic("logout");
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("logout");
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Logged out of Prismic");
 	await expect(
 		readFile(new URL(".config/prismic/credentials.json", home), "utf-8"),
@@ -19,7 +19,7 @@ it("logs out and deletes auth file", async ({ expect, home, prismic }) => {
 
 it("succeeds when not logged in", async ({ expect, prismic, logout }) => {
 	await logout();
-	const { stdout, exitCode } = await prismic("logout");
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("logout");
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Logged out of Prismic");
 });

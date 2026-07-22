@@ -9,8 +9,8 @@ import {
 } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("field", ["edit", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("field", ["edit", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field edit <id> [options]");
 });
 
@@ -19,7 +19,7 @@ it("edits a field label on a slice", async ({ expect, prismic, project }) => {
 	slice.variations[0].primary!.my_field = { type: "Boolean", config: { label: "Old Label" } };
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"edit",
 		"my_field",
 		"--from-slice",
@@ -27,7 +27,7 @@ it("edits a field label on a slice", async ({ expect, prismic, project }) => {
 		"--label",
 		"New Label",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field updated: my_field");
 
 	const updated = await readLocalSlice(project, slice.id);
@@ -48,7 +48,7 @@ it("edits a field label on a custom type", async ({ expect, prismic, project }) 
 	});
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"edit",
 		"title",
 		"--from-type",
@@ -56,7 +56,7 @@ it("edits a field label on a custom type", async ({ expect, prismic, project }) 
 		"--label",
 		"Page Title",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field updated: title");
 
 	const updated = await readLocalCustomType(project, customType.id);
@@ -71,7 +71,7 @@ it("edits boolean field options", async ({ expect, prismic, project }) => {
 	slice.variations[0].primary!.is_active = { type: "Boolean", config: { label: "Active" } };
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"edit",
 		"is_active",
 		"--from-slice",
@@ -83,7 +83,7 @@ it("edits boolean field options", async ({ expect, prismic, project }) => {
 		"--false-label",
 		"No",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field updated: is_active");
 
 	const updated = await readLocalSlice(project, slice.id);
@@ -103,7 +103,7 @@ it("edits number field options", async ({ expect, prismic, project }) => {
 	slice.variations[0].primary!.quantity = { type: "Number", config: { label: "Quantity" } };
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"edit",
 		"quantity",
 		"--from-slice",
@@ -113,7 +113,7 @@ it("edits number field options", async ({ expect, prismic, project }) => {
 		"--max",
 		"100",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field updated: quantity");
 
 	const updated = await readLocalSlice(project, slice.id);
@@ -132,7 +132,7 @@ it("edits select field options", async ({ expect, prismic, project }) => {
 	};
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"edit",
 		"color",
 		"--from-slice",
@@ -146,7 +146,7 @@ it("edits select field options", async ({ expect, prismic, project }) => {
 		"--option",
 		"blue",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field updated: color");
 
 	const updated = await readLocalSlice(project, slice.id);
@@ -173,7 +173,7 @@ it("edits content relationship field with --field", async ({ expect, prismic, pr
 	};
 	await writeLocalCustomType(project, owner);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"edit",
 		"my_link",
 		"--from-type",
@@ -181,7 +181,7 @@ it("edits content relationship field with --field", async ({ expect, prismic, pr
 		"--field",
 		"title",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field updated: my_link");
 
 	const updated = await readLocalCustomType(project, owner.id);
@@ -202,14 +202,14 @@ it("edits link field options", async ({ expect, prismic, project }) => {
 	};
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"edit",
 		"cta_link",
 		"--from-slice",
 		slice.id,
 		"--allow-target-blank",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field updated: cta_link");
 
 	const updated = await readLocalSlice(project, slice.id);

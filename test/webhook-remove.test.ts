@@ -2,8 +2,8 @@ import { it } from "./it";
 import { createWebhook, getWebhooks } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("webhook", ["remove", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("webhook", ["remove", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic webhook remove <url> [options]");
 });
 
@@ -12,8 +12,8 @@ it("removes a webhook", async ({ expect, prismic, repo, token, host }) => {
 
 	await createWebhook(url, { repo, token, host });
 
-	const { stdout, exitCode } = await prismic("webhook", ["remove", url]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("webhook", ["remove", url]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Webhook removed: ${url}`);
 
 	const webhooks = await getWebhooks({ repo, token, host });

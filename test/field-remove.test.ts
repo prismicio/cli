@@ -11,8 +11,8 @@ import {
 } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("field", ["remove", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("field", ["remove", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field remove <id> [options]");
 });
 
@@ -34,13 +34,13 @@ it("removes a field from a slice", async ({ expect, prismic, project }) => {
 	});
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"remove",
 		"my_field",
 		"--from-slice",
 		slice.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field removed: my_field");
 
 	const updated = await readLocalSlice(project, slice.id);
@@ -57,13 +57,13 @@ it("removes a field from a custom type", async ({ expect, prismic, project }) =>
 	});
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"remove",
 		"title",
 		"--from-type",
 		customType.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field removed: title");
 
 	const updated = await readLocalCustomType(project, customType.id);
@@ -96,13 +96,13 @@ it("removes a nested field using dot notation", async ({ expect, prismic, projec
 	});
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"remove",
 		"my_group.subtitle",
 		"--from-slice",
 		slice.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field removed: my_group.subtitle");
 
 	const updated = await readLocalSlice(project, slice.id);
