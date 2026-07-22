@@ -9,6 +9,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { x } from "tinyexec";
 import { inject, test } from "vitest";
 
+import { createRepository, deleteRepository, upsertLocale } from "./prismic";
+
 const BIN = fileURLToPath(new URL("../dist/index.mjs", import.meta.url));
 
 const E2E_PRISMIC_EMAIL = process.env.E2E_PRISMIC_EMAIL!;
@@ -135,6 +137,31 @@ export const it = test.extend<Fixtures>({
 		await use(inject("repo"));
 	},
 });
+
+/**
+ * A `repo` override that creates a throwaway repository for each test. Use in
+ * files whose tests mutate whole-repository state (locales, push, sync) so
+ * they can run concurrently with everything else.
+ *
+ * @example
+ * ```ts
+ * it.scoped({ repo: isolatedRepo });
+ * ```
+ */
+// oxlint-disable-next-line no-empty-pattern
+export async function isolatedRepo(
+	{}: object,
+	use: (repo: string) => Promise<void>,
+): Promise<void> {
+	const repo = `prismic-cli-isolated-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+	const token = inject("token");
+	const host = process.env.PRISMIC_HOST ?? DEFUALT_PRISMIC_HOST;
+	const password = process.env.E2E_PRISMIC_PASSWORD!;
+	await createRepository(repo, { token, host });
+	await upsertLocale("en-us", { isMaster: true, repo, token, host });
+	await use(repo);
+	await deleteRepository(repo, { token, password, host });
+}
 
 export function captureOutput(proc: Result): () => string {
 	let output = "";
