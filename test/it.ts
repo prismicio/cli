@@ -121,6 +121,7 @@ export const it = test.extend<Fixtures>({
 				PRISMIC_TYPE_BUILDER_ENABLED: "true",
 				PRISMIC_SENTRY_ENABLED: "false",
 				PRISMIC_TELEMETRY_ENABLED: "false",
+				PRISMIC_SYNC_POLL_MS: "500",
 				NO_UPDATE_NOTIFIER: "1",
 				PRISMIC_CONFIG_DIR: fileURLToPath(configDir),
 				...options?.nodeOptions?.env,
