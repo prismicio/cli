@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 
-import { isolatedRepo, it } from "./it";
+import { it } from "./it";
 import { upsertLocale, getLocales } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -16,7 +16,7 @@ it("errors when locale is already master", async ({ expect, prismic }) => {
 });
 
 describe("with an isolated repository", () => {
-	it.scoped({ repo: isolatedRepo });
+	it.scoped({ isolateRepo: true });
 
 	it("sets the master locale", async ({ expect, prismic, repo, token, host }) => {
 		await upsertLocale("fr-fr", { repo, token, host });

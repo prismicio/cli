@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 
-import { buildCustomType, buildSlice, isolatedRepo, it, writeLocalCustomType } from "./it";
+import { buildCustomType, buildSlice, it, writeLocalCustomType } from "./it";
 import { insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -24,7 +24,7 @@ it("warns and skips --env when not logged in", async ({ expect, prismic, logout,
 });
 
 describe("with an isolated repository", () => {
-	it.scoped({ repo: isolatedRepo });
+	it.scoped({ isolateRepo: true });
 
 	it("reports in-sync when local matches remote", async ({ expect, prismic, repo }) => {
 		const pull = await prismic("pull", ["--repo", repo]);

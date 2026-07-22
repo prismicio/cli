@@ -25,6 +25,20 @@ export type Fixtures = {
 	logout: () => Promise<void>;
 	token: string;
 	password: string;
+	/**
+	 * When `true`, `repo` is a throwaway repository unique to the test instead
+	 * of the shared one. Enable in suites that mutate whole-repository state
+	 * (locales, push, sync) so they can run concurrently with everything else.
+	 *
+	 * @example
+	 * ```ts
+	 * describe("with an isolated repository", () => {
+	 * 	it.scoped({ isolateRepo: true });
+	 * 	// ...
+	 * });
+	 * ```
+	 */
+	isolateRepo: boolean;
 	repo: string;
 };
 
@@ -132,36 +146,19 @@ export const it = test.extend<Fixtures>({
 	password: async ({}, use) => {
 		await use(process.env.E2E_PRISMIC_PASSWORD!);
 	},
-	// oxlint-disable-next-line no-empty-pattern
-	repo: async ({}, use) => {
-		await use(inject("repo"));
+	isolateRepo: false,
+	repo: async ({ isolateRepo, token, host, password }, use) => {
+		if (!isolateRepo) {
+			await use(inject("repo"));
+			return;
+		}
+		const repo = `prismic-cli-isolated-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+		await createRepository(repo, { token, host });
+		await upsertLocale("en-us", { isMaster: true, repo, token, host });
+		await use(repo);
+		await deleteRepository(repo, { token, password, host });
 	},
 });
-
-/**
- * A `repo` override that creates a throwaway repository for each test. Use in
- * files whose tests mutate whole-repository state (locales, push, sync) so
- * they can run concurrently with everything else.
- *
- * @example
- * ```ts
- * it.scoped({ repo: isolatedRepo });
- * ```
- */
-// oxlint-disable-next-line no-empty-pattern
-export async function isolatedRepo(
-	{}: object,
-	use: (repo: string) => Promise<void>,
-): Promise<void> {
-	const repo = `prismic-cli-isolated-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
-	const token = inject("token");
-	const host = process.env.PRISMIC_HOST ?? DEFUALT_PRISMIC_HOST;
-	const password = process.env.E2E_PRISMIC_PASSWORD!;
-	await createRepository(repo, { token, host });
-	await upsertLocale("en-us", { isMaster: true, repo, token, host });
-	await use(repo);
-	await deleteRepository(repo, { token, password, host });
-}
 
 export function captureOutput(proc: Result): () => string {
 	let output = "";

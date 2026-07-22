@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 
-import { buildCustomType, buildSlice, captureOutput, isolatedRepo, it } from "./it";
+import { buildCustomType, buildSlice, captureOutput, it } from "./it";
 import { insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -16,7 +16,7 @@ it("requires --watch", async ({ expect, prismic, repo }) => {
 });
 
 describe("with an isolated repository", () => {
-	it.scoped({ repo: isolatedRepo });
+	it.scoped({ isolateRepo: true });
 
 	it("watches for changes and syncs", async ({ expect, project, prismic, repo, token, host }) => {
 		const customType = buildCustomType();

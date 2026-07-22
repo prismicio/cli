@@ -1,6 +1,6 @@
 import { describe } from "vitest";
 
-import { isolatedRepo, it } from "./it";
+import { it } from "./it";
 import { upsertLocale } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -10,7 +10,7 @@ it("supports --help", async ({ expect, prismic }) => {
 });
 
 describe("with an isolated repository", () => {
-	it.scoped({ repo: isolatedRepo });
+	it.scoped({ isolateRepo: true });
 
 	it("lists locales", async ({ expect, prismic, repo, token, host }) => {
 		await upsertLocale("fr-fr", { repo, token, host });

@@ -1,14 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { describe } from "vitest";
 
-import {
-	buildCustomType,
-	buildSlice,
-	isolatedRepo,
-	it,
-	writeLocalCustomType,
-	writeLocalSlice,
-} from "./it";
+import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
 import {
 	getCustomTypes,
 	getScreenshotPrefix,
@@ -30,7 +23,7 @@ it("rejects an unknown --env", async ({ expect, prismic, repo }) => {
 });
 
 describe("with an isolated repository", () => {
-	it.scoped({ repo: isolatedRepo });
+	it.scoped({ isolateRepo: true });
 
 	it("pushes a new local custom type to remote", async ({
 		expect,
