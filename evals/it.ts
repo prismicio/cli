@@ -4,7 +4,7 @@
 
 import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import dedent from "dedent";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +13,18 @@ import { expect } from "vitest";
 import * as z from "zod/mini";
 
 import { it as base } from "../test/it";
+import { deleteRepository } from "../test/prismic";
+
+// Safety gate. Evals run a real agent with --dangerously-skip-permissions, which
+// can run arbitrary commands on the host, so only allow them in an isolated,
+// disposable environment the developer explicitly opts into.
+if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
+	throw new Error(
+		"Refusing to run evals outside an isolated environment. They run an agent with " +
+			"--dangerously-skip-permissions against a real account. Set PRISMIC_ALLOW_EVALS=true " +
+			"only inside a container or disposable VM.",
+	);
+}
 
 const BIN = new URL("../dist/index.mjs", import.meta.url);
 
@@ -76,7 +88,7 @@ export const it = base.extend<{
 			}),
 		);
 	},
-	agent: async ({ home, project, login, task }, use) => {
+	agent: async ({ home, project, login, task, repo, token, host }, use) => {
 		await login();
 
 		const binDir = new URL("bin/", home);
@@ -165,6 +177,19 @@ export const it = base.extend<{
 		});
 
 		task.meta.agent = record;
+
+		// Agents can create a repository with a name the harness cannot know in
+		// advance (e.g. `prismic init` picks a random domain). It ends up in the
+		// project's config, so delete it from there. Best-effort: the config may
+		// be missing or name the shared repo.
+		const password = process.env.E2E_PRISMIC_PASSWORD;
+		try {
+			const configFile = await readFile(new URL("prismic.config.json", project), "utf8");
+			const created = JSON.parse(configFile).repositoryName;
+			if (created && created !== repo && password) {
+				await deleteRepository(created, { token, password, host });
+			}
+		} catch {}
 	},
 });
 

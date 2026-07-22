@@ -1,7 +1,7 @@
 import { defineConfig } from "tsdown";
 
 const MODE = process.env.MODE || "development";
-const TEST = MODE === "test";
+const PROD = MODE === "production";
 
 export default defineConfig({
 	entry: {
@@ -12,13 +12,10 @@ export default defineConfig({
 	},
 	format: "esm",
 	platform: "node",
-	unbundle: TEST,
-	minify: !TEST,
+	unbundle: !PROD,
+	minify: PROD,
 	envPrefix: "PRISMIC_",
 	define: {
-		"process.env.MODE": JSON.stringify(MODE),
-		"process.env.DEV": JSON.stringify(String(MODE !== "production")),
-		"process.env.PROD": JSON.stringify(String(MODE === "production")),
-		"process.env.TEST": JSON.stringify(String(TEST)),
+		"process.env.PROD": JSON.stringify(String(PROD)),
 	},
 });
