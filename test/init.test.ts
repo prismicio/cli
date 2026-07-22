@@ -1,5 +1,4 @@
 import { access, readFile, rm, writeFile } from "node:fs/promises";
-import { onTestFinished } from "vitest";
 
 import { captureOutput, it } from "./it";
 import {
@@ -30,6 +29,7 @@ it("creates a repo if --repo is not provided and no legacy config exists", async
 	token,
 	host,
 	password,
+	onTestFinished,
 }) => {
 	await rm(new URL("prismic.config.json", project));
 	const { exitCode, stdout } = await prismic("init");
@@ -61,6 +61,7 @@ it("preserves existing preview config", async ({
 	token,
 	password,
 	host,
+	onTestFinished,
 }) => {
 	const rawName = `CLI-Test-${crypto.randomUUID().slice(0, 8)}`;
 	const name = rawName.toLowerCase();
