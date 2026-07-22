@@ -20,6 +20,9 @@ const config = {
 
 			Add a repeatable link with custom text:
 			  prismic field add link nav_item --to-type navigation --repeatable --allow-text
+
+			Allow any link type, but restrict document links to a type:
+			  prismic field add link cta --to-type landing_page --custom-type page
 		`,
 	},
 	positionals: {
@@ -36,6 +39,11 @@ const config = {
 		"allow-text": { type: "boolean", description: "Allow custom link text" },
 		repeatable: { type: "boolean", description: "Allow multiple links" },
 		variant: { type: "string", multiple: true, description: "Allowed variant (can be repeated)" },
+		"custom-type": {
+			type: "string",
+			multiple: true,
+			description: "Restrict document links to this custom type (can be repeated)",
+		},
 	},
 } satisfies CommandConfig;
 
@@ -50,12 +58,22 @@ export default createCommand(config, async ({ positionals, values }) => {
 		"allow-text": allowText,
 		repeatable: repeat,
 		variant: variants,
+		"custom-type": customtypes,
 	} = values;
 
+	if (allow?.includes(",")) {
+		throw new CommandError(
+			"--allow accepts a single link type. Prismic links allow either one type or all types.",
+		);
+	}
 	if (allow && !ALLOWED_LINK_TYPES.includes(allow as (typeof ALLOWED_LINK_TYPES)[number])) {
 		throw new CommandError(`--allow must be one of: ${ALLOWED_LINK_TYPES.join(", ")}`);
 	}
 	const select = allow as (typeof ALLOWED_LINK_TYPES)[number] | undefined;
+
+	if (customtypes && (select === "media" || select === "web")) {
+		throw new CommandError(`--custom-type cannot be used with --allow ${select}`);
+	}
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
@@ -68,6 +86,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			allowText,
 			repeat,
 			variants,
+			customtypes,
 		},
 	};
 
