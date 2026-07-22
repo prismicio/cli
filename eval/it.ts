@@ -22,9 +22,6 @@ const env = z
 	})
 	.parse(process.env);
 
-// Each eval registers once per trial via `it.for(trials)`, so every trial is a
-// separate test with fresh fixtures. Trials share the eval's name; the reporter
-// groups rows by name into per-eval pass rates.
 export const trials = Array.from({ length: env.EVAL_TRIALS }, (_, i) => i + 1);
 
 const PRISMIC_GUIDANCE = dedent`
@@ -63,8 +60,6 @@ export const it = base.extend<{
 	git: (...args: string[]) => Result;
 	isolateRepo: boolean;
 }>({
-	// Evals run concurrently and agents may push to or mutate the repository,
-	// so each test gets its own instead of the shared one.
 	isolateRepo: true,
 	git: async ({ project, home }, use) => {
 		await use((...args) =>
@@ -199,8 +194,6 @@ async function createTempClaudeConfigDir(): Promise<string> {
 	return dir;
 }
 
-// Evaluates each shell segment separately so `prismic push --help` in a
-// compound command neither counts as running `push` nor hides a real run.
 function ranCommand(command: string, bin: string, positionals: string[]): boolean {
 	return command.split(/&&|\|\||;|\||\n/).some((segment) => {
 		const words = segment.split(/\s+/).filter(Boolean);
