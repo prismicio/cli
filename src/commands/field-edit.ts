@@ -86,6 +86,10 @@ const config = {
 			description: "Comma-separated allowed block types (rich-text)",
 		},
 		single: { type: "boolean", description: "Restrict to a single block (rich-text)" },
+		labels: {
+			type: "string",
+			description: 'Comma-separated custom labels for styling text spans; "" clears (rich-text)',
+		},
 		// Integration
 		catalog: { type: "string", description: "Integration catalog ID (integration)" },
 	},
@@ -137,6 +141,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 		case "StructuredText": {
 			if ("allow-target-blank" in values) {
 				field.config.allowTargetBlank = values["allow-target-blank"];
+			}
+			if ("labels" in values) {
+				if (values.labels) {
+					field.config.labels = values.labels.split(",");
+				} else {
+					delete field.config.labels;
+				}
 			}
 			if ("single" in values) {
 				// Switch from multi to single mode
