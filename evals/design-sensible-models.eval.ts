@@ -22,7 +22,7 @@ it.for(trials)(
 		await expect(JSON.stringify(slices[0], null, 2)).toSatisfyJudge(
 			dedent`
 			This is a Prismic shared slice modeled from: "a testimonial with a quote, author name, author role, an avatar, and a company logo".
-			Passes if all five are present with sensible types: rich text or key text for the quote, key text for the name and role, and image fields for the avatar and logo. Field names may vary; judge the types, not the names.
+			Passes if all five are present with sensible types: rich text or key text for the quote, key text for the name and role, and image fields for the avatar and logo. Field names must clearly convey their purpose (e.g. something like "quote", not "text_1"); exact names may vary.
 		`,
 		);
 	},
@@ -46,7 +46,7 @@ it.for(trials)(
 		await expect(JSON.stringify(models, null, 2)).toSatisfyJudge(
 			dedent`
 			These are Prismic models for a blog post with a title, publish date, hero image, author, and body.
-			Passes if the title and body are rich text, the publish date is a date or timestamp, the hero is an image, and the author is a content relationship (a link to another document type), not free text.
+			Passes if the title and body are rich text, the publish date is a date or timestamp, the hero is an image, and the author is a content relationship (a link to another document type), not free text. Field names must clearly convey their purpose; exact names may vary.
 		`,
 		);
 	},
@@ -104,7 +104,7 @@ it.for(trials)(
 		await expect(JSON.stringify(model, null, 2)).toSatisfyJudge(
 			dedent`
 			This is a Prismic "product" model after adding a star rating (1 to 5) and a call-to-action button.
-			Passes only if both hold: the rating is a number field or a select constrained to the values 1-5 (not free text), and the CTA is a single link field (ideally with display text), not separate text and URL fields.
+			Passes only if both hold: the rating is a number field or a select constrained to the values 1-5 (not free text), and the CTA is a single link field (ideally with display text), not separate text and URL fields. Field names must clearly convey their purpose; exact names may vary.
 		`,
 		);
 	},
@@ -125,14 +125,14 @@ it.for(trials)(
 		await expect(JSON.stringify(model, null, 2)).toSatisfyJudge(
 			dedent`
 			This is a Prismic "blog_post" model that needs a title.
-			By Prismic convention, passes only if the title is rich text (type "StructuredText") limited to a single heading block.
+			By Prismic convention, passes only if the title is rich text (type "StructuredText") limited to a single heading block, with a field name that clearly conveys it is the title.
 			Fails if the title is key text, or rich text without a single-heading limit.
 		`,
 		);
 		await expect(JSON.stringify(model, null, 2)).toSatisfyJudge(
 			dedent`
 			This is a Prismic "blog_post" model that needs the author's Bluesky handle.
-			Passes only if the handle is key text (type "Text"): a short single-line string with no formatting.
+			Passes only if the handle is key text (type "Text"): a short single-line string with no formatting, with a field name that clearly conveys it is the Bluesky handle.
 			Fails if the handle is rich text.
 		`,
 		);
