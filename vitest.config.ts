@@ -27,22 +27,10 @@ export default defineConfig({
 		projects: [
 			{
 				test: {
-					name: "concurrent",
+					name: "tests",
 					setupFiles: ["./test/setup.ts"],
 					include: ["./test/**/*.test.ts"],
-					exclude: ["./test/*.serial.test.ts"],
 					sequence: { concurrent: true },
-					testTimeout: 30_000,
-					retry: 2,
-				},
-			},
-			{
-				test: {
-					name: "serial",
-					setupFiles: ["./test/setup.ts"],
-					include: ["./test/*.serial.test.ts"],
-					sequence: { concurrent: false },
-					fileParallelism: false,
 					testTimeout: 30_000,
 					retry: 2,
 				},

@@ -20,29 +20,26 @@ export type Fixtures = {
 	host: string;
 	home: URL;
 	project: URL;
-	exec: typeof x;
 	prismic: typeof x;
 	login: () => Promise<{ token: string; email: string }>;
 	logout: () => Promise<void>;
 	token: string;
 	password: string;
-	repo: string;
 	/**
-	 * A throwaway repository created for a single test. Swap it in for `repo` to
-	 * isolate tests from the shared repository.
+	 * When `true`, `repo` is a throwaway repository unique to the test instead
+	 * of the shared one. Enable in suites that mutate whole-repository state
+	 * (locales, push, sync) so they can run concurrently with everything else.
 	 *
 	 * @example
 	 * ```ts
-	 * describe("locales", () => {
-	 * 	it.scoped({ repo: async ({ isolatedRepo }, use) => use(isolatedRepo) });
-	 *
-	 * 	it("adds a locale", async ({ prismic, repo }) => {
-	 * 		// `repo` is a fresh repository unique to this test.
-	 * 	});
+	 * describe("with an isolated repository", () => {
+	 * 	it.scoped({ isolateRepo: true });
+	 * 	// ...
 	 * });
 	 * ```
 	 */
-	isolatedRepo: string;
+	isolateRepo: boolean;
+	repo: string;
 };
 
 export const it = test.extend<Fixtures>({
@@ -113,11 +110,12 @@ export const it = test.extend<Fixtures>({
 			await rm(new URL(".config/prismic/credentials.json", home), { force: true });
 		});
 	},
-	exec: async ({ project, home }, use) => {
+	prismic: async ({ home, project, login }, use) => {
+		await login();
 		const binDir = new URL("bin/", home);
 		const configDir = new URL(".config/prismic/", home);
 		const procs: Result[] = [];
-		await use((command, args, options) => {
+		await use((command, args = [], options) => {
 			const env = {
 				...process.env,
 				PRISMIC_TYPE_BUILDER_ENABLED: "true",
@@ -129,7 +127,7 @@ export const it = test.extend<Fixtures>({
 				PATH: `${fileURLToPath(binDir)}:${process.env.PATH}`,
 				HOME: fileURLToPath(home),
 			};
-			const proc = x(command, args, {
+			const proc = x("node", [BIN, command, ...args].filter(Boolean), {
 				...options,
 				nodeOptions: {
 					cwd: fileURLToPath(project),
@@ -144,21 +142,16 @@ export const it = test.extend<Fixtures>({
 			if (proc.exitCode === undefined) proc.kill();
 		}
 	},
-	prismic: async ({ exec, login }, use) => {
-		await login();
-		await use((command, args = [], options) =>
-			exec("node", [BIN, command, ...args].filter(Boolean), options),
-		);
-	},
 	// oxlint-disable-next-line no-empty-pattern
 	password: async ({}, use) => {
 		await use(process.env.E2E_PRISMIC_PASSWORD!);
 	},
-	// oxlint-disable-next-line no-empty-pattern
-	repo: async ({}, use) => {
-		await use(inject("repo"));
-	},
-	isolatedRepo: async ({ token, host, password }, use) => {
+	isolateRepo: false,
+	repo: async ({ isolateRepo, token, host, password }, use) => {
+		if (!isolateRepo) {
+			await use(inject("repo"));
+			return;
+		}
 		const repo = `prismic-cli-isolated-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
 		await createRepository(repo, { token, host });
 		await upsertLocale("en-us", { isMaster: true, repo, token, host });

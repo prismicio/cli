@@ -1,5 +1,3 @@
-import { onTestFinished } from "vitest";
-
 import { it } from "./it";
 import { deleteRepository, getLocales, getMCPActivationStatus, getRepository } from "./prismic";
 
@@ -9,7 +7,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic repo create [options]");
 });
 
-it("creates a repository", async ({ expect, prismic, token, host, password }) => {
+it("creates a repository", async ({ expect, prismic, token, host, password, onTestFinished }) => {
 	const { stdout, exitCode } = await prismic("repo", ["create"]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Repository created:");
@@ -36,7 +34,14 @@ it("activates the MCP server", async ({ expect, prismic, token, host }) => {
 	expect(["active", "activating"]).toContain(status);
 });
 
-it("creates a repository with a name", async ({ expect, prismic, token, host, password }) => {
+it("creates a repository with a name", async ({
+	expect,
+	prismic,
+	token,
+	host,
+	password,
+	onTestFinished,
+}) => {
 	const name = `Test ${crypto.randomUUID().slice(0, 8)}`;
 	const { stdout, exitCode } = await prismic("repo", ["create", "--name", name]);
 	expect(exitCode).toBe(0);
@@ -51,7 +56,14 @@ it("creates a repository with a name", async ({ expect, prismic, token, host, pa
 	expect(repository.name).toBe(name);
 });
 
-it("sets the master locale with --lang", async ({ expect, prismic, token, host, password }) => {
+it("sets the master locale with --lang", async ({
+	expect,
+	prismic,
+	token,
+	host,
+	password,
+	onTestFinished,
+}) => {
 	const { stdout, exitCode } = await prismic("repo", ["create", "--lang", "fr-fr"]);
 	expect(exitCode).toBe(0);
 

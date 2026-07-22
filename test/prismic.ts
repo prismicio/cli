@@ -260,30 +260,6 @@ export async function upsertLocale(
 	if (!res.ok) throw new Error(`Failed to add locale ${code}: ${res.status} ${await res.text()}`);
 }
 
-export async function removeLocale(code: string, config: RepoConfig): Promise<void> {
-	const host = config.host ?? DEFAULT_HOST;
-	const url = new URL(
-		`locale/repository/locales/${encodeURIComponent(code)}`,
-		`https://api.internal.${host}/`,
-	);
-	url.searchParams.set("repository", config.repo);
-	const res = await fetch(url, {
-		method: "DELETE",
-		headers: { Authorization: `Bearer ${config.token}` },
-	});
-	if (!res.ok && res.status !== 404)
-		throw new Error(`Failed to remove locale ${code}: ${res.status} ${await res.text()}`);
-}
-
-export async function resetLocales(config: RepoConfig): Promise<void> {
-	await upsertLocale("en-us", { isMaster: true, ...config });
-	const locales = await getLocales(config);
-	for (const locale of locales) {
-		if (locale.isMaster) continue;
-		await removeLocale(locale.id, config);
-	}
-}
-
 export async function getAccessTokens(
 	config: RepoConfig,
 ): Promise<
@@ -329,20 +305,6 @@ export async function createAccessToken(
 	if (!res.ok) throw new Error(`Failed to create access token: ${res.status} ${await res.text()}`);
 	const auth = await res.json();
 	return { appId: app!.id, authId: auth.id, token: auth.token };
-}
-
-export async function deleteAccessToken(authId: string, config: RepoConfig): Promise<void> {
-	const host = config.host ?? DEFAULT_HOST;
-	const url = new URL(
-		`settings/security/authorizations/${authId}`,
-		`https://${config.repo}.${host}/`,
-	);
-	const res = await fetch(url, {
-		method: "DELETE",
-		headers: { Cookie: `prismic-auth=${config.token}` },
-	});
-	if (!res.ok && res.status !== 404)
-		throw new Error(`Failed to delete access token: ${res.status} ${await res.text()}`);
 }
 
 export async function getWriteTokens(
