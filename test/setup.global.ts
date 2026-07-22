@@ -1,8 +1,14 @@
 import type { TestProject } from "vitest/node";
 
-import { build } from "tsdown";
+import { build, type InlineConfig } from "tsdown";
 
 import { upsertLocale, createRepository, deleteRepository, login } from "./prismic";
+
+const TSDOWN_TEST_CONFIG: InlineConfig = {
+	logLevel: "silent",
+	unbundle: true,
+	minify: false,
+};
 
 declare module "vitest" {
 	export interface ProvidedContext {
@@ -12,9 +18,9 @@ declare module "vitest" {
 }
 
 export default async function (project: TestProject): Promise<() => Promise<void>> {
-	await build({ logLevel: "silent", unbundle: true, minify: false });
+	await build(TSDOWN_TEST_CONFIG);
 	project.onTestsRerun(async () => {
-		await build({ logLevel: "silent", unbundle: true, minify: false });
+		await build(TSDOWN_TEST_CONFIG);
 	});
 
 	try {
