@@ -5,32 +5,32 @@ import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
 
-// What the eval fixture records about one agent trial.
+/** What the eval fixture records about one agent trial. */
 export const AgentRecord = z.object({
-	// Total tokens including cache reads (context processed, not billed volume).
+	/** Total tokens including cache reads (context processed, not billed volume). */
 	tokens: z.number(),
-	// Billed agent cost for the trial; judge calls not included.
+	/** Billed agent cost for the trial; judge calls not included. */
 	costUsd: z.number(),
 	turns: z.number(),
-	// Agent wall time, excluding fixture setup and judging.
+	/** Agent wall time, excluding fixture setup and judging. */
 	durationMs: z.number(),
 	model: z.string(),
-	// Bash commands invoking the prismic CLI, verbatim.
+	/** Bash commands invoking the prismic CLI, verbatim. */
 	prismicCalls: z.array(z.string()),
-	// True when the harness died before grading; excluded from pass rates.
+	/** True when the harness died before grading; excluded from pass rates. */
 	infra: z.optional(z.boolean()),
 });
 export type AgentRecord = z.infer<typeof AgentRecord>;
 
-// One results.jsonl row per trial.
+/** One results.jsonl row per trial. */
 export const Row = z.extend(AgentRecord, {
-	// Eval name; trials of the same eval share it.
+	/** Eval name; trials of the same eval share it. */
 	eval: z.string(),
-	// Whether the trial's assertions passed.
+	/** Whether the trial's assertions passed. */
 	pass: z.boolean(),
-	// Run id: epoch ms shared by every trial in one vitest invocation.
+	/** Run id: epoch ms shared by every trial in one vitest invocation. */
 	run: z.number(),
-	// Short git commit of the CLI under measurement.
+	/** Short git commit of the CLI under measurement. */
 	cli: z.optional(z.string()),
 });
 export type Row = z.infer<typeof Row>;
