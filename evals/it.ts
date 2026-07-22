@@ -1,3 +1,7 @@
+// Evals are measurements, not gates: an enabled eval may fail, and its pass
+// rate is the signal. Drafts start as it.skip until validated once; keep an
+// eval skipped only when the CLI cannot pass it (missing feature).
+
 import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import dedent from "dedent";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";

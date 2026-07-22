@@ -23,7 +23,7 @@ export default defineConfig({
 		globalSetup: ["./test/setup.global.ts"],
 		forceRerunTriggers: ["**/dist/index.mjs"],
 		typecheck: { enabled: true },
-		reporters: runEvals ? ["default", "./eval/reporter.ts"] : ["default"],
+		reporters: runEvals ? ["default", "./evals/reporter.ts"] : ["default"],
 		projects: [
 			{
 				test: {
@@ -43,7 +43,7 @@ export default defineConfig({
 							test: {
 								name: "evals",
 								setupFiles: ["./test/setup.ts"],
-								include: ["./eval/**/*.eval.ts"],
+								include: ["./evals/**/*.eval.ts"],
 								sequence: { concurrent: true },
 								maxConcurrency: 8,
 								testTimeout: 600_000,

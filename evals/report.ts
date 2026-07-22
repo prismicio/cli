@@ -1,4 +1,4 @@
-// Digest of eval/results.jsonl scoped to the last EVAL_HISTORY runs (default
+// Digest of evals/results.jsonl scoped to the last EVAL_HISTORY runs (default
 // 10): one block per eval with one line per run it appeared in (newest last),
 // and a footer line per run. Within a run, trials aggregate; across runs,
 // lines compare — runs measure different CLI versions, so they are never
