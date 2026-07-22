@@ -3,20 +3,37 @@ import type { Reporter, TestModule } from "vitest/node";
 import { execSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import * as z from "zod/mini";
 
-import type { AgentRecord } from "./it.ts";
+// What the eval fixture records about one agent trial.
+export const AgentRecord = z.object({
+	// Total tokens including cache reads (context processed, not billed volume).
+	tokens: z.number(),
+	// Billed agent cost for the trial; judge calls not included.
+	costUsd: z.number(),
+	turns: z.number(),
+	// Agent wall time, excluding fixture setup and judging.
+	durationMs: z.number(),
+	model: z.string(),
+	// Bash commands invoking the prismic CLI, verbatim.
+	prismicCalls: z.array(z.string()),
+	// True when the harness died before grading; excluded from pass rates.
+	infra: z.optional(z.boolean()),
+});
+export type AgentRecord = z.infer<typeof AgentRecord>;
 
 // One results.jsonl row per trial.
-export type Row = AgentRecord & {
+export const Row = z.extend(AgentRecord, {
 	// Eval name; trials of the same eval share it.
-	eval: string;
+	eval: z.string(),
 	// Whether the trial's assertions passed.
-	pass: boolean;
+	pass: z.boolean(),
 	// Run id: epoch ms shared by every trial in one vitest invocation.
-	run: number;
+	run: z.number(),
 	// Short git commit of the CLI under measurement.
-	cli?: string;
-};
+	cli: z.optional(z.string()),
+});
+export type Row = z.infer<typeof Row>;
 
 const RESULTS_PATH = fileURLToPath(new URL("results.jsonl", import.meta.url));
 const RUNS_KEPT = 100;

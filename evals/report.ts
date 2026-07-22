@@ -7,14 +7,14 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import type { Row } from "./reporter.ts";
+import { Row } from "./reporter.ts";
 
 const RESULTS_PATH = fileURLToPath(new URL("results.jsonl", import.meta.url));
 
 const allRows: Row[] = readFileSync(RESULTS_PATH, "utf8")
 	.split("\n")
 	.filter(Boolean)
-	.map((line) => JSON.parse(line));
+	.map((line) => Row.parse(JSON.parse(line)));
 
 if (allRows.length === 0) {
 	console.info("No results yet. Run `node --run evals` first.");

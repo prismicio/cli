@@ -12,6 +12,8 @@ import { type Result, x } from "tinyexec";
 import { expect } from "vitest";
 import * as z from "zod/mini";
 
+import type { AgentRecord } from "./reporter.ts";
+
 import { it as base } from "../test/it";
 import { deleteRepository } from "../test/prismic";
 
@@ -48,21 +50,6 @@ const PRISMIC_GUIDANCE = dedent`
 	4. Prefer CLI workflows. Never directly edit model JSON files — always use the CLI.
 	5. If the CLI cannot do something, say so instead of working around it.
 `;
-
-export type AgentRecord = {
-	// Total tokens including cache reads (context processed, not billed volume).
-	tokens: number;
-	// Billed agent cost for the trial; judge calls not included.
-	costUsd: number;
-	turns: number;
-	// Agent wall time, excluding fixture setup and judging.
-	durationMs: number;
-	model: string;
-	// Bash commands invoking the prismic CLI, verbatim.
-	prismicCalls: string[];
-	// True when the harness died before grading; excluded from pass rates.
-	infra?: boolean;
-};
 
 declare module "vitest" {
 	// oxlint-disable-next-line no-explicit-any
