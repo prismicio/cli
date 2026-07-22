@@ -12,8 +12,8 @@ declare module "vitest" {
 }
 
 export default async function (project: TestProject): Promise<() => Promise<void>> {
-	await build();
-	project.onTestsRerun(async () => void (await build()));
+	await build({ logLevel: "silent" });
+	project.onTestsRerun(async () => void (await build({ logLevel: "silent" })));
 
 	try {
 		process.loadEnvFile(".env.test.local");
