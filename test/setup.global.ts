@@ -1,4 +1,4 @@
-import type { Vitest } from "vitest/node";
+import type { TestProject } from "vitest/node";
 
 import { upsertLocale, createRepository, deleteRepository, login } from "./prismic";
 
@@ -9,7 +9,7 @@ declare module "vitest" {
 	}
 }
 
-export default async function ({ provide }: Vitest): Promise<() => Promise<void>> {
+export default async function ({ provide }: TestProject): Promise<() => Promise<void>> {
 	try {
 		process.loadEnvFile(".env.test.local");
 	} catch {
