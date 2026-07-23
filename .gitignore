@@ -42,3 +42,6 @@ coverage
 *.code-workspace
 
 .claude
+
+# Eval debug stream dump (EVAL_DEBUG=1)
+evals/last-run.json

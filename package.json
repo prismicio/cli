@@ -29,11 +29,14 @@
 		"prepare": "npm run build",
 		"lint": "oxlint --deny-warnings",
 		"types": "tsc --noEmit",
-		"unit": "vitest run",
-		"unit:watch": "vitest watch",
+		"unit": "vitest run --project tests",
+		"unit:watch": "vitest watch --project tests",
+		"evals": "vitest run --project evals --reporter=default --reporter=./evals/reporter.ts",
+		"evals:report": "node evals/report.ts",
 		"test": "npm run lint && npm run types && npm run unit"
 	},
 	"devDependencies": {
+		"@anthropic-ai/claude-agent-sdk": "^0.3.215",
 		"@prismicio/types-internal": "3.16.1",
 		"@types/node": "25.0.9",
 		"change-case": "5.4.4",
