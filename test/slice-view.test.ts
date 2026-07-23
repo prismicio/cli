@@ -1,8 +1,8 @@
 import { buildSlice, it, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("slice", ["view", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["view", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic slice view <id> [options]");
 });
 
@@ -10,8 +10,8 @@ it("views a slice", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("slice", ["view", slice.id]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["view", slice.id]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`ID: ${slice.id}`);
 	expect(stdout).toContain(`Name: ${slice.name}`);
 	expect(stdout).toContain("default:");
@@ -47,8 +47,8 @@ it("shows fields per variation", async ({ expect, prismic, project }) => {
 	});
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("slice", ["view", slice.id]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["view", slice.id]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("default:");
 	expect(stdout).toMatch(/title\s+StructuredText\s+Title\s+"Enter title"/);
 	expect(stdout).toMatch(/is_active\s+Boolean\s+Is Active/);
@@ -60,8 +60,8 @@ it("views a slice as JSON", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("slice", ["view", slice.id, "--json"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["view", slice.id, "--json"]);
+	expect(exitCode, stderr).toBe(0);
 	const parsed = JSON.parse(stdout);
 	expect(parsed).toMatchObject({ id: slice.id, name: slice.name });
 });

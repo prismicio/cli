@@ -1,6 +1,14 @@
-import type { Vitest } from "vitest/node";
+import type { TestProject } from "vitest/node";
+
+import { build, type InlineConfig } from "tsdown";
 
 import { upsertLocale, createRepository, deleteRepository, login } from "./prismic";
+
+const TSDOWN_TEST_CONFIG: InlineConfig = {
+	logLevel: "silent",
+	unbundle: true,
+	minify: false,
+};
 
 declare module "vitest" {
 	export interface ProvidedContext {
@@ -9,7 +17,12 @@ declare module "vitest" {
 	}
 }
 
-export default async function ({ provide }: Vitest): Promise<() => Promise<void>> {
+export default async function (project: TestProject): Promise<() => Promise<void>> {
+	await build(TSDOWN_TEST_CONFIG);
+	project.onTestsRerun(async () => {
+		await build(TSDOWN_TEST_CONFIG);
+	});
+
 	try {
 		process.loadEnvFile(".env.test.local");
 	} catch {
@@ -24,13 +37,13 @@ export default async function ({ provide }: Vitest): Promise<() => Promise<void>
 
 	console.info(`Logging in to ${host} with ${email}`);
 	const token = await login(email, password, { host });
-	provide("token", token);
+	project.provide("token", token);
 
 	const repo = `prismic-cli-test-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
 	console.info(`Creating shared test repository: ${repo}`);
 	await createRepository(repo, { token, host });
 	await upsertLocale("en-us", { isMaster: true, repo, token, host });
-	provide("repo", repo);
+	project.provide("repo", repo);
 
 	return async () => {
 		try {
