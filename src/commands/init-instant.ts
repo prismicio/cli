@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { exists, readURLFile } from "../lib/file";
 import { installDependencies } from "../lib/packageJson";
-import { setSimulatorUrl } from "../lib/prismic/clients/core";
+import { removePreviewsByURL, setSimulatorUrl } from "../lib/prismic/clients/core";
 import { getOrCreateInstantStartExport } from "../lib/prismic/clients/website-generator";
 import { extractZip } from "../lib/zip";
 import { authenticateInit } from "./init-auth";
@@ -56,7 +56,8 @@ async function setupInstantProject(
 		console.info("Installing dependencies...");
 		await installDependencies({ start: pathToFileURL(destination) });
 
-		console.info("Setting local simulator URL...");
+		console.info("Configuring local previews...");
+		await removePreviewsByURL(readyExport.previewUrls, { repo: repositoryId, ...config });
 		await setSimulatorUrl("http://localhost:3000/slice-simulator", {
 			repo: repositoryId,
 			...config,

@@ -16,6 +16,7 @@ const InstantStartExportReadySchema = z.object({
 	framework: z.literal("next"),
 	preparedAt: z.string(),
 	downloadUrl: z.url(),
+	previewUrls: z.array(z.url()),
 });
 export type InstantStartExportReady = z.infer<typeof InstantStartExportReadySchema>;
 

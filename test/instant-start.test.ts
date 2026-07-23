@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it as unitTest, onTestFinished, vi } from "vitest";
 
+import { removePreviewsByURL } from "../src/lib/prismic/clients/core";
 import { getOrCreateInstantStartExport } from "../src/lib/prismic/clients/website-generator";
 import { extractZip } from "../src/lib/zip";
 import { captureOutput, it } from "./it";
@@ -90,6 +91,7 @@ describe.sequential("Instant Start API client", () => {
 			framework: "next",
 			preparedAt: "2026-07-17T10:00:00.000Z",
 			downloadUrl: "https://cdn.example.com/my-repo/.exports/instant-start.zip",
+			previewUrls: ["https://starter.example.com/api/preview"],
 		};
 		const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse(readyExport));
 		vi.stubGlobal("fetch", fetchMock);
@@ -109,6 +111,7 @@ describe.sequential("Instant Start API client", () => {
 			framework: "next",
 			preparedAt: "2026-07-17T10:00:00.000Z",
 			downloadUrl: "https://cdn.example.com/my-repo/.exports/instant-start.zip",
+			previewUrls: ["https://starter.example.com/api/preview"],
 		};
 		const fetchMock = vi
 			.fn<typeof fetch>()
@@ -127,6 +130,40 @@ describe.sequential("Instant Start API client", () => {
 		const [, init] = fetchMock.mock.calls[1];
 		expect(init?.method).toBe("POST");
 		expect(init?.body).toBe(JSON.stringify({ framework: "next", replace: false }));
+	});
+
+	unitTest("removes only previews declared by the export", async () => {
+		const fetchMock = vi
+			.fn<typeof fetch>()
+			.mockResolvedValueOnce(
+				jsonResponse({
+					results: [
+						{
+							id: "starter-preview",
+							label: "Production",
+							url: "https://starter.example.com/api/preview",
+						},
+						{
+							id: "custom-preview",
+							label: "Custom",
+							url: "https://custom.example.com/api/preview",
+						},
+					],
+				}),
+			)
+			.mockResolvedValueOnce(new Response(null, { status: 200 }));
+		vi.stubGlobal("fetch", fetchMock);
+
+		await removePreviewsByURL(["https://starter.example.com/api/preview"], {
+			repo: "my-repo",
+			token: "test-token",
+			host: "prismic.io",
+		});
+
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		const [url, init] = fetchMock.mock.calls[1];
+		expect(url.toString()).toContain("/previews/delete/starter-preview");
+		expect(init?.method).toBe("POST");
 	});
 });
 
