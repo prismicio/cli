@@ -34,6 +34,8 @@ import {
 export class SvelteKitAdapter extends Adapter {
 	readonly id = "sveltekit";
 
+	readonly environmentEnvVarName = "PUBLIC_PRISMIC_ENVIRONMENT";
+
 	async setupProject(): Promise<void> {
 		await addDependencies({
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,

@@ -1,5 +1,6 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+import { parseEnv } from "node:util";
 import * as z from "zod/mini";
 
 import { appendTrailingSlash, getExtension } from "./url";
@@ -98,4 +99,50 @@ export async function readURLFile(url: URL): Promise<Blob> {
 	}
 
 	throw new Error(`Unsupported file protocol: ${url.protocol}`);
+}
+
+export async function readEnvFile<T = Partial<Record<string, string>>>(
+	path: URL,
+	options: { schema?: z.ZodMiniType<T> } = {},
+): Promise<T> {
+	const { schema } = options;
+	const contents = await readFile(path, "utf8");
+	const parsed = parseEnv(contents);
+	if (schema) return z.parse(schema, parsed);
+	return parsed as T;
+}
+
+export async function setEnvFileVar(path: URL, key: string, value: string): Promise<void> {
+	const hasFile = await exists(path);
+	let contents = "";
+	if (hasFile) {
+		contents = await readFile(path, "utf8");
+		parseEnv(contents); // Verify the format
+	}
+
+	const pattern = new RegExp(`^${key}=.*$`, "mg");
+	const line = `${key}=${value}`;
+	const hasEnvironmentVar = pattern.test(contents);
+
+	if (hasEnvironmentVar) {
+		contents = contents.replace(pattern, line);
+	} else {
+		if (contents && !contents.endsWith("\n")) contents += "\n";
+		contents += `${line}\n`;
+	}
+
+	await writeFile(path, contents);
+}
+
+export async function unsetEnvFileVar(path: URL, key: string): Promise<void> {
+	const hasFile = await exists(path);
+	if (!hasFile) return;
+
+	let contents = await readFile(path, "utf8");
+	parseEnv(contents); // Verify the format
+
+	const pattern = new RegExp(`^${key}=.*$\n?`, "mg");
+	contents = contents.replace(pattern, "");
+
+	await writeFile(path, contents);
 }

@@ -32,6 +32,8 @@ import {
 export class NextJsAdapter extends Adapter {
 	readonly id = "next";
 
+	readonly environmentEnvVarName = "NEXT_PUBLIC_PRISMIC_ENVIRONMENT";
+
 	async setupProject(): Promise<void> {
 		await addDependencies({
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
