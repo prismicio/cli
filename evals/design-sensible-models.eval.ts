@@ -1,4 +1,5 @@
 import dedent from "dedent";
+import { copyFile } from "node:fs/promises";
 
 import {
 	buildCustomType,
@@ -28,7 +29,25 @@ it.for(trials)(
 	},
 );
 
-it.todo("models a slice from a screenshot");
+it.for(trials)("models a slice from a screenshot", async (_, { project, agent, expect }) => {
+	await copyFile(
+		new URL("feature-slice.png", import.meta.url),
+		new URL("feature-slice.png", project),
+	);
+
+	const result = await agent(`Model a Prismic slice for the section design in feature-slice.png.`);
+
+	expect(result).toHaveRun("prismic", ["slice", "create"]);
+	const slices = await readLocalSlices(project);
+	expect(slices.length).toBe(1);
+	await expect(JSON.stringify(slices[0], null, 2)).toSatisfyJudge(
+		dedent`
+			This is a Prismic shared slice modeled from a screenshot of a feature section. The screenshot shows a heading, a description paragraph, two statistic cards (each a large value like "4,800+" with a short label), and a large photo.
+			Passes if the heading, description, photo, and statistics are all modeled with sensible types and field names that clearly convey their purpose. The statistics may be a repeatable group with value and label fields, or individual field pairs; both are acceptable.
+			Fails if any of the four is missing or has an implausible type.
+		`,
+	);
+});
 
 it.for(trials)(
 	"models a page type with sensible field types",
