@@ -62,6 +62,19 @@ export async function removePreview(id: string, config: CoreConfig): Promise<voi
 	});
 }
 
+export async function removePreviewsByURL(
+	urls: Iterable<string>,
+	config: CoreConfig,
+): Promise<void> {
+	const previews = await getPreviews(config);
+	const urlSet = new Set(urls);
+	await Promise.all(
+		previews
+			.filter((preview) => urlSet.has(preview.url))
+			.map((preview) => removePreview(preview.id, config)),
+	);
+}
+
 const EnvironmentSchema = z.object({
 	kind: z.enum(["prod", "stage", "dev"]),
 	name: z.string(),

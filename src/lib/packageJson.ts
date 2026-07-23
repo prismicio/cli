@@ -21,8 +21,8 @@ export async function readPackageJson(): Promise<PackageJson> {
 	return packageJson;
 }
 
-export async function findPackageJson(): Promise<URL> {
-	const packageJsonPath = await findUpward("package.json");
+export async function findPackageJson(config: { start?: URL } = {}): Promise<URL> {
+	const packageJsonPath = await findUpward("package.json", config);
 	if (!packageJsonPath) throw new MissingPackageJson();
 	return packageJsonPath;
 }
@@ -75,10 +75,10 @@ const INSTALL_COMMANDS = {
 	bun: ["bun", "install"],
 };
 
-export async function installDependencies(): Promise<void> {
-	const packageJsonPath = await findPackageJson();
+export async function installDependencies(config: { start?: URL } = {}): Promise<void> {
+	const packageJsonPath = await findPackageJson(config);
 	const cwd = new URL(".", packageJsonPath);
-	const packageManager = await detectPackageManager();
+	const packageManager = await detectPackageManager(packageJsonPath);
 	const [command, ...args] = INSTALL_COMMANDS[packageManager];
 	await x(command, args, {
 		nodeOptions: { cwd: fileURLToPath(cwd), stdio: "inherit" },
@@ -94,11 +94,10 @@ const PACKAGE_MANAGER_LOCKFILES: Record<string, keyof typeof INSTALL_COMMANDS> =
 	"package-lock.json": "npm",
 };
 
-async function detectPackageManager(): Promise<keyof typeof INSTALL_COMMANDS> {
-	const packageManager = await readPackageManager();
+async function detectPackageManager(packageJsonPath: URL): Promise<keyof typeof INSTALL_COMMANDS> {
+	const packageManager = await readPackageManager(packageJsonPath);
 	if (packageManager) return packageManager;
 
-	const packageJsonPath = await findPackageJson();
 	for (const file in PACKAGE_MANAGER_LOCKFILES) {
 		const packageManager = PACKAGE_MANAGER_LOCKFILES[file];
 		const hasLockfile = await exists(new URL(file, packageJsonPath));
@@ -108,9 +107,13 @@ async function detectPackageManager(): Promise<keyof typeof INSTALL_COMMANDS> {
 	return "npm";
 }
 
-async function readPackageManager(): Promise<keyof typeof INSTALL_COMMANDS | undefined> {
+async function readPackageManager(
+	packageJsonPath: URL,
+): Promise<keyof typeof INSTALL_COMMANDS | undefined> {
 	try {
-		const packageJson = await readPackageJson();
+		const packageJson = await readJsonFile(packageJsonPath, {
+			schema: PackageJsonSchema,
+		});
 		if (!packageJson.packageManager) return;
 		const packageManager = packageJson.packageManager.split("@")[0];
 		if (packageManager in INSTALL_COMMANDS) return packageManager as keyof typeof INSTALL_COMMANDS;
