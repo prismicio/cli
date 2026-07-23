@@ -2,7 +2,11 @@ import { unzipSync } from "fflate";
 import { mkdir, mkdtemp, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, win32 } from "node:path";
 
-export async function extractZip(data: Uint8Array, destination: string): Promise<void> {
+export async function extractZip(
+	data: Uint8Array,
+	destination: string,
+	options: { stripSingleRootDirectory?: boolean } = {},
+): Promise<void> {
 	await assertEmptyOrMissingDirectory(destination);
 
 	const parent = dirname(destination);
@@ -11,8 +15,19 @@ export async function extractZip(data: Uint8Array, destination: string): Promise
 
 	try {
 		const files = unzipSync(data);
-		for (const [entryName, contents] of Object.entries(files)) {
-			const relativePath = normalizeEntryPath(entryName);
+		const entries = Object.entries(files).map(([entryName, contents]) => ({
+			entryName,
+			contents,
+			relativePath: normalizeEntryPath(entryName),
+		}));
+		const rootDirectory = options.stripSingleRootDirectory
+			? getSingleRootDirectory(entries)
+			: undefined;
+
+		for (const { entryName, contents, relativePath: entryPath } of entries) {
+			const relativePath = rootDirectory
+				? entryPath.slice(rootDirectory.length).replace(/^\/+/, "")
+				: entryPath;
 			if (!relativePath) continue;
 
 			const path = join(temporaryDirectory, relativePath);
@@ -30,6 +45,29 @@ export async function extractZip(data: Uint8Array, destination: string): Promise
 		await rm(temporaryDirectory, { recursive: true, force: true });
 		throw error;
 	}
+}
+
+function getSingleRootDirectory(entries: { entryName: string; relativePath: string }[]): string {
+	const rootDirectories = new Set(
+		entries
+			.map(({ relativePath }) => relativePath.split("/")[0])
+			.filter((rootDirectory) => rootDirectory),
+	);
+	if (rootDirectories.size !== 1) {
+		throw new Error("ZIP archive does not contain a single root directory.");
+	}
+
+	const [rootDirectory] = rootDirectories;
+	const hasInvalidRootEntry = entries.some(
+		({ entryName, relativePath }) =>
+			(relativePath === rootDirectory && !entryName.endsWith("/") && !entryName.endsWith("\\")) ||
+			(relativePath !== rootDirectory && !relativePath.startsWith(`${rootDirectory}/`)),
+	);
+	if (!rootDirectory || hasInvalidRootEntry) {
+		throw new Error("ZIP archive does not contain a single root directory.");
+	}
+
+	return rootDirectory;
 }
 
 async function assertEmptyOrMissingDirectory(destination: string): Promise<void> {

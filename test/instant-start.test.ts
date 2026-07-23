@@ -4,8 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it as unitTest, onTestFinished, vi } from "vitest";
 
+import { readURLFile } from "../src/lib/file";
+import {
+	assertInstantStartRepositoryAccess,
+	instantStartArchiveURL,
+	patchInstantStartConfig,
+} from "../src/lib/instant-start";
 import { removePreviewsByURL } from "../src/lib/prismic/clients/core";
-import { getOrCreateInstantStartExport } from "../src/lib/prismic/clients/website-generator";
 import { extractZip } from "../src/lib/zip";
 import { captureOutput, it } from "./it";
 
@@ -80,59 +85,67 @@ it("does not list instant-start as a top-level command", async ({ expect, prismi
 	expect(stdout).not.toContain("instant-start");
 });
 
-describe.sequential("Instant Start API client", () => {
+describe.sequential("Instant Start project", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
 	});
 
-	unitTest("reuses an export that is already ready", async () => {
-		const readyExport = {
-			status: "ready",
-			framework: "next",
-			preparedAt: "2026-07-17T10:00:00.000Z",
-			downloadUrl: "https://cdn.example.com/my-repo/.exports/instant-start.zip",
-			previewUrls: ["https://starter.example.com/api/preview"],
-		};
-		const fetchMock = vi.fn<typeof fetch>(async () => jsonResponse(readyExport));
-		vi.stubGlobal("fetch", fetchMock);
-
-		await expect(
-			getOrCreateInstantStartExport("my-repo", {
-				token: "test-token",
-				host: "prismic.io",
-			}),
-		).resolves.toEqual(readyExport);
-		expect(fetchMock).toHaveBeenCalledOnce();
+	unitTest("uses the pinned public starter archive", () => {
+		expect(instantStartArchiveURL.toString()).toBe(
+			"https://github.com/prismicio/instant-start-next-landing-page/archive/1eb2488e86a17eb096fe494aae34041f1b840317.zip",
+		);
 	});
 
-	unitTest("creates an export when none is prepared", async () => {
-		const readyExport = {
-			status: "ready",
-			framework: "next",
-			preparedAt: "2026-07-17T10:00:00.000Z",
-			downloadUrl: "https://cdn.example.com/my-repo/.exports/instant-start.zip",
-			previewUrls: ["https://starter.example.com/api/preview"],
+	unitTest("validates repository access from the authenticated profile", () => {
+		const profile = {
+			email: "user@example.com",
+			shortId: "user",
+			intercomHash: "hash",
+			repositories: [{ domain: "my-repo" }],
 		};
-		const fetchMock = vi
-			.fn<typeof fetch>()
-			.mockResolvedValueOnce(jsonResponse({ status: "not-prepared" }))
-			.mockResolvedValueOnce(jsonResponse(readyExport));
-		vi.stubGlobal("fetch", fetchMock);
 
-		await expect(
-			getOrCreateInstantStartExport("my-repo", {
-				token: "test-token",
-				host: "prismic.io",
-			}),
-		).resolves.toEqual(readyExport);
-
-		expect(fetchMock).toHaveBeenCalledTimes(2);
-		const [, init] = fetchMock.mock.calls[1];
-		expect(init?.method).toBe("POST");
-		expect(init?.body).toBe(JSON.stringify({ framework: "next", replace: false }));
+		expect(() => assertInstantStartRepositoryAccess("my-repo", profile)).not.toThrow();
+		expect(() => assertInstantStartRepositoryAccess("other-repo", profile)).toThrow(
+			'Repository "other-repo" not found in your account.',
+		);
 	});
 
-	unitTest("removes only previews declared by the export", async () => {
+	unitTest("patches repository settings while preserving starter config", async () => {
+		const destination = await makeTemporaryDirectory();
+		await writeFile(
+			join(destination, "prismic.config.json"),
+			JSON.stringify({
+				repositoryName: "starter",
+				documentAPIEndpoint: "https://starter.cdn.prismic.io/api/v2",
+				libraries: ["./src/slices"],
+				routes: [{ type: "page", path: "/:uid" }],
+			}),
+		);
+
+		await patchInstantStartConfig(destination, "my-repo", "prismic.io");
+
+		await expect(
+			readFile(join(destination, "prismic.config.json"), "utf8").then(JSON.parse),
+		).resolves.toEqual({
+			repositoryName: "my-repo",
+			documentAPIEndpoint: "https://my-repo.prismic.io/api/v2",
+			libraries: ["./src/slices"],
+			routes: [{ type: "page", path: "/:uid" }],
+		});
+	});
+
+	unitTest("reports archive download failures", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn<typeof fetch>(async () => new Response("Not found", { status: 404 })),
+		);
+
+		await expect(readURLFile(instantStartArchiveURL)).rejects.toThrow(
+			`Failed to download file from "${instantStartArchiveURL.toString()}" (HTTP 404).`,
+		);
+	});
+
+	unitTest("removes only the hosted starter preview", async () => {
 		const fetchMock = vi
 			.fn<typeof fetch>()
 			.mockResolvedValueOnce(
@@ -187,6 +200,60 @@ describe("ZIP extraction", () => {
 		await expect(readFile(join(destination, "src/app/page.tsx"), "utf8")).resolves.toBe(
 			"export default Page",
 		);
+	});
+
+	unitTest("strips a single GitHub archive root when requested", async () => {
+		const root = await makeTemporaryDirectory();
+		const destination = join(root, "my-repo");
+
+		await extractZip(
+			zipSync({
+				"starter-commit/package.json": new TextEncoder().encode('{"name":"starter"}'),
+				"starter-commit/src/app/page.tsx": new TextEncoder().encode("export default Page"),
+			}),
+			destination,
+			{ stripSingleRootDirectory: true },
+		);
+
+		await expect(readFile(join(destination, "package.json"), "utf8")).resolves.toBe(
+			'{"name":"starter"}',
+		);
+		await expect(access(join(destination, "starter-commit"))).rejects.toThrow();
+	});
+
+	unitTest("accepts an explicit GitHub archive root directory", async () => {
+		const root = await makeTemporaryDirectory();
+		const destination = join(root, "my-repo");
+
+		await extractZip(
+			zipSync({
+				"starter-commit/": new Uint8Array(),
+				"starter-commit/package.json": new TextEncoder().encode('{"name":"starter"}'),
+			}),
+			destination,
+			{ stripSingleRootDirectory: true },
+		);
+
+		await expect(readFile(join(destination, "package.json"), "utf8")).resolves.toBe(
+			'{"name":"starter"}',
+		);
+	});
+
+	unitTest("rejects a top-level file masquerading as the archive root", async () => {
+		const root = await makeTemporaryDirectory();
+		const destination = join(root, "my-repo");
+
+		await expect(
+			extractZip(
+				zipSync({
+					"starter-commit": new TextEncoder().encode("not a directory"),
+					"starter-commit/package.json": new TextEncoder().encode("{}"),
+				}),
+				destination,
+				{ stripSingleRootDirectory: true },
+			),
+		).rejects.toThrow("ZIP archive does not contain a single root directory");
+		await expect(access(destination)).rejects.toThrow();
 	});
 
 	unitTest("does not overwrite a non-empty destination", async () => {
