@@ -2,8 +2,8 @@ import { it } from "./it";
 import { createWebhook, getWebhooks } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("webhook", ["set-triggers", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("webhook", ["set-triggers", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic webhook set-triggers <url> [options]");
 });
 
@@ -12,13 +12,13 @@ it("updates webhook triggers", async ({ expect, prismic, repo, token, host }) =>
 
 	await createWebhook(url, { repo, token, host });
 
-	const { stdout, exitCode } = await prismic("webhook", [
+	const { stdout, stderr, exitCode } = await prismic("webhook", [
 		"set-triggers",
 		url,
 		"-t",
 		"documentsPublished",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Webhook triggers updated: documentsPublished");
 
 	const webhooks = await getWebhooks({ repo, token, host });

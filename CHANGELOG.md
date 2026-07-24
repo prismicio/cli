@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.0](https://github.com/prismicio/cli/compare/v1.12.2...v1.13.0) (2026-07-16)
+
+
+### Features
+
+* activate the Prismic MCP server when creating a repository ([#223](https://github.com/prismicio/cli/issues/223)) ([c27fdfc](https://github.com/prismicio/cli/commit/c27fdfc33f949e4a01a2633a3eee0666d9083a4e))
+
 ## [1.12.2](https://github.com/prismicio/cli/compare/v1.12.1...v1.12.2) (2026-07-07)
 
 

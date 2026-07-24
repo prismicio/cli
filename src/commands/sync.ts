@@ -12,7 +12,7 @@ import { completeOnboardingStepsSilently } from "../lib/prismic/clients/reposito
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
 
-const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
+const POLL_INTERVAL_MS = env.PRISMIC_SYNC_POLL_MS ?? 5000;
 const MAX_CONSECUTIVE_ERRORS = 5;
 
 const config = {

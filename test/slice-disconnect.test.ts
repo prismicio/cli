@@ -10,8 +10,8 @@ import {
 } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("slice", ["disconnect", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["disconnect", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic slice disconnect <id> [options]");
 });
 
@@ -33,13 +33,13 @@ it("disconnects a slice from a type", async ({ expect, prismic, project }) => {
 	await writeLocalSlice(project, slice);
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("slice", [
+	const { stdout, stderr, exitCode } = await prismic("slice", [
 		"disconnect",
 		slice.id,
 		"--from",
 		customType.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Disconnected slice "${slice.id}" from "${customType.id}"`);
 
 	const updated = await readLocalCustomType(project, customType.id);
