@@ -65,7 +65,13 @@ async function downloadStarter(
 		await rm(join(destination, "documents"), { recursive: true, force: true });
 
 		console.info("Installing dependencies...");
-		await installDependencies({ start: pathToFileURL(destination) });
+		try {
+			await installDependencies({ start: pathToFileURL(destination) });
+		} catch {
+			console.warn(
+				"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
+			);
+		}
 
 		console.info("Configuring local previews...");
 		const coreConfig = { repo: repositoryId, ...config };
