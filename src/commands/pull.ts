@@ -146,7 +146,7 @@ export default createCommand(config, async ({ values }) => {
 	await adapter.generateTypes();
 
 	await completeOnboardingStepsSilently({
-		repo,
+		repo: await getRepositoryName(),
 		token,
 		host,
 		stepIds: ["connectPrismic"],

@@ -122,7 +122,7 @@ export default createCommand(config, async ({ values }) => {
 
 				if (isInitial) {
 					await completeOnboardingStepsSilently({
-						repo,
+						repo: await getRepositoryName(),
 						token,
 						host,
 						stepIds: ["connectPrismic"],

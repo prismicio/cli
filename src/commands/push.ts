@@ -173,7 +173,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 	if (onboardingSteps.length > 0) {
 		await completeOnboardingStepsSilently({
-			repo,
+			repo: await getRepositoryName(),
 			token,
 			host,
 			stepIds: onboardingSteps,
