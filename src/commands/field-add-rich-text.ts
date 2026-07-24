@@ -65,7 +65,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			label: label ?? capitalCase(fieldId),
 			placeholder,
 			...(isSingle ? { single: allow } : { multi: allow }),
-			labels: labels?.split(","),
+			labels: labels?.split(",").map(label => label.trim()).filter(Boolean),
 			allowTargetBlank,
 		},
 	};
