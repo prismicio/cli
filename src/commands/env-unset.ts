@@ -4,7 +4,11 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic env unset",
-	description: "Reset the active environment to the production environment.",
+	description: `
+		Reset the active environment to the production environment.
+
+		@experimental - This command may change or be removed in any release and does not follow semver.
+	`,
 } satisfies CommandConfig;
 
 export default createCommand(config, async () => {

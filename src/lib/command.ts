@@ -169,7 +169,7 @@ type CreateCommandRouterConfig = {
 	sections?: Record<string, string>;
 	commands: Record<string, RouterCommand>;
 };
-type RouterCommand = { handler: () => Promise<void>; description: string };
+type RouterCommand = { handler: () => Promise<void>; description: string; hidden?: boolean };
 
 export function createCommandRouter(config: CreateCommandRouterConfig): () => Promise<void> {
 	const depth = config.name.split(" ").length;
@@ -203,7 +203,7 @@ export function createCommandRouter(config: CreateCommandRouterConfig): () => Pr
 function buildRouterHelp(config: CreateCommandRouterConfig): string {
 	const { name, description, sections, commands } = config;
 
-	const lines = [description];
+	const lines = [dedent(description)];
 
 	lines.push("");
 	lines.push("USAGE");
@@ -211,7 +211,9 @@ function buildRouterHelp(config: CreateCommandRouterConfig): string {
 
 	lines.push("");
 	lines.push("COMMANDS");
-	const commandRows = Object.entries(commands).map(([name, cmd]) => [`  ${name}`, cmd.description]);
+	const commandRows = Object.entries(commands)
+		.filter(([, cmd]) => !cmd.hidden)
+		.map(([name, cmd]) => [`  ${name}`, cmd.description]);
 	lines.push(formatTable(commandRows));
 
 	lines.push("");
