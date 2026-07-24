@@ -17,6 +17,7 @@ import {
 import { getProfile } from "../lib/prismic/clients/user";
 import { getOrCreateInstantStartExport } from "../lib/prismic/clients/website-generator";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import { sentryCaptureError } from "../lib/sentry";
 import { extractZip } from "../lib/zip";
 
 const config = {
@@ -68,20 +69,25 @@ async function downloadStarter(
 
 		console.info("Configuring local previews...");
 		const coreConfig = { repo: repositoryId, ...config };
-		await removePreviewsByURL(readyExport.previewUrls, coreConfig);
-		const hasDevelopmentPreview = await hasPreviewByURL(
-			"http://localhost:3000/api/preview",
-			coreConfig,
-		);
-		if (!hasDevelopmentPreview) {
-			await addPreview(
-				{
-					name: "Development",
-					websiteURL: "http://localhost:3000",
-					resolverPath: "/api/preview",
-				},
+		try {
+			await removePreviewsByURL(readyExport.previewUrls, coreConfig);
+			const hasDevelopmentPreview = await hasPreviewByURL(
+				"http://localhost:3000/api/preview",
 				coreConfig,
 			);
+			if (!hasDevelopmentPreview) {
+				await addPreview(
+					{
+						name: "Development",
+						websiteURL: "http://localhost:3000",
+						resolverPath: "/api/preview",
+					},
+					coreConfig,
+				);
+			}
+		} catch (error) {
+			await sentryCaptureError(error);
+			console.error("Failed to configure the local development preview. Continuing.");
 		}
 		await setSimulatorUrl("http://localhost:3000/slice-simulator", coreConfig);
 
