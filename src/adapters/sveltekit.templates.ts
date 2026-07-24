@@ -18,7 +18,7 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 			 * The project's Prismic repository name.
 			 */
 			export const repositoryName =
-				env.PUBLIC_PRISMIC_ENVIRONMENT ?? prismicConfig.repositoryName;
+				env.PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 
 			/**
 			 * Creates a Prismic client for the project's repository. The client is used to
@@ -49,7 +49,7 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 		 * The project's Prismic repository name.
 		 */
 		export const repositoryName =
-			env.PUBLIC_PRISMIC_ENVIRONMENT ?? prismicConfig.repositoryName;
+			env.PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 
 		/**
 		 * Creates a Prismic client for the project's repository. The client is used to

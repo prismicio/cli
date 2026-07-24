@@ -358,7 +358,7 @@ export function prismicIOFileTemplate(args: {
 			 * The project's Prismic repository name.
 			 */
 			export const repositoryName =
-				process.env.NEXT_PUBLIC_PRISMIC_ENVIRONMENT ?? prismicConfig.repositoryName;
+				process.env.NEXT_PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 
 			${createClientContents}
 		`;
@@ -371,7 +371,7 @@ export function prismicIOFileTemplate(args: {
 		 * The project's Prismic repository name.
 		 */
 		export const repositoryName =
-			process.env.NEXT_PUBLIC_PRISMIC_ENVIRONMENT ?? prismicConfig.repositoryName;
+			process.env.NEXT_PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 
 		${createClientContents}
 	`;
