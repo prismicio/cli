@@ -1,5 +1,6 @@
 import { createCommandRouter } from "../lib/command";
 import docs from "./docs";
+import env from "./env";
 import field from "./field";
 import gen from "./gen";
 import init from "./init";
@@ -11,6 +12,7 @@ import pull from "./pull";
 import push from "./push";
 import repo from "./repo";
 import slice from "./slice";
+import starter from "./starter";
 import status from "./status";
 import sync from "./sync";
 import token from "./token";
@@ -56,6 +58,11 @@ export default createCommandRouter({
 			handler: status,
 			description: "Show local vs remote model differences",
 		},
+		env: {
+			handler: env,
+			description: "Manage the active environment",
+			hidden: true,
+		},
 		locale: {
 			handler: locale,
 			description: "Manage locales",
@@ -63,6 +70,10 @@ export default createCommandRouter({
 		repo: {
 			handler: repo,
 			description: "Manage repositories",
+		},
+		starter: {
+			handler: starter,
+			description: "Download official starters",
 		},
 		type: {
 			handler: type_,

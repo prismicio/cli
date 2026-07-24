@@ -9,6 +9,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { x } from "tinyexec";
 import { inject, test } from "vitest";
 
+import { createRepository, deleteRepository, upsertLocale } from "./prismic";
+
 const BIN = fileURLToPath(new URL("../dist/index.mjs", import.meta.url));
 
 const E2E_PRISMIC_EMAIL = process.env.E2E_PRISMIC_EMAIL!;
@@ -23,6 +25,20 @@ export type Fixtures = {
 	logout: () => Promise<void>;
 	token: string;
 	password: string;
+	/**
+	 * When `true`, `repo` is a throwaway repository unique to the test instead
+	 * of the shared one. Enable in suites that mutate whole-repository state
+	 * (locales, push, sync) so they can run concurrently with everything else.
+	 *
+	 * @example
+	 * ```ts
+	 * describe("with an isolated repository", () => {
+	 * 	it.scoped({ isolateRepo: true });
+	 * 	// ...
+	 * });
+	 * ```
+	 */
+	isolateRepo: boolean;
 	repo: string;
 };
 
@@ -105,6 +121,7 @@ export const it = test.extend<Fixtures>({
 				PRISMIC_TYPE_BUILDER_ENABLED: "true",
 				PRISMIC_SENTRY_ENABLED: "false",
 				PRISMIC_TELEMETRY_ENABLED: "false",
+				PRISMIC_SYNC_POLL_MS: "500",
 				NO_UPDATE_NOTIFIER: "1",
 				PRISMIC_CONFIG_DIR: fileURLToPath(configDir),
 				...options?.nodeOptions?.env,
@@ -130,9 +147,17 @@ export const it = test.extend<Fixtures>({
 	password: async ({}, use) => {
 		await use(process.env.E2E_PRISMIC_PASSWORD!);
 	},
-	// oxlint-disable-next-line no-empty-pattern
-	repo: async ({}, use) => {
-		await use(inject("repo"));
+	isolateRepo: false,
+	repo: async ({ isolateRepo, token, host, password }, use) => {
+		if (!isolateRepo) {
+			await use(inject("repo"));
+			return;
+		}
+		const repo = `prismic-cli-isolated-${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+		await createRepository(repo, { token, host });
+		await upsertLocale("en-us", { isMaster: true, repo, token, host });
+		await use(repo);
+		await deleteRepository(repo, { token, password, host });
 	},
 });
 

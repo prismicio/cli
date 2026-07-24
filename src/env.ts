@@ -6,10 +6,7 @@ const DEFAULT_PRISMIC_SENTRY_DSN =
 export const DEFAULT_PRISMIC_HOST = "prismic.io";
 
 const Env = z.object({
-	MODE: z.string(),
-	DEV: z.stringbool(),
 	PROD: z.stringbool(),
-	TEST: z.stringbool(),
 	PRISMIC_SENTRY_DSN: z._default(z.httpUrl(), DEFAULT_PRISMIC_SENTRY_DSN),
 	PRISMIC_SENTRY_ENVIRONMENT: z.optional(z.string()),
 	PRISMIC_SENTRY_ENABLED: z.optional(z.stringbool()),
@@ -19,12 +16,10 @@ const Env = z.object({
 	PRISMIC_DOCS_HOST: z.optional(z.string()),
 	PRISMIC_CONFIG_DIR: z.optional(z.string()),
 	PRISMIC_TYPE_BUILDER_ENABLED: z.optional(z.stringbool()),
+	PRISMIC_SYNC_POLL_MS: z.optional(z.coerce.number().check(z.gte(100))),
 });
 
 export const env = z.parse(Env, {
 	...process.env,
-	MODE: process.env.MODE,
-	DEV: process.env.DEV,
 	PROD: process.env.PROD,
-	TEST: process.env.TEST,
 });

@@ -24,7 +24,6 @@ import {
 	completeOnboardingStepsSilently,
 	type OnboardingStep,
 } from "../lib/prismic/clients/repository";
-import { resolveEnvironment } from "../lib/prismic/environments";
 import { BadRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -39,21 +38,29 @@ const config = {
 	`,
 	options: {
 		force: { type: "boolean", short: "f", description: "Skip safety checks" },
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: {
+			type: "string",
+			short: "e",
+			description: "Alias for --repo",
+			deprecated: "Use `prismic env` or --repo instead.",
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { force = false, repo: parentRepo = await getRepositoryName(), env } = values;
+	const adapter = await getAdapter();
+
+	const {
+		force = false,
+		env,
+		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
+	} = values;
 
 	const { token, host } = await getCredentials();
-	const adapter = await getAdapter();
 	const projectRoot = await findProjectRoot();
 
-	const repo = env ? await resolveEnvironment(env, { repo: parentRepo, token, host }) : parentRepo;
-
-	console.info(`Pushing to repository: ${parentRepo}${env ? ` (env: ${env})` : ""}`);
+	console.info(`Pushing to repository: ${repo}`);
 
 	const [gitRoot, customTypeLibraries, sliceLibraries] = await Promise.all([
 		getGitRoot(projectRoot),
@@ -151,7 +158,9 @@ export default createCommand(config, async ({ values }) => {
 		await removeSlice(id, { repo, token, host });
 		await deleteScreenshots(id, { repo, token, host }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
-			console.warn(`Failed to delete screenshots for slice "${id}"${message ? `: ${message}` : "."}`);
+			console.warn(
+				`Failed to delete screenshots for slice "${id}"${message ? `: ${message}` : "."}`,
+			);
 		});
 	}
 
@@ -164,7 +173,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 	if (onboardingSteps.length > 0) {
 		await completeOnboardingStepsSilently({
-			repo: parentRepo,
+			repo: await getRepositoryName(),
 			token,
 			host,
 			stepIds: onboardingSteps,

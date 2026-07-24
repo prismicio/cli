@@ -11,8 +11,8 @@ import {
 } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("field", ["reorder", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("field", ["reorder", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field reorder <id> [options]");
 });
 
@@ -23,7 +23,7 @@ it("reorders a field in a slice", async ({ expect, prismic, project }) => {
 	slice.variations[0].primary!.field_c = { type: "Boolean", config: { label: "C" } };
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"reorder",
 		"field_a",
 		"--after",
@@ -31,7 +31,7 @@ it("reorders a field in a slice", async ({ expect, prismic, project }) => {
 		"--from-slice",
 		slice.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field reordered: field_a");
 
 	const updated = await readLocalSlice(project, slice.id);
@@ -45,7 +45,7 @@ it("reorders a field in a custom type", async ({ expect, prismic, project }) => 
 	customType.json.Main.image = { type: "Image", config: { label: "Image" } };
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"reorder",
 		"image",
 		"--before",
@@ -53,7 +53,7 @@ it("reorders a field in a custom type", async ({ expect, prismic, project }) => 
 		"--from-type",
 		customType.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field reordered: image");
 
 	const updated = await readLocalCustomType(project, customType.id);
@@ -70,7 +70,7 @@ it("moves a field across tabs in a custom type", async ({ expect, prismic, proje
 	};
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"reorder",
 		"body",
 		"--after",
@@ -78,7 +78,7 @@ it("moves a field across tabs in a custom type", async ({ expect, prismic, proje
 		"--from-type",
 		customType.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field reordered: body");
 
 	const updated = await readLocalCustomType(project, customType.id);
@@ -101,7 +101,7 @@ it("reorders a nested field in a group", async ({ expect, prismic, project }) =>
 	};
 	await writeLocalSlice(project, slice);
 
-	const { stdout, exitCode } = await prismic("field", [
+	const { stdout, stderr, exitCode } = await prismic("field", [
 		"reorder",
 		"my_group.sub_c",
 		"--before",
@@ -109,7 +109,7 @@ it("reorders a nested field in a group", async ({ expect, prismic, project }) =>
 		"--from-slice",
 		slice.id,
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field reordered: my_group.sub_c");
 
 	const updated = await readLocalSlice(project, slice.id);

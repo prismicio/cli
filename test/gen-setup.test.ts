@@ -3,14 +3,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("gen", ["setup", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic gen setup [options]");
 });
 
 it("generates setup files", { timeout: 30_000 }, async ({ expect, project, prismic }) => {
-	const { exitCode, stdout } = await prismic("gen", ["setup"]);
-	expect(exitCode).toBe(0);
+	const { stderr, exitCode, stdout } = await prismic("gen", ["setup"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Generated setup files");
 
 	// Test fixture is a Next.js App Router project without tsconfig.json,
@@ -29,8 +29,8 @@ it("skips existing files", { timeout: 30_000 }, async ({ expect, project, prismi
 	const customContent = "// custom client file\n";
 	await writeFile(new URL("prismicio.js", project), customContent);
 
-	const { exitCode } = await prismic("gen", ["setup"]);
-	expect(exitCode).toBe(0);
+	const { stderr, exitCode } = await prismic("gen", ["setup"]);
+	expect(exitCode, stderr).toBe(0);
 
 	await expect(project).toHaveFile("prismicio.js", { contains: "// custom client file" });
 });
@@ -51,8 +51,8 @@ it(
 			JSON.stringify({ version: "5.0.0" }),
 		);
 
-		const { exitCode } = await prismic("gen", ["setup", "--no-install"]);
-		expect(exitCode).toBe(0);
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
 
 		// The closing tag must be "</script>", not the bundler-escaped "<\/script>".
 		await expect(project).toHaveFile("src/routes/slice-simulator/+page.svelte", {
@@ -62,8 +62,8 @@ it(
 );
 
 it("skips installation with --no-install", async ({ expect, project, prismic }) => {
-	const { exitCode, stdout } = await prismic("gen", ["setup", "--no-install"]);
-	expect(exitCode).toBe(0);
+	const { stderr, exitCode, stdout } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).not.toContain("Installing dependencies");
 	expect(stdout).toContain("Generated setup files");
 

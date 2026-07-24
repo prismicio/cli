@@ -9,11 +9,10 @@ import { createCommand, type CommandConfig, CommandError } from "../lib/command"
 import { diffArrays } from "../lib/diff";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
-import { resolveEnvironment } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
 
-const POLL_INTERVAL_MS = env.TEST ? 500 : 5000;
+const POLL_INTERVAL_MS = env.PRISMIC_SYNC_POLL_MS ?? 5000;
 const MAX_CONSECUTIVE_ERRORS = 5;
 
 const config = {
@@ -30,20 +29,25 @@ const config = {
 			description: "Watch for changes and sync continuously",
 			required: true,
 		},
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: {
+			type: "string",
+			short: "e",
+			description: "Alias for --repo",
+			deprecated: "Use `prismic env` or --repo instead.",
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: parentRepo = await getRepositoryName(), env: envFlag } = values;
-
-	const { token, host } = await getCredentials();
 	const adapter = await getAdapter();
 
-	const repo = envFlag
-		? await resolveEnvironment(envFlag, { repo: parentRepo, token, host })
-		: parentRepo;
+	const {
+		env: envFlag,
+		repo = envFlag ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
+	} = values;
+
+	const { token, host } = await getCredentials();
 
 	trackCommandStart("sync", { watch: true });
 	process.on("SIGINT", () => {
@@ -53,7 +57,7 @@ export default createCommand(config, async ({ values }) => {
 	});
 
 	console.info(
-		`Watching repository: ${parentRepo}${envFlag ? ` (env: ${envFlag})` : ""} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
+		`Watching repository: ${repo} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
 	);
 
 	let lastHash = "";
@@ -118,7 +122,7 @@ export default createCommand(config, async ({ values }) => {
 
 				if (isInitial) {
 					await completeOnboardingStepsSilently({
-						repo: parentRepo,
+						repo: await getRepositoryName(),
 						token,
 						host,
 						stepIds: ["connectPrismic"],

@@ -2,14 +2,14 @@ import { it } from "./it";
 import { getAccessTokens, getWriteTokens } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("token", ["create", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic token create [options]");
 });
 
 it("creates an access token", async ({ expect, prismic, repo, token, host }) => {
-	const { stdout, exitCode } = await prismic("token", ["create"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("token", ["create"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Token created:");
 
 	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
@@ -29,8 +29,8 @@ it("creates an access token with --allow-releases", async ({
 	token,
 	host,
 }) => {
-	const { stdout, exitCode } = await prismic("token", ["create", "--allow-releases"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--allow-releases"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Token created:");
 
 	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
@@ -45,8 +45,8 @@ it("creates an access token with --allow-releases", async ({
 });
 
 it("creates a write token", async ({ expect, prismic, repo, token, host }) => {
-	const { stdout, exitCode } = await prismic("token", ["create", "--write"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--write"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Token created:");
 
 	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
@@ -58,13 +58,13 @@ it("creates a write token", async ({ expect, prismic, repo, token, host }) => {
 });
 
 it("creates a write token with a custom --name", async ({ expect, prismic, repo, token, host }) => {
-	const { stdout, exitCode } = await prismic("token", [
+	const { stdout, stderr, exitCode } = await prismic("token", [
 		"create",
 		"--write",
 		"--name",
 		"My Seed Token",
 	]);
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 
 	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
 	expect(createdToken).toBeDefined();
@@ -76,8 +76,8 @@ it("creates a write token with a custom --name", async ({ expect, prismic, repo,
 });
 
 it("outputs a write token as JSON with --json", async ({ expect, prismic, repo, token, host }) => {
-	const { stdout, exitCode } = await prismic("token", ["create", "--write", "--json"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--write", "--json"]);
+	expect(exitCode, stderr).toBe(0);
 
 	const result = JSON.parse(stdout);
 	expect(result.type).toBe("write");
@@ -91,8 +91,8 @@ it("outputs a write token as JSON with --json", async ({ expect, prismic, repo, 
 });
 
 it("outputs an access token as JSON with --json", async ({ expect, prismic, repo }) => {
-	const { stdout, exitCode } = await prismic("token", ["create", "--json"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--json"]);
+	expect(exitCode, stderr).toBe(0);
 
 	const result = JSON.parse(stdout);
 	expect(result.type).toBe("access");
