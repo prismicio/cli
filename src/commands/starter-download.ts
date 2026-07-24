@@ -2,17 +2,21 @@ import { mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { createLoginSession, getCredentials } from "../auth";
+import { env } from "../env";
+import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { exists, readURLFile } from "../lib/file";
 import { installDependencies } from "../lib/packageJson";
 import { removePreviewsByURL, setSimulatorUrl } from "../lib/prismic/clients/core";
+import { getProfile } from "../lib/prismic/clients/user";
 import { getOrCreateInstantStartExport } from "../lib/prismic/clients/website-generator";
+import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { extractZip } from "../lib/zip";
-import { authenticateInit } from "./init-auth";
 
 const config = {
-	name: "prismic init instant",
-	description: "Instantly start a ready-to-run Prismic project.",
+	name: "prismic starter download",
+	description: "Download and configure the official starter for a Prismic repository.",
 	options: {
 		repo: {
 			type: "string",
@@ -29,11 +33,11 @@ const config = {
 
 export default createCommand(config, async ({ values }) => {
 	const { repo, "no-browser": noBrowser } = values;
-	const { token, host } = await authenticateInit(noBrowser);
-	await setupInstantProject(repo, { token, host });
+	const { token, host } = await authenticateStarterDownload(noBrowser);
+	await downloadStarter(repo, { token, host });
 });
 
-async function setupInstantProject(
+async function downloadStarter(
 	repository: string,
 	config: { token: string | undefined; host: string },
 ): Promise<void> {
@@ -91,4 +95,44 @@ function assertRepositoryName(repositoryId: string): void {
 	if (!/^[a-z0-9][a-z0-9-]*$/.test(repositoryId)) {
 		throw new CommandError(`Invalid repository name: ${repositoryId}`);
 	}
+}
+
+async function authenticateStarterDownload(
+	noBrowser: boolean | undefined,
+): Promise<{ host: string; token: string | undefined }> {
+	const { host, token: initialToken } = await getCredentials();
+	let token = initialToken;
+
+	try {
+		await getProfile({ token, host });
+	} catch (error) {
+		if (!(error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError)) {
+			throw error;
+		}
+		if (env.PRISMIC_TOKEN) {
+			throw new CommandError(
+				"PRISMIC_TOKEN is invalid or expired. Unset it to log in with a browser, or replace it with a valid token.",
+			);
+		}
+
+		console.info("Not logged in. Starting login...");
+		const { email } = await createLoginSession({
+			onReady: (url) => {
+				if (noBrowser) {
+					console.info(`Open this URL to log in: ${url}`);
+				} else {
+					console.info("Opening browser to complete login...");
+					console.info(`If the browser doesn't open, visit: ${url}`);
+					openBrowser(url);
+				}
+			},
+		});
+		console.info(`Logged in as ${email}`);
+
+		const loggedIn = await getCredentials();
+		token = loggedIn.token;
+		await getProfile({ token, host });
+	}
+
+	return { host, token };
 }

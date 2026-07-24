@@ -9,35 +9,42 @@ import { getOrCreateInstantStartExport } from "../src/lib/prismic/clients/websit
 import { extractZip } from "../src/lib/zip";
 import { captureOutput, it } from "./it";
 
-it("supports init instant --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("init", ["instant", "--help"]);
+it("supports starter --help", async ({ expect, prismic }) => {
+	const { stdout, exitCode } = await prismic("starter", ["--help"]);
 	expect(exitCode).toBe(0);
-	expect(stdout).toContain("prismic init instant [options]");
+	expect(stdout).toContain("prismic starter <command>");
+	expect(stdout).toContain("download");
+});
+
+it("supports starter download --help", async ({ expect, prismic }) => {
+	const { stdout, exitCode } = await prismic("starter", ["download", "--help"]);
+	expect(exitCode).toBe(0);
+	expect(stdout).toContain("prismic starter download [options]");
 	expect(stdout).toContain("--repo string");
 	expect(stdout).toContain("(required)");
 });
 
-it("requires --repo in instant mode", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("init", ["instant"]);
+it("requires --repo", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("starter", ["download"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Missing required option: --repo");
 });
 
-it("rejects an unknown init subcommand", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("init", ["unknown"]);
+it("rejects an unknown starter subcommand", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("starter", ["unknown"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Unknown command: unknown");
 });
 
-it("rejects extra instant arguments", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("init", ["instant", "extra", "--repo", "my-repo"]);
+it("rejects extra download arguments", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("starter", ["download", "extra", "--repo", "my-repo"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("extra");
 });
 
-it("rejects --lang in instant mode", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("init", [
-		"instant",
+it("rejects init-only options", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("starter", [
+		"download",
 		"--repo",
 		"my-repo",
 		"--lang",
@@ -47,40 +54,33 @@ it("rejects --lang in instant mode", async ({ expect, prismic }) => {
 	expect(stderr).toContain("--lang");
 });
 
-it("rejects --no-setup in instant mode", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("init", [
-		"instant",
+it("validates the repository name", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("starter", [
+		"download",
 		"--repo",
-		"my-repo",
-		"--no-setup",
+		"invalid_repository",
 	]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("--no-setup");
-});
-
-it("dispatches instant mode before checking the current project", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("init", ["instant", "--repo", "invalid_repository"]);
-	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Invalid repository name");
-	expect(stderr).not.toContain("already initialized");
 });
 
-it("uses the init login flow", async ({ expect, logout, prismic, repo }) => {
+it("uses the browser login flow", async ({ expect, logout, prismic, repo }) => {
 	await logout();
-	const proc = prismic("init", ["instant", "--repo", repo, "--no-browser"]);
+	const proc = prismic("starter", ["download", "--repo", repo, "--no-browser"]);
 	const output = captureOutput(proc);
 
 	await expect.poll(output, { timeout: 15_000 }).toMatch(/port=(\d+)/);
 	proc.kill();
 });
 
-it("does not list instant-start as a top-level command", async ({ expect, prismic }) => {
+it("lists starter as a top-level command", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("", ["--help"]);
 	expect(exitCode).toBe(0);
+	expect(stdout).toContain("starter");
 	expect(stdout).not.toContain("instant-start");
 });
 
-describe.sequential("Instant Start API client", () => {
+describe.sequential("Starter download API client", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
 	});
@@ -227,7 +227,7 @@ function jsonResponse(value: unknown): Response {
 }
 
 async function makeTemporaryDirectory(): Promise<string> {
-	const directory = await mkdtemp(join(tmpdir(), "prismic-instant-start-"));
+	const directory = await mkdtemp(join(tmpdir(), "prismic-starter-download-"));
 	onTestFinished(() => rm(directory, { recursive: true, force: true }));
 	return directory;
 }
