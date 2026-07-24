@@ -61,6 +61,15 @@ export default createCommand(config, async ({ values }) => {
 	await downloadStarter(repositoryId, { token, host });
 });
 
+const localPreviewConfig = {
+	// nextjs only for now
+	name: "Development",
+	websiteURL: "http://localhost:3000",
+	resolverPath: "/api/preview",
+};
+const previewUrl = `${localPreviewConfig.websiteURL}${localPreviewConfig.resolverPath}`;
+const simulatorUrl = `${localPreviewConfig.websiteURL}/slice-simulator`;
+
 async function downloadStarter(
 	repository: string,
 	config: { token: string | undefined; host: string },
@@ -93,45 +102,54 @@ async function downloadStarter(
 
 		console.info("Configuring local previews and simulator...");
 		const coreConfig = { repo: repository, ...config };
+
+		let localPreviewConfigured = false;
 		try {
 			await removePreviewsByURL(readyExport.previewUrls, coreConfig);
-			const hasDevelopmentPreview = await hasPreviewByURL(
-				"http://localhost:3000/api/preview",
-				coreConfig,
-			);
+			const hasDevelopmentPreview = await hasPreviewByURL(previewUrl, coreConfig);
 			if (!hasDevelopmentPreview) {
-				await addPreview(
-					{
-						name: "Development",
-						websiteURL: "http://localhost:3000",
-						resolverPath: "/api/preview",
-					},
-					coreConfig,
-				);
+				await addPreview(localPreviewConfig, coreConfig);
 			}
+			localPreviewConfigured = true;
 		} catch (error) {
 			await sentryCaptureError(error);
-			console.error("Failed to configure the local development preview. Continuing.");
+			const commandArgs = [
+				"prismic",
+				"preview",
+				"add",
+				previewUrl,
+				"--name",
+				localPreviewConfig.name,
+			];
+			console.error(
+				`Could not configure local preview. Please configure it manually (i.e. \`${commandArgs.join(" ")}\`). Continuing.`,
+			);
 		}
 
 		try {
-			await setSimulatorUrl("http://localhost:3000/slice-simulator", coreConfig);
+			await setSimulatorUrl(simulatorUrl, coreConfig);
 		} catch (error) {
 			await sentryCaptureError(error);
-			console.error("Failed to configure the local slice simulator. Continuing.");
+			const commandArgs = ["prismic", "preview", "set-simulator", simulatorUrl];
+			console.error(
+				`Could not configure local slice simulator. Please configure it manually (i.e. \`${commandArgs.join(" ")}\`). Continuing.`,
+			);
 		}
 
+		let previewInstruction = "";
+		if (localPreviewConfigured) {
+			previewInstruction = `• Preview your pages live at https://${repository}.${config.host}/builder\n`;
+		}
 		console.info(`
 Your project is ready 🎉
 
 Here's what you can do next:
 
-1. Start the development server:
+• Start the development server:
   cd ${destination}
   npm run dev
 
-2. Preview your pages live at https://${repository}.${config.host}/builder
-
+${previewInstruction}
 Start building 🚀
 `);
 	} catch (error) {
