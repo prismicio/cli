@@ -80,10 +80,11 @@ const config = {
 			description:
 				"Fetch this field from the related document (content-relationship, can be repeated)",
 		},
-		// Rich Text
+		// Rich Text / Link
 		allow: {
 			type: "string",
-			description: "Comma-separated allowed block types (rich-text)",
+			description:
+				"Comma-separated allowed block types (rich-text), or allowed link type: document, media, web, any (link)",
 		},
 		single: { type: "boolean", description: "Restrict to a single block (rich-text)" },
 		// Integration
@@ -162,6 +163,20 @@ export default createCommand(config, async ({ positionals, values }) => {
 			if ("repeatable" in values) field.config.repeat = values.repeatable;
 			if ("variant" in values) field.config.variants = values.variant;
 			if ("tag" in values) field.config.tags = values.tag;
+			if ("allow" in values) {
+				const allow = values.allow;
+				if (allow === "any") {
+					delete field.config.select;
+				} else if (allow === "document" || allow === "media" || allow === "web") {
+					field.config.select = allow;
+				} else if (allow?.includes(",")) {
+					throw new CommandError(
+						"--allow accepts a single link type. Prismic links allow either one type or all types.",
+					);
+				} else {
+					throw new CommandError("--allow for link fields must be one of: document, media, web, any");
+				}
+			}
 			if ("field" in values) {
 				const cts = "custom-type" in values ? values["custom-type"] : field.config.customtypes;
 				if (!cts || cts.length === 0) {
@@ -180,7 +195,21 @@ export default createCommand(config, async ({ positionals, values }) => {
 					{ id: ctId, fields: resolvedFields },
 				] as typeof field.config.customtypes;
 			} else if ("custom-type" in values) {
-				field.config.customtypes = values["custom-type"];
+				const customtypes = values["custom-type"]!.filter(Boolean);
+				if (customtypes.length === 0) {
+					delete field.config.customtypes;
+				} else {
+					field.config.customtypes = customtypes;
+				}
+			}
+			if (
+				(field.config.select === "media" || field.config.select === "web") &&
+				field.config.customtypes &&
+				field.config.customtypes.length > 0
+			) {
+				throw new CommandError(
+					`Custom type restrictions require document links, but this field is restricted to ${field.config.select} links. Change --allow or clear the restriction with --custom-type "".`,
+				);
 			}
 			break;
 		}
