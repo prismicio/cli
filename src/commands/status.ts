@@ -2,12 +2,12 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 
 import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
-import { canonicalizeCustomType, canonicalizeSlice } from "../canonicalize";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getProfile } from "../lib/prismic/clients/user";
+import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { dedent } from "../lib/string";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";

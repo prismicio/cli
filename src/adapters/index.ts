@@ -6,7 +6,6 @@ import { pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { canonicalizeCustomType, canonicalizeSlice } from "../canonicalize";
 import {
 	exists,
 	readEnvFile,
@@ -17,6 +16,7 @@ import {
 } from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
+import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { appendTrailingSlash } from "../lib/url";
 import { addRoute, getRepositoryName, removeRoute, updateRoute } from "../project";
 import { findProjectRoot, getLibraries } from "../project";
