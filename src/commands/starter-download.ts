@@ -1,5 +1,5 @@
 import { mkdir, rm } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { createLoginSession, getCredentials } from "../auth";
@@ -8,7 +8,7 @@ import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { exists, readURLFile } from "../lib/file";
 import { installDependencies } from "../lib/packageJson";
-import { removePreviewsByURL, setSimulatorUrl } from "../lib/prismic/clients/core";
+import { addPreview, removePreviewsByURL, setSimulatorUrl } from "../lib/prismic/clients/core";
 import { getProfile } from "../lib/prismic/clients/user";
 import { getOrCreateInstantStartExport } from "../lib/prismic/clients/website-generator";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
@@ -56,12 +56,21 @@ async function downloadStarter(
 		const destinationExisted = await exists(pathToFileURL(destination));
 		await extractZip(new Uint8Array(await archive.arrayBuffer()), destination);
 		extractedProject = { destination, destinationExisted };
+		await rm(join(destination, "documents"), { recursive: true, force: true });
 
 		console.info("Installing dependencies...");
 		await installDependencies({ start: pathToFileURL(destination) });
 
 		console.info("Configuring local previews...");
 		await removePreviewsByURL(readyExport.previewUrls, { repo: repositoryId, ...config });
+		await addPreview(
+			{
+				name: "Development",
+				websiteURL: "http://localhost:3000",
+				resolverPath: "/api/preview",
+			},
+			{ repo: repositoryId, ...config },
+		);
 		await setSimulatorUrl("http://localhost:3000/slice-simulator", {
 			repo: repositoryId,
 			...config,

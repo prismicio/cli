@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it as unitTest, onTestFinished, vi } from "vitest";
 
-import { removePreviewsByURL } from "../src/lib/prismic/clients/core";
+import { addPreview, removePreviewsByURL } from "../src/lib/prismic/clients/core";
 import { getOrCreateInstantStartExport } from "../src/lib/prismic/clients/website-generator";
 import { extractZip } from "../src/lib/zip";
 import { captureOutput, it } from "./it";
@@ -164,6 +164,36 @@ describe.sequential("Starter download API client", () => {
 		const [url, init] = fetchMock.mock.calls[1];
 		expect(url.toString()).toContain("/previews/delete/starter-preview");
 		expect(init?.method).toBe("POST");
+	});
+
+	unitTest("adds the local development preview", async () => {
+		const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 200 }));
+		vi.stubGlobal("fetch", fetchMock);
+
+		await addPreview(
+			{
+				name: "Development",
+				websiteURL: "http://localhost:3000",
+				resolverPath: "/api/preview",
+			},
+			{
+				repo: "my-repo",
+				token: "test-token",
+				host: "prismic.io",
+			},
+		);
+
+		expect(fetchMock).toHaveBeenCalledOnce();
+		const [url, init] = fetchMock.mock.calls[0];
+		expect(url.toString()).toContain("/previews/new");
+		expect(init?.method).toBe("POST");
+		expect(init?.body).toBe(
+			JSON.stringify({
+				name: "Development",
+				websiteURL: "http://localhost:3000",
+				resolverPath: "/api/preview",
+			}),
+		);
 	});
 });
 
