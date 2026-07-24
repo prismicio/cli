@@ -39,7 +39,12 @@ const config = {
 	options: {
 		force: { type: "boolean", short: "f", description: "Skip safety checks" },
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
-		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
+		env: {
+			type: "string",
+			short: "e",
+			description: "Alias for --repo",
+			deprecated: "Use `prismic env` or --repo instead.",
+		},
 	},
 } satisfies CommandConfig;
 
@@ -153,7 +158,9 @@ export default createCommand(config, async ({ values }) => {
 		await removeSlice(id, { repo, token, host });
 		await deleteScreenshots(id, { repo, token, host }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
-			console.warn(`Failed to delete screenshots for slice "${id}"${message ? `: ${message}` : "."}`);
+			console.warn(
+				`Failed to delete screenshots for slice "${id}"${message ? `: ${message}` : "."}`,
+			);
 		});
 	}
 

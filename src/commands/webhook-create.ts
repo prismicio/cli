@@ -24,7 +24,12 @@ const config = {
 			description: "Trigger events (can be repeated)",
 		},
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
-		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
+		env: {
+			type: "string",
+			short: "e",
+			description: "Alias for --repo",
+			deprecated: "Use `prismic env` or --repo instead.",
+		},
 	},
 	sections: {
 		TRIGGERS: `

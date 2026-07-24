@@ -16,16 +16,18 @@ const config = {
 	},
 	options: {
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
-		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
+		env: {
+			type: "string",
+			short: "e",
+			description: "Alias for --repo",
+			deprecated: "Use `prismic env` or --repo instead.",
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [code] = positionals;
-	const {
-		env,
-		repo = env ?? (await getActiveRepositoryName()),
-	} = values;
+	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
 	const { token, host } = await getCredentials();
 

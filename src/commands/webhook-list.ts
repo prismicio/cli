@@ -16,16 +16,17 @@ const config = {
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
-		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
+		env: {
+			type: "string",
+			short: "e",
+			description: "Alias for --repo",
+			deprecated: "Use `prismic env` or --repo instead.",
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const {
-		env,
-		repo = env ?? (await getActiveRepositoryName()),
-		json,
-	} = values;
+	const { env, repo = env ?? (await getActiveRepositoryName()), json } = values;
 
 	const { token, host } = await getCredentials();
 	const webhooks = await getWebhooks({ repo, token, host });

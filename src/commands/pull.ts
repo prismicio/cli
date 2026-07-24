@@ -20,7 +20,12 @@ const config = {
 	options: {
 		force: { type: "boolean", short: "f", description: "Overwrite local changes" },
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
-		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
+		env: {
+			type: "string",
+			short: "e",
+			description: "Alias for --repo",
+			deprecated: "Use `prismic env` or --repo instead.",
+		},
 	},
 } satisfies CommandConfig;
 

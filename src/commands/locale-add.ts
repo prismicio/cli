@@ -18,18 +18,18 @@ const config = {
 		master: { type: "boolean", description: "Set as the master locale" },
 		name: { type: "string", short: "n", description: "Custom display name (for custom locales)" },
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
-		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
+		env: {
+			type: "string",
+			short: "e",
+			description: "Alias for --repo",
+			deprecated: "Use `prismic env` or --repo instead.",
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [code] = positionals;
-	const {
-		env,
-		repo = env ?? (await getActiveRepositoryName()),
-		master = false,
-		name,
-	} = values;
+	const { env, repo = env ?? (await getActiveRepositoryName()), master = false, name } = values;
 
 	const { token, host } = await getCredentials();
 

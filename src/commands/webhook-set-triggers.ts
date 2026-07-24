@@ -23,7 +23,12 @@ const config = {
 			required: true,
 		},
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
-		env: { type: "string", short: "e", description: "(deprecated) Alias for --repo" },
+		env: {
+			type: "string",
+			short: "e",
+			description: "Alias for --repo",
+			deprecated: "Use `prismic env` or --repo instead.",
+		},
 	},
 	sections: {
 		TRIGGERS: `
@@ -39,11 +44,7 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
-	const {
-		env,
-		repo = env ?? (await getActiveRepositoryName()),
-		trigger = [],
-	} = values;
+	const { env, repo = env ?? (await getActiveRepositoryName()), trigger = [] } = values;
 
 	// Validate triggers
 	for (const t of trigger) {
