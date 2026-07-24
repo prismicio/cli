@@ -8,7 +8,12 @@ import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { exists, readURLFile } from "../lib/file";
 import { installDependencies } from "../lib/packageJson";
-import { addPreview, removePreviewsByURL, setSimulatorUrl } from "../lib/prismic/clients/core";
+import {
+	addPreview,
+	hasPreviewByURL,
+	removePreviewsByURL,
+	setSimulatorUrl,
+} from "../lib/prismic/clients/core";
 import { getProfile } from "../lib/prismic/clients/user";
 import { getOrCreateInstantStartExport } from "../lib/prismic/clients/website-generator";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
@@ -62,19 +67,23 @@ async function downloadStarter(
 		await installDependencies({ start: pathToFileURL(destination) });
 
 		console.info("Configuring local previews...");
-		await removePreviewsByURL(readyExport.previewUrls, { repo: repositoryId, ...config });
-		await addPreview(
-			{
-				name: "Development",
-				websiteURL: "http://localhost:3000",
-				resolverPath: "/api/preview",
-			},
-			{ repo: repositoryId, ...config },
+		const coreConfig = { repo: repositoryId, ...config };
+		await removePreviewsByURL(readyExport.previewUrls, coreConfig);
+		const hasDevelopmentPreview = await hasPreviewByURL(
+			"http://localhost:3000/api/preview",
+			coreConfig,
 		);
-		await setSimulatorUrl("http://localhost:3000/slice-simulator", {
-			repo: repositoryId,
-			...config,
-		});
+		if (!hasDevelopmentPreview) {
+			await addPreview(
+				{
+					name: "Development",
+					websiteURL: "http://localhost:3000",
+					resolverPath: "/api/preview",
+				},
+				coreConfig,
+			);
+		}
+		await setSimulatorUrl("http://localhost:3000/slice-simulator", coreConfig);
 
 		console.info(`
 Your project is ready 🎉

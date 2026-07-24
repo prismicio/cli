@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it as unitTest, onTestFinished, vi } from "vitest";
 
-import { addPreview, removePreviewsByURL } from "../src/lib/prismic/clients/core";
+import { addPreview, hasPreviewByURL, removePreviewsByURL } from "../src/lib/prismic/clients/core";
 import { getOrCreateInstantStartExport } from "../src/lib/prismic/clients/website-generator";
 import { extractZip } from "../src/lib/zip";
 import { captureOutput, it } from "./it";
@@ -194,6 +194,29 @@ describe.sequential("Starter download API client", () => {
 				resolverPath: "/api/preview",
 			}),
 		);
+	});
+
+	unitTest("finds an existing local development preview", async () => {
+		const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+			jsonResponse({
+				results: [
+					{
+						id: "development-preview",
+						label: "Development",
+						url: "http://localhost:3000/api/preview",
+					},
+				],
+			}),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+
+		await expect(
+			hasPreviewByURL("http://localhost:3000/api/preview", {
+				repo: "my-repo",
+				token: "test-token",
+				host: "prismic.io",
+			}),
+		).resolves.toBe(true);
 	});
 });
 
