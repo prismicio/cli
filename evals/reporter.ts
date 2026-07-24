@@ -15,6 +15,8 @@ export const AgentRecord = z.object({
 	/** Agent wall time, excluding fixture setup and judging. */
 	durationMs: z.number(),
 	model: z.string(),
+	/** Short commit of the prismicio/skills pin providing the agent's guidance. */
+	skill: z.optional(z.string()),
 	/** Bash commands invoking the prismic CLI, verbatim. */
 	prismicCalls: z.array(z.string()),
 	/** True when the harness died before grading; excluded from pass rates. */

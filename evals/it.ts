@@ -42,14 +42,12 @@ const env = z
 
 export const trials = Array.from({ length: env.EVAL_TRIALS }, (_, i) => i + 1);
 
-const PRISMIC_GUIDANCE = dedent`
-	The \`prismic\` CLI manages Prismic content models, repository settings, and docs.
-	1. Always run commands via \`npx prismic\`. Do not guess command syntax.
-	2. Start with \`npx prismic --help\`; inspect details with \`npx prismic <command> --help\`.
-	3. Use \`npx prismic docs list\` and \`npx prismic docs view <path>\` for documentation.
-	4. Prefer CLI workflows. Never directly edit model JSON files — always use the CLI.
-	5. If the CLI cannot do something, say so instead of working around it.
-`;
+// The agent's Prismic guidance is the published skill users install
+// (github.com/prismicio/skills), pinned to a commit so score shifts only happen
+// when the pin is deliberately bumped. Delivered via the system prompt while the
+// skill is a single file; fetchSkill throws when it grows beyond SKILL.md.
+const PRISMIC_SKILL_REF = "2bd340e6af4e67a9c1179e97b495f7bda564b46f";
+const PRISMIC_SKILL = await fetchSkill(PRISMIC_SKILL_REF);
 
 declare module "vitest" {
 	// oxlint-disable-next-line no-explicit-any
@@ -98,6 +96,7 @@ export const it = base.extend<{
 			turns: 0,
 			durationMs: 0,
 			model: env.EVAL_MODEL,
+			skill: PRISMIC_SKILL_REF.slice(0, 7),
 			prismicCalls: [],
 		};
 
@@ -112,7 +111,7 @@ export const it = base.extend<{
 					options: {
 						model: env.EVAL_MODEL,
 						cwd: fileURLToPath(project),
-						systemPrompt: { type: "preset", preset: "claude_code", append: PRISMIC_GUIDANCE },
+						systemPrompt: { type: "preset", preset: "claude_code", append: PRISMIC_SKILL },
 						permissionMode: "bypassPermissions",
 						allowDangerouslySkipPermissions: true,
 						settingSources: [],
@@ -207,6 +206,43 @@ expect.extend({
 		};
 	},
 });
+
+async function fetchSkill(ref:string): Promise<string> {
+	const cache = new URL(
+		`../node_modules/.cache/prismic-evals/skill-${ref}.md`,
+		import.meta.url,
+	);
+	try {
+		return await readFile(cache, "utf8");
+	} catch {}
+
+	const listing = await fetch(
+		`https://api.github.com/repos/prismicio/skills/contents/skills/prismic?ref=${ref}`,
+	);
+	if (!listing.ok) {
+		throw new Error(`Listing the Prismic skill at ${ref} failed (${listing.status})`);
+	}
+	const entries = z.array(z.object({ name: z.string() })).parse(await listing.json());
+	if (entries.length !== 1 || entries[0].name !== "SKILL.md") {
+		throw new Error(
+			`The Prismic skill at ${ref} is no longer a single SKILL.md. ` +
+				"Load it as a real skill in the agent's project instead of a system prompt append.",
+		);
+	}
+
+	const response = await fetch(
+		`https://raw.githubusercontent.com/prismicio/skills/${ref}/skills/prismic/SKILL.md`,
+	);
+	if (!response.ok) {
+		throw new Error(`Fetching the Prismic skill at ${ref} failed (${response.status})`);
+	}
+	const text = await response.text();
+	const body = text.replace(/^---\n[\s\S]*?\n---\n/, "").trim();
+
+	await mkdir(new URL(".", cache), { recursive: true });
+	await writeFile(cache, body);
+	return body;
+}
 
 async function createTempClaudeConfigDir(): Promise<string> {
 	const dir = await mkdtemp(join(tmpdir(), "prismic-eval-claude-"));
