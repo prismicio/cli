@@ -9,8 +9,10 @@ import { removePreviewsByURL } from "../src/lib/prismic/clients/core";
 import {
 	assertStarterRepositoryAccess,
 	assertStarterRepositoryHasModels,
+	hasStarterLocalPreview,
 	patchStarterConfig,
 	starterArchiveURL,
+	starterLocalPreviewURL,
 } from "../src/lib/starter";
 import { extractZip } from "../src/lib/zip";
 import { captureOutput, it } from "./it";
@@ -145,6 +147,24 @@ describe.sequential("Starter download", () => {
 		await expect(readURLFile(starterArchiveURL)).rejects.toThrow(
 			`Failed to download file from "${starterArchiveURL.toString()}" (HTTP 404).`,
 		);
+	});
+
+	unitTest("detects an existing local development preview", () => {
+		expect(starterLocalPreviewURL).toBe("http://localhost:3000/api/preview");
+		expect(
+			hasStarterLocalPreview([
+				{
+					url: starterLocalPreviewURL,
+				},
+			]),
+		).toBe(true);
+		expect(
+			hasStarterLocalPreview([
+				{
+					url: "https://custom.example.com/api/preview",
+				},
+			]),
+		).toBe(false);
 	});
 
 	unitTest("removes only the hosted starter preview", async () => {
