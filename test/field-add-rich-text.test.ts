@@ -33,6 +33,28 @@ it("adds a rich text field to a slice", async ({ expect, prismic, project }) => 
 	expect(field).toMatchObject({ type: "StructuredText" });
 });
 
+it("adds a rich text field with labels", async ({ expect, prismic, project }) => {
+	const customType = buildCustomType();
+	await writeLocalCustomType(project, customType);
+
+	const { exitCode } = await prismic("field", [
+		"add",
+		"rich-text",
+		"my_content",
+		"--to-type",
+		customType.id,
+		"--labels",
+		"highlight,inline-code",
+	]);
+	expect(exitCode).toBe(0);
+
+	const updated = await readLocalCustomType(project, customType.id);
+	expect(updated.json.Main.my_content).toMatchObject({
+		type: "StructuredText",
+		config: { labels: ["highlight", "inline-code"] },
+	});
+});
+
 it("adds a rich text field to a custom type", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType();
 	await writeLocalCustomType(project, customType);

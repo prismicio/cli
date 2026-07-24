@@ -66,6 +66,36 @@ it("edits a field label on a custom type", async ({ expect, prismic, project }) 
 	});
 });
 
+it("edits rich text labels", async ({ expect, prismic, project }) => {
+	const customType = buildCustomType({
+		json: {
+			Main: {
+				body: {
+					type: "StructuredText",
+					config: { label: "Body", multi: "paragraph" },
+				},
+			},
+		},
+	});
+	await writeLocalCustomType(project, customType);
+
+	const { exitCode } = await prismic("field", [
+		"edit",
+		"body",
+		"--from-type",
+		customType.id,
+		"--labels",
+		"highlight,inline-code",
+	]);
+	expect(exitCode).toBe(0);
+
+	const updated = await readLocalCustomType(project, customType.id);
+	expect(updated.json.Main.body).toMatchObject({
+		type: "StructuredText",
+		config: { multi: "paragraph", labels: ["highlight", "inline-code"] },
+	});
+});
+
 it("edits boolean field options", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.is_active = { type: "Boolean", config: { label: "Active" } };
