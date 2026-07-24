@@ -115,10 +115,7 @@ export async function readEnvFile<T = Partial<Record<string, string>>>(
 export async function setEnvFileVar(path: URL, key: string, value: string): Promise<void> {
 	const hasFile = await exists(path);
 	let contents = "";
-	if (hasFile) {
-		contents = await readFile(path, "utf8");
-		parseEnv(contents); // Verify the format
-	}
+	if (hasFile) contents = await readFile(path, "utf8");
 
 	const pattern = new RegExp(`^${key}=.*$`, "mg");
 	const line = `${key}=${value}`;
@@ -139,7 +136,6 @@ export async function unsetEnvFileVar(path: URL, key: string): Promise<void> {
 	if (!hasFile) return;
 
 	let contents = await readFile(path, "utf8");
-	parseEnv(contents); // Verify the format
 
 	const pattern = new RegExp(`^${key}=.*$\n?`, "mg");
 	contents = contents.replace(pattern, "");
