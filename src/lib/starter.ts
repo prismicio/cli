@@ -5,16 +5,16 @@ import type { Profile } from "./prismic/clients/user";
 
 import { CommandError } from "./command";
 
-const instantStartCommit = "1eb2488e86a17eb096fe494aae34041f1b840317";
+const starterCommit = "1eb2488e86a17eb096fe494aae34041f1b840317";
 
-export const instantStartArchiveURL = new URL(
-	`https://github.com/prismicio/instant-start-next-landing-page/archive/${instantStartCommit}.zip`,
+export const starterArchiveURL = new URL(
+	`https://github.com/prismicio/instant-start-next-landing-page/archive/${starterCommit}.zip`,
 );
 
-export const instantStartHostedPreviewURL =
+export const starterHostedPreviewURL =
 	"https://nextjs-starter-prismic-landing-page.vercel.app/api/preview";
 
-export function assertInstantStartRepositoryAccess(repositoryId: string, profile: Profile): void {
+export function assertStarterRepositoryAccess(repositoryId: string, profile: Profile): void {
 	const hasRepositoryAccess = profile.repositories.some(
 		(repository) => repository.domain === repositoryId,
 	);
@@ -25,7 +25,19 @@ export function assertInstantStartRepositoryAccess(repositoryId: string, profile
 	}
 }
 
-export async function patchInstantStartConfig(
+export function assertStarterRepositoryHasModels(
+	repositoryId: string,
+	customTypes: unknown[],
+	slices: unknown[],
+): void {
+	if (customTypes.length > 0 || slices.length > 0) return;
+
+	throw new CommandError(
+		`Repository "${repositoryId}" has no starter models. Use a repository created from the starter in the Prismic dashboard.`,
+	);
+}
+
+export async function patchStarterConfig(
 	destination: string,
 	repositoryId: string,
 	host: string,
