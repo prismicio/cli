@@ -26,11 +26,11 @@ export default createCommand(config, async ({ values }) => {
 	const { token, host } = await getCredentials();
 	const environments = await getUserEnvironments({ repo, token, host });
 
-	// The active environment is a project setting, so it only applies to the
-	// project's own repository, not one passed via --repo.
-	const adapter = await getAdapter();
-	const activeEnvironment =
-		repo === projectRepo ? ((await adapter.getEnvironment()) ?? projectRepo) : undefined;
+	let activeEnvironment: string | undefined;
+	if (repo === projectRepo) {
+		const adapter = await getAdapter();
+		activeEnvironment = (await adapter.getEnvironment()) ?? projectRepo;
+	}
 
 	if (json) {
 		const results = environments.map((environment) => ({

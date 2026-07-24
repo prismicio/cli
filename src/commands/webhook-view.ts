@@ -1,8 +1,7 @@
-import { getAdapter } from "../adapters";
+import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getWebhooks, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
-import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic webhook view",
@@ -27,11 +26,8 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const adapter = await getAdapter();
-
 	const [webhookUrl] = positionals;
-	const { env, repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()) } =
-		values;
+	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
 	const { token, host } = await getCredentials();
 	const webhooks = await getWebhooks({ repo, token, host });
