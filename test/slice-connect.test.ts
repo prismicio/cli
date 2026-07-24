@@ -10,8 +10,8 @@ import {
 } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("slice", ["connect", "--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["connect", "--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic slice connect <id> [options]");
 });
 
@@ -33,8 +33,8 @@ it("connects a slice to a type", async ({ expect, prismic, project }) => {
 	await writeLocalSlice(project, slice);
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, exitCode } = await prismic("slice", ["connect", slice.id, "--to", customType.id]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("slice", ["connect", slice.id, "--to", customType.id]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Connected slice "${slice.id}" to "${customType.id}"`);
 
 	const updated = await readLocalCustomType(project, customType.id);
