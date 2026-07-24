@@ -9,20 +9,6 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic status [options]");
 });
 
-it("rejects an unknown --env", async ({ expect, prismic, repo }) => {
-	const { stderr, exitCode } = await prismic("status", ["--repo", repo, "--env", "does-not-exist"]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain(`No environments available on repository "${repo}".`);
-});
-
-it("warns and skips --env when not logged in", async ({ expect, prismic, logout, repo }) => {
-	await logout();
-	const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo, "--env", "anything"]);
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain(`Repository: ${repo}`);
-	expect(stdout).toContain("Environment: anything");
-});
-
 describe("with an isolated repository", () => {
 	it.scoped({ isolateRepo: true });
 

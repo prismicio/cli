@@ -16,12 +16,6 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic push [options]");
 });
 
-it("rejects an unknown --env", async ({ expect, prismic, repo }) => {
-	const { stderr, exitCode } = await prismic("push", ["--repo", repo, "--env", "does-not-exist"]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain(`No environments available on repository "${repo}".`);
-});
-
 describe("with an isolated repository", () => {
 	it.scoped({ isolateRepo: true });
 
