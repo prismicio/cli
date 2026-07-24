@@ -21,7 +21,9 @@ export async function readPackageJson(): Promise<PackageJson> {
 	return packageJson;
 }
 
-export async function findPackageJson(config: { start?: URL } = {}): Promise<URL> {
+export async function findPackageJson(
+	config: { start?: URL; stop?: URL | string } = {},
+): Promise<URL> {
 	const packageJsonPath = await findUpward("package.json", config);
 	if (!packageJsonPath) throw new MissingPackageJson();
 	return packageJsonPath;
@@ -75,7 +77,9 @@ const INSTALL_COMMANDS = {
 	bun: ["bun", "install"],
 };
 
-export async function installDependencies(config: { start?: URL } = {}): Promise<void> {
+export async function installDependencies(
+	config: { start?: URL; stop?: URL | string } = {},
+): Promise<void> {
 	const packageJsonPath = await findPackageJson(config);
 	const cwd = new URL(".", packageJsonPath);
 	const packageManager = await detectPackageManager(packageJsonPath);

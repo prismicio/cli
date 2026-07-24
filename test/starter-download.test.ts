@@ -2,8 +2,10 @@ import { zipSync } from "fflate";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it as unitTest, onTestFinished, vi } from "vitest";
 
+import { findPackageJson } from "../src/lib/packageJson";
 import { addPreview, hasPreviewByURL, removePreviewsByURL } from "../src/lib/prismic/clients/core";
 import { getOrCreateInstantStartExport } from "../src/lib/prismic/clients/website-generator";
 import { extractZip } from "../src/lib/zip";
@@ -62,6 +64,26 @@ it("validates the repository name", async ({ expect, prismic }) => {
 	]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Invalid repository name");
+});
+
+it("validates repository access", async ({ expect, login, prismic }) => {
+	await login();
+	const { stderr, exitCode } = await prismic("starter", [
+		"download",
+		"--repo",
+		"missing-repository",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain('Repository "missing-repository" not found in your account');
+});
+
+it("requires Type Builder", async ({ expect, login, prismic, repo }) => {
+	await login();
+	const { stderr, exitCode } = await prismic("starter", ["download", "--repo", repo], {
+		nodeOptions: { env: { PRISMIC_TYPE_BUILDER_ENABLED: "false" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("This command requires the Type Builder");
 });
 
 it("uses the browser login flow", async ({ expect, logout, prismic, repo }) => {
@@ -217,6 +239,20 @@ describe.sequential("Starter download API client", () => {
 				host: "prismic.io",
 			}),
 		).resolves.toBe(true);
+	});
+});
+
+describe("Package installation", () => {
+	unitTest("does not find package.json above the extracted project", async () => {
+		const root = await makeTemporaryDirectory();
+		const destination = join(root, "my-repo");
+		await mkdir(destination);
+		await writeFile(join(root, "package.json"), "{}");
+		const destinationUrl = pathToFileURL(`${destination}/`);
+
+		await expect(findPackageJson({ start: destinationUrl, stop: destinationUrl })).rejects.toThrow(
+			"Could not find a package.json file",
+		);
 	});
 });
 

@@ -1,5 +1,5 @@
 import { mkdir, rm } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { createLoginSession, getCredentials } from "../auth";
@@ -14,11 +14,12 @@ import {
 	removePreviewsByURL,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
-import { getProfile } from "../lib/prismic/clients/user";
+import { getProfile, type Profile } from "../lib/prismic/clients/user";
 import { getOrCreateInstantStartExport } from "../lib/prismic/clients/website-generator";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
 import { extractZip } from "../lib/zip";
+import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 
 const config = {
 	name: "prismic starter download",
@@ -39,42 +40,59 @@ const config = {
 
 export default createCommand(config, async ({ values }) => {
 	const { repo, "no-browser": noBrowser } = values;
-	const { token, host } = await authenticateStarterDownload(noBrowser);
-	await downloadStarter(repo, { token, host });
+	const repositoryId = repo.toLowerCase();
+	assertRepositoryName(repositoryId);
+
+	const { token, host, profile } = await authenticateStarterDownload(noBrowser);
+	const hasRepoAccess = profile.repositories.some(
+		(repository) => repository.domain === repositoryId,
+	);
+	if (!hasRepoAccess) {
+		throw new CommandError(
+			`Repository "${repositoryId}" not found in your account. Check the name or request access to the repository.`,
+		);
+	}
+
+	const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repositoryId, { token, host });
+	if (!isTypeBuilderEnabled) {
+		throw new TypeBuilderRequiredError(repositoryId, host);
+	}
+
+	await downloadStarter(repositoryId, { token, host });
 });
 
 async function downloadStarter(
 	repository: string,
 	config: { token: string | undefined; host: string },
 ): Promise<void> {
-	const repositoryId = repository.toLowerCase();
-	assertRepositoryName(repositoryId);
-
 	let extractedProject: { destination: string; destinationExisted: boolean } | undefined;
 
 	try {
 		console.info("Preparing the project export...");
-		const readyExport = await getOrCreateInstantStartExport(repositoryId, config);
+		const readyExport = await getOrCreateInstantStartExport(repository, config);
 
 		console.info("Downloading the project...");
 		const archive = await readURLFile(new URL(readyExport.downloadUrl));
-		const destination = resolve(process.cwd(), repositoryId);
+		const destination = resolve(process.cwd(), repository);
 		const destinationExisted = await exists(pathToFileURL(destination));
 		await extractZip(new Uint8Array(await archive.arrayBuffer()), destination);
 		extractedProject = { destination, destinationExisted };
+
+		// part of the typical starter cleanup, documents were already pushed
 		await rm(join(destination, "documents"), { recursive: true, force: true });
 
 		console.info("Installing dependencies...");
 		try {
-			await installDependencies({ start: pathToFileURL(destination) });
+			const destinationUrl = pathToFileURL(`${destination}${sep}`);
+			await installDependencies({ start: destinationUrl, stop: destinationUrl });
 		} catch {
 			console.warn(
 				"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
 			);
 		}
 
-		console.info("Configuring local previews...");
-		const coreConfig = { repo: repositoryId, ...config };
+		console.info("Configuring local previews and simulator...");
+		const coreConfig = { repo: repository, ...config };
 		try {
 			await removePreviewsByURL(readyExport.previewUrls, coreConfig);
 			const hasDevelopmentPreview = await hasPreviewByURL(
@@ -95,7 +113,13 @@ async function downloadStarter(
 			await sentryCaptureError(error);
 			console.error("Failed to configure the local development preview. Continuing.");
 		}
-		await setSimulatorUrl("http://localhost:3000/slice-simulator", coreConfig);
+
+		try {
+			await setSimulatorUrl("http://localhost:3000/slice-simulator", coreConfig);
+		} catch (error) {
+			await sentryCaptureError(error);
+			console.error("Failed to configure the local slice simulator. Continuing.");
+		}
 
 		console.info(`
 Your project is ready 🎉
@@ -106,7 +130,7 @@ Here's what you can do next:
   cd ${destination}
   npm run dev
 
-2. Preview your pages live at https://${repositoryId}.${config.host}/builder
+2. Preview your pages live at https://${repository}.${config.host}/builder
 
 Start building 🚀
 `);
@@ -129,12 +153,13 @@ function assertRepositoryName(repositoryId: string): void {
 
 async function authenticateStarterDownload(
 	noBrowser: boolean | undefined,
-): Promise<{ host: string; token: string | undefined }> {
+): Promise<{ host: string; token: string | undefined; profile: Profile }> {
 	const { host, token: initialToken } = await getCredentials();
 	let token = initialToken;
+	let profile: Profile;
 
 	try {
-		await getProfile({ token, host });
+		profile = await getProfile({ token, host });
 	} catch (error) {
 		if (!(error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError)) {
 			throw error;
@@ -161,8 +186,8 @@ async function authenticateStarterDownload(
 
 		const loggedIn = await getCredentials();
 		token = loggedIn.token;
-		await getProfile({ token, host });
+		profile = await getProfile({ token, host });
 	}
 
-	return { host, token };
+	return { host, token, profile };
 }
