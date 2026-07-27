@@ -7,7 +7,7 @@ import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getProfile } from "../lib/prismic/clients/user";
-import { canonicalizeModel } from "../lib/prismic/models";
+import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { dedent } from "../lib/string";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -66,7 +66,7 @@ export default createCommand(config, async ({ values }) => {
 			{
 				getKey: (m) => m.id,
 				equals: (a, b) =>
-					JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+					JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
 			},
 		);
 		sliceOps = diffArrays(
@@ -75,7 +75,7 @@ export default createCommand(config, async ({ values }) => {
 			{
 				getKey: (m) => m.id,
 				equals: (a, b) =>
-					JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+					JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
 			},
 		);
 	}
