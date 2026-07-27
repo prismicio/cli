@@ -19,7 +19,9 @@ const DEFUALT_PRISMIC_HOST = "prismic.io";
 export type Fixtures = {
 	host: string;
 	home: URL;
+	bin: URL;
 	project: URL;
+	exec: typeof x;
 	prismic: typeof x;
 	login: () => Promise<{ token: string; email: string }>;
 	logout: () => Promise<void>;
@@ -60,6 +62,11 @@ export const it = test.extend<Fixtures>({
 				await rm(dir, { recursive: true, force: true });
 			}
 		}
+	},
+	bin: async ({ home }, use) => {
+		const bin = new URL("bin/", home);
+		await mkdir(bin, { recursive: true });
+		await use(bin);
 	},
 	project: async ({ home, repo }, use) => {
 		const projectPath = new URL("project/", home);
@@ -110,30 +117,21 @@ export const it = test.extend<Fixtures>({
 			await rm(new URL(".config/prismic/credentials.json", home), { force: true });
 		});
 	},
-	prismic: async ({ home, project, login }, use) => {
-		await login();
-		const binDir = new URL("bin/", home);
-		const configDir = new URL(".config/prismic/", home);
+	exec: async ({ home, bin, project }, use) => {
 		const procs: Result[] = [];
-		await use((command, args = [], options) => {
-			const env = {
-				...process.env,
-				PRISMIC_TYPE_BUILDER_ENABLED: "true",
-				PRISMIC_SENTRY_ENABLED: "false",
-				PRISMIC_TELEMETRY_ENABLED: "false",
-				PRISMIC_SYNC_POLL_MS: "500",
-				NO_UPDATE_NOTIFIER: "1",
-				PRISMIC_CONFIG_DIR: fileURLToPath(configDir),
-				...options?.nodeOptions?.env,
-				PATH: `${fileURLToPath(binDir)}:${process.env.PATH}`,
-				HOME: fileURLToPath(home),
-			};
-			const proc = x("node", [BIN, command, ...args].filter(Boolean), {
+		await use((command, args, options) => {
+			const proc = x(command, args, {
 				...options,
+				throwOnError: true,
 				nodeOptions: {
 					cwd: fileURLToPath(project),
 					...options?.nodeOptions,
-					env,
+					env: {
+						...process.env,
+						...options?.nodeOptions?.env,
+						PATH: `${fileURLToPath(bin)}:${process.env.PATH}`,
+						HOME: fileURLToPath(home),
+					},
 				},
 			});
 			procs.push(proc);
@@ -142,6 +140,26 @@ export const it = test.extend<Fixtures>({
 		for (const proc of procs) {
 			if (proc.exitCode === undefined) proc.kill();
 		}
+	},
+	prismic: async ({ home, login, exec }, use) => {
+		await login();
+		const configDir = new URL(".config/prismic/", home);
+		await use((command, args = [], options) =>
+			exec("node", [BIN, command, ...args], {
+				...options,
+				nodeOptions: {
+					env: {
+						PRISMIC_TYPE_BUILDER_ENABLED: "true",
+						PRISMIC_SENTRY_ENABLED: "false",
+						PRISMIC_TELEMETRY_ENABLED: "false",
+						PRISMIC_SYNC_POLL_MS: "500",
+						NO_UPDATE_NOTIFIER: "1",
+						PRISMIC_CONFIG_DIR: fileURLToPath(configDir),
+						...options?.nodeOptions?.env,
+					},
+				},
+			}),
+		);
 	},
 	// oxlint-disable-next-line no-empty-pattern
 	password: async ({}, use) => {

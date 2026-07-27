@@ -1,25 +1,16 @@
-// Evals are measurements, not gates: an enabled eval may fail, and its pass
-// rate is the signal. Drafts start as it.skip until validated once; keep an
-// eval skipped only when the CLI cannot pass it (missing feature).
-
 import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import dedent from "dedent";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { copyFile, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type Result, x } from "tinyexec";
 import { expect } from "vitest";
-import * as z from "zod/mini";
 
-import type { AgentRecord } from "./reporter.ts";
+import type { Trial } from "./reporter.ts";
 
 import { it as base } from "../test/it";
 import { deleteRepository } from "../test/prismic";
 
-// Safety gate. Evals run a real agent with --dangerously-skip-permissions, which
-// can run arbitrary commands on the host, so only allow them in an isolated,
-// disposable environment the developer explicitly opts into.
 if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
 	throw new Error(
 		"Refusing to run evals outside an isolated environment. They run an agent with " +
@@ -29,170 +20,109 @@ if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
 }
 
 const BIN = new URL("../dist/index.mjs", import.meta.url);
-
-const env = z
-	.object({
-		PATH: z.string(),
-		ANTHROPIC_API_KEY: z.string(),
-		EVAL_MODEL: z._default(z.string(), "claude-sonnet-5"),
-		EVAL_JUDGE_MODEL: z._default(z.string(), "claude-haiku-4-5-20251001"),
-		EVAL_TRIALS: z._default(z.coerce.number(), 3),
-	})
-	.parse(process.env);
-
-export const trials = Array.from({ length: env.EVAL_TRIALS }, (_, i) => i + 1);
-
-// The agent's Prismic guidance is the published skill users install
-// (github.com/prismicio/skills), pinned to a commit so score shifts only happen
-// when the pin is deliberately bumped. Delivered via the system prompt while the
-// skill is a single file; fetchSkill throws when it grows beyond SKILL.md.
+const EVAL_MODEL = process.env.EVAL_MODEL ?? "claude-sonnet-5";
+const EVAL_TRIALS = Number(process.env.EVAL_TRIALS ?? 3);
+const JUDGE_MODEL = "claude-sonnet-5";
 const PRISMIC_SKILL_REF = "2bd340e6af4e67a9c1179e97b495f7bda564b46f";
-const PRISMIC_SKILL = await fetchSkill(PRISMIC_SKILL_REF);
+
+const SKILL = await fetchSkill();
+
+export const trials = Array.from({ length: EVAL_TRIALS }, (_, i) => i + 1);
 
 declare module "vitest" {
+	interface TaskMeta {
+		agent?: Trial;
+	}
 	// oxlint-disable-next-line no-explicit-any
 	interface Matchers<T = any> {
 		toHaveRun(bin: string, positionals?: string[]): T;
 		toSatisfyJudge(criterion: string): Promise<T>;
 	}
-
-	interface TaskMeta {
-		agent?: AgentRecord;
-	}
 }
 
-export const it = base.extend<{
-	agent: (prompt: string) => Promise<string[]>;
-	git: (...args: string[]) => Result;
-	isolateRepo: boolean;
-}>({
-	isolateRepo: true,
-	git: async ({ project, home }, use) => {
-		await use((...args) =>
-			x("git", args, {
-				throwOnError: true,
-				nodeOptions: {
-					cwd: fileURLToPath(project),
-					env: { ...process.env, HOME: fileURLToPath(home) },
-				},
-			}),
-		);
-	},
-	agent: async ({ home, project, login, task, repo, token, host }, use) => {
-		await login();
+export const it = base
+	.extend("isolateRepo", true)
+	.extend(
+		"agent",
+		async ({ home, project, login, task, repo, token, host, password }, { onCleanup }) => {
+			await login();
 
-		const binDir = new URL("bin/", home);
-		const projectBinDir = new URL("node_modules/.bin/", project);
+			const claudeConfigDir = await createClaudeConfigDir();
 
-		const shim = `#!/bin/sh\nexec node "${fileURLToPath(BIN)}" "$@"\n`;
-		await mkdir(projectBinDir, { recursive: true });
-		for (const dir of [binDir, projectBinDir]) {
-			await writeFile(new URL("prismic", dir), shim, { mode: 0o755 });
-		}
+			const nodeModulesBinDir = new URL("node_modules/.bin/", project);
+			await mkdir(nodeModulesBinDir, { recursive: true });
+			await symlink(BIN, new URL("prismic", nodeModulesBinDir));
 
-		const record: AgentRecord = {
-			tokens: 0,
-			costUsd: 0,
-			turns: 0,
-			durationMs: 0,
-			model: env.EVAL_MODEL,
-			skill: PRISMIC_SKILL_REF.slice(0, 7),
-			prismicCalls: [],
-		};
+			const env = {
+				...process.env,
+				HOME: fileURLToPath(home),
+				PRISMIC_CONFIG_DIR: fileURLToPath(new URL(".config/prismic/", home)),
+				PRISMIC_TYPE_BUILDER_ENABLED: "true",
+				PRISMIC_SENTRY_ENABLED: "false",
+				PRISMIC_TELEMETRY_ENABLED: "false",
+				NO_UPDATE_NOTIFIER: "1",
+				CLAUDE_CONFIG_DIR: claudeConfigDir,
+				CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
+				CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+			};
 
-		await use(async (prompt) => {
-			const claudeConfig = await createTempClaudeConfigDir();
-
-			try {
-				const commands: string[] = [];
-				let result: SDKResultMessage | undefined;
-				for await (const message of query({
-					prompt,
-					options: {
-						model: env.EVAL_MODEL,
-						cwd: fileURLToPath(project),
-						systemPrompt: { type: "preset", preset: "claude_code", append: PRISMIC_SKILL },
-						permissionMode: "bypassPermissions",
-						allowDangerouslySkipPermissions: true,
-						settingSources: [],
-						persistSession: false,
-						env: {
-							...process.env,
-							HOME: fileURLToPath(home),
-							PATH: `${fileURLToPath(binDir)}:${env.PATH}`,
-							PRISMIC_CONFIG_DIR: fileURLToPath(new URL(".config/prismic/", home)),
-							PRISMIC_TYPE_BUILDER_ENABLED: "true",
-							PRISMIC_SENTRY_ENABLED: "false",
-							PRISMIC_TELEMETRY_ENABLED: "false",
-							NO_UPDATE_NOTIFIER: "1",
-							CLAUDE_CONFIG_DIR: claudeConfig,
-							CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
-						},
-					},
-				})) {
-					if (message.type === "assistant") {
-						for (const block of message.message.content) {
-							if (block.type === "tool_use" && block.name === "Bash") {
-								const command = String((block.input as Record<string, unknown>).command ?? "");
-								if (command) commands.push(command);
-							}
-						}
-					} else if (message.type === "result") {
-						result = message;
+			onCleanup(async () => {
+				try {
+					const configFile = await readFile(new URL("prismic.config.json", project), "utf8");
+					const created = JSON.parse(configFile).repositoryName;
+					if (created && created !== repo && password) {
+						await deleteRepository(created, { token, password, host });
 					}
-				}
+				} catch {}
+			});
 
-				if (!result) throw new Error("Agent produced no result message");
-				if (result.subtype !== "success") throw new Error(`Agent run failed (${result.subtype})`);
+			const trial: Trial = { model: EVAL_MODEL, costUsd: 0, durationS: 0, calls: [] };
+			task.meta.agent = trial;
+			let durationMs = 0;
 
-				record.tokens +=
-					result.usage.input_tokens +
-					result.usage.output_tokens +
-					result.usage.cache_read_input_tokens +
-					result.usage.cache_creation_input_tokens;
-				record.costUsd += result.total_cost_usd;
-				record.turns += result.num_turns;
-				record.durationMs += result.duration_ms;
-				record.prismicCalls.push(
-					...commands.filter((c) => /(^|\s)(npx\s+)?prismic(@|\s|$)/.test(c)),
-				);
-				return commands;
-			} catch (error) {
-				// The agent harness failed before the eval could be graded; the
-				// reporter excludes these trials from pass rates.
-				record.infra = true;
-				throw error;
-			} finally {
-				await rm(claudeConfig, { recursive: true, force: true });
-			}
-		});
+			return async (prompt: string) => {
+				const result = await agent(prompt, {
+					systemPromptAppend: SKILL,
+					cwd: project,
+					env,
+					// Recorded as commands stream so a timed-out trial keeps its trail.
+					onCommand: (command) => {
+						if (/(^|\s)(npx\s+)?prismic(@|\s|$)/.test(command)) {
+							trial.calls.push(command.replace(/^.*?(^|\s)(npx\s+)?prismic(@\S+)?\s+/, ""));
+						}
+					},
+				});
 
-		task.meta.agent = record;
+				const run = result.result;
+				trial.costUsd += run.total_cost_usd;
+				durationMs += run.duration_ms;
+				trial.durationS = Math.round(durationMs / 1000);
 
-		// Agents can create a repository with a name the harness cannot know in
-		// advance (e.g. `prismic init` picks a random domain). It ends up in the
-		// project's config, so delete it from there. Best-effort: the config may
-		// be missing or name the shared repo.
-		const password = process.env.E2E_PRISMIC_PASSWORD;
-		try {
-			const configFile = await readFile(new URL("prismic.config.json", project), "utf8");
-			const created = JSON.parse(configFile).repositoryName;
-			if (created && created !== repo && password) {
-				await deleteRepository(created, { token, password, host });
-			}
-		} catch {}
-	},
-});
+				return result;
+			};
+		},
+	);
 
 expect.extend({
-	toHaveRun(commands: string[], bin: string, positionals: string[] = []) {
-		const pass = commands.some((command) => ranCommand(command, bin, positionals));
+	toHaveRun(result: AgentResult, bin: string, positionals: string[] = []) {
+		const pass = result.commands.some((command) => {
+			return command.split(/&&|\|\||;|\||\n/).some((segment) => {
+				const words = segment.split(/\s+/).filter(Boolean);
+				if (words.includes("--help") || words.includes("-h")) return false;
+				const start = words.findIndex((word) => new RegExp(`^${bin}@?`).test(word));
+				if (start === -1) return false;
+
+				const got = words.slice(start + 1).filter((w) => !w.startsWith("-"));
+				return positionals.every((p, i) => got[i] === p);
+			});
+		});
+
 		return {
 			pass,
 			message: () => {
 				const wanted = [bin, ...positionals].join(" ");
 				if (pass) return `expected no command matching \`${wanted}\`, but one ran`;
-				const seen = commands.map((c) => `  ${c}`).join("\n") || "  (no commands ran)";
+				const seen = result.commands.map((c) => `  ${c}`).join("\n") || "  (no commands ran)";
 				return `expected a command matching \`${wanted}\`, but saw:\n${seen}`;
 			},
 		};
@@ -207,63 +137,65 @@ expect.extend({
 	},
 });
 
-async function fetchSkill(ref:string): Promise<string> {
-	const cache = new URL(
-		`../node_modules/.cache/prismic-evals/skill-${ref}.md`,
-		import.meta.url,
-	);
-	try {
-		return await readFile(cache, "utf8");
-	} catch {}
+type AgentResult = {
+	result: SDKResultMessage;
+	commands: string[];
+};
 
-	const listing = await fetch(
-		`https://api.github.com/repos/prismicio/skills/contents/skills/prismic?ref=${ref}`,
-	);
-	if (!listing.ok) {
-		throw new Error(`Listing the Prismic skill at ${ref} failed (${listing.status})`);
-	}
-	const entries = z.array(z.object({ name: z.string() })).parse(await listing.json());
-	if (entries.length !== 1 || entries[0].name !== "SKILL.md") {
-		throw new Error(
-			`The Prismic skill at ${ref} is no longer a single SKILL.md. ` +
-				"Load it as a real skill in the agent's project instead of a system prompt append.",
-		);
+async function agent(
+	prompt: string,
+	config: {
+		systemPromptAppend?: string;
+		cwd: URL;
+		env: NodeJS.ProcessEnv;
+		onCommand?: (command: string) => void;
+	},
+) {
+	const { systemPromptAppend, cwd, env, onCommand } = config;
+
+	let result: SDKResultMessage | undefined;
+	const commands: string[] = [];
+
+	for await (const message of query({
+		prompt,
+		options: {
+			model: EVAL_MODEL,
+			systemPrompt: {
+				type: "preset",
+				preset: "claude_code",
+				append: systemPromptAppend,
+			},
+			permissionMode: "bypassPermissions",
+			allowDangerouslySkipPermissions: true,
+			settingSources: [],
+			persistSession: false,
+			cwd: fileURLToPath(cwd),
+			env,
+		},
+	})) {
+		if (message.type === "result") result = message;
+		if (message.type === "assistant") {
+			for (const block of message.message.content) {
+				if (block.type === "tool_use" && block.name === "Bash") {
+					const command = (block.input as { command: string }).command;
+					commands.push(command);
+					onCommand?.(command);
+				}
+			}
+		}
 	}
 
-	const response = await fetch(
-		`https://raw.githubusercontent.com/prismicio/skills/${ref}/skills/prismic/SKILL.md`,
-	);
-	if (!response.ok) {
-		throw new Error(`Fetching the Prismic skill at ${ref} failed (${response.status})`);
+	if (result?.subtype !== "success") {
+		throw new Error(`Agent run failed (${result?.subtype ?? "no result message"})`);
 	}
-	const text = await response.text();
-	const body = text.replace(/^---\n[\s\S]*?\n---\n/, "").trim();
 
-	await mkdir(new URL(".", cache), { recursive: true });
-	await writeFile(cache, body);
-	return body;
+	return { result, commands };
 }
 
-async function createTempClaudeConfigDir(): Promise<string> {
-	const dir = await mkdtemp(join(tmpdir(), "prismic-eval-claude-"));
-	await writeFile(join(dir, ".claude.json"), JSON.stringify({ hasCompletedOnboarding: true }));
-	await writeFile(join(dir, "settings.json"), "{}");
-	return dir;
-}
-
-function ranCommand(command: string, bin: string, positionals: string[]): boolean {
-	return command.split(/&&|\|\||;|\||\n/).some((segment) => {
-		const words = segment.split(/\s+/).filter(Boolean);
-		if (words.includes("--help") || words.includes("-h")) return false;
-		const start = words.findIndex((w) => w === bin || w.startsWith(`${bin}@`));
-		if (start === -1) return false;
-
-		const got = words.slice(start + 1).filter((w) => !w.startsWith("-"));
-		return positionals.every((p, i) => got[i] === p);
-	});
-}
-
-async function judge(content: string, criterion: string): Promise<z.infer<typeof VerdictSchema>> {
+async function judge(
+	content: string,
+	criterion: string,
+): Promise<{ reason: string; pass: boolean }> {
 	const prompt = dedent`
 		You are judging an AI agent's work against a criterion.
 		First write a short reason, then decide whether the work satisfies the criterion.
@@ -277,37 +209,58 @@ async function judge(content: string, criterion: string): Promise<z.infer<typeof
 		</work>
 	`;
 
-	const response = await fetch("https://api.anthropic.com/v1/messages", {
-		method: "POST",
-		headers: {
-			"x-api-key": env.ANTHROPIC_API_KEY,
-			"anthropic-version": "2023-06-01",
-			"content-type": "application/json",
+	let result: SDKResultMessage | undefined;
+	for await (const message of query({
+		prompt,
+		options: {
+			model: JUDGE_MODEL,
+			systemPrompt: "You are a strict grader.",
+			allowedTools: [],
+			persistSession: false,
+			settingSources: [],
+			outputFormat: {
+				type: "json_schema",
+				schema: {
+					type: "object",
+					properties: { reason: { type: "string" }, pass: { type: "boolean" } },
+					required: ["reason", "pass"],
+					additionalProperties: false,
+				},
+			},
 		},
-		body: JSON.stringify({
-			model: env.EVAL_JUDGE_MODEL,
-			max_tokens: 1024,
-			system: "You are a strict grader.",
-			messages: [{ role: "user", content: prompt }],
-			output_config: { format: { type: "json_schema", schema: VerdictJsonSchema } },
-		}),
-	});
-	if (!response.ok) {
-		throw new Error(`Judge request failed (${response.status}): ${await response.text()}`);
+	})) {
+		if (message.type === "result") result = message;
 	}
-	const message = MessageSchema.parse(await response.json());
-	const verdict = message.content.find((block) => block.type === "text")?.text;
-	if (verdict === undefined) throw new Error("Judge returned no text block");
-	return VerdictSchema.parse(JSON.parse(verdict));
+
+	if (result?.subtype !== "success") {
+		throw new Error(`Judge run failed (${result?.subtype ?? "no result message"})`);
+	}
+
+	return result.structured_output as { reason: string; pass: boolean };
 }
 
-const VerdictSchema = z.strictObject({
-	reason: z.string(),
-	pass: z.boolean(),
-});
-const VerdictJsonSchema: Record<string, unknown> = z.toJSONSchema(VerdictSchema);
-delete VerdictJsonSchema.$schema;
+async function fetchSkill() {
+	const response = await fetch(
+		`https://raw.githubusercontent.com/prismicio/skills/${PRISMIC_SKILL_REF}/skills/prismic/SKILL.md`,
+	);
+	if (!response.ok) throw new Error(`Prismic skill fetch failed (${response.status})`);
+	const text = await response.text();
+	return text.replace(/^---\n[\s\S]*?\n---\n/, "").trim();
+}
 
-const MessageSchema = z.object({
-	content: z.array(z.object({ type: z.string(), text: z.optional(z.string()) })),
-});
+async function createClaudeConfigDir() {
+	const claudeConfigDir = await mkdtemp(join(tmpdir(), "prismic-eval-claude-"));
+	await writeFile(
+		join(claudeConfigDir, ".claude.json"),
+		JSON.stringify({ hasCompletedOnboarding: true }),
+	);
+	await writeFile(join(claudeConfigDir, "settings.json"), JSON.stringify({}));
+	if (!process.env.ANTHROPIC_API_KEY) {
+		// Copy subscription credentials
+		const source = process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude");
+		try {
+			await copyFile(join(source, ".credentials.json"), join(claudeConfigDir, ".credentials.json"));
+		} catch {}
+	}
+	return claudeConfigDir;
+}

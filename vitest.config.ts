@@ -25,7 +25,6 @@ export default defineConfig({
 			{
 				test: {
 					name: "evals",
-					setupFiles: ["./test/setup.ts"],
 					include: ["./evals/**/*.eval.ts"],
 					maxConcurrency: 8,
 					testTimeout: 600_000,
