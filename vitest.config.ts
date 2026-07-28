@@ -4,8 +4,6 @@ export default defineConfig({
 	test: {
 		globalSetup: ["./test/setup.global.ts"],
 		forceRerunTriggers: ["**/src/**", "**/tsdown.config.ts"],
-		// Must be set at the root: vitest silently ignores `sequence` inside a
-		// `projects` entry, which serializes every test in a file.
 		sequence: { concurrent: true },
 		// Bare `vitest` runs only unit tests; evals require an explicit `--project
 		// evals`. Vitest honors `project` in config but only types it as a CLI flag.
