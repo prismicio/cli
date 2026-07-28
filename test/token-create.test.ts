@@ -44,7 +44,8 @@ it("creates an access token with --allow-releases", async ({
 	expect(auth!.scope).toBe("master+releases");
 });
 
-it("creates a write token", async ({ expect, prismic, repo, token, host }) => {
+// Wroom 500s under concurrent same-user write-token creates; keep this sequential.
+it.sequential("creates a write token", async ({ expect, prismic, repo, token, host }) => {
 	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--write"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Token created:");
@@ -57,7 +58,14 @@ it("creates a write token", async ({ expect, prismic, repo, token, host }) => {
 	expect(found).toBeDefined();
 });
 
-it("creates a write token with a custom --name", async ({ expect, prismic, repo, token, host }) => {
+// Wroom 500s under concurrent same-user write-token creates; keep this sequential.
+it.sequential("creates a write token with a custom --name", async ({
+	expect,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
 	const { stdout, stderr, exitCode } = await prismic("token", [
 		"create",
 		"--write",
@@ -75,7 +83,14 @@ it("creates a write token with a custom --name", async ({ expect, prismic, repo,
 	expect(found!.app_name).toBe("My Seed Token");
 });
 
-it("outputs a write token as JSON with --json", async ({ expect, prismic, repo, token, host }) => {
+// Wroom 500s under concurrent same-user write-token creates; keep this sequential.
+it.sequential("outputs a write token as JSON with --json", async ({
+	expect,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
 	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--write", "--json"]);
 	expect(exitCode, stderr).toBe(0);
 
