@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
 
-import type { Trial } from "./reporter.ts";
+import type { Trial } from "./reporter";
 
 import { it as base } from "../test/it";
 import { deleteRepository } from "../test/prismic";
