@@ -52,7 +52,9 @@ export default class EvalReporter implements Reporter {
 
 		if (Object.keys(evals).length === 0) return;
 		const sorted = Object.fromEntries(Object.entries(evals).sort(([a], [b]) => a.localeCompare(b)));
-		const report = JSON.stringify({ model, evals: sorted }, null, "\t") + "\n";
+		// Single-line output keeps run-over-run diffs to one changed line; read
+		// it with jq or `node --run evals:report`.
+		const report = JSON.stringify({ model, evals: sorted }) + "\n";
 		writeFileSync(LOCAL_RESULTS_PATH, report);
 
 		const evalFiles = readdirSync(EVALS_DIR).filter((file) => file.endsWith(".eval.ts"));
