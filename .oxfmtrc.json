@@ -1,5 +1,5 @@
 {
 	"$schema": "./node_modules/oxfmt/configuration_schema.json",
 	"experimentalSortImports": {},
-	"ignorePatterns": ["CHANGELOG.md"]
+	"ignorePatterns": ["CHANGELOG.md", "evals/results*.json"]
 }

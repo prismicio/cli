@@ -19,7 +19,8 @@ it("deletes an access token", async ({ expect, prismic, repo, token, host }) => 
 	expect(allAuths.find((a) => a.token === created.token)).toBeUndefined();
 });
 
-it("deletes a write token", async ({ expect, prismic, repo, token, host }) => {
+// Wroom 500s under concurrent same-user write-token creates; keep this sequential.
+it.sequential("deletes a write token", async ({ expect, prismic, repo, token, host }) => {
 	const created = await createWriteToken({ repo, token, host });
 
 	const { stdout, stderr, exitCode } = await prismic("token", ["delete", created.token]);
