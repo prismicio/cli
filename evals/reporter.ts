@@ -39,7 +39,12 @@ export default class EvalReporter implements Reporter {
 				if (state === "skipped" && test.options.mode !== "todo") filtered = true;
 				if (state !== "passed" && state !== "failed") continue;
 				const trial = test.meta().agent;
-				if (!trial) continue;
+				// A missing trial means fixture setup failed before the agent got a
+				// prompt: nothing was measured, so the run is not a full snapshot.
+				if (!trial) {
+					filtered = true;
+					continue;
+				}
 				model = trial.model;
 				(evals[test.name] ??= []).push({
 					pass: state === "passed",
