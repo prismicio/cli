@@ -11,8 +11,8 @@ import {
 } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, exitCode } = await prismic("init", ["--help"]);
-	expect(exitCode).toBe(0);
+	const { stdout, stderr, exitCode } = await prismic("init", ["--help"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic init [options]");
 });
 
@@ -32,13 +32,13 @@ it("creates a repo if --repo is not provided and no legacy config exists", async
 	onTestFinished,
 }) => {
 	await rm(new URL("prismic.config.json", project));
-	const { exitCode, stdout } = await prismic("init");
+	const { stderr, exitCode, stdout } = await prismic("init");
 	const createdRepositoryMatch = stdout.match(/^Created repository: ([a-z0-9-]+)$/m);
 	const name = createdRepositoryMatch?.[1];
 	if (!name) throw new Error(`Could not find created repository name in output:\n${stdout}`);
 	onTestFinished(() => deleteRepository(name, { token, password, host }));
 
-	expect(exitCode).toBe(0);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Created repository:");
 	expect(stdout).toContain("Initialized Prismic for repository");
 
@@ -77,8 +77,8 @@ it("preserves existing preview config", async ({
 	});
 
 	await rm(new URL("prismic.config.json", project));
-	const { exitCode } = await prismic("init", ["--repo", rawName]);
-	expect(exitCode).toBe(0);
+	const { stderr, exitCode } = await prismic("init", ["--repo", rawName]);
+	expect(exitCode, stderr).toBe(0);
 
 	const repository = await getRepository({ repo: name, token, host });
 	expect(repository.simulatorUrl).toBe(presetSimulator);
@@ -95,8 +95,8 @@ it("initializes a project with --repo when logged in", async ({
 }) => {
 	await rm(new URL("prismic.config.json", project));
 
-	const { exitCode, stdout } = await prismic("init", ["--repo", repo]);
-	expect(exitCode).toBe(0);
+	const { stderr, exitCode, stdout } = await prismic("init", ["--repo", repo]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Initialized Prismic for repository "${repo}"`);
 
 	const configRaw = await readFile(new URL("prismic.config.json", project), "utf-8");
@@ -107,8 +107,8 @@ it("initializes a project with --repo when logged in", async ({
 it("skips framework scaffolding with --no-setup", async ({ expect, project, prismic, repo }) => {
 	await rm(new URL("prismic.config.json", project));
 
-	const { exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
-	expect(exitCode).toBe(0);
+	const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
+	expect(exitCode, stderr).toBe(0);
 
 	// The config file is still written.
 	const configRaw = await readFile(new URL("prismic.config.json", project), "utf-8");
@@ -212,8 +212,8 @@ it("fails when Type Builder is not enabled", async ({ expect, project, prismic, 
 it("installs dependencies", { timeout: 30_000 }, async ({ expect, project, prismic, repo }) => {
 	await rm(new URL("prismic.config.json", project));
 
-	const { exitCode } = await prismic("init", ["--repo", repo]);
-	expect(exitCode).toBe(0);
+	const { stderr, exitCode } = await prismic("init", ["--repo", repo]);
+	expect(exitCode, stderr).toBe(0);
 
 	// Verify the stubbed npm was invoked (it creates package-lock.json)
 	await expect(access(new URL("package-lock.json", project))).resolves.toBeUndefined();

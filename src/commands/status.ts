@@ -7,8 +7,7 @@ import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getProfile } from "../lib/prismic/clients/user";
-import { resolveEnvironment } from "../lib/prismic/environments";
-import { canonicalizeModel } from "../lib/prismic/models";
+import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { dedent } from "../lib/string";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -22,16 +21,24 @@ const config = {
 		model files with uncommitted git changes that would block pull and push.
 	`,
 	options: {
-		repo: { type: "string", short: "r", description: "Repository domain" },
-		env: { type: "string", short: "e", description: "Environment domain" },
+		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		env: {
+			type: "string",
+			short: "e",
+			description: "Alias for --repo",
+			deprecated: "Use `prismic env` or --repo instead.",
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { repo: parentRepo = await getRepositoryName(), env } = values;
+	const adapter = await getAdapter();
+
+	const repositoryName = await getRepositoryName();
+	const activeEnvironment = await adapter.getEnvironment();
+	const { env, repo = env ?? activeEnvironment ?? repositoryName } = values;
 
 	const { token, host } = await getCredentials();
-	const adapter = await getAdapter();
 	const projectRoot = await findProjectRoot();
 
 	const [gitRoot, customTypeLibraries, sliceLibraries, localCustomTypesMeta, localSlicesMeta] =
@@ -43,14 +50,10 @@ export default createCommand(config, async ({ values }) => {
 			adapter.getSlices(),
 		]);
 
-	let repo = parentRepo;
 	let userEmail: string | undefined;
 	let customTypeOps: ArrayDiff<CustomType> | undefined;
 	let sliceOps: ArrayDiff<SharedSlice> | undefined;
 	if (token) {
-		if (env) {
-			repo = await resolveEnvironment(env, { repo: parentRepo, token, host });
-		}
 		const [profile, remoteCustomTypes, remoteSlices] = await Promise.all([
 			getProfile({ token, host }),
 			getCustomTypes({ repo, token, host }),
@@ -63,7 +66,7 @@ export default createCommand(config, async ({ values }) => {
 			{
 				getKey: (m) => m.id,
 				equals: (a, b) =>
-					JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+					JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
 			},
 		);
 		sliceOps = diffArrays(
@@ -72,7 +75,7 @@ export default createCommand(config, async ({ values }) => {
 			{
 				getKey: (m) => m.id,
 				equals: (a, b) =>
-					JSON.stringify(canonicalizeModel(a)) === JSON.stringify(canonicalizeModel(b)),
+					JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
 			},
 		);
 	}
@@ -91,9 +94,9 @@ export default createCommand(config, async ({ values }) => {
 			.map((path) => relativePathname(projectRoot, path));
 	}
 
-	console.info(`Repository: ${parentRepo}`);
-	if (env) {
-		console.info(`Environment: ${env}`);
+	console.info(`Repository: ${repositoryName}`);
+	if (repo !== repositoryName) {
+		console.info(`Environment: ${repo}`);
 	}
 	if (userEmail) {
 		console.info(`Authenticated as: ${userEmail}`);
