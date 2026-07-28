@@ -18,7 +18,6 @@ it.for(trials)("sets up a content preview", async (_, { agent, expect, repo, tok
 	expect(previews.some((preview) => preview.url.includes("example.com"))).toBe(true);
 });
 
-// Fails: the agent does not update the simulator URL after a deploy.
 it.for(trials)(
 	"updates previews for production after a deploy",
 	async (_, { agent, expect, repo, token, host }) => {

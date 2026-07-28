@@ -129,7 +129,6 @@ it.for(trials)(
 	},
 );
 
-// Fails: the agent models the title as key text instead of single-heading rich text.
 it.for(trials)(
 	"models a title as single-heading rich text and a social media handle as key text",
 	async (_, { project, agent, expect }) => {

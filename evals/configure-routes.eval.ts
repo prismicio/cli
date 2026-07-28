@@ -33,7 +33,6 @@ it.for(trials)(
 	},
 );
 
-// Fails: the agent never writes the optional-locale route ("/:lang?/:uid").
 it.for(trials)(
 	"routes non-default locales with an optional locale prefix",
 	async (_, { project, agent, expect }) => {
