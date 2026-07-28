@@ -176,7 +176,8 @@ async function agent(
 		if (message.type === "assistant") {
 			for (const block of message.message.content) {
 				if (block.type === "tool_use" && block.name === "Bash") {
-					const command = (block.input as { command: string }).command;
+					const command = (block.input as { command?: string }).command;
+					if (typeof command !== "string") continue;
 					commands.push(command);
 					onCommand?.(command);
 				}
