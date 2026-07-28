@@ -66,6 +66,36 @@ it("edits a field label on a custom type", async ({ expect, prismic, project }) 
 	});
 });
 
+it("edits rich text labels", async ({ expect, prismic, project }) => {
+	const customType = buildCustomType({
+		json: {
+			Main: {
+				body: {
+					type: "StructuredText",
+					config: { label: "Body", multi: "paragraph" },
+				},
+			},
+		},
+	});
+	await writeLocalCustomType(project, customType);
+
+	const { exitCode } = await prismic("field", [
+		"edit",
+		"body",
+		"--from-type",
+		customType.id,
+		"--labels",
+		"highlight,inline-code",
+	]);
+	expect(exitCode).toBe(0);
+
+	const updated = await readLocalCustomType(project, customType.id);
+	expect(updated.json.Main.body).toMatchObject({
+		type: "StructuredText",
+		config: { multi: "paragraph", labels: ["highlight", "inline-code"] },
+	});
+});
+
 it("edits boolean field options", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].primary!.is_active = { type: "Boolean", config: { label: "Active" } };
@@ -192,6 +222,52 @@ it("edits content relationship field with --field", async ({ expect, prismic, pr
 			customtypes: [{ id: target.id, fields: ["title"] }],
 		},
 	});
+});
+
+it("edits a link field's allowed link type", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	slice.variations[0].primary!.cta_link = {
+		type: "Link",
+		config: { label: "CTA Link", select: "document" },
+	};
+	await writeLocalSlice(project, slice);
+
+	const { exitCode } = await prismic("field", [
+		"edit",
+		"cta_link",
+		"--from-slice",
+		slice.id,
+		"--allow",
+		"web",
+	]);
+	expect(exitCode).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	expect(updated!.variations[0].primary!.cta_link).toMatchObject({
+		type: "Link",
+		config: { select: "web" },
+	});
+});
+
+it("clears a link field's custom type restriction", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	slice.variations[0].primary!.cta_link = {
+		type: "Link",
+		config: { label: "CTA Link", customtypes: ["page"] },
+	};
+	await writeLocalSlice(project, slice);
+
+	const { exitCode } = await prismic("field", [
+		"edit",
+		"cta_link",
+		"--from-slice",
+		slice.id,
+		"--custom-type=",
+	]);
+	expect(exitCode).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	expect(updated!.variations[0].primary!.cta_link.config).not.toHaveProperty("customtypes");
 });
 
 it("edits link field options", async ({ expect, prismic, project }) => {

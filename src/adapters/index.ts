@@ -6,11 +6,19 @@ import { pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { readJsonFile, writeFileRecursive } from "../lib/file";
+import {
+	exists,
+	readEnvFile,
+	readJsonFile,
+	setEnvFileVar,
+	unsetEnvFileVar,
+	writeFileRecursive,
+} from "../lib/file";
 import { stringify } from "../lib/json";
 import { readPackageJson } from "../lib/packageJson";
+import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { appendTrailingSlash } from "../lib/url";
-import { addRoute, removeRoute, updateRoute } from "../project";
+import { addRoute, getRepositoryName, removeRoute, updateRoute } from "../project";
 import { findProjectRoot, getLibraries } from "../project";
 
 const TYPES_FILENAME = "prismicio-types.d.ts";
@@ -42,8 +50,15 @@ export class NoSupportedFrameworkError extends Error {
 		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
 }
 
+export async function getActiveRepositoryName(): Promise<string> {
+	const adapter = await getAdapter();
+	return (await adapter.getEnvironment()) ?? (await getRepositoryName());
+}
+
 export abstract class Adapter {
 	abstract readonly id: string;
+
+	abstract readonly environmentEnvVarName: string;
 
 	abstract onProjectInitialized(): Promise<void> | void;
 	abstract onSliceCreated(model: SharedSlice, library: URL): Promise<void> | void;
@@ -110,14 +125,14 @@ export abstract class Adapter {
 		const sliceDirectoryName = pascalCase(model.name);
 		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
 		const modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
-		await writeFileRecursive(modelPath, stringify(model));
+		await writeFileRecursive(modelPath, stringify(canonicalizeSlice(model)));
 		await this.createSliceIndexFile(library);
 		await this.onSliceCreated(model, library);
 	}
 
 	async updateSlice(model: SharedSlice): Promise<void> {
 		const slice = await this.getSlice(model.id);
-		await writeFileRecursive(slice.modelPath, stringify(model));
+		await writeFileRecursive(slice.modelPath, stringify(canonicalizeSlice(model)));
 		await this.onSliceUpdated(model);
 	}
 
@@ -168,14 +183,14 @@ export abstract class Adapter {
 		library ??= await this.getDefaultCustomTypeLibrary();
 		const customTypeDirectory = new URL(model.id, appendTrailingSlash(library));
 		const modelPath = new URL("index.json", appendTrailingSlash(customTypeDirectory));
-		await writeFileRecursive(modelPath, stringify(model));
+		await writeFileRecursive(modelPath, stringify(canonicalizeCustomType(model)));
 		if (model.format === "page") await addRoute(model);
 		await this.onCustomTypeCreated(model);
 	}
 
 	async updateCustomType(model: CustomType): Promise<void> {
 		const customType = await this.getCustomType(model.id);
-		await writeFileRecursive(customType.modelPath, stringify(model));
+		await writeFileRecursive(customType.modelPath, stringify(canonicalizeCustomType(model)));
 		await updateRoute(model);
 		await this.onCustomTypeUpdated(model);
 	}
@@ -204,5 +219,25 @@ export abstract class Adapter {
 		});
 		await writeFileRecursive(output, types);
 		return output;
+	}
+
+	async getEnvironment(): Promise<string | undefined> {
+		const projectRoot = await findProjectRoot();
+		const envLocalPath = new URL(".env.local", projectRoot);
+		if (!(await exists(envLocalPath))) return undefined;
+		const envLocalVars = await readEnvFile(envLocalPath);
+		return envLocalVars[this.environmentEnvVarName] || undefined;
+	}
+
+	async setEnvironment(environment: string): Promise<void> {
+		const projectRoot = await findProjectRoot();
+		const envLocalPath = new URL(".env.local", projectRoot);
+		await setEnvFileVar(envLocalPath, this.environmentEnvVarName, environment);
+	}
+
+	async unsetEnvironment(): Promise<void> {
+		const projectRoot = await findProjectRoot();
+		const envLocalPath = new URL(".env.local", projectRoot);
+		await unsetEnvFileVar(envLocalPath, this.environmentEnvVarName);
 	}
 }

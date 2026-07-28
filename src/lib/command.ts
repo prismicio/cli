@@ -15,6 +15,7 @@ export type CommandConfig = {
 			description: string;
 			required?: boolean;
 			dependsOn?: string | string[];
+			deprecated?: string;
 		}
 	>;
 };
@@ -84,6 +85,9 @@ export function createCommand<T extends CommandConfig>(
 			if (config.required && !(name in result.values)) {
 				throw new CommandError(`Missing required option: --${name}`);
 			}
+			if (config.deprecated && name in result.values) {
+				console.warn(`--${name} is deprecated. ${config.deprecated}`);
+			}
 			if (config.dependsOn && name in result.values) {
 				const deps = Array.isArray(config.dependsOn) ? config.dependsOn : [config.dependsOn];
 				for (const dep of deps) {
@@ -133,6 +137,7 @@ function buildCommandHelp(config: CommandConfig): string {
 		const optionNames = Object.keys(options);
 		for (const optionName of optionNames) {
 			const option = options[optionName];
+			if (option.deprecated) continue;
 			const shortPart = option.short ? `-${option.short}, ` : "    ";
 			const typeSuffix = option.type === "string" ? " string" : "";
 			const left = `${shortPart}--${optionName}${typeSuffix}`;
@@ -169,7 +174,7 @@ type CreateCommandRouterConfig = {
 	sections?: Record<string, string>;
 	commands: Record<string, RouterCommand>;
 };
-type RouterCommand = { handler: () => Promise<void>; description: string };
+type RouterCommand = { handler: () => Promise<void>; description: string; hidden?: boolean };
 
 export function createCommandRouter(config: CreateCommandRouterConfig): () => Promise<void> {
 	const depth = config.name.split(" ").length;
@@ -203,7 +208,7 @@ export function createCommandRouter(config: CreateCommandRouterConfig): () => Pr
 function buildRouterHelp(config: CreateCommandRouterConfig): string {
 	const { name, description, sections, commands } = config;
 
-	const lines = [description];
+	const lines = [dedent(description)];
 
 	lines.push("");
 	lines.push("USAGE");
@@ -211,7 +216,9 @@ function buildRouterHelp(config: CreateCommandRouterConfig): string {
 
 	lines.push("");
 	lines.push("COMMANDS");
-	const commandRows = Object.entries(commands).map(([name, cmd]) => [`  ${name}`, cmd.description]);
+	const commandRows = Object.entries(commands)
+		.filter(([, cmd]) => !cmd.hidden)
+		.map(([name, cmd]) => [`  ${name}`, cmd.description]);
 	lines.push(formatTable(commandRows));
 
 	lines.push("");

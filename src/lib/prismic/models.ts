@@ -5,20 +5,6 @@ import type {
 	SharedSlice,
 } from "@prismicio/types-internal/lib/customtypes";
 
-export function canonicalizeModel<T extends CustomType | SharedSlice>(model: T): T {
-	const canonicalizedModel = sortKeys(model);
-	if ("variations" in canonicalizedModel) {
-		canonicalizedModel.variations = canonicalizedModel.variations.map((variation) =>
-			sortKeys(variation),
-		);
-	}
-	return canonicalizedModel;
-}
-
-function sortKeys<T extends Record<string, unknown>>(obj: T): T {
-	return Object.fromEntries(Object.entries(obj).sort(([a], [b]) => a.localeCompare(b))) as T;
-}
-
 type Fields = Record<string, DynamicWidget>;
 
 export type ContentRelationshipFieldSelection =
@@ -194,6 +180,47 @@ export function resolveSliceFieldContainer(
 	if (!variation) throw new SliceVariationNotFoundError(variationId, slice.id);
 	variation.primary ??= {};
 	return resolveNestedFieldContainer(path, variation.primary);
+}
+
+export function canonicalizeCustomType(model: CustomType): CustomType {
+	return {
+		...sortKeys(model),
+		json: Object.fromEntries(
+			Object.entries(model.json).map(([tab, fields]) => [tab, canonicalizeFields(fields)]),
+		),
+	};
+}
+
+export function canonicalizeSlice(model: SharedSlice): SharedSlice {
+	return {
+		...sortKeys(model),
+		variations: model.variations.map((variation) => {
+			const sorted = sortKeys(variation);
+			if (sorted.primary) sorted.primary = canonicalizeFields(sorted.primary);
+			if (sorted.items) sorted.items = canonicalizeFields(sorted.items);
+			return sorted;
+		}),
+	};
+}
+
+function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>): Record<string, F> {
+	return Object.fromEntries(
+		Object.entries(fields).map(([id, field]) => {
+			const sorted = sortKeys(field);
+			if ("config" in sorted && sorted.config) {
+				sorted.config = sortKeys(sorted.config);
+				const group = sorted.config as { fields?: Fields };
+				if (group.fields) group.fields = canonicalizeFields(group.fields);
+			}
+			return [id, sorted];
+		}),
+	);
+}
+
+function sortKeys<T>(object: T): T {
+	return Object.fromEntries(
+		Object.entries(object as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)),
+	) as T;
 }
 
 function resolveNestedFieldContainer(

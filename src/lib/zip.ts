@@ -7,7 +7,7 @@ export async function extractZip(
 	destination: string,
 	options: { stripSingleRootDirectory?: boolean } = {},
 ): Promise<void> {
-	await assertEmptyOrMissingDirectory(destination);
+	const destinationExisted = await assertEmptyOrMissingDirectory(destination);
 
 	const parent = dirname(destination);
 	await mkdir(parent, { recursive: true });
@@ -43,6 +43,9 @@ export async function extractZip(
 		await rename(temporaryDirectory, destination);
 	} catch (error) {
 		await rm(temporaryDirectory, { recursive: true, force: true });
+		if (destinationExisted) {
+			await mkdir(destination, { recursive: true });
+		}
 		throw error;
 	}
 }
@@ -70,7 +73,7 @@ function getSingleRootDirectory(entries: { entryName: string; relativePath: stri
 	return rootDirectory;
 }
 
-async function assertEmptyOrMissingDirectory(destination: string): Promise<void> {
+async function assertEmptyOrMissingDirectory(destination: string): Promise<boolean> {
 	try {
 		const destinationStat = await stat(destination);
 		if (!destinationStat.isDirectory()) {
@@ -79,8 +82,9 @@ async function assertEmptyOrMissingDirectory(destination: string): Promise<void>
 		if ((await readdir(destination)).length > 0) {
 			throw new Error(`Destination directory is not empty: ${destination}`);
 		}
+		return true;
 	} catch (error) {
-		if (isMissingFileError(error)) return;
+		if (isMissingFileError(error)) return false;
 		throw error;
 	}
 }

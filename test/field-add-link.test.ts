@@ -52,6 +52,27 @@ it("adds a link field to a custom type", async ({ expect, prismic, project }) =>
 	expect(field).toMatchObject({ type: "Link" });
 });
 
+it("adds a link field restricted to custom types", async ({ expect, prismic, project }) => {
+	const customType = buildCustomType();
+	await writeLocalCustomType(project, customType);
+
+	const { exitCode } = await prismic("field", [
+		"add",
+		"link",
+		"cta",
+		"--to-type",
+		customType.id,
+		"--custom-type",
+		"page",
+	]);
+	expect(exitCode).toBe(0);
+
+	const updated = await readLocalCustomType(project, customType.id);
+	const field = updated.json.Main.cta;
+	expect(field).toMatchObject({ type: "Link", config: { customtypes: ["page"] } });
+	expect(field.config).not.toHaveProperty("select");
+});
+
 it("adds a media link field with --allow media", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	await writeLocalSlice(project, slice);

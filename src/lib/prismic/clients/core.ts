@@ -30,6 +30,11 @@ export async function getPreviews(config: CoreConfig): Promise<Preview[]> {
 	return response.results;
 }
 
+export async function hasPreviewByURL(url: string, config: CoreConfig): Promise<boolean> {
+	const previews = await getPreviews(config);
+	return previews.some((preview) => preview.url === url);
+}
+
 export async function addPreview(
 	previewConfig: {
 		name: string;

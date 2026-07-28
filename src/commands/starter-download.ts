@@ -1,8 +1,6 @@
 import { mkdir, rm } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-
-import type { Profile } from "../lib/prismic/clients/user";
 
 import { createLoginSession, getCredentials } from "../auth";
 import { env } from "../env";
@@ -12,20 +10,21 @@ import { exists, readURLFile } from "../lib/file";
 import { installDependencies } from "../lib/packageJson";
 import {
 	addPreview,
-	getPreviews,
+	hasPreviewByURL,
 	removePreviewsByURL,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { getProfile } from "../lib/prismic/clients/user";
+import { getProfile, type Profile } from "../lib/prismic/clients/user";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import { sentryCaptureError } from "../lib/sentry";
 import {
 	assertStarterRepositoryAccess,
 	assertStarterRepositoryHasModels,
-	hasStarterLocalPreview,
 	patchStarterConfig,
 	starterArchiveURL,
 	starterHostedPreviewURL,
+	starterLocalPreviewURL,
 } from "../lib/starter";
 import { extractZip } from "../lib/zip";
 
@@ -48,18 +47,25 @@ const config = {
 
 export default createCommand(config, async ({ values }) => {
 	const { repo, "no-browser": noBrowser } = values;
+	const repositoryId = repo.toLowerCase();
+	assertRepositoryName(repositoryId);
+
 	const { token, host, profile } = await authenticateStarterDownload(noBrowser);
-	await downloadStarter(repo, { token, host, profile });
+	assertStarterRepositoryAccess(repositoryId, profile);
+	await downloadStarter(repositoryId, { token, host });
 });
 
-async function downloadStarter(
-	repository: string,
-	config: { token: string | undefined; host: string; profile: Profile },
-): Promise<void> {
-	const repositoryId = repository.toLowerCase();
-	assertRepositoryName(repositoryId);
-	assertStarterRepositoryAccess(repositoryId, config.profile);
+const localPreviewConfig = {
+	name: "Development",
+	websiteURL: "http://localhost:3000",
+	resolverPath: "/api/preview",
+};
+const simulatorUrl = `${localPreviewConfig.websiteURL}/slice-simulator`;
 
+async function downloadStarter(
+	repositoryId: string,
+	config: { token: string | undefined; host: string },
+): Promise<void> {
 	const [customTypes, slices] = await Promise.all([
 		getCustomTypes({
 			repo: repositoryId,
@@ -89,50 +95,65 @@ async function downloadStarter(
 		await patchStarterConfig(destination, repositoryId, config.host);
 
 		console.info("Installing dependencies...");
-		await installDependencies({ start: pathToFileURL(destination) });
-
-		console.info("Configuring local previews...");
-		await removePreviewsByURL([starterHostedPreviewURL], {
-			repo: repositoryId,
-			token: config.token,
-			host: config.host,
-		});
-		const previews = await getPreviews({
-			repo: repositoryId,
-			token: config.token,
-			host: config.host,
-		});
-		if (!hasStarterLocalPreview(previews)) {
-			await addPreview(
-				{
-					name: "Development",
-					websiteURL: "http://localhost:3000",
-					resolverPath: "/api/preview",
-				},
-				{
-					repo: repositoryId,
-					token: config.token,
-					host: config.host,
-				},
+		try {
+			const destinationUrl = pathToFileURL(`${destination}${sep}`);
+			await installDependencies({ start: destinationUrl, stop: destinationUrl });
+		} catch {
+			console.warn(
+				"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
 			);
 		}
-		await setSimulatorUrl("http://localhost:3000/slice-simulator", {
-			repo: repositoryId,
-			token: config.token,
-			host: config.host,
-		});
 
+		console.info("Configuring local previews and simulator...");
+		const coreConfig = { repo: repositoryId, ...config };
+
+		let localPreviewConfigured = false;
+		try {
+			await removePreviewsByURL([starterHostedPreviewURL], coreConfig);
+			const hasDevelopmentPreview = await hasPreviewByURL(starterLocalPreviewURL, coreConfig);
+			if (!hasDevelopmentPreview) {
+				await addPreview(localPreviewConfig, coreConfig);
+			}
+			localPreviewConfigured = true;
+		} catch (error) {
+			await sentryCaptureError(error);
+			const commandArgs = [
+				"prismic",
+				"preview",
+				"add",
+				starterLocalPreviewURL,
+				"--name",
+				localPreviewConfig.name,
+			];
+			console.error(
+				`Could not configure local preview. Please configure it manually (i.e. \`${commandArgs.join(" ")}\`). Continuing.`,
+			);
+		}
+
+		try {
+			await setSimulatorUrl(simulatorUrl, coreConfig);
+		} catch (error) {
+			await sentryCaptureError(error);
+			const commandArgs = ["prismic", "preview", "set-simulator", simulatorUrl];
+			console.error(
+				`Could not configure local slice simulator. Please configure it manually (i.e. \`${commandArgs.join(" ")}\`). Continuing.`,
+			);
+		}
+
+		let previewInstruction = "";
+		if (localPreviewConfigured) {
+			previewInstruction = `• Preview your pages live at https://${repositoryId}.${config.host}/builder\n`;
+		}
 		console.info(`
 Your project is ready 🎉
 
 Here's what you can do next:
 
-1. Start the development server:
+• Start the development server:
   cd ${destination}
   npm run dev
 
-2. Preview your pages live at https://${repositoryId}.${config.host}/builder
-
+${previewInstruction}
 Start building 🚀
 `);
 	} catch (error) {

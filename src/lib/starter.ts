@@ -16,10 +16,6 @@ export const starterHostedPreviewURL =
 
 export const starterLocalPreviewURL = "http://localhost:3000/api/preview";
 
-export function hasStarterLocalPreview(previews: readonly { url: string }[]): boolean {
-	return previews.some((preview) => preview.url === starterLocalPreviewURL);
-}
-
 export function assertStarterRepositoryAccess(repositoryId: string, profile: Profile): void {
 	const hasRepositoryAccess = profile.repositories.some(
 		(repository) => repository.domain === repositoryId,
