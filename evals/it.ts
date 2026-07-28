@@ -40,68 +40,67 @@ declare module "vitest" {
 	}
 }
 
-export const it = base
-	.extend("isolateRepo", true)
-	.extend(
-		"agent",
-		async ({ home, project, login, task, repo, token, host, password }, { onCleanup }) => {
-			await login();
+export const it = base.extend<{
+	isolateRepo: boolean;
+	agent: (prompt: string) => Promise<AgentResult>;
+}>({
+	isolateRepo: true,
+	agent: async ({ home, project, login, task, repo, token, host, password }, use) => {
+		await login();
 
-			const claudeConfigDir = await createClaudeConfigDir();
+		const claudeConfigDir = await createClaudeConfigDir();
 
-			const nodeModulesBinDir = new URL("node_modules/.bin/", project);
-			await mkdir(nodeModulesBinDir, { recursive: true });
-			await symlink(BIN, new URL("prismic", nodeModulesBinDir));
+		const nodeModulesBinDir = new URL("node_modules/.bin/", project);
+		await mkdir(nodeModulesBinDir, { recursive: true });
+		await symlink(BIN, new URL("prismic", nodeModulesBinDir));
 
-			const env = {
-				...process.env,
-				HOME: fileURLToPath(home),
-				PRISMIC_CONFIG_DIR: fileURLToPath(new URL(".config/prismic/", home)),
-				PRISMIC_TYPE_BUILDER_ENABLED: "true",
-				PRISMIC_SENTRY_ENABLED: "false",
-				PRISMIC_TELEMETRY_ENABLED: "false",
-				NO_UPDATE_NOTIFIER: "1",
-				CLAUDE_CONFIG_DIR: claudeConfigDir,
-				CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
-				CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-			};
+		const env = {
+			...process.env,
+			HOME: fileURLToPath(home),
+			PRISMIC_CONFIG_DIR: fileURLToPath(new URL(".config/prismic/", home)),
+			PRISMIC_TYPE_BUILDER_ENABLED: "true",
+			PRISMIC_SENTRY_ENABLED: "false",
+			PRISMIC_TELEMETRY_ENABLED: "false",
+			NO_UPDATE_NOTIFIER: "1",
+			CLAUDE_CONFIG_DIR: claudeConfigDir,
+			CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
+			CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+		};
 
-			onCleanup(async () => {
-				try {
-					const configFile = await readFile(new URL("prismic.config.json", project), "utf8");
-					const created = JSON.parse(configFile).repositoryName;
-					if (created && created !== repo && password) {
-						await deleteRepository(created, { token, password, host });
+		const trial: Trial = { model: EVAL_MODEL, costUsd: 0, durationS: 0, calls: [] };
+		task.meta.agent = trial;
+		let durationMs = 0;
+
+		await use(async (prompt: string) => {
+			const result = await agent(prompt, {
+				systemPromptAppend: SKILL,
+				cwd: project,
+				env,
+				// Recorded as commands stream so a timed-out trial keeps its trail.
+				onCommand: (command) => {
+					if (/(^|\s)(npx\s+)?prismic(@|\s|$)/.test(command)) {
+						trial.calls.push(command.replace(/^.*?(^|\s)(npx\s+)?prismic(@\S+)?\s+/, ""));
 					}
-				} catch {}
+				},
 			});
 
-			const trial: Trial = { model: EVAL_MODEL, costUsd: 0, durationS: 0, calls: [] };
-			task.meta.agent = trial;
-			let durationMs = 0;
+			const run = result.result;
+			trial.costUsd += run.total_cost_usd;
+			durationMs += run.duration_ms;
+			trial.durationS = Math.round(durationMs / 1000);
 
-			return async (prompt: string) => {
-				const result = await agent(prompt, {
-					systemPromptAppend: SKILL,
-					cwd: project,
-					env,
-					// Recorded as commands stream so a timed-out trial keeps its trail.
-					onCommand: (command) => {
-						if (/(^|\s)(npx\s+)?prismic(@|\s|$)/.test(command)) {
-							trial.calls.push(command.replace(/^.*?(^|\s)(npx\s+)?prismic(@\S+)?\s+/, ""));
-						}
-					},
-				});
+			return result;
+		});
 
-				const run = result.result;
-				trial.costUsd += run.total_cost_usd;
-				durationMs += run.duration_ms;
-				trial.durationS = Math.round(durationMs / 1000);
-
-				return result;
-			};
-		},
-	);
+		try {
+			const configFile = await readFile(new URL("prismic.config.json", project), "utf8");
+			const created = JSON.parse(configFile).repositoryName;
+			if (created && created !== repo && password) {
+				await deleteRepository(created, { token, password, host });
+			}
+		} catch {}
+	},
+});
 
 expect.extend({
 	toHaveRun(result: AgentResult, bin: string, positionals: string[] = []) {
