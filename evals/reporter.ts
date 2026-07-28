@@ -1,6 +1,7 @@
 import type { Reporter, TestModule } from "vitest/node";
 
-import { writeFileSync } from "node:fs";
+import { readdirSync, writeFileSync } from "node:fs";
+import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** Per-trial stats recorded by the agent fixture; the reporter adds `pass`. */
@@ -14,18 +15,28 @@ export type Trial = {
 	calls: string[];
 };
 
+const EVALS_DIR = fileURLToPath(new URL(".", import.meta.url));
 const RESULTS_PATH = fileURLToPath(new URL("results.json", import.meta.url));
+const LOCAL_RESULTS_PATH = fileURLToPath(new URL("results.local.json", import.meta.url));
 
-// Writes results.json with the run's trials grouped by eval, sorted by name.
-// The file holds only the latest run; history lives in git.
+// Writes the run's trials grouped by eval, sorted by name, to
+// results.local.json (gitignored) — and, when every eval ran, to results.json.
+// Filtered runs (file filters, -t, it.only) never touch results.json, so it
+// always holds one full run; history lives in git.
 export default class EvalReporter implements Reporter {
 	onTestRunEnd(testModules: ReadonlyArray<TestModule>): void {
 		let model = "";
+		let filtered = false;
 		const evals: Record<string, object[]> = {};
 
 		for (const testModule of testModules) {
 			for (const test of testModule.children.allTests()) {
 				const state = test.result().state;
+				// Vitest reports -t-filtered, .only-suppressed, and it.skip tests
+				// identically (skipped, mode "skip"); only it.todo stays apart. So
+				// permanent disables must be authored as it.todo, and any other
+				// skipped test means the run was filtered.
+				if (state === "skipped" && test.options.mode !== "todo") filtered = true;
 				if (state !== "passed" && state !== "failed") continue;
 				const trial = test.meta().agent;
 				if (!trial) continue;
@@ -41,6 +52,15 @@ export default class EvalReporter implements Reporter {
 
 		if (Object.keys(evals).length === 0) return;
 		const sorted = Object.fromEntries(Object.entries(evals).sort(([a], [b]) => a.localeCompare(b)));
-		writeFileSync(RESULTS_PATH, JSON.stringify({ model, evals: sorted }, null, "\t") + "\n");
+		const report = JSON.stringify({ model, evals: sorted }, null, "\t") + "\n";
+		writeFileSync(LOCAL_RESULTS_PATH, report);
+
+		const evalFiles = readdirSync(EVALS_DIR).filter((file) => file.endsWith(".eval.ts"));
+		const ranFiles = new Set(testModules.map((testModule) => basename(testModule.moduleId)));
+		if (filtered || !evalFiles.every((file) => ranFiles.has(file))) {
+			console.info("Partial run: wrote results.local.json, leaving results.json untouched.");
+			return;
+		}
+		writeFileSync(RESULTS_PATH, report);
 	}
 }

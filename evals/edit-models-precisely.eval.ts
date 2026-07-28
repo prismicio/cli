@@ -51,8 +51,8 @@ it.for(trials)(
 	},
 );
 
-// Fails: the CLI cannot rename a field ID; `field edit` only changes label and config.
-it.skip("renames a field without disturbing field order", async ({ project, agent, expect }) => {
+// The CLI cannot rename a field ID; `field edit` only changes label and config.
+it.todo("renames a field without disturbing field order", async ({ project, agent, expect }) => {
 	const article = buildCustomType({
 		id: "article",
 		label: "Article",

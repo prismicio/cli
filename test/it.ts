@@ -74,7 +74,7 @@ export const it = test.extend<Fixtures>({
 
 		// Stub npm
 		const binDir = new URL("bin/", home);
-		await mkdir(binDir);
+		await mkdir(binDir, { recursive: true });
 		const lockfilePath = fileURLToPath(new URL("package-lock.json", projectPath));
 		await writeFile(
 			new URL("npm", binDir),
