@@ -115,12 +115,13 @@ async function main(): Promise<void> {
 	if (!help) {
 		const { token, host } = await getCredentials();
 
-		const telemetryEnabled = await isTelemetryEnabled();
+		const telemetryEnabled = env.PRISMIC_TELEMETRY_ENABLED ?? (await isTelemetryEnabled());
+		const sentryEnabled = env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD);
 
-		if (env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD)) {
+		if (sentryEnabled) {
 			await initSentry({ host, repo });
 		}
-		if (env.PRISMIC_TELEMETRY_ENABLED ?? telemetryEnabled) {
+		if (telemetryEnabled) {
 			await initTracking({ host, repo });
 		}
 
@@ -132,7 +133,7 @@ async function main(): Promise<void> {
 				process.on("exit", () => spawnTokenRefresh());
 			}
 
-			if (!exp || exp > now) {
+			if ((sentryEnabled || telemetryEnabled) && (!exp || exp > now)) {
 				getProfile({ token, host })
 					.then((profile) => {
 						trackUser(profile);
