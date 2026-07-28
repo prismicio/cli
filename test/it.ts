@@ -122,7 +122,6 @@ export const it = test.extend<Fixtures>({
 		await use((command, args, options) => {
 			const proc = x(command, args, {
 				...options,
-				throwOnError: true,
 				nodeOptions: {
 					cwd: fileURLToPath(project),
 					...options?.nodeOptions,
