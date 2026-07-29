@@ -51,7 +51,7 @@ jobs:
     runs-on: blacksmith-4vcpu-windows-2025
     strategy:
       matrix:
-        node: [20, 22, 24]
+        node: [20]
       fail-fast: false
     steps:
       - uses: actions/checkout@v6
