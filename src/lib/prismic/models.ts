@@ -196,8 +196,10 @@ export function canonicalizeSlice(model: SharedSlice): SharedSlice {
 		...sortKeys(model),
 		variations: model.variations.map((variation) => {
 			const sorted = sortKeys(variation);
-			if (sorted.primary) sorted.primary = canonicalizeFields(sorted.primary);
-			if (sorted.items) sorted.items = canonicalizeFields(sorted.items);
+			// Field position is significant, so restore each field map's original
+			// entry order after the recursive sort.
+			if (variation.primary) sorted.primary = canonicalizeFields(variation.primary);
+			if (variation.items) sorted.items = canonicalizeFields(variation.items);
 			return sorted;
 		}),
 	};
@@ -207,10 +209,10 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 	return Object.fromEntries(
 		Object.entries(fields).map(([id, field]) => {
 			const sorted = sortKeys(field);
-			if ("config" in sorted && sorted.config) {
-				sorted.config = sortKeys(sorted.config);
-				const group = sorted.config as { fields?: Fields };
-				if (group.fields) group.fields = canonicalizeFields(group.fields);
+			// Field position is significant, so restore a group's original field
+			// order after the recursive sort.
+			if (field.type === "Group" && field.config?.fields) {
+				sorted.config = { ...sorted.config, fields: canonicalizeFields(field.config.fields) };
 			}
 			return [id, sorted];
 		}),
@@ -218,8 +220,12 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 }
 
 function sortKeys<T>(object: T): T {
+	if (Array.isArray(object)) return object.map(sortKeys) as T;
+	if (object === null || typeof object !== "object") return object;
 	return Object.fromEntries(
-		Object.entries(object as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)),
+		Object.entries(object)
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([key, value]) => [key, sortKeys(value)]),
 	) as T;
 }
 
