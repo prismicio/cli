@@ -122,7 +122,8 @@ expect.extend({
 				const wanted = [bin, ...positionals].join(" ");
 				if (pass) return `expected no command matching \`${wanted}\`, but one ran`;
 				const seen = result.commands.map((c) => `  ${c}`).join("\n") || "  (no commands ran)";
-				return `expected a command matching \`${wanted}\`, but saw:\n${seen}`;
+				const final = "result" in result.result ? result.result.result : "";
+				return `expected a command matching \`${wanted}\`, but saw:\n${seen}\n\nagent's final message:\n${final}`;
 			},
 		};
 	},

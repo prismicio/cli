@@ -146,13 +146,16 @@ it.for(trials)(
 			`On the "product" type, add a "size" dropdown with the options S, M, and L, and an "author" link that can only point to "author" documents.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["field", "add", "select"]);
-		expect(result).toHaveRun("prismic", ["field", "add", "content-relationship"]);
+		// Both `field add content-relationship` and `field add link --allow document`
+		// model a constrained relationship; judge the resulting model, not the command.
+		expect(result).toHaveRun("prismic", ["field", "add"]);
 		const model = await readLocalCustomType(project, product.id);
 		expect(model.json.Main.size.type).toBe("Select");
 		expect((model.json.Main.size.config as { options: string[] }).options).toEqual(["S", "M", "L"]);
 		expect(model.json.Main.author.type).toBe("Link");
-		expect(JSON.stringify(model.json.Main.author.config)).toContain("author");
+		const authorConfig = model.json.Main.author.config as { select?: string };
+		expect(authorConfig.select).toBe("document");
+		expect(JSON.stringify(authorConfig)).toContain("author");
 	},
 );
 

@@ -43,7 +43,12 @@ it.for(trials)(
 		await exec("git", ["init"]);
 		await exec("git", ["add", "-A"]);
 		await exec("git", ["commit", "-m", "Initial commit"]);
-		const article = buildCustomType({ id: "article", label: "Article" });
+		// A field so the type looks finished; the agent balks at pushing an empty type.
+		const article = buildCustomType({
+			id: "article",
+			label: "Article",
+			json: { Main: { title: { type: "Text", config: { label: "Title" } } } },
+		});
 		await writeLocalCustomType(project, article);
 
 		const result = await agent(
