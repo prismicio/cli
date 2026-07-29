@@ -3,7 +3,6 @@ import { describe } from "vitest";
 import { buildCustomType, buildSlice, it, readLocalCustomType, writeLocalCustomType } from "./it";
 import { insertCustomType, insertSlice } from "./prismic";
 
-
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("status", ["--help"]);
 	expect(exitCode, stderr).toBe(0);

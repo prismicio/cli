@@ -196,8 +196,6 @@ export function canonicalizeSlice(model: SharedSlice): SharedSlice {
 		...sortKeys(model),
 		variations: model.variations.map((variation) => {
 			const sorted = sortKeys(variation);
-			// Field position is significant, so restore each field map's original
-			// entry order after the recursive sort.
 			if (variation.primary) sorted.primary = canonicalizeFields(variation.primary);
 			if (variation.items) sorted.items = canonicalizeFields(variation.items);
 			return sorted;
@@ -209,9 +207,7 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 	return Object.fromEntries(
 		Object.entries(fields).map(([id, field]) => {
 			const sorted = sortKeys(field);
-			// Field position is significant, so restore a group's original field
-			// order after the recursive sort. The cast is for TypeScript <5.9,
-			// which does not narrow `sorted` alongside `field`.
+			// The cast is for TypeScript <5.9, which does not narrow `sorted` alongside `field`.
 			if (field.type === "Group" && field.config?.fields) {
 				(sorted as { config: { fields: Fields } }).config.fields = canonicalizeFields(
 					field.config.fields,
@@ -222,6 +218,8 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 	);
 }
 
+// Sorts keys recursively. Entry order of field maps encodes field position,
+// so callers restore those from the unsorted input.
 function sortKeys<T>(object: T): T {
 	if (Array.isArray(object)) return object.map(sortKeys) as T;
 	if (object === null || typeof object !== "object") return object;
