@@ -210,9 +210,12 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 		Object.entries(fields).map(([id, field]) => {
 			const sorted = sortKeys(field);
 			// Field position is significant, so restore a group's original field
-			// order after the recursive sort.
+			// order after the recursive sort. The cast is for TypeScript <5.9,
+			// which does not narrow `sorted` alongside `field`.
 			if (field.type === "Group" && field.config?.fields) {
-				sorted.config = { ...sorted.config, fields: canonicalizeFields(field.config.fields) };
+				(sorted as { config: { fields: Fields } }).config.fields = canonicalizeFields(
+					field.config.fields,
+				);
 			}
 			return [id, sorted];
 		}),
