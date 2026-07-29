@@ -207,11 +207,13 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 	return Object.fromEntries(
 		Object.entries(fields).map(([id, field]) => {
 			const sorted = sortKeys(field);
-			// The cast is for TypeScript <5.9, which does not narrow `sorted` alongside `field`.
-			if (field.type === "Group" && field.config?.fields) {
-				(sorted as { config: { fields: Fields } }).config.fields = canonicalizeFields(
-					field.config.fields,
-				);
+			if (
+				field.type === "Group" &&
+				field.config?.fields &&
+				sorted.type === "Group" &&
+				sorted.config?.fields
+			) {
+				sorted.config.fields = canonicalizeFields(field.config.fields);
 			}
 			return [id, sorted];
 		}),
