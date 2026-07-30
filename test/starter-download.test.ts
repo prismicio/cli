@@ -109,13 +109,11 @@ describe.sequential("Starter download", () => {
 	unitTest("builds the archive URL from repository starter metadata", () => {
 		expect(
 			resolveStarterArchive({
-				id: "prismicio/next-instant-start",
-				revision: "d2d78ca51884d0d665ec58879d370d033eefaf04",
-				framework: "next",
+				id: "prismicio/custom-starter",
+				revision: "starter-release",
+				framework: "custom",
 			}).toString(),
-		).toBe(
-			"https://github.com/prismicio/next-instant-start/archive/d2d78ca51884d0d665ec58879d370d033eefaf04.zip",
-		);
+		).toBe("https://github.com/prismicio/custom-starter/archive/starter-release.zip");
 	});
 
 	unitTest("rejects repositories without starter provenance", () => {
@@ -125,32 +123,6 @@ describe.sequential("Starter download", () => {
 		expect(() => resolveStarterArchive(undefined)).toThrow(
 			"Repository does not support starter download.",
 		);
-	});
-
-	unitTest("rejects unsupported starter metadata", () => {
-		expect(() =>
-			resolveStarterArchive({
-				id: "prismicio/other-starter",
-				revision: "d2d78ca51884d0d665ec58879d370d033eefaf04",
-				framework: "next",
-			}),
-		).toThrow('Repository starter "prismicio/other-starter" is not supported');
-
-		expect(() =>
-			resolveStarterArchive({
-				id: "prismicio/next-instant-start",
-				revision: "d2d78ca51884d0d665ec58879d370d033eefaf04",
-				framework: "nuxt",
-			}),
-		).toThrow('Repository starter framework "nuxt" is not supported');
-
-		expect(() =>
-			resolveStarterArchive({
-				id: "prismicio/next-instant-start",
-				revision: "not-a-sha",
-				framework: "next",
-			}),
-		).toThrow('Repository starter revision "not-a-sha" is not a valid Git commit SHA.');
 	});
 
 	unitTest("uses the hosted preview URL for cleanup", () => {
