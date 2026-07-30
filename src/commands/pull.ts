@@ -88,8 +88,7 @@ export default createCommand(config, async ({ values }) => {
 		localCustomTypes.map((customType) => customType.model),
 		{
 			getKey: (model) => model.id,
-			equals: (a, b) =>
-				JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
+			equals: (remote, local) => JSON.stringify(canonicalizeCustomType(remote)) === JSON.stringify(local),
 		},
 	);
 	const sliceOps = diffArrays(
@@ -97,8 +96,7 @@ export default createCommand(config, async ({ values }) => {
 		localSlices.map((slice) => slice.model),
 		{
 			getKey: (model) => model.id,
-			equals: (a, b) =>
-				JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
+			equals: (remote, local) => JSON.stringify(canonicalizeSlice(remote)) === JSON.stringify(local),
 		},
 	);
 

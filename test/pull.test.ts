@@ -1,5 +1,5 @@
 import { pascalCase } from "change-case";
-import { writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { x } from "tinyexec";
@@ -248,6 +248,31 @@ it.sequential("removes route when page type is deleted", async ({
 	const second = await prismic("pull", ["--repo", repo, "--force"]);
 	expect(second.exitCode, second.stderr).toBe(0);
 	await expect(project).not.toHaveRoute({ type: customType.id });
+});
+
+it.sequential("rewrites model files whose key order is not canonical", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType();
+	await insertCustomType(customType, { repo, token, host });
+
+	const first = await prismic("pull", ["--repo", repo]);
+	expect(first.exitCode, first.stderr).toBe(0);
+
+	const modelPath = new URL(`customtypes/${customType.id}/index.json`, project);
+	const canonical = await readFile(modelPath, "utf8");
+	const reversed = Object.fromEntries(Object.entries(JSON.parse(canonical)).reverse());
+	await writeFile(modelPath, JSON.stringify(reversed, null, 2));
+
+	const second = await prismic("pull", ["--repo", repo, "--force"]);
+	expect(second.exitCode, second.stderr).toBe(0);
+	expect(second.stdout).toContain("updated 1");
+	expect(await readFile(modelPath, "utf8")).toBe(canonical);
 });
 
 it.sequential("blocks pull when local model files have uncommitted changes", async ({
