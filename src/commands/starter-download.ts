@@ -15,6 +15,7 @@ import {
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { getRepository } from "../lib/prismic/clients/repository";
 import { getProfile, type Profile } from "../lib/prismic/clients/user";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
@@ -22,7 +23,7 @@ import {
 	assertStarterRepositoryAccess,
 	assertStarterRepositoryHasModels,
 	patchStarterConfig,
-	starterArchiveURL,
+	resolveStarterArchive,
 	starterHostedPreviewURL,
 	starterLocalPreviewURL,
 } from "../lib/starter";
@@ -66,6 +67,13 @@ async function downloadStarter(
 	repositoryId: string,
 	config: { token: string | undefined; host: string },
 ): Promise<void> {
+	const repository = await getRepository({
+		repo: repositoryId,
+		token: config.token,
+		host: config.host,
+	});
+	const starterArchiveURL = resolveStarterArchive(repository.starter);
+
 	const [customTypes, slices] = await Promise.all([
 		getCustomTypes({
 			repo: repositoryId,

@@ -12,7 +12,8 @@ import {
 	assertStarterRepositoryAccess,
 	assertStarterRepositoryHasModels,
 	patchStarterConfig,
-	starterArchiveURL,
+	resolveStarterArchive,
+	starterHostedPreviewURL,
 	starterLocalPreviewURL,
 } from "../src/lib/starter";
 import { extractZip } from "../src/lib/zip";
@@ -105,10 +106,55 @@ describe.sequential("Starter download", () => {
 		vi.unstubAllGlobals();
 	});
 
-	unitTest("uses the pinned public starter archive", () => {
-		expect(starterArchiveURL.toString()).toBe(
-			"https://github.com/prismicio/instant-start-next-landing-page/archive/1eb2488e86a17eb096fe494aae34041f1b840317.zip",
+	unitTest("builds the archive URL from repository starter metadata", () => {
+		expect(
+			resolveStarterArchive({
+				id: "prismicio/next-instant-start",
+				revision: "d2d78ca51884d0d665ec58879d370d033eefaf04",
+				framework: "next",
+			}).toString(),
+		).toBe(
+			"https://github.com/prismicio/next-instant-start/archive/d2d78ca51884d0d665ec58879d370d033eefaf04.zip",
 		);
+	});
+
+	unitTest("rejects repositories without starter provenance", () => {
+		expect(() => resolveStarterArchive(null)).toThrow(
+			"Repository does not support starter download.",
+		);
+		expect(() => resolveStarterArchive(undefined)).toThrow(
+			"Repository does not support starter download.",
+		);
+	});
+
+	unitTest("rejects unsupported starter metadata", () => {
+		expect(() =>
+			resolveStarterArchive({
+				id: "prismicio/other-starter",
+				revision: "d2d78ca51884d0d665ec58879d370d033eefaf04",
+				framework: "next",
+			}),
+		).toThrow('Repository starter "prismicio/other-starter" is not supported');
+
+		expect(() =>
+			resolveStarterArchive({
+				id: "prismicio/next-instant-start",
+				revision: "d2d78ca51884d0d665ec58879d370d033eefaf04",
+				framework: "nuxt",
+			}),
+		).toThrow('Repository starter framework "nuxt" is not supported');
+
+		expect(() =>
+			resolveStarterArchive({
+				id: "prismicio/next-instant-start",
+				revision: "not-a-sha",
+				framework: "next",
+			}),
+		).toThrow('Repository starter revision "not-a-sha" is not a valid Git commit SHA.');
+	});
+
+	unitTest("uses the hosted preview URL for cleanup", () => {
+		expect(starterHostedPreviewURL).toBe("https://next-instant-start.vercel.app/api/preview");
 	});
 
 	unitTest("validates repository access from the authenticated profile", () => {
@@ -158,6 +204,12 @@ describe.sequential("Starter download", () => {
 	});
 
 	unitTest("reports archive download failures", async () => {
+		const starterArchiveURL = resolveStarterArchive({
+			id: "prismicio/next-instant-start",
+			revision: "d2d78ca51884d0d665ec58879d370d033eefaf04",
+			framework: "next",
+		});
+
 		vi.stubGlobal(
 			"fetch",
 			vi.fn<typeof fetch>(async () => new Response("Not found", { status: 404 })),

@@ -8,13 +8,26 @@ type RepositoryConfig = {
 	host: string;
 };
 
-const RepositorySchema = z.object({
-	quotas: z.optional(
-		z.object({
-			sliceMachineEnabled: z.boolean(),
-		}),
-	),
+const RepositoryStarterSchema = z.object({
+	id: z.string(),
+	revision: z.string(),
+	framework: z.string(),
 });
+
+const RepositorySchema = z.pipe(
+	z.object({
+		starter: z.optional(z.nullable(RepositoryStarterSchema)),
+		quotas: z.optional(
+			z.object({
+				sliceMachineEnabled: z.boolean(),
+			}),
+		),
+	}),
+	z.transform((repository) => ({
+		...repository,
+		starter: repository.starter ?? null,
+	})),
+);
 
 export type Repository = z.infer<typeof RepositorySchema>;
 

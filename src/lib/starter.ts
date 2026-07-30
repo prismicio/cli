@@ -1,20 +1,18 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import type { Repository } from "./prismic/clients/repository";
 import type { Profile } from "./prismic/clients/user";
 
 import { CommandError } from "./command";
 
-const starterCommit = "1eb2488e86a17eb096fe494aae34041f1b840317";
-
-export const starterArchiveURL = new URL(
-	`https://github.com/prismicio/instant-start-next-landing-page/archive/${starterCommit}.zip`,
-);
-
-export const starterHostedPreviewURL =
-	"https://nextjs-starter-prismic-landing-page.vercel.app/api/preview";
+export const starterHostedPreviewURL = "https://next-instant-start.vercel.app/api/preview";
 
 export const starterLocalPreviewURL = "http://localhost:3000/api/preview";
+
+const supportedStarterId = "prismicio/next-instant-start";
+const supportedStarterFramework = "next";
+const starterRevisionPattern = /^[0-9a-f]{40}$/;
 
 export function assertStarterRepositoryAccess(repositoryId: string, profile: Profile): void {
 	const hasRepositoryAccess = profile.repositories.some(
@@ -37,6 +35,34 @@ export function assertStarterRepositoryHasModels(
 	throw new CommandError(
 		`Repository "${repositoryId}" has no starter models. Use a repository created from the starter in the Prismic dashboard.`,
 	);
+}
+
+export function resolveStarterArchive(starter: Repository["starter"] | undefined): URL {
+	if (starter == null) {
+		throw new CommandError(
+			`Repository does not support starter download. Use a repository created with Instant Start.`,
+		);
+	}
+
+	if (starter.id !== supportedStarterId) {
+		throw new CommandError(
+			`Repository starter "${starter.id}" is not supported by starter download.`,
+		);
+	}
+
+	if (starter.framework !== supportedStarterFramework) {
+		throw new CommandError(
+			`Repository starter framework "${starter.framework}" is not supported by starter download.`,
+		);
+	}
+
+	if (!starterRevisionPattern.test(starter.revision)) {
+		throw new CommandError(
+			`Repository starter revision "${starter.revision}" is not a valid Git commit SHA.`,
+		);
+	}
+
+	return new URL(`https://github.com/prismicio/next-instant-start/archive/${starter.revision}.zip`);
 }
 
 export async function patchStarterConfig(
