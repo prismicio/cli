@@ -15,7 +15,7 @@ import {
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { getRepository } from "../lib/prismic/clients/repository";
+import { completeOnboardingStepsSilently, getRepository } from "../lib/prismic/clients/repository";
 import { getProfile, type Profile } from "../lib/prismic/clients/user";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
@@ -147,6 +147,12 @@ async function downloadStarter(
 				`Could not configure local slice simulator. Please configure it manually (i.e. \`${commandArgs.join(" ")}\`). Continuing.`,
 			);
 		}
+
+		await completeOnboardingStepsSilently({
+			repo: repositoryId,
+			...config,
+			stepIds: ["instantStart_continueBuildingLocally"],
+		});
 
 		let previewInstruction = "";
 		if (localPreviewConfigured) {

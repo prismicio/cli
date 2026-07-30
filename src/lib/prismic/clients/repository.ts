@@ -40,7 +40,8 @@ export type OnboardingStep =
 	| "createPrismicProject"
 	| "createPageType"
 	| "createSlice"
-	| "connectPrismic";
+	| "connectPrismic"
+	| "instantStart_continueBuildingLocally";
 
 const OnboardingStateSchema = z.object({
 	completedSteps: z.array(z.string()),
