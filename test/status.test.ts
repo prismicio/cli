@@ -1,6 +1,15 @@
 import { describe } from "vitest";
 
-import { buildCustomType, buildSlice, it, readLocalCustomType, writeLocalCustomType } from "./it";
+import {
+	buildCustomType,
+	buildSlice,
+	it,
+	readLocalCustomType,
+	readLocalSlice,
+	scramble,
+	writeLocalCustomType,
+	writeLocalSlice,
+} from "./it";
 import { insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -62,7 +71,7 @@ describe("with an isolated repository", () => {
 		expect(stdout).toContain("prismic pull");
 	});
 
-	it("reports in-sync when local only reorders keys at any depth", async ({
+	it("reports in-sync and push writes nothing when local only reorders keys", async ({
 		expect,
 		project,
 		prismic,
@@ -95,24 +104,42 @@ describe("with an isolated repository", () => {
 				},
 			},
 		} as Partial<ReturnType<typeof buildCustomType>>);
-		await insertCustomType(customType, { repo, token, host });
+		const slice = buildSlice();
+		slice.variations[0].primary = {
+			title: { type: "Text", config: { placeholder: "Enter a title", label: "Title" } },
+		};
+		await Promise.all([
+			insertCustomType(customType, { repo, token, host }),
+			insertSlice(slice, { repo, token, host }),
+		]);
 
 		// Pull writes the canonical form to disk.
 		const pull = await prismic("pull", ["--repo", repo]);
 		expect(pull.exitCode, pull.stderr).toBe(0);
 
-		// Hand-edit the local file: reverse key order at every depth, leaving all
+		// Hand-edit the local files: reverse key order at every depth, leaving all
 		// values and the field order unchanged.
-		const pulled = await readLocalCustomType(project, customType.id);
-		const scrambled = scramble(pulled);
+		const pulledType = await readLocalCustomType(project, customType.id);
+		const scrambledType = scramble(pulledType);
 		// Confirm the hand-edit really produced a non-canonical file.
-		expect(JSON.stringify(scrambled, null, 2)).not.toBe(JSON.stringify(pulled, null, 2));
-		await writeLocalCustomType(project, scrambled);
+		expect(JSON.stringify(scrambledType, null, 2)).not.toBe(JSON.stringify(pulledType, null, 2));
+		await writeLocalCustomType(project, scrambledType);
+
+		const pulledSlice = await readLocalSlice(project, slice.id);
+		if (!pulledSlice) throw new Error(`Slice "${slice.id}" was not pulled.`);
+		const scrambledSlice = scramble(pulledSlice);
+		expect(JSON.stringify(scrambledSlice, null, 2)).not.toBe(JSON.stringify(pulledSlice, null, 2));
+		await writeLocalSlice(project, scrambledSlice);
 
 		// Both sides canonicalize equal, so status must report no changes.
 		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Already up to date.");
+
+		// Push uses the same comparison, so it must not update the remote models.
+		const push = await prismic("push", ["--repo", repo]);
+		expect(push.exitCode, push.stderr).toBe(0);
+		expect(push.stdout).toContain("Already up to date.");
 	});
 
 	it("reports differing models when local and remote disagree", async ({
@@ -137,15 +164,3 @@ describe("with an isolated repository", () => {
 		expect(stdout).toContain(`${customType.id} (custom type)`);
 	});
 });
-
-// Reverses object key order at every depth, except field maps (`json` tabs
-// and group `fields`), whose entry order is position-significant.
-function scramble<T>(value: T, keepOrder = 0): T {
-	if (Array.isArray(value)) return value.map((child) => scramble(child)) as T;
-	if (value === null || typeof value !== "object") return value;
-	const entries = Object.entries(value).map(([key, child]) => [
-		key,
-		scramble(child, key === "json" ? 2 : key === "fields" ? 1 : keepOrder - 1),
-	]);
-	return Object.fromEntries(keepOrder > 0 ? entries : entries.reverse());
-}

@@ -3,8 +3,9 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { x } from "tinyexec";
+import { describe } from "vitest";
 
-import { buildCustomType, buildSlice, it } from "./it";
+import { buildCustomType, buildSlice, it, scramble } from "./it";
 import {
 	deleteCustomType,
 	deleteSlice,
@@ -250,29 +251,103 @@ it.sequential("removes route when page type is deleted", async ({
 	await expect(project).not.toHaveRoute({ type: customType.id });
 });
 
-it.sequential("rewrites model files whose key order is not canonical", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const customType = buildCustomType();
-	await insertCustomType(customType, { repo, token, host });
+describe("with an isolated repository", () => {
+	it.scoped({ isolateRepo: true });
 
-	const first = await prismic("pull", ["--repo", repo]);
-	expect(first.exitCode, first.stderr).toBe(0);
+	it("writes canonical model files that later pulls leave untouched", async ({
+		expect,
+		project,
+		prismic,
+		repo,
+		token,
+		host,
+	}) => {
+		// Nested config objects with unsorted keys, plus field maps (tab, group,
+		// slice primary) whose entry order must be kept as-is.
+		const customType = buildCustomType({
+			json: {
+				Main: {
+					title: { type: "Text", config: { placeholder: "Enter a title", label: "Title" } },
+					social_image: {
+						type: "Image",
+						config: {
+							label: "Social image",
+							constraint: { width: 1200, height: 630 },
+							thumbnails: [{ name: "small", width: 100, height: 50 }],
+						},
+					},
+					links: {
+						type: "Group",
+						config: {
+							label: "Links",
+							fields: {
+								url: { type: "Text", config: { label: "URL", placeholder: "" } },
+								label: { type: "Text", config: { label: "Label", placeholder: "" } },
+							},
+						},
+					},
+				},
+			},
+		} as Partial<ReturnType<typeof buildCustomType>>);
+		const slice = buildSlice();
+		slice.variations[0].primary = {
+			title: { type: "Text", config: { placeholder: "Enter a title", label: "Title" } },
+			image: { type: "Image", config: { label: "Image", constraint: { width: 800, height: 600 } } },
+		};
 
-	const modelPath = new URL(`customtypes/${customType.id}/index.json`, project);
-	const canonical = await readFile(modelPath, "utf8");
-	const reversed = Object.fromEntries(Object.entries(JSON.parse(canonical)).reverse());
-	await writeFile(modelPath, JSON.stringify(reversed, null, 2));
+		await Promise.all([
+			insertCustomType(customType, { repo, token, host }),
+			insertSlice(slice, { repo, token, host }),
+		]);
 
-	const second = await prismic("pull", ["--repo", repo, "--force"]);
-	expect(second.exitCode, second.stderr).toBe(0);
-	expect(second.stdout).toContain("updated 1");
-	expect(await readFile(modelPath, "utf8")).toBe(canonical);
+		const first = await prismic("pull", ["--repo", repo]);
+		expect(first.exitCode, first.stderr).toBe(0);
+
+		const typePath = new URL(`customtypes/${customType.id}/index.json`, project);
+		const slicePath = new URL(`slices/${pascalCase(slice.name)}/model.json`, project);
+		const pulledType = await readFile(typePath, "utf8");
+		const pulledSlice = await readFile(slicePath, "utf8");
+
+		// Metadata and config keys are sorted; field order is kept.
+		const writtenType = JSON.parse(pulledType);
+		expect(Object.keys(writtenType)).toEqual(Object.keys(writtenType).sort());
+		expect(Object.keys(writtenType.json.Main)).toEqual(["title", "social_image", "links"]);
+		expect(Object.keys(writtenType.json.Main.social_image.config.constraint)).toEqual([
+			"height",
+			"width",
+		]);
+		expect(Object.keys(writtenType.json.Main.links.config.fields)).toEqual(["url", "label"]);
+		const writtenSlice = JSON.parse(pulledSlice);
+		expect(Object.keys(writtenSlice.variations[0].primary)).toEqual(["title", "image"]);
+
+		// A second pull with no changes on either side must not touch the files.
+		const second = await prismic("pull", ["--repo", repo]);
+		expect(second.exitCode, second.stderr).toBe(0);
+		expect(second.stdout).toContain("Already up to date.");
+		expect(await readFile(typePath, "utf8")).toBe(pulledType);
+		expect(await readFile(slicePath, "utf8")).toBe(pulledSlice);
+
+		// Files with non-canonical key order count as updates. This project has
+		// no git repo to protect local edits, so a plain pull refuses; --force
+		// writes the files back in canonical form.
+		const scrambledType = JSON.stringify(scramble(JSON.parse(pulledType)), null, 2);
+		const scrambledSlice = JSON.stringify(scramble(JSON.parse(pulledSlice)), null, 2);
+		expect(scrambledType).not.toBe(pulledType);
+		expect(scrambledSlice).not.toBe(pulledSlice);
+		await writeFile(typePath, scrambledType);
+		await writeFile(slicePath, scrambledSlice);
+
+		const blocked = await prismic("pull", ["--repo", repo]);
+		expect(blocked.exitCode).toBe(1);
+		expect(blocked.stderr).toContain("--force");
+
+		const rewrite = await prismic("pull", ["--repo", repo, "--force"]);
+		expect(rewrite.exitCode, rewrite.stderr).toBe(0);
+		expect(rewrite.stdout).toContain("updated 1, deleted 0 types");
+		expect(rewrite.stdout).toContain("updated 1, deleted 0 slices");
+		expect(await readFile(typePath, "utf8")).toBe(pulledType);
+		expect(await readFile(slicePath, "utf8")).toBe(pulledSlice);
+	});
 });
 
 it.sequential("blocks pull when local model files have uncommitted changes", async ({

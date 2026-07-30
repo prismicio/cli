@@ -218,6 +218,22 @@ export function buildSlice(overrides?: Partial<SharedSlice>): SharedSlice {
 	};
 }
 
+// Reverses object key order at every depth, except field maps (`json` tabs,
+// group `fields`, and slice variation `primary`/`items`), whose entry order is
+// position-significant.
+export function scramble<T>(value: T, keepOrder = 0): T {
+	if (Array.isArray(value)) return value.map((child) => scramble(child)) as T;
+	if (value === null || typeof value !== "object") return value;
+	const entries = Object.entries(value).map(([key, child]) => [
+		key,
+		scramble(
+			child,
+			key === "json" ? 2 : ["fields", "primary", "items"].includes(key) ? 1 : keepOrder - 1,
+		),
+	]);
+	return Object.fromEntries(keepOrder > 0 ? entries : entries.reverse());
+}
+
 export async function writeLocalCustomType(project: URL, model: CustomType): Promise<void> {
 	const path = new URL(`customtypes/${model.id}/index.json`, project);
 	await mkdir(new URL(".", path), { recursive: true });
