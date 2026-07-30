@@ -9,6 +9,7 @@ import { createCommand, type CommandConfig, CommandError } from "../lib/command"
 import { diffArrays } from "../lib/diff";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
+import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
 
@@ -83,7 +84,11 @@ export default createCommand(config, async ({ values }) => {
 
 				const changed: string[] = [];
 
-				const sliceOps = diffArrays(remoteSlices, localSliceModels, { getKey: (m) => m.id });
+				const sliceOps = diffArrays(remoteSlices, localSliceModels, {
+					getKey: (m) => m.id,
+					equals: (remote, local) =>
+						JSON.stringify(canonicalizeSlice(remote)) === JSON.stringify(local),
+				});
 				if (sliceOps.insert.length + sliceOps.update.length + sliceOps.delete.length > 0) {
 					for (const slice of sliceOps.update) {
 						await adapter.updateSlice(slice);
@@ -99,6 +104,8 @@ export default createCommand(config, async ({ values }) => {
 
 				const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
 					getKey: (m) => m.id,
+					equals: (remote, local) =>
+						JSON.stringify(canonicalizeCustomType(remote)) === JSON.stringify(local),
 				});
 				if (
 					customTypeOps.insert.length + customTypeOps.update.length + customTypeOps.delete.length >
