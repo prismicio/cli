@@ -292,10 +292,6 @@ describe("with an isolated repository", () => {
 	}, 60_000);
 });
 
-// The starter handoff needs a repository with starter provenance, which only
-// `POST /website-generator/instant-start` can create. Unskip these once
-// prismicio/obelix#1703 is deployed to production; until then the endpoint
-// provisions repositories without the `starter` metadata the handoff reads.
 it.skip("completes the handoff for a starter project", async ({
 	expect,
 	project,
