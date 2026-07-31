@@ -7,7 +7,6 @@
 
 * add `--labels` option for rich text fields ([#234](https://github.com/prismicio/cli/issues/234)) ([700fca5](https://github.com/prismicio/cli/commit/700fca56d6ca0a106b62a5f7784de1faf8ad5502))
 * add `env` commands ([#227](https://github.com/prismicio/cli/issues/227)) ([faee425](https://github.com/prismicio/cli/commit/faee42549a52cfbf0e38c61d1f3c6f08f04e716c))
-* add starter download command ([#230](https://github.com/prismicio/cli/issues/230)) ([92e0598](https://github.com/prismicio/cli/commit/92e05981b15937e14cfbc3b51b9ec9e088e99eb9))
 * support link type and custom type restrictions on link fields ([#236](https://github.com/prismicio/cli/issues/236)) ([4efa863](https://github.com/prismicio/cli/commit/4efa86320fc4aea3ff180de2c3063ff31cc565de))
 
 
