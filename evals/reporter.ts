@@ -31,23 +31,24 @@ export default class EvalReporter implements Reporter {
 
 		for (const testModule of testModules) {
 			for (const test of testModule.children.allTests()) {
-				const state = test.result().state;
+				const result = test.result();
 				// Vitest reports -t-filtered, .only-suppressed, and it.skip tests
 				// identically (skipped, mode "skip"); only it.todo stays apart. So
 				// permanent disables must be authored as it.todo, and any other
 				// skipped test means the run was filtered.
-				if (state === "skipped" && test.options.mode !== "todo") filtered = true;
-				if (state !== "passed" && state !== "failed") continue;
+				if (result.state === "skipped" && test.options.mode !== "todo") filtered = true;
+				if (result.state !== "passed" && result.state !== "failed") continue;
+				const threw = result.state === "failed" && result.errors.length > 0;
 				const trial = test.meta().agent;
 				// A missing trial means fixture setup failed before the agent got a
 				// prompt: nothing was measured, so the run is not a full snapshot.
-				if (!trial) {
+				if (!trial || threw) {
 					filtered = true;
 					continue;
 				}
 				model = trial.model;
 				(evals[test.name] ??= []).push({
-					pass: state === "passed",
+					pass: result.state === "passed",
 					costUsd: Math.round(trial.costUsd * 100) / 100,
 					durationS: trial.durationS,
 					calls: trial.calls,
