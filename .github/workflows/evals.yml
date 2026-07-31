@@ -1,0 +1,63 @@
+name: evals
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+# Serializes runs, which share one e2e Prismic account.
+concurrency:
+  group: evals
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  evals:
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 40
+    steps:
+      # The agent under test runs in this workspace with Bash; keep the
+      # checkout token out of .git/config so it cannot push with it.
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+
+      - name: Run evals
+        env:
+          PRISMIC_ALLOW_EVALS: "true"
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          E2E_PRISMIC_EMAIL: ${{ secrets.E2E_PRISMIC_EMAIL }}
+          E2E_PRISMIC_PASSWORD: ${{ secrets.E2E_PRISMIC_PASSWORD }}
+        run: node --run evals || true
+
+      # Results are recorded only from main runs, via a PR the job merges itself.
+      - name: Record results
+        if: github.ref_name == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh auth setup-git
+          {
+            echo '```'
+            node --run evals:report
+            echo '```'
+            echo
+            echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > "$RUNNER_TEMP/report.md"
+          title="test(eval): record eval run at $(git rev-parse --short HEAD)"
+          branch="evals/run-${{ github.run_id }}-${{ github.run_attempt }}"
+          git switch -c "$branch"
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "$title" -- evals/results.json
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --title "$title" \
+            --body-file "$RUNNER_TEMP/report.md"
+          gh pr merge "$branch" --squash --delete-branch
