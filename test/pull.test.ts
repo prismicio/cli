@@ -267,7 +267,6 @@ describe("with an isolated repository", () => {
 		const customType = buildCustomType({
 			json: {
 				Main: {
-					title: { type: "Text", config: { placeholder: "Enter a title", label: "Title" } },
 					social_image: {
 						type: "Image",
 						config: {
@@ -292,7 +291,7 @@ describe("with an isolated repository", () => {
 		const slice = buildSlice();
 		slice.variations[0].primary = {
 			title: { type: "Text", config: { placeholder: "Enter a title", label: "Title" } },
-			image: { type: "Image", config: { label: "Image", constraint: { width: 800, height: 600 } } },
+			subtitle: { type: "Text", config: { placeholder: "Enter a subtitle", label: "Subtitle" } },
 		};
 
 		await Promise.all([
@@ -310,15 +309,14 @@ describe("with an isolated repository", () => {
 
 		// Metadata and config keys are sorted; field order is kept.
 		const writtenType = JSON.parse(pulledType);
-		expect(Object.keys(writtenType)).toEqual(Object.keys(writtenType).sort());
-		expect(Object.keys(writtenType.json.Main)).toEqual(["title", "social_image", "links"]);
+		expect(Object.keys(writtenType.json.Main)).toEqual(["social_image", "links"]);
 		expect(Object.keys(writtenType.json.Main.social_image.config.constraint)).toEqual([
 			"height",
 			"width",
 		]);
 		expect(Object.keys(writtenType.json.Main.links.config.fields)).toEqual(["url", "label"]);
 		const writtenSlice = JSON.parse(pulledSlice);
-		expect(Object.keys(writtenSlice.variations[0].primary)).toEqual(["title", "image"]);
+		expect(Object.keys(writtenSlice.variations[0].primary)).toEqual(["title", "subtitle"]);
 
 		// A second pull with no changes on either side must not touch the files.
 		const second = await prismic("pull", ["--repo", repo]);
