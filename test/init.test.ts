@@ -1,4 +1,5 @@
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { describe } from "vitest";
 
 import { buildCustomType, captureOutput, it, readLocalCustomType, writeLocalCustomType } from "./it";
 import {
@@ -13,6 +14,7 @@ import {
 	getPreviews,
 	getRepository,
 	getSlices,
+	insertCustomType,
 	setSimulatorUrl,
 } from "./prismic";
 
@@ -264,6 +266,31 @@ it("warns and keeps local models when reconnecting with model differences", asyn
 	const localModel = await readLocalCustomType(project, localOnly.id);
 	expect(localModel).toEqual(localOnly);
 }, 60_000);
+
+describe("with an isolated repository", () => {
+	it.scoped({ isolateRepo: true });
+
+	it("warns and keeps local models when reconnecting with a modified model", async ({
+		expect,
+		project,
+		prismic,
+		repo,
+		token,
+		host,
+	}) => {
+		const model = buildCustomType();
+		await insertCustomType(model, { repo, token, host });
+		const modified = { ...model, label: `${model.label}Modified` };
+		await writeLocalCustomType(project, modified);
+
+		const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stderr).toContain("Choose the source of truth");
+
+		const localModel = await readLocalCustomType(project, model.id);
+		expect(localModel).toEqual(modified);
+	}, 60_000);
+});
 
 // The starter handoff needs a repository with starter provenance, which only
 // `POST /website-generator/instant-start` can create. Unskip these once
