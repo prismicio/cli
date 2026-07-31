@@ -9,16 +9,22 @@ import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { installDependencies, readPackageJson, removeDependencies } from "../lib/packageJson";
+import {
+	addPreview,
+	getPreviews,
+	removePreview,
+	setSimulatorUrl,
+} from "../lib/prismic/clients/core";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { getRepository, type Repository } from "../lib/prismic/clients/repository";
+import {
+	completeOnboardingStepsSilently,
+	getRepository,
+	type Repository,
+} from "../lib/prismic/clients/repository";
 import { getProfile } from "../lib/prismic/clients/user";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
-import {
-	assertStarterRepositoryHasModels,
-	completeStarterHandoff,
-	hasUnsafeStarterModelChanges,
-} from "../lib/starter";
+import { sentryCaptureError } from "../lib/sentry";
 import {
 	type Config,
 	createConfig,
@@ -227,12 +233,17 @@ export default createCommand(config, async ({ values }) => {
 	});
 
 	if (isExistingProjectHandoff && connectedRepository?.starter) {
-		assertStarterRepositoryHasModels(repo, remoteCustomTypes, remoteSlices);
+		if (remoteCustomTypes.length === 0 && remoteSlices.length === 0) {
+			throw new CommandError(
+				`Repository "${repo}" has no starter models. Use a repository created from the starter in the Prismic dashboard.`,
+			);
+		}
 		await removeStarterDocuments(connectedRepository.starter);
 	}
 
 	const hasUnsafeModelChanges =
-		isExistingProjectHandoff && hasUnsafeStarterModelChanges(customTypeOps, sliceOps);
+		isExistingProjectHandoff &&
+		[customTypeOps, sliceOps].some((ops) => ops.update.length > 0 || ops.delete.length > 0);
 
 	if (!hasUnsafeModelChanges) {
 		for (const slice of sliceOps.update) {
@@ -289,4 +300,52 @@ async function removeStarterDocuments(starter: NonNullable<Repository["starter"]
 
 	const projectRoot = await findProjectRoot();
 	await rm(new URL("documents/", projectRoot), { recursive: true, force: true });
+}
+
+const starterLocalPreviewURL = "http://localhost:3000/api/preview";
+const starterLocalPreviewConfig = {
+	name: "Development",
+	websiteURL: "http://localhost:3000",
+	resolverPath: "/api/preview",
+};
+const starterLocalSimulatorURL = "http://localhost:3000/slice-simulator";
+
+async function completeStarterHandoff(
+	starter: NonNullable<Repository["starter"]>,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	try {
+		const hostedPreviewURL = new URL("/api/preview", starter.deploymentUrl).href;
+		const previews = await getPreviews(config);
+		await Promise.all(
+			previews
+				.filter((preview) => preview.url === hostedPreviewURL)
+				.map((preview) => removePreview(preview.id, config)),
+		);
+		const hasDevelopmentPreview = previews.some(
+			(preview) => preview.url === starterLocalPreviewURL,
+		);
+		if (!hasDevelopmentPreview) {
+			await addPreview(starterLocalPreviewConfig, config);
+		}
+	} catch (error) {
+		await sentryCaptureError(error);
+		console.error(
+			`Could not configure the local preview. Run \`prismic preview add ${starterLocalPreviewURL} --name ${starterLocalPreviewConfig.name}\` manually. Continuing.`,
+		);
+	}
+
+	try {
+		await setSimulatorUrl(starterLocalSimulatorURL, config);
+	} catch (error) {
+		await sentryCaptureError(error);
+		console.error(
+			`Could not configure the local slice simulator. Run \`prismic preview set-simulator ${starterLocalSimulatorURL}\` manually. Continuing.`,
+		);
+	}
+
+	await completeOnboardingStepsSilently({
+		...config,
+		stepIds: ["instantStart_continueBuildingLocally"],
+	});
 }
