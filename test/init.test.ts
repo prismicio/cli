@@ -16,10 +16,10 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic init [options]");
 });
 
-it("fails if prismic.config.json already exists", async ({ expect, prismic }) => {
-	const { exitCode, stderr } = await prismic("init", ["--repo", "test"]);
+it("fails if prismic.config.json already exists without --repo", async ({ expect, prismic }) => {
+	const { exitCode, stderr } = await prismic("init");
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("already initialized");
+	expect(stderr).toContain("init --repo");
 });
 
 it("creates a repo if --repo is not provided and no legacy config exists", async ({
@@ -102,6 +102,27 @@ it("initializes a project with --repo when logged in", async ({
 	const configRaw = await readFile(new URL("prismic.config.json", project), "utf-8");
 	const config = JSON.parse(configRaw);
 	expect(config.repositoryName).toBe(repo);
+}, 60_000);
+
+it("reconnects an existing project with --repo", async ({ expect, project, prismic, repo }) => {
+	await writeFile(
+		new URL("prismic.config.json", project),
+		JSON.stringify({
+			repositoryName: "starter-placeholder",
+			libraries: ["./src/slices"],
+			routes: [{ type: "page", path: "/:uid" }],
+		}),
+	);
+
+	const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
+	expect(exitCode, stderr).toBe(0);
+
+	const config = JSON.parse(await readFile(new URL("prismic.config.json", project), "utf-8"));
+	expect(config).toMatchObject({
+		repositoryName: repo,
+		libraries: ["./src/slices"],
+		routes: [{ type: "page", path: "/:uid" }],
+	});
 }, 60_000);
 
 it("skips framework scaffolding with --no-setup", async ({ expect, project, prismic, repo }) => {

@@ -8,6 +8,7 @@ import { exists, findUpward, readJsonFile } from "./file";
 import { request } from "./request";
 
 const PackageJsonSchema = z.object({
+	name: z.optional(z.string()),
 	dependencies: z.optional(z.record(z.string(), z.string())),
 	devDependencies: z.optional(z.record(z.string(), z.string())),
 	peerDependencies: z.optional(z.record(z.string(), z.string())),
@@ -21,10 +22,8 @@ export async function readPackageJson(): Promise<PackageJson> {
 	return packageJson;
 }
 
-export async function findPackageJson(
-	config: { start?: URL; stop?: URL | string } = {},
-): Promise<URL> {
-	const packageJsonPath = await findUpward("package.json", config);
+export async function findPackageJson(): Promise<URL> {
+	const packageJsonPath = await findUpward("package.json");
 	if (!packageJsonPath) throw new MissingPackageJson();
 	return packageJsonPath;
 }
@@ -77,10 +76,8 @@ const INSTALL_COMMANDS = {
 	bun: ["bun", "install"],
 };
 
-export async function installDependencies(
-	config: { start?: URL; stop?: URL | string } = {},
-): Promise<void> {
-	const packageJsonPath = await findPackageJson(config);
+export async function installDependencies(): Promise<void> {
+	const packageJsonPath = await findPackageJson();
 	const cwd = new URL(".", packageJsonPath);
 	const packageManager = await detectPackageManager(packageJsonPath);
 	const [command, ...args] = INSTALL_COMMANDS[packageManager];

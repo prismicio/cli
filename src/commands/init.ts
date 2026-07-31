@@ -1,3 +1,5 @@
+import { rm } from "node:fs/promises";
+
 import type { Profile } from "../lib/prismic/clients/user";
 
 import { getAdapter } from "../adapters";
@@ -8,16 +10,26 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 import { diffArrays } from "../lib/diff";
 import { installDependencies, readPackageJson, removeDependencies } from "../lib/packageJson";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { getRepository, type Repository } from "../lib/prismic/clients/repository";
 import { getProfile } from "../lib/prismic/clients/user";
+import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
+	assertStarterRepositoryHasModels,
+	completeStarterHandoff,
+	hasUnsafeStarterModelChanges,
+} from "../lib/starter";
+import {
+	type Config,
 	createConfig,
 	deleteLegacySliceMachineConfig,
+	findProjectRoot,
 	InvalidLegacySliceMachineConfigError,
 	MissingPrismicConfigError,
 	readConfig,
 	readLegacySliceMachineConfig,
 	UnknownProjectRootError,
+	updateConfig,
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 import { createRepo } from "./repo-create";
@@ -54,27 +66,28 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo: explicitRepo, lang, "no-browser": noBrowser, "no-setup": noSetup } = values;
 
-	// Check for existing prismic.config.json
+	let existingConfig: Config | undefined;
 	try {
-		await readConfig();
-		throw new CommandError(
-			"A prismic.config.json file exists. This project is already initialized.",
-		);
+		existingConfig = await readConfig();
 	} catch (error) {
-		if (error instanceof MissingPrismicConfigError) {
-			// No config found — proceed with initialization.
-		} else {
-			throw error;
-		}
+		if (!(error instanceof MissingPrismicConfigError)) throw error;
 	}
+	if (existingConfig && !explicitRepo) {
+		throw new CommandError(
+			"A prismic.config.json file exists. Use `prismic init --repo <repository>` to connect it to an existing repository.",
+		);
+	}
+	const isExistingProjectHandoff = existingConfig !== undefined && explicitRepo !== undefined;
 
 	// Load legacy slicemachine.config.json
 	let legacySliceMachineConfig;
-	try {
-		legacySliceMachineConfig = await readLegacySliceMachineConfig();
-	} catch (error) {
-		if (error instanceof InvalidLegacySliceMachineConfigError) {
-			console.warn("Could not read slicemachine.config.json, ignoring.");
+	if (!existingConfig) {
+		try {
+			legacySliceMachineConfig = await readLegacySliceMachineConfig();
+		} catch (error) {
+			if (error instanceof InvalidLegacySliceMachineConfigError) {
+				console.warn("Could not read slicemachine.config.json, ignoring.");
+			}
 		}
 	}
 
@@ -112,6 +125,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
+	let connectedRepository: Repository | undefined;
 	if (repo) {
 		const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
 		if (!hasRepoAccess) {
@@ -124,6 +138,8 @@ export default createCommand(config, async ({ values }) => {
 		if (!isTypeBuilderEnabled) {
 			throw new TypeBuilderRequiredError(repo, host);
 		}
+
+		connectedRepository = await getRepository({ repo, token, host });
 	}
 
 	const adapter = await getAdapter();
@@ -133,16 +149,20 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Created repository: ${repo}`);
 	}
 
-	// Create prismic.config.json
+	// Create or reconnect prismic.config.json
 	try {
 		const documentAPIEndpoint =
 			host !== DEFAULT_PRISMIC_HOST ? `https://${repo}.cdn.${host}/api/v2/` : undefined;
-		await createConfig({
-			repositoryName: repo,
-			documentAPIEndpoint,
-			libraries: legacySliceMachineConfig?.libraries,
-			routes: [],
-		});
+		if (existingConfig) {
+			await updateConfig({ repositoryName: repo, documentAPIEndpoint });
+		} else {
+			await createConfig({
+				repositoryName: repo,
+				documentAPIEndpoint,
+				libraries: legacySliceMachineConfig?.libraries,
+				routes: [],
+			});
+		}
 	} catch (error) {
 		if (error instanceof UnknownProjectRootError) {
 			throw new CommandError(
@@ -171,7 +191,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Install dependencies and create framework files
-	await adapter.initProject({ setup: !noSetup });
+	await adapter.initProject({ setup: !noSetup && !existingConfig });
 
 	// Run package manager install
 	if (!noSetup) {
@@ -195,33 +215,78 @@ export default createCommand(config, async ({ values }) => {
 	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
 	const localSliceModels = localSlices.map((s) => s.model);
 
-	const sliceOps = diffArrays(remoteSlices, localSliceModels, { getKey: (m) => m.id });
-	for (const slice of sliceOps.update) {
-		await adapter.updateSlice(slice);
-	}
-	for (const slice of sliceOps.delete) {
-		await adapter.deleteSlice(slice.id);
-	}
-	for (const slice of sliceOps.insert) {
-		await adapter.createSlice(slice);
-	}
+	const sliceOps = diffArrays(remoteSlices, localSliceModels, {
+		getKey: (model) => model.id,
+		equals: (a, b) => JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
+	});
 
 	const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
-		getKey: (m) => m.id,
+		getKey: (model) => model.id,
+		equals: (a, b) =>
+			JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
 	});
-	for (const customType of customTypeOps.update) {
-		await adapter.updateCustomType(customType);
+
+	if (isExistingProjectHandoff && connectedRepository?.starter) {
+		assertStarterRepositoryHasModels(repo, remoteCustomTypes, remoteSlices);
+		await removeStarterDocuments(connectedRepository.starter);
 	}
-	for (const customType of customTypeOps.delete) {
-		await adapter.deleteCustomType(customType.id);
-	}
-	for (const customType of customTypeOps.insert) {
-		await adapter.createCustomType(customType);
+
+	const hasUnsafeModelChanges =
+		isExistingProjectHandoff && hasUnsafeStarterModelChanges(customTypeOps, sliceOps);
+
+	if (!hasUnsafeModelChanges) {
+		for (const slice of sliceOps.update) {
+			await adapter.updateSlice(slice);
+		}
+		for (const slice of sliceOps.delete) {
+			await adapter.deleteSlice(slice.id);
+		}
+		for (const slice of sliceOps.insert) {
+			await adapter.createSlice(slice);
+		}
+
+		for (const customType of customTypeOps.update) {
+			await adapter.updateCustomType(customType);
+		}
+		for (const customType of customTypeOps.delete) {
+			await adapter.deleteCustomType(customType.id);
+		}
+		for (const customType of customTypeOps.insert) {
+			await adapter.createCustomType(customType);
+		}
 	}
 
 	await adapter.generateTypes();
+
+	if (hasUnsafeModelChanges) {
+		console.warn(`
+Local and remote models differ, so no model files were changed. The project is connected.
+
+Choose the source of truth:
+  prismic pull --force   Adopt remote models
+  prismic push --force   Keep local models
+		`);
+	}
+
+	if (isExistingProjectHandoff && connectedRepository?.starter) {
+		await completeStarterHandoff(connectedRepository.starter, { repo, token, host });
+	}
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");
 	console.info("Run `prismic pull` to pull models from Prismic.");
 });
+
+async function removeStarterDocuments(starter: NonNullable<Repository["starter"]>): Promise<void> {
+	const packageJson = await readPackageJson();
+	const starterPackageName = starter.id.split("/").at(-1);
+	if (!starterPackageName || packageJson.name !== starterPackageName) {
+		console.warn(
+			"Starter seed documents were not removed because the local package does not match the repository starter.",
+		);
+		return;
+	}
+
+	const projectRoot = await findProjectRoot();
+	await rm(new URL("documents/", projectRoot), { recursive: true, force: true });
+}

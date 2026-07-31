@@ -7,6 +7,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic <command> [options]");
+	expect(stdout).not.toContain("starter");
 });
 
 it("prints help text by default", async ({ expect, prismic }) => {

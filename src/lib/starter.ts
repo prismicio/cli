@@ -1,23 +1,23 @@
-import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-
+import type { ArrayDiff } from "./diff";
 import type { Repository } from "./prismic/clients/repository";
-import type { Profile } from "./prismic/clients/user";
 
 import { CommandError } from "./command";
+import {
+	addPreview,
+	hasPreviewByURL,
+	removePreviewsByURL,
+	setSimulatorUrl,
+} from "./prismic/clients/core";
+import { completeOnboardingStepsSilently } from "./prismic/clients/repository";
+import { sentryCaptureError } from "./sentry";
 
 export const starterLocalPreviewURL = "http://localhost:3000/api/preview";
-
-export function assertStarterRepositoryAccess(repositoryId: string, profile: Profile): void {
-	const hasRepositoryAccess = profile.repositories.some(
-		(repository) => repository.domain === repositoryId,
-	);
-	if (!hasRepositoryAccess) {
-		throw new CommandError(
-			`Repository "${repositoryId}" not found in your account. Check the name or request access to the repository.`,
-		);
-	}
-}
+const starterLocalPreviewConfig = {
+	name: "Development",
+	websiteURL: "http://localhost:3000",
+	resolverPath: "/api/preview",
+};
+const starterLocalSimulatorURL = "http://localhost:3000/slice-simulator";
 
 export function assertStarterRepositoryHasModels(
 	repositoryId: string,
@@ -31,47 +31,65 @@ export function assertStarterRepositoryHasModels(
 	);
 }
 
-export function resolveStarterArchive(starter: Repository["starter"] | undefined): URL {
-	if (starter == null) {
-		throw new CommandError(
-			`Repository does not support starter download. Use a repository created with Instant Start.`,
-		);
-	}
-
-	return new URL(`https://github.com/${starter.id}/archive/${starter.revision}.zip`);
+export function hasUnsafeStarterModelChanges(...diffs: Array<ArrayDiff<unknown>>): boolean {
+	return diffs.some((diff) => diff.update.length > 0 || diff.delete.length > 0);
 }
 
 export function resolveStarterHostedPreviewURL(starter: Repository["starter"] | undefined): string {
-	if (starter == null) {
-		throw new CommandError(
-			`Repository does not support starter download. Use a repository created with Instant Start.`,
-		);
-	}
+	assertStarterProvenance(starter);
 
 	return new URL("/api/preview", starter.deploymentUrl).href;
 }
 
-export async function patchStarterConfig(
-	destination: string,
-	repositoryId: string,
-	host: string,
-): Promise<void> {
-	const configPath = join(destination, "prismic.config.json");
-	const config: unknown = JSON.parse(await readFile(configPath, "utf8"));
-	if (!config || typeof config !== "object" || Array.isArray(config)) {
-		throw new Error("Invalid prismic.config.json.");
+function assertStarterProvenance(
+	starter: Repository["starter"] | undefined,
+): asserts starter is NonNullable<Repository["starter"]> {
+	if (starter == null) {
+		throw new CommandError(
+			"Repository does not have starter provenance. Use a repository created with Instant Start.",
+		);
+	}
+}
+
+export async function completeStarterHandoff(
+	starter: NonNullable<Repository["starter"]>,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<{ localPreviewConfigured: boolean }> {
+	const localPreviewConfigured = await configureStarterPreviews(starter, config);
+
+	try {
+		await setSimulatorUrl(starterLocalSimulatorURL, config);
+	} catch (error) {
+		await sentryCaptureError(error);
+		console.error(
+			`Could not configure the local slice simulator. Run \`prismic preview set-simulator ${starterLocalSimulatorURL}\` manually. Continuing.`,
+		);
 	}
 
-	await writeFile(
-		configPath,
-		`${JSON.stringify(
-			{
-				...config,
-				repositoryName: repositoryId,
-				documentAPIEndpoint: `https://${repositoryId}.${host}/api/v2`,
-			},
-			null,
-			2,
-		)}\n`,
-	);
+	await completeOnboardingStepsSilently({
+		...config,
+		stepIds: ["instantStart_continueBuildingLocally"],
+	});
+
+	return { localPreviewConfigured };
+}
+
+async function configureStarterPreviews(
+	starter: NonNullable<Repository["starter"]>,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<boolean> {
+	try {
+		await removePreviewsByURL([resolveStarterHostedPreviewURL(starter)], config);
+		const hasDevelopmentPreview = await hasPreviewByURL(starterLocalPreviewURL, config);
+		if (!hasDevelopmentPreview) {
+			await addPreview(starterLocalPreviewConfig, config);
+		}
+		return true;
+	} catch (error) {
+		await sentryCaptureError(error);
+		console.error(
+			`Could not configure the local preview. Run \`prismic preview add ${starterLocalPreviewURL} --name ${starterLocalPreviewConfig.name}\` manually. Continuing.`,
+		);
+		return false;
+	}
 }
