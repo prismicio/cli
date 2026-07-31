@@ -4,7 +4,7 @@ import type { Result } from "tinyexec";
 import { pascalCase } from "change-case";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { x } from "tinyexec";
 import { inject, test } from "vitest";
@@ -81,6 +81,10 @@ export const it = test.extend<Fixtures>({
 			`#!/bin/sh\necho '{}' > "${lockfilePath}"\necho "added 0 packages"\n`,
 			{ mode: 0o755 },
 		);
+		await writeFile(
+			new URL("npm.cmd", binDir),
+			`@echo {}> "${lockfilePath}"\n@echo added 0 packages\n`,
+		);
 
 		// Stub Next.js installation
 		const packageJsonPath = new URL("package.json", projectPath);
@@ -128,7 +132,7 @@ export const it = test.extend<Fixtures>({
 					env: {
 						...process.env,
 						...options?.nodeOptions?.env,
-						PATH: `${fileURLToPath(bin)}:${process.env.PATH}`,
+						PATH: `${fileURLToPath(bin)}${delimiter}${process.env.PATH}`,
 						HOME: fileURLToPath(home),
 					},
 				},
