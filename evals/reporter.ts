@@ -46,7 +46,7 @@ export default class EvalReporter implements Reporter {
 					continue;
 				}
 				model = trial.model;
-				(evals[test.name] ??= []).push({
+				(evals[`${testModule.relativeModuleId} / ${test.name}`] ??= []).push({
 					pass: state === "passed",
 					costUsd: Math.round(trial.costUsd * 100) / 100,
 					durationS: trial.durationS,
