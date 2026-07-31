@@ -4,7 +4,7 @@ import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { upsertLocale } from "../lib/prismic/clients/locale";
 import { activateMCP } from "../lib/prismic/clients/mcp";
-import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
+import { completeOnboardingSteps } from "../lib/prismic/clients/repository";
 import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients/wroom";
 
 const MAX_DOMAIN_TRIES = 5;
@@ -54,12 +54,12 @@ export async function createRepo(config: {
 	// A new repository has no locale, so set the master locale to make it usable.
 	await upsertLocale({ id: lang, isMaster: true }, { repo: domain, token, host });
 
-	await completeOnboardingStepsSilently({
+	await completeOnboardingSteps({
 		repo: domain,
 		token,
 		host,
 		stepIds: ["createPrismicProject"],
-	});
+	}).catch(() => {});
 
 	await activateMCP({ repo: domain, token, host }).catch(() => {});
 

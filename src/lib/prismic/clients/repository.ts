@@ -63,16 +63,6 @@ export async function completeOnboardingSteps(
 	}
 }
 
-export async function completeOnboardingStepsSilently(
-	config: OnboardingConfig & { stepIds: OnboardingStep[] },
-): Promise<void> {
-	try {
-		await completeOnboardingSteps(config);
-	} catch {
-		// Ignore errors
-	}
-}
-
 function repositoryServiceRequest<T>(
 	url: URL,
 	config: RepositoryConfig,

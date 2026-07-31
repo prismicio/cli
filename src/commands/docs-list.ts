@@ -1,3 +1,4 @@
+import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getDocsIndex, getDocsPageIndex } from "../lib/prismic/clients/docs";
@@ -26,7 +27,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const { json } = values;
 
 	if (path) {
-		const entry = await getDocsPageIndex(path);
+		const entry = await getDocsPageIndex(path, { host: env.PRISMIC_DOCS_HOST });
 
 		if (json) {
 			console.info(stringify(entry));
@@ -41,7 +42,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		const rows = entry.anchors.map((anchor) => [`${path}#${anchor.slug}`, anchor.excerpt]);
 		console.info(formatTable(rows, { headers: ["PATH", "EXCERPT"] }));
 	} else {
-		const pages = await getDocsIndex();
+		const pages = await getDocsIndex({ host: env.PRISMIC_DOCS_HOST });
 
 		pages.sort((a, b) => a.path.localeCompare(b.path));
 
