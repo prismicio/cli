@@ -4,11 +4,31 @@ export default defineConfig({
 	test: {
 		globalSetup: ["./test/setup.global.ts"],
 		forceRerunTriggers: ["**/src/**", "**/tsdown.config.ts"],
-		typecheck: { enabled: true },
-		setupFiles: ["./test/setup.ts"],
-		include: ["./test/**/*.test.ts"],
 		sequence: { concurrent: true },
-		testTimeout: 30_000,
-		retry: 2,
+		// Bare `vitest` runs only unit tests; evals require an explicit `--project
+		// evals`. Vitest honors `project` in config but only types it as a CLI flag.
+		// @ts-expect-error -- untyped config passthrough of the --project flag
+		project: "tests",
+		projects: [
+			{
+				test: {
+					name: "tests",
+					setupFiles: ["./test/setup.ts"],
+					include: ["./test/**/*.test.ts"],
+					testTimeout: 30_000,
+					retry: 2,
+					typecheck: { enabled: true },
+				},
+			},
+			{
+				test: {
+					name: "evals",
+					include: ["./evals/**/*.eval.ts"],
+					maxConcurrency: 8,
+					testTimeout: 600_000,
+					retry: 0,
+				},
+			},
+		],
 	},
 });

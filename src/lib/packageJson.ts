@@ -79,7 +79,7 @@ const INSTALL_COMMANDS = {
 export async function installDependencies(): Promise<void> {
 	const packageJsonPath = await findPackageJson();
 	const cwd = new URL(".", packageJsonPath);
-	const packageManager = await detectPackageManager(packageJsonPath);
+	const packageManager = await detectPackageManager();
 	const [command, ...args] = INSTALL_COMMANDS[packageManager];
 	await x(command, args, {
 		nodeOptions: { cwd: fileURLToPath(cwd), stdio: "inherit" },
@@ -95,10 +95,11 @@ const PACKAGE_MANAGER_LOCKFILES: Record<string, keyof typeof INSTALL_COMMANDS> =
 	"package-lock.json": "npm",
 };
 
-async function detectPackageManager(packageJsonPath: URL): Promise<keyof typeof INSTALL_COMMANDS> {
-	const packageManager = await readPackageManager(packageJsonPath);
+async function detectPackageManager(): Promise<keyof typeof INSTALL_COMMANDS> {
+	const packageManager = await readPackageManager();
 	if (packageManager) return packageManager;
 
+	const packageJsonPath = await findPackageJson();
 	for (const file in PACKAGE_MANAGER_LOCKFILES) {
 		const packageManager = PACKAGE_MANAGER_LOCKFILES[file];
 		const hasLockfile = await exists(new URL(file, packageJsonPath));
@@ -108,13 +109,9 @@ async function detectPackageManager(packageJsonPath: URL): Promise<keyof typeof 
 	return "npm";
 }
 
-async function readPackageManager(
-	packageJsonPath: URL,
-): Promise<keyof typeof INSTALL_COMMANDS | undefined> {
+async function readPackageManager(): Promise<keyof typeof INSTALL_COMMANDS | undefined> {
 	try {
-		const packageJson = await readJsonFile(packageJsonPath, {
-			schema: PackageJsonSchema,
-		});
+		const packageJson = await readPackageJson();
 		if (!packageJson.packageManager) return;
 		const packageManager = packageJson.packageManager.split("@")[0];
 		if (packageManager in INSTALL_COMMANDS) return packageManager as keyof typeof INSTALL_COMMANDS;
