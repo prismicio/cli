@@ -1,12 +1,18 @@
-import { access, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 
-import { captureOutput, it } from "./it";
+import { buildCustomType, captureOutput, it, readLocalCustomType, writeLocalCustomType } from "./it";
 import {
 	addPreview,
+	createInstantStartRepository,
 	createRepository,
+	deleteCustomType,
 	deleteRepository,
+	deleteSlice,
+	getCustomTypes,
+	getOnboardingCompletedSteps,
 	getPreviews,
 	getRepository,
+	getSlices,
 	setSimulatorUrl,
 } from "./prismic";
 
@@ -239,3 +245,118 @@ it("installs dependencies", { timeout: 30_000 }, async ({ expect, project, prism
 	// Verify the stubbed npm was invoked (it creates package-lock.json)
 	await expect(access(new URL("package-lock.json", project))).resolves.toBeUndefined();
 });
+
+it("warns and keeps local models when reconnecting with model differences", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+}) => {
+	// A local-only model makes the local/remote diff contain a deletion, which
+	// blocks the automatic sync during an existing-project reconnect.
+	const localOnly = buildCustomType();
+	await writeLocalCustomType(project, localOnly);
+
+	const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stderr).toContain("Choose the source of truth");
+
+	const localModel = await readLocalCustomType(project, localOnly.id);
+	expect(localModel).toEqual(localOnly);
+}, 60_000);
+
+// The starter handoff needs a repository with starter provenance, which only
+// `POST /website-generator/instant-start` can create. Unskip these once
+// prismicio/obelix#1703 is deployed to production; until then the endpoint
+// provisions repositories without the `starter` metadata the handoff reads.
+it.skip("completes the handoff for a starter project", async ({
+	expect,
+	project,
+	prismic,
+	token,
+	host,
+	password,
+}) => {
+	const repo = await createInstantStartRepository({ token, host });
+	try {
+		await writeFile(
+			new URL("package.json", project),
+			JSON.stringify({ name: "next-instant-start", dependencies: { next: "latest" } }),
+		);
+		await mkdir(new URL("documents/", project), { recursive: true });
+		await writeFile(new URL("documents/homepage.json", project), "{}");
+
+		const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
+		expect(exitCode, stderr).toBe(0);
+
+		const config = JSON.parse(await readFile(new URL("prismic.config.json", project), "utf-8"));
+		expect(config.repositoryName).toBe(repo);
+
+		// Seed documents are removed.
+		await expect(access(new URL("documents/", project))).rejects.toThrow();
+
+		// The hosted preview is replaced by the local Development preview.
+		const previews = await getPreviews({ repo, token, host });
+		const previewLabels = previews.map((preview) => preview.label);
+		expect(previewLabels).toContain("Development");
+		expect(previewLabels).not.toContain("Production");
+
+		const repository = await getRepository({ repo, token, host });
+		expect(repository.simulatorUrl).toBe("http://localhost:3000/slice-simulator");
+
+		const completedSteps = await getOnboardingCompletedSteps({ repo, token, host });
+		expect(completedSteps).toContain("instantStart_continueBuildingLocally");
+	} finally {
+		await deleteRepository(repo, { token, password, host });
+	}
+}, 120_000);
+
+it.skip("keeps seed documents when the local package does not match the starter", async ({
+	expect,
+	project,
+	prismic,
+	token,
+	host,
+	password,
+}) => {
+	const repo = await createInstantStartRepository({ token, host });
+	try {
+		// The fixture package.json has no name, so it cannot match the starter.
+		await mkdir(new URL("documents/", project), { recursive: true });
+		await writeFile(new URL("documents/homepage.json", project), "{}");
+
+		const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stderr).toContain("Starter seed documents were not removed");
+
+		await expect(access(new URL("documents/", project))).resolves.toBeUndefined();
+	} finally {
+		await deleteRepository(repo, { token, password, host });
+	}
+}, 120_000);
+
+it.skip("fails when the starter repository has no models", async ({
+	expect,
+	prismic,
+	token,
+	host,
+	password,
+}) => {
+	const repo = await createInstantStartRepository({ token, host });
+	try {
+		const [customTypes, slices] = await Promise.all([
+			getCustomTypes({ repo, token, host }),
+			getSlices({ repo, token, host }),
+		]);
+		await Promise.all([
+			...customTypes.map((customType) => deleteCustomType(customType.id, { repo, token, host })),
+			...slices.map((slice) => deleteSlice(slice.id, { repo, token, host })),
+		]);
+
+		const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("has no starter models");
+	} finally {
+		await deleteRepository(repo, { token, password, host });
+	}
+}, 120_000);

@@ -33,6 +33,34 @@ export async function createRepository(domain: string, config: AuthConfig): Prom
 		throw new Error(`Failed to create repository ${domain}: ${res.status} ${await res.text()}`);
 }
 
+export async function createInstantStartRepository(config: AuthConfig): Promise<string> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("website-generator/instant-start", `https://api.internal.${host}/`);
+	const res = await fetch(url, {
+		method: "POST",
+		headers: { Authorization: `Bearer ${config.token}` },
+	});
+	if (!res.ok)
+		throw new Error(
+			`Failed to create Instant Start repository: ${res.status} ${await res.text()}`,
+		);
+	const data = await res.json();
+	return data.repositoryId;
+}
+
+export async function getOnboardingCompletedSteps(config: RepoConfig): Promise<string[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("repository/onboarding", `https://api.internal.${host}/`);
+	url.searchParams.set("repository", config.repo);
+	const res = await fetch(url, {
+		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+	});
+	if (!res.ok)
+		throw new Error(`Failed to get onboarding state: ${res.status} ${await res.text()}`);
+	const data = await res.json();
+	return data.completedSteps;
+}
+
 export async function deleteRepository(
 	domain: string,
 	config: AuthConfig & { password: string },
