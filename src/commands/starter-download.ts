@@ -24,7 +24,7 @@ import {
 	assertStarterRepositoryHasModels,
 	patchStarterConfig,
 	resolveStarterArchive,
-	starterHostedPreviewURL,
+	resolveStarterHostedPreviewURL,
 	starterLocalPreviewURL,
 } from "../lib/starter";
 import { extractZip } from "../lib/zip";
@@ -73,6 +73,7 @@ async function downloadStarter(
 		host: config.host,
 	});
 	const starterArchiveURL = resolveStarterArchive(repository.starter);
+	const starterHostedPreviewURL = resolveStarterHostedPreviewURL(repository.starter);
 
 	const [customTypes, slices] = await Promise.all([
 		getCustomTypes({

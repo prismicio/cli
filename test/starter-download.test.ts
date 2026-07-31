@@ -13,7 +13,7 @@ import {
 	assertStarterRepositoryHasModels,
 	patchStarterConfig,
 	resolveStarterArchive,
-	starterHostedPreviewURL,
+	resolveStarterHostedPreviewURL,
 	starterLocalPreviewURL,
 } from "../src/lib/starter";
 import { extractZip } from "../src/lib/zip";
@@ -112,6 +112,7 @@ describe.sequential("Starter download", () => {
 				id: "prismicio/custom-starter",
 				revision: "starter-release",
 				framework: "custom",
+				deploymentUrl: "https://starter.example.com/",
 			}).toString(),
 		).toBe("https://github.com/prismicio/custom-starter/archive/starter-release.zip");
 	});
@@ -125,8 +126,15 @@ describe.sequential("Starter download", () => {
 		);
 	});
 
-	unitTest("uses the hosted preview URL for cleanup", () => {
-		expect(starterHostedPreviewURL).toBe("https://next-instant-start.vercel.app/api/preview");
+	unitTest("builds the hosted preview URL from starter metadata", () => {
+		expect(
+			resolveStarterHostedPreviewURL({
+				id: "prismicio/custom-starter",
+				revision: "starter-release",
+				framework: "custom",
+				deploymentUrl: "https://starter.example.com/",
+			}),
+		).toBe("https://starter.example.com/api/preview");
 	});
 
 	unitTest("validates repository access from the authenticated profile", () => {
@@ -180,6 +188,7 @@ describe.sequential("Starter download", () => {
 			id: "prismicio/next-instant-start",
 			revision: "d2d78ca51884d0d665ec58879d370d033eefaf04",
 			framework: "next",
+			deploymentUrl: "https://next-instant-start-2a3svap7o-prismic.vercel.app/",
 		});
 
 		vi.stubGlobal(

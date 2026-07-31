@@ -12,6 +12,7 @@ const RepositoryStarterSchema = z.object({
 	id: z.string(),
 	revision: z.string(),
 	framework: z.string(),
+	deploymentUrl: z.url(),
 });
 
 const RepositorySchema = z.pipe(

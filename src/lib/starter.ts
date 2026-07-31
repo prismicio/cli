@@ -6,8 +6,6 @@ import type { Profile } from "./prismic/clients/user";
 
 import { CommandError } from "./command";
 
-export const starterHostedPreviewURL = "https://next-instant-start.vercel.app/api/preview";
-
 export const starterLocalPreviewURL = "http://localhost:3000/api/preview";
 
 export function assertStarterRepositoryAccess(repositoryId: string, profile: Profile): void {
@@ -41,6 +39,16 @@ export function resolveStarterArchive(starter: Repository["starter"] | undefined
 	}
 
 	return new URL(`https://github.com/${starter.id}/archive/${starter.revision}.zip`);
+}
+
+export function resolveStarterHostedPreviewURL(starter: Repository["starter"] | undefined): string {
+	if (starter == null) {
+		throw new CommandError(
+			`Repository does not support starter download. Use a repository created with Instant Start.`,
+		);
+	}
+
+	return new URL("/api/preview", starter.deploymentUrl).href;
 }
 
 export async function patchStarterConfig(
