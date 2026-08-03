@@ -315,6 +315,9 @@ it.skip("completes the handoff for a starter project", async ({
 		const config = JSON.parse(await readFile(new URL("prismic.config.json", project), "utf-8"));
 		expect(config.repositoryName).toBe(repo);
 
+		const packageJson = JSON.parse(await readFile(new URL("package.json", project), "utf-8"));
+		expect(packageJson.name).toBe(repo);
+
 		// Seed documents are removed.
 		await expect(access(new URL("documents/", project))).rejects.toThrow();
 

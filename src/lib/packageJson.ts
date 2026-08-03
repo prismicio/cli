@@ -61,6 +61,16 @@ export async function removeDependencies(names: string[]): Promise<void> {
 	await writeFile(packageJsonPath, newContents);
 }
 
+export async function updatePackageJsonName(name: string): Promise<void> {
+	const packageJsonPath = await findPackageJson();
+	const raw = await readFile(packageJsonPath, "utf8");
+	const indent = detectIndent(raw).indent || "\t";
+	const packageJson = JSON.parse(raw);
+	packageJson.name = name;
+	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
+	await writeFile(packageJsonPath, newContents);
+}
+
 export async function getNpmPackageVersion(name: string, tag = "latest"): Promise<string> {
 	const url = new URL(`${name}/${tag}`, "https://registry.npmjs.org/");
 	const { version } = await request(url, {

@@ -2,13 +2,13 @@ import { rm } from "node:fs/promises";
 
 import type { Profile } from "../lib/prismic/clients/user";
 
-import { getAdapter } from "../adapters";
+import { getAdapter, type Adapter } from "../adapters";
 import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
-import { installDependencies, readPackageJson, removeDependencies } from "../lib/packageJson";
+import { installDependencies, readPackageJson, removeDependencies, updatePackageJsonName } from "../lib/packageJson";
 import {
 	addPreview,
 	getPreviews,
@@ -280,7 +280,7 @@ Choose the source of truth:
 	}
 
 	if (isExistingProjectHandoff && connectedRepository?.starter) {
-		await completeStarterHandoff(connectedRepository.starter, { repo, token, host });
+		await completeStarterHandoff(adapter, connectedRepository.starter, { repo, token, host });
 	}
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
@@ -288,10 +288,14 @@ Choose the source of truth:
 	console.info("Run `prismic pull` to pull models from Prismic.");
 });
 
-async function removeStarterDocuments(starter: NonNullable<Repository["starter"]>): Promise<void> {
+async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Promise<boolean> {
 	const packageJson = await readPackageJson();
 	const starterPackageName = starter.id.split("/").at(-1);
-	if (!starterPackageName || packageJson.name !== starterPackageName) {
+	return Boolean(starterPackageName && packageJson.name === starterPackageName);
+}
+
+async function removeStarterDocuments(starter: NonNullable<Repository["starter"]>): Promise<void> {
+	if (!(await isStarterPackage(starter))) {
 		console.warn(
 			"Starter seed documents were not removed because the local package does not match the repository starter.",
 		);
@@ -302,45 +306,39 @@ async function removeStarterDocuments(starter: NonNullable<Repository["starter"]
 	await rm(new URL("documents/", projectRoot), { recursive: true, force: true });
 }
 
-const starterLocalPreviewURL = "http://localhost:3000/api/preview";
-const starterLocalPreviewConfig = {
-	name: "Development",
-	websiteURL: "http://localhost:3000",
-	resolverPath: "/api/preview",
-};
-const starterLocalSimulatorURL = "http://localhost:3000/slice-simulator";
-
 async function completeStarterHandoff(
+	adapter: Adapter,
 	starter: NonNullable<Repository["starter"]>,
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	try {
-		const hostedPreviewURL = new URL("/api/preview", starter.deploymentUrl).href;
+		const hostedPreviewURL = new URL(
+			adapter.localPreviewConfig.resolverPath,
+			starter.deploymentUrl,
+		).href;
 		const previews = await getPreviews(config);
 		await Promise.all(
 			previews
 				.filter((preview) => preview.url === hostedPreviewURL)
 				.map((preview) => removePreview(preview.id, config)),
 		);
-		const hasDevelopmentPreview = previews.some(
-			(preview) => preview.url === starterLocalPreviewURL,
-		);
+		const hasDevelopmentPreview = previews.some((preview) => preview.url === adapter.localPreviewUrl);
 		if (!hasDevelopmentPreview) {
-			await addPreview(starterLocalPreviewConfig, config);
+			await addPreview(adapter.localPreviewConfig, config);
 		}
 	} catch (error) {
 		await sentryCaptureError(error);
 		console.error(
-			`Could not configure the local preview. Run \`prismic preview add ${starterLocalPreviewURL} --name ${starterLocalPreviewConfig.name}\` manually. Continuing.`,
+			`Could not configure the local preview. Run \`prismic preview add ${adapter.localPreviewUrl} --name ${adapter.localPreviewConfig.name}\` manually. Continuing.`,
 		);
 	}
 
 	try {
-		await setSimulatorUrl(starterLocalSimulatorURL, config);
+		await setSimulatorUrl(adapter.localSimulatorUrl, config);
 	} catch (error) {
 		await sentryCaptureError(error);
 		console.error(
-			`Could not configure the local slice simulator. Run \`prismic preview set-simulator ${starterLocalSimulatorURL}\` manually. Continuing.`,
+			`Could not configure the local slice simulator. Run \`prismic preview set-simulator ${adapter.localSimulatorUrl}\` manually. Continuing.`,
 		);
 	}
 
@@ -348,4 +346,8 @@ async function completeStarterHandoff(
 		...config,
 		stepIds: ["instantStart_continueBuildingLocally"],
 	});
+
+	if (await isStarterPackage(starter)) {
+		await updatePackageJsonName(config.repo);
+	}
 }

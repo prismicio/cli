@@ -34,6 +34,12 @@ export class NextJsAdapter extends Adapter {
 
 	readonly environmentEnvVarName = "NEXT_PUBLIC_PRISMIC_ENVIRONMENT";
 
+	readonly localPreviewConfig = {
+		name: "Development",
+		websiteURL: "http://localhost:3000",
+		resolverPath: "/api/preview",
+	};
+
 	async setupProject(): Promise<void> {
 		await addDependencies({
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
@@ -53,15 +59,12 @@ export class NextJsAdapter extends Adapter {
 
 		const simulatorUrl = await getSimulatorUrl({ repo, token, host });
 		if (!simulatorUrl) {
-			await setSimulatorUrl("http://localhost:3000/slice-simulator", { repo, token, host });
+			await setSimulatorUrl(this.localSimulatorUrl, { repo, token, host });
 		}
 
 		const previews = await getPreviews({ repo, token, host });
 		if (previews.length === 0) {
-			await addPreview(
-				{ name: "Development", websiteURL: "http://localhost:3000", resolverPath: "/api/preview" },
-				{ repo, token, host },
-			);
+			await addPreview(this.localPreviewConfig, { repo, token, host });
 		}
 	}
 
