@@ -19,8 +19,8 @@ import {
 	updateCustomType,
 	updateSlice,
 } from "../lib/prismic/clients/custom-types";
-import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/clients/repository";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
 import { BadRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -169,11 +169,10 @@ export default createCommand(config, async ({ values }) => {
 		onboardingSteps.push("createPageType");
 	}
 	if (onboardingSteps.length > 0) {
-		await completeOnboardingSteps({
+		await completeOnboardingSteps(onboardingSteps, {
 			repo: await getRepositoryName(),
 			token,
 			host,
-			stepIds: onboardingSteps,
 		}).catch(() => {});
 	}
 
