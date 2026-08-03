@@ -118,6 +118,24 @@ export async function deleteCustomType(customTypeId: string, config: RepoConfig)
 	if (!res.ok) throw new Error(`Failed to delete custom type: ${res.status} ${await res.text()}`);
 }
 
+export async function deleteDocumentsByCustomType(
+	customTypeId: string,
+	config: RepoConfig,
+): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("documents", `https://${config.repo}.${host}/core/`);
+	const res = await fetch(url, {
+		method: "DELETE",
+		headers: {
+			"Content-Type": "application/json",
+			Cookie: `prismic-auth=${config.token}`,
+		},
+		body: JSON.stringify({ customtype_ids: [customTypeId] }),
+	});
+	if (!res.ok)
+		throw new Error(`Failed to delete documents: ${res.status} ${await res.text()}`);
+}
+
 export async function getSlices(config: RepoConfig): Promise<SharedSlice[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("slices", `https://customtypes.${host}/`);

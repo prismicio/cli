@@ -7,6 +7,7 @@ import {
 	createInstantStartRepository,
 	createRepository,
 	deleteCustomType,
+	deleteDocumentsByCustomType,
 	deleteRepository,
 	deleteSlice,
 	getCustomTypes,
@@ -292,7 +293,7 @@ describe("with an isolated repository", () => {
 	}, 60_000);
 });
 
-it.skip("completes the handoff for a starter project", async ({
+it("completes the handoff for a starter project", async ({
 	expect,
 	project,
 	prismic,
@@ -337,7 +338,7 @@ it.skip("completes the handoff for a starter project", async ({
 	}
 }, 120_000);
 
-it.skip("keeps seed documents when the local package does not match the starter", async ({
+it("keeps seed documents when the local package does not match the starter", async ({
 	expect,
 	project,
 	prismic,
@@ -361,7 +362,7 @@ it.skip("keeps seed documents when the local package does not match the starter"
 	}
 }, 120_000);
 
-it.skip("fails when the starter repository has no models", async ({
+it("fails when the starter repository has no models", async ({
 	expect,
 	prismic,
 	token,
@@ -374,10 +375,13 @@ it.skip("fails when the starter repository has no models", async ({
 			getCustomTypes({ repo, token, host }),
 			getSlices({ repo, token, host }),
 		]);
-		await Promise.all([
-			...customTypes.map((customType) => deleteCustomType(customType.id, { repo, token, host })),
-			...slices.map((slice) => deleteSlice(slice.id, { repo, token, host })),
-		]);
+		for (const customType of customTypes) {
+			await deleteDocumentsByCustomType(customType.id, { repo, token, host });
+			await deleteCustomType(customType.id, { repo, token, host });
+		}
+		await Promise.all(
+			slices.map((slice) => deleteSlice(slice.id, { repo, token, host })),
+		);
 
 		const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
 		expect(exitCode).toBe(1);
