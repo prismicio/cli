@@ -241,11 +241,13 @@ export default createCommand(config, async ({ values }) => {
 		await removeStarterDocuments(connectedRepository.starter);
 	}
 
-	const hasUnsafeModelChanges =
+	const hasStarterModelChanges =
 		isExistingProjectHandoff &&
-		[customTypeOps, sliceOps].some((ops) => ops.update.length > 0 || ops.delete.length > 0);
+		[customTypeOps, sliceOps].some(
+			(ops) => ops.update.length > 0 || ops.delete.length > 0,
+		);
 
-	if (!hasUnsafeModelChanges) {
+	if (!hasStarterModelChanges) {
 		for (const slice of sliceOps.update) {
 			await adapter.updateSlice(slice);
 		}
@@ -269,7 +271,7 @@ export default createCommand(config, async ({ values }) => {
 
 	await adapter.generateTypes();
 
-	if (hasUnsafeModelChanges) {
+	if (hasStarterModelChanges) {
 		console.warn(`
 Local and remote models differ, so no model files were changed. The project is connected.
 
