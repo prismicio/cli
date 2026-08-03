@@ -1,7 +1,12 @@
 import * as z from "zod/mini";
 
-import { DEFAULT_PRISMIC_HOST, env } from "../../../env";
 import { request } from "../../request";
+
+// Documentation is only published at prismic.io; the host option exists for
+// overrides only.
+const DEFAULT_DOCS_HOST = "prismic.io";
+
+type DocsConfig = { host?: string };
 
 const DocsIndexEntrySchema = z.object({
 	path: z.string(),
@@ -23,16 +28,16 @@ const DocsPageSchema = z.object({
 });
 type DocsPage = z.infer<typeof DocsPageSchema>;
 
-export async function getDocsIndex(): Promise<DocsIndexEntry[]> {
-	const url = new URL("api/index/", getDocsServiceUrl());
+export async function getDocsIndex(config?: DocsConfig): Promise<DocsIndexEntry[]> {
+	const url = new URL("api/index/", getDocsServiceUrl(config?.host));
 	return request(url, {
 		schema: z.array(DocsIndexEntrySchema),
 		unknownErrorMessage: "Failed to fetch documentation index",
 	});
 }
 
-export async function getDocsPageIndex(path: string): Promise<DocsPage> {
-	const url = new URL(`api/index/${path}`, getDocsServiceUrl());
+export async function getDocsPageIndex(path: string, config?: DocsConfig): Promise<DocsPage> {
+	const url = new URL(`api/index/${path}`, getDocsServiceUrl(config?.host));
 	return request(url, {
 		schema: DocsPageSchema,
 		notFoundMessage: `Documentation page not found: ${path}`,
@@ -40,8 +45,8 @@ export async function getDocsPageIndex(path: string): Promise<DocsPage> {
 	});
 }
 
-export async function getDocsPageContent(path: string): Promise<string> {
-	const url = new URL(path, getDocsServiceUrl());
+export async function getDocsPageContent(path: string, config?: DocsConfig): Promise<string> {
+	const url = new URL(path, getDocsServiceUrl(config?.host));
 	return request(url, {
 		headers: { Accept: "text/markdown" },
 		schema: z.string(),
@@ -50,7 +55,6 @@ export async function getDocsPageContent(path: string): Promise<string> {
 	});
 }
 
-function getDocsServiceUrl(): URL {
-	const host = env.PRISMIC_DOCS_HOST ?? DEFAULT_PRISMIC_HOST;
+function getDocsServiceUrl(host = DEFAULT_DOCS_HOST): URL {
 	return new URL(`https://${host}/docs/`);
 }
