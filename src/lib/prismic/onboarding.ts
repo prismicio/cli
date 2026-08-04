@@ -10,7 +10,8 @@ export type OnboardingStep =
 	| "createPrismicProject"
 	| "createPageType"
 	| "createSlice"
-	| "connectPrismic";
+	| "connectPrismic"
+	| "instantStart_continueBuildingLocally";
 
 export async function completeOnboardingSteps(
 	stepIds: OnboardingStep[],

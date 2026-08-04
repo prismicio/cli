@@ -8,6 +8,7 @@ import { exists, findUpward, readJsonFile } from "./file";
 import { request } from "./request";
 
 const PackageJsonSchema = z.object({
+	name: z.optional(z.string()),
 	dependencies: z.optional(z.record(z.string(), z.string())),
 	devDependencies: z.optional(z.record(z.string(), z.string())),
 	peerDependencies: z.optional(z.record(z.string(), z.string())),
@@ -56,6 +57,16 @@ export async function removeDependencies(names: string[]): Promise<void> {
 		if (!packageJson[section]) continue;
 		for (const name of names) delete packageJson[section][name];
 	}
+	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
+	await writeFile(packageJsonPath, newContents);
+}
+
+export async function updatePackageJsonName(name: string): Promise<void> {
+	const packageJsonPath = await findPackageJson();
+	const raw = await readFile(packageJsonPath, "utf8");
+	const indent = detectIndent(raw).indent || "\t";
+	const packageJson = JSON.parse(raw);
+	packageJson.name = name;
 	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
 	await writeFile(packageJsonPath, newContents);
 }

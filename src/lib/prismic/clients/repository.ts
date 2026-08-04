@@ -8,7 +8,15 @@ type RepositoryConfig = {
 	host: string;
 };
 
+const RepositoryStarterSchema = z.object({
+	id: z.string(),
+	revision: z.string(),
+	framework: z.string(),
+	deploymentUrl: z.url(),
+});
+
 const RepositorySchema = z.object({
+	starter: z.nullish(RepositoryStarterSchema),
 	quotas: z.optional(
 		z.object({
 			sliceMachineEnabled: z.boolean(),
