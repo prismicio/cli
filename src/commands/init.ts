@@ -16,15 +16,13 @@ import {
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import {
-	completeOnboardingStepsSilently,
-	getRepository,
-	type Repository,
-} from "../lib/prismic/clients/repository";
+import { getRepository, type Repository } from "../lib/prismic/clients/repository";
+import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { getProfile } from "../lib/prismic/clients/user";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
+import { dedent } from "../lib/string";
 import {
 	type Config,
 	createConfig,
@@ -272,13 +270,15 @@ export default createCommand(config, async ({ values }) => {
 	await adapter.generateTypes();
 
 	if (hasStarterModelChanges) {
-		console.warn(`
-Local and remote models differ, so no model files were changed. The project is connected.
+		console.warn(
+			dedent`
+				Local and remote models differ, so no model files were changed. The project is connected.
 
-Choose the source of truth:
-  prismic pull --force   Adopt remote models
-  prismic push --force   Keep local models
-		`);
+				Choose the source of truth:
+				  prismic pull --force   Adopt remote models
+				  prismic push --force   Keep local models
+			`,
+		);
 	}
 
 	if (isExistingProjectHandoff && connectedRepository?.starter) {
@@ -344,10 +344,7 @@ async function completeStarterHandoff(
 		);
 	}
 
-	await completeOnboardingStepsSilently({
-		...config,
-		stepIds: ["instantStart_continueBuildingLocally"],
-	});
+	await completeOnboardingSteps(["instantStart_continueBuildingLocally"], config).catch(() => {});
 
 	if (await isStarterPackage(starter)) {
 		await updatePackageJsonName(config.repo);

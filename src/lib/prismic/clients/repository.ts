@@ -15,20 +15,14 @@ const RepositoryStarterSchema = z.object({
 	deploymentUrl: z.url(),
 });
 
-const RepositorySchema = z.pipe(
-	z.object({
-		starter: z.optional(z.nullable(RepositoryStarterSchema)),
-		quotas: z.optional(
-			z.object({
-				sliceMachineEnabled: z.boolean(),
-			}),
-		),
-	}),
-	z.transform((repository) => ({
-		...repository,
-		starter: repository.starter ?? null,
-	})),
-);
+const RepositorySchema = z.object({
+	starter: z.nullish(RepositoryStarterSchema),
+	quotas: z.optional(
+		z.object({
+			sliceMachineEnabled: z.boolean(),
+		}),
+	),
+});
 
 export type Repository = z.infer<typeof RepositorySchema>;
 
@@ -37,55 +31,30 @@ export function getRepository(config: RepositoryConfig): Promise<Repository> {
 	return repositoryServiceRequest(url, config, { schema: RepositorySchema });
 }
 
-export type OnboardingStep =
-	| "createPrismicProject"
-	| "createPageType"
-	| "createSlice"
-	| "connectPrismic"
-	| "instantStart_continueBuildingLocally";
-
 const OnboardingStateSchema = z.object({
 	completedSteps: z.array(z.string()),
 });
 export type OnboardingState = z.infer<typeof OnboardingStateSchema>;
 
-type OnboardingConfig = RepositoryConfig;
-
-export async function getOnboardingState(config: OnboardingConfig): Promise<OnboardingState> {
+export async function getOnboardingState(config: RepositoryConfig): Promise<OnboardingState> {
 	const url = new URL("onboarding", getRepositoryServiceUrl(config.host));
 	return onboardingServiceRequest(url, config, {
 		schema: OnboardingStateSchema,
 	});
 }
 
-export async function completeOnboardingSteps(
-	config: OnboardingConfig & { stepIds: OnboardingStep[] },
-): Promise<void> {
-	const { host, stepIds } = config;
-	const { completedSteps } = await getOnboardingState(config);
-	const missing = stepIds.filter((id) => !completedSteps.includes(id));
-
-	// API does not accept multiple steps; toggle each missing step sequentially.
-	for (const stepId of missing) {
-		const url = new URL(
-			`onboarding/${encodeURIComponent(stepId)}/toggle`,
-			getRepositoryServiceUrl(host),
-		);
-		await onboardingServiceRequest(url, config, {
-			method: "PATCH",
-			schema: OnboardingStateSchema,
-		});
-	}
-}
-
-export async function completeOnboardingStepsSilently(
-	config: OnboardingConfig & { stepIds: OnboardingStep[] },
-): Promise<void> {
-	try {
-		await completeOnboardingSteps(config);
-	} catch {
-		// Ignore errors
-	}
+export async function toggleOnboardingStep(
+	stepId: string,
+	config: RepositoryConfig,
+): Promise<OnboardingState> {
+	const url = new URL(
+		`onboarding/${encodeURIComponent(stepId)}/toggle`,
+		getRepositoryServiceUrl(config.host),
+	);
+	return onboardingServiceRequest(url, config, {
+		method: "PATCH",
+		schema: OnboardingStateSchema,
+	});
 }
 
 function repositoryServiceRequest<T>(
