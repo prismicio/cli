@@ -33,7 +33,12 @@ it("connects a slice to a type", async ({ expect, prismic, project }) => {
 	await writeLocalSlice(project, slice);
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, stderr, exitCode } = await prismic("slice", ["connect", slice.id, "--to", customType.id]);
+	const { stdout, stderr, exitCode } = await prismic("slice", [
+		"connect",
+		slice.id,
+		"--to",
+		customType.id,
+	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Connected slice "${slice.id}" to "${customType.id}"`);
 

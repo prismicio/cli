@@ -69,10 +69,7 @@ export abstract class Adapter {
 	abstract readonly localPreviewConfig: LocalDevelopmentPreview;
 
 	get localPreviewUrl(): string {
-		return new URL(
-			this.localPreviewConfig.resolverPath,
-			this.localPreviewConfig.websiteURL,
-		).href;
+		return new URL(this.localPreviewConfig.resolverPath, this.localPreviewConfig.websiteURL).href;
 	}
 
 	get localSimulatorUrl(): string {

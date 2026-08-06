@@ -1,7 +1,13 @@
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { describe } from "vitest";
 
-import { buildCustomType, captureOutput, it, readLocalCustomType, writeLocalCustomType } from "./it";
+import {
+	buildCustomType,
+	captureOutput,
+	it,
+	readLocalCustomType,
+	writeLocalCustomType,
+} from "./it";
 import {
 	addPreview,
 	createInstantStartRepository,
@@ -379,9 +385,7 @@ it("fails when the starter repository has no models", async ({
 			await deleteDocumentsByCustomType(customType.id, { repo, token, host });
 			await deleteCustomType(customType.id, { repo, token, host });
 		}
-		await Promise.all(
-			slices.map((slice) => deleteSlice(slice.id, { repo, token, host })),
-		);
+		await Promise.all(slices.map((slice) => deleteSlice(slice.id, { repo, token, host })));
 
 		const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
 		expect(exitCode).toBe(1);

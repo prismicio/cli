@@ -12,7 +12,12 @@ it("edits a slice name", async ({ expect, prismic, project }) => {
 
 	const newName = `SliceS${crypto.randomUUID().split("-")[0]}`;
 
-	const { stdout, stderr, exitCode } = await prismic("slice", ["edit", slice.id, "--name", newName]);
+	const { stdout, stderr, exitCode } = await prismic("slice", [
+		"edit",
+		slice.id,
+		"--name",
+		newName,
+	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Slice updated: "${newName}"`);
 

@@ -24,7 +24,12 @@ it("creates a custom type", async ({ expect, prismic, project }) => {
 it("creates a page type with --format page", async ({ expect, prismic, project }) => {
 	const { label } = buildCustomType({ format: "page" });
 
-	const { stdout, stderr, exitCode } = await prismic("type", ["create", label!, "--format", "page"]);
+	const { stdout, stderr, exitCode } = await prismic("type", [
+		"create",
+		label!,
+		"--format",
+		"page",
+	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Created type "${label}"`);
 

@@ -10,7 +10,12 @@ it("adds a uid field to a custom type", async ({ expect, prismic, project }) => 
 	const customType = buildCustomType();
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, stderr, exitCode } = await prismic("field", ["add", "uid", "--to-type", customType.id]);
+	const { stdout, stderr, exitCode } = await prismic("field", [
+		"add",
+		"uid",
+		"--to-type",
+		customType.id,
+	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field added: uid");
 
@@ -23,7 +28,12 @@ it("adds a uid field to a page type", async ({ expect, prismic, project }) => {
 	const pageType = buildCustomType({ format: "page" });
 	await writeLocalCustomType(project, pageType);
 
-	const { stdout, stderr, exitCode } = await prismic("field", ["add", "uid", "--to-type", pageType.id]);
+	const { stdout, stderr, exitCode } = await prismic("field", [
+		"add",
+		"uid",
+		"--to-type",
+		pageType.id,
+	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field added: uid");
 
