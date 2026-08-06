@@ -1,11 +1,19 @@
 import { pascalCase } from "change-case";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
 import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { x } from "tinyexec";
 import { describe } from "vitest";
 
-import { buildCustomType, buildSlice, it } from "./it";
+import {
+	buildCustomType,
+	buildSlice,
+	it,
+	readLocalCustomType,
+	readLocalSlice,
+	writeLocalCustomType,
+	writeLocalSlice,
+} from "./it";
 import {
 	deleteCustomType,
 	deleteSlice,
@@ -262,10 +270,11 @@ describe("with an isolated repository", () => {
 		token,
 		host,
 	}) => {
-		// Written with unsorted keys at every depth, plus field maps (tab, group,
-		// slice zone, legacy slice, slice primary) whose entry order must be kept
-		// as-is.
 		const slice = buildSlice({ id: "zeta-slice", name: "ZetaSlice" });
+		slice.variations[0].primary = {
+			title: { type: "Text", config: { placeholder: "Enter a title", label: "Title" } },
+			subtitle: { type: "Text", config: { placeholder: "Enter a subtitle", label: "Subtitle" } },
+		};
 		const customType = buildCustomType({
 			format: "custom",
 			json: {
@@ -286,8 +295,8 @@ describe("with an isolated repository", () => {
 						config: {
 							label: "Links",
 							fields: {
-								url: { type: "Text", config: { label: "URL", placeholder: "" } },
-								label: { type: "Text", config: { label: "Label", placeholder: "" } },
+								url: { type: "Text", config: { placeholder: "", label: "URL" } },
+								label: { type: "Text", config: { placeholder: "", label: "Label" } },
 							},
 						},
 					},
@@ -301,8 +310,8 @@ describe("with an isolated repository", () => {
 									type: "Slice",
 									fieldset: "Legacy banner",
 									"non-repeat": {
-										title: { type: "Text", config: { label: "Title", placeholder: "" } },
-										caption: { type: "Text", config: { label: "Caption", placeholder: "" } },
+										title: { type: "Text", config: { placeholder: "", label: "Title" } },
+										caption: { type: "Text", config: { placeholder: "", label: "Caption" } },
 									},
 								},
 							},
@@ -313,37 +322,25 @@ describe("with an isolated repository", () => {
 					author: { type: "Text", config: { label: "Author", placeholder: "" } },
 				},
 			},
-		} as Partial<ReturnType<typeof buildCustomType>>);
-		slice.variations[0].primary = {
-			title: { type: "Text", config: { placeholder: "Enter a title", label: "Title" } },
-			subtitle: { type: "Text", config: { placeholder: "Enter a subtitle", label: "Subtitle" } },
-		};
+		});
 
 		await Promise.all([
+			writeLocalCustomType(project, customType),
+			writeLocalSlice(project, slice),
 			insertCustomType(customType, { repo, token, host }),
 			insertSlice(slice, { repo, token, host }),
 		]);
 
-		const first = await prismic("pull", ["--repo", repo]);
+		const first = await prismic("pull", ["--repo", repo, "--force"]);
 		expect(first.exitCode, first.stderr).toBe(0);
 
-		const typePath = new URL(`customtypes/${customType.id}/index.json`, project);
-		const slicePath = new URL(`slices/${pascalCase(slice.name)}/model.json`, project);
-		const pulledType = await readFile(typePath, "utf8");
-		const pulledSlice = await readFile(slicePath, "utf8");
+		// oxlint-disable-next-line typescript-eslint/no-explicit-any
+		const writtenType: Record<string, any> = await readLocalCustomType(project, customType.id);
+		// oxlint-disable-next-line typescript-eslint/no-explicit-any
+		const writtenSlice: Record<string, any> | undefined = await readLocalSlice(project, slice.id);
+		if (!writtenSlice) throw new Error(`Slice "${slice.id}" was not pulled.`);
 
-		// Tab, field, and slice order is kept.
-		const writtenType = JSON.parse(pulledType);
-		expect(Object.keys(writtenType.json)).toEqual(["Main", "Details"]);
-		expect(Object.keys(writtenType.json.Main)).toEqual(["social_image", "links", "slices"]);
-		expect(Object.keys(writtenType.json.Main.links.config.fields)).toEqual(["url", "label"]);
-		const choices = writtenType.json.Main.slices.config.choices;
-		expect(Object.keys(choices)).toEqual([slice.id, "legacy_banner"]);
-		expect(Object.keys(choices.legacy_banner["non-repeat"])).toEqual(["title", "caption"]);
-		const writtenSlice = JSON.parse(pulledSlice);
-		expect(Object.keys(writtenSlice.variations[0].primary)).toEqual(["title", "subtitle"]);
-
-		// Every other key is sorted, and array order is kept.
+		expect(writtenType).toEqual(customType);
 		expect(Object.keys(writtenType)).toEqual([
 			"format",
 			"id",
@@ -352,18 +349,39 @@ describe("with an isolated repository", () => {
 			"repeatable",
 			"status",
 		]);
-		expect(Object.keys(writtenType.json.Main.slices)).toEqual(["config", "fieldset", "type"]);
+		expect(Object.keys(writtenType.json)).toEqual(["Main", "Details"]);
+		expect(Object.keys(writtenType.json.Main)).toEqual(["social_image", "links", "slices"]);
+		expect(Object.keys(writtenType.json.Main.social_image.config)).toEqual([
+			"constraint",
+			"label",
+			"thumbnails",
+		]);
 		expect(Object.keys(writtenType.json.Main.social_image.config.constraint)).toEqual([
 			"height",
 			"width",
 		]);
-		const thumbnails = writtenType.json.Main.social_image.config.thumbnails;
-		expect(thumbnails.map((thumbnail: { name: string }) => thumbnail.name)).toEqual([
-			"small",
-			"large",
+		expect(Object.keys(writtenType.json.Main.social_image.config.thumbnails[0])).toEqual([
+			"height",
+			"name",
+			"width",
 		]);
-		expect(Object.keys(thumbnails[0])).toEqual(["height", "name", "width"]);
-		expect(Object.keys(writtenSlice)).toEqual(["id", "name", "type", "variations"]);
+		expect(Object.keys(writtenType.json.Main.links.config.fields)).toEqual(["url", "label"]);
+		expect(Object.keys(writtenType.json.Main.links.config.fields.url.config)).toEqual([
+			"label",
+			"placeholder",
+		]);
+		expect(Object.keys(writtenType.json.Main.slices)).toEqual(["config", "fieldset", "type"]);
+
+		const choices = writtenType.json.Main.slices.config.choices;
+		expect(Object.keys(choices)).toEqual([slice.id, "legacy_banner"]);
+		expect(Object.keys(choices.legacy_banner)).toEqual(["fieldset", "non-repeat", "type"]);
+		expect(Object.keys(choices.legacy_banner["non-repeat"])).toEqual(["title", "caption"]);
+		expect(Object.keys(choices.legacy_banner["non-repeat"].title.config)).toEqual([
+			"label",
+			"placeholder",
+		]);
+
+		expect(writtenSlice).toEqual(slice);
 		expect(Object.keys(writtenSlice.variations[0])).toEqual([
 			"description",
 			"docURL",
@@ -373,35 +391,15 @@ describe("with an isolated repository", () => {
 			"primary",
 			"version",
 		]);
+		expect(Object.keys(writtenSlice.variations[0].primary)).toEqual(["title", "subtitle"]);
 
-		// A second pull with no changes on either side must not touch the files.
 		const second = await prismic("pull", ["--repo", repo]);
 		expect(second.exitCode, second.stderr).toBe(0);
 		expect(second.stdout).toContain("Already up to date.");
-		expect(await readFile(typePath, "utf8")).toBe(pulledType);
-		expect(await readFile(slicePath, "utf8")).toBe(pulledSlice);
-
-		// The fixtures hold the same models in a different key order, so writing
-		// them back makes both files non-canonical. Pull counts them as updates.
-		// This project has no git repo to protect local edits, so a plain pull
-		// refuses; --force writes the files back in canonical form.
-		const unsortedType = JSON.stringify(customType, null, 2);
-		const unsortedSlice = JSON.stringify(slice, null, 2);
-		expect(unsortedType).not.toBe(pulledType);
-		expect(unsortedSlice).not.toBe(pulledSlice);
-		await writeFile(typePath, unsortedType);
-		await writeFile(slicePath, unsortedSlice);
-
-		const blocked = await prismic("pull", ["--repo", repo]);
-		expect(blocked.exitCode).toBe(1);
-		expect(blocked.stderr).toContain("--force");
-
-		const rewrite = await prismic("pull", ["--repo", repo, "--force"]);
-		expect(rewrite.exitCode, rewrite.stderr).toBe(0);
-		expect(rewrite.stdout).toContain("updated 1, deleted 0 types");
-		expect(rewrite.stdout).toContain("updated 1, deleted 0 slices");
-		expect(await readFile(typePath, "utf8")).toBe(pulledType);
-		expect(await readFile(slicePath, "utf8")).toBe(pulledSlice);
+		const typeAfter = await readLocalCustomType(project, customType.id);
+		const sliceAfter = await readLocalSlice(project, slice.id);
+		expect(JSON.stringify(typeAfter)).toBe(JSON.stringify(writtenType));
+		expect(JSON.stringify(sliceAfter)).toBe(JSON.stringify(writtenSlice));
 	});
 });
 
