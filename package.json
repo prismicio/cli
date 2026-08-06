@@ -1,6 +1,6 @@
 {
 	"name": "prismic",
-	"version": "1.13.0",
+	"version": "1.14.0",
 	"description": "Prismic's official command line tool",
 	"keywords": [
 		"prismic",
@@ -34,9 +34,6 @@
 		"evals": "vitest run --project evals --reporter=default --reporter=./evals/reporter.ts",
 		"evals:report": "jq -r '.evals | to_entries[] | \"\\([.value[]|select(.pass)]|length)/\\(.value|length)  \\([.value[].durationS]|add/length|round)s  \\(.key)\"' evals/results.json",
 		"test": "npm run lint && npm run types && npm run unit"
-	},
-	"dependencies": {
-		"fflate": "^0.8.3"
 	},
 	"devDependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.3.215",

@@ -8,6 +8,7 @@ import { exists, findUpward, readJsonFile } from "./file";
 import { request } from "./request";
 
 const PackageJsonSchema = z.object({
+	name: z.optional(z.string()),
 	dependencies: z.optional(z.record(z.string(), z.string())),
 	devDependencies: z.optional(z.record(z.string(), z.string())),
 	peerDependencies: z.optional(z.record(z.string(), z.string())),
@@ -21,10 +22,8 @@ export async function readPackageJson(): Promise<PackageJson> {
 	return packageJson;
 }
 
-export async function findPackageJson(
-	config: { start?: URL; stop?: URL | string } = {},
-): Promise<URL> {
-	const packageJsonPath = await findUpward("package.json", config);
+export async function findPackageJson(): Promise<URL> {
+	const packageJsonPath = await findUpward("package.json");
 	if (!packageJsonPath) throw new MissingPackageJson();
 	return packageJsonPath;
 }
@@ -62,6 +61,16 @@ export async function removeDependencies(names: string[]): Promise<void> {
 	await writeFile(packageJsonPath, newContents);
 }
 
+export async function updatePackageJsonName(name: string): Promise<void> {
+	const packageJsonPath = await findPackageJson();
+	const raw = await readFile(packageJsonPath, "utf8");
+	const indent = detectIndent(raw).indent || "\t";
+	const packageJson = JSON.parse(raw);
+	packageJson.name = name;
+	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
+	await writeFile(packageJsonPath, newContents);
+}
+
 export async function getNpmPackageVersion(name: string, tag = "latest"): Promise<string> {
 	const url = new URL(`${name}/${tag}`, "https://registry.npmjs.org/");
 	const { version } = await request(url, {
@@ -77,12 +86,10 @@ const INSTALL_COMMANDS = {
 	bun: ["bun", "install"],
 };
 
-export async function installDependencies(
-	config: { start?: URL; stop?: URL | string } = {},
-): Promise<void> {
-	const packageJsonPath = await findPackageJson(config);
+export async function installDependencies(): Promise<void> {
+	const packageJsonPath = await findPackageJson();
 	const cwd = new URL(".", packageJsonPath);
-	const packageManager = await detectPackageManager(packageJsonPath);
+	const packageManager = await detectPackageManager();
 	const [command, ...args] = INSTALL_COMMANDS[packageManager];
 	await x(command, args, {
 		nodeOptions: { cwd: fileURLToPath(cwd), stdio: "inherit" },
@@ -98,10 +105,11 @@ const PACKAGE_MANAGER_LOCKFILES: Record<string, keyof typeof INSTALL_COMMANDS> =
 	"package-lock.json": "npm",
 };
 
-async function detectPackageManager(packageJsonPath: URL): Promise<keyof typeof INSTALL_COMMANDS> {
-	const packageManager = await readPackageManager(packageJsonPath);
+async function detectPackageManager(): Promise<keyof typeof INSTALL_COMMANDS> {
+	const packageManager = await readPackageManager();
 	if (packageManager) return packageManager;
 
+	const packageJsonPath = await findPackageJson();
 	for (const file in PACKAGE_MANAGER_LOCKFILES) {
 		const packageManager = PACKAGE_MANAGER_LOCKFILES[file];
 		const hasLockfile = await exists(new URL(file, packageJsonPath));
@@ -111,13 +119,9 @@ async function detectPackageManager(packageJsonPath: URL): Promise<keyof typeof 
 	return "npm";
 }
 
-async function readPackageManager(
-	packageJsonPath: URL,
-): Promise<keyof typeof INSTALL_COMMANDS | undefined> {
+async function readPackageManager(): Promise<keyof typeof INSTALL_COMMANDS | undefined> {
 	try {
-		const packageJson = await readJsonFile(packageJsonPath, {
-			schema: PackageJsonSchema,
-		});
+		const packageJson = await readPackageJson();
 		if (!packageJson.packageManager) return;
 		const packageManager = packageJson.packageManager.split("@")[0];
 		if (packageManager in INSTALL_COMMANDS) return packageManager as keyof typeof INSTALL_COMMANDS;

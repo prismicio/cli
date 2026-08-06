@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.14.0](https://github.com/prismicio/cli/compare/v1.13.0...v1.14.0) (2026-07-31)
+
+
+### Features
+
+* add `--labels` option for rich text fields ([#234](https://github.com/prismicio/cli/issues/234)) ([700fca5](https://github.com/prismicio/cli/commit/700fca56d6ca0a106b62a5f7784de1faf8ad5502))
+* add experimental `env` commands ([#227](https://github.com/prismicio/cli/issues/227)) ([faee425](https://github.com/prismicio/cli/commit/faee42549a52cfbf0e38c61d1f3c6f08f04e716c))
+* support link type and custom type restrictions on link fields ([#236](https://github.com/prismicio/cli/issues/236)) ([4efa863](https://github.com/prismicio/cli/commit/4efa86320fc4aea3ff180de2c3063ff31cc565de))
+
+
+### Bug Fixes
+
+* only push and pull models with meaningful changes ([#217](https://github.com/prismicio/cli/issues/217)) ([980eac9](https://github.com/prismicio/cli/commit/980eac9119f643d97a4ae3de734f903d838a0c9f))
+
 ## [1.13.0](https://github.com/prismicio/cli/compare/v1.12.2...v1.13.0) (2026-07-16)
 
 

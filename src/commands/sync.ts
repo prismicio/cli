@@ -8,8 +8,8 @@ import { getErrorMessage } from "../error";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { completeOnboardingStepsSilently } from "../lib/prismic/clients/repository";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
 
@@ -128,12 +128,11 @@ export default createCommand(config, async ({ values }) => {
 				lastHash = nextHash;
 
 				if (isInitial) {
-					await completeOnboardingStepsSilently({
+					await completeOnboardingSteps(["connectPrismic"], {
 						repo: await getRepositoryName(),
 						token,
 						host,
-						stepIds: ["connectPrismic"],
-					});
+					}).catch(() => {});
 					console.info("Initial sync complete.");
 				} else {
 					const timestamp = new Date().toLocaleTimeString();

@@ -1,23 +1,44 @@
+import { rm } from "node:fs/promises";
+
 import type { Profile } from "../lib/prismic/clients/user";
 
-import { getAdapter } from "../adapters";
+import { getAdapter, type Adapter } from "../adapters";
 import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
-import { installDependencies, readPackageJson, removeDependencies } from "../lib/packageJson";
-import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { getProfile } from "../lib/prismic/clients/user";
-import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import {
+	installDependencies,
+	readPackageJson,
+	removeDependencies,
+	updatePackageJsonName,
+} from "../lib/packageJson";
+import {
+	addPreview,
+	getPreviews,
+	removePreview,
+	setSimulatorUrl,
+} from "../lib/prismic/clients/core";
+import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { getRepository, type Repository } from "../lib/prismic/clients/repository";
+import { getProfile } from "../lib/prismic/clients/user";
+import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import { completeOnboardingSteps } from "../lib/prismic/onboarding";
+import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import { sentryCaptureError } from "../lib/sentry";
+import { dedent } from "../lib/string";
+import {
+	type Config,
 	createConfig,
 	deleteLegacySliceMachineConfig,
+	findProjectRoot,
 	InvalidLegacySliceMachineConfigError,
 	MissingPrismicConfigError,
 	readConfig,
 	readLegacySliceMachineConfig,
 	UnknownProjectRootError,
+	updateConfig,
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 import { createRepo } from "./repo-create";
@@ -54,27 +75,28 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo: explicitRepo, lang, "no-browser": noBrowser, "no-setup": noSetup } = values;
 
-	// Check for existing prismic.config.json
+	let existingConfig: Config | undefined;
 	try {
-		await readConfig();
-		throw new CommandError(
-			"A prismic.config.json file exists. This project is already initialized.",
-		);
+		existingConfig = await readConfig();
 	} catch (error) {
-		if (error instanceof MissingPrismicConfigError) {
-			// No config found — proceed with initialization.
-		} else {
-			throw error;
-		}
+		if (!(error instanceof MissingPrismicConfigError)) throw error;
 	}
+	if (existingConfig && !explicitRepo) {
+		throw new CommandError(
+			"A prismic.config.json file exists. Use `prismic init --repo <repository>` to connect it to an existing repository.",
+		);
+	}
+	const isExistingProjectHandoff = existingConfig !== undefined && explicitRepo !== undefined;
 
 	// Load legacy slicemachine.config.json
 	let legacySliceMachineConfig;
-	try {
-		legacySliceMachineConfig = await readLegacySliceMachineConfig();
-	} catch (error) {
-		if (error instanceof InvalidLegacySliceMachineConfigError) {
-			console.warn("Could not read slicemachine.config.json, ignoring.");
+	if (!existingConfig) {
+		try {
+			legacySliceMachineConfig = await readLegacySliceMachineConfig();
+		} catch (error) {
+			if (error instanceof InvalidLegacySliceMachineConfigError) {
+				console.warn("Could not read slicemachine.config.json, ignoring.");
+			}
 		}
 	}
 
@@ -112,6 +134,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
+	let connectedRepository: Repository | undefined;
 	if (repo) {
 		const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
 		if (!hasRepoAccess) {
@@ -124,6 +147,8 @@ export default createCommand(config, async ({ values }) => {
 		if (!isTypeBuilderEnabled) {
 			throw new TypeBuilderRequiredError(repo, host);
 		}
+
+		connectedRepository = await getRepository({ repo, token, host });
 	}
 
 	const adapter = await getAdapter();
@@ -133,16 +158,20 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Created repository: ${repo}`);
 	}
 
-	// Create prismic.config.json
+	// Create or reconnect prismic.config.json
 	try {
 		const documentAPIEndpoint =
 			host !== DEFAULT_PRISMIC_HOST ? `https://${repo}.cdn.${host}/api/v2/` : undefined;
-		await createConfig({
-			repositoryName: repo,
-			documentAPIEndpoint,
-			libraries: legacySliceMachineConfig?.libraries,
-			routes: [],
-		});
+		if (existingConfig) {
+			await updateConfig({ repositoryName: repo, documentAPIEndpoint });
+		} else {
+			await createConfig({
+				repositoryName: repo,
+				documentAPIEndpoint,
+				libraries: legacySliceMachineConfig?.libraries,
+				routes: [],
+			});
+		}
 	} catch (error) {
 		if (error instanceof UnknownProjectRootError) {
 			throw new CommandError(
@@ -171,7 +200,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Install dependencies and create framework files
-	await adapter.initProject({ setup: !noSetup });
+	await adapter.initProject({ setup: !noSetup && !existingConfig });
 
 	// Run package manager install
 	if (!noSetup) {
@@ -195,33 +224,132 @@ export default createCommand(config, async ({ values }) => {
 	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
 	const localSliceModels = localSlices.map((s) => s.model);
 
-	const sliceOps = diffArrays(remoteSlices, localSliceModels, { getKey: (m) => m.id });
-	for (const slice of sliceOps.update) {
-		await adapter.updateSlice(slice);
-	}
-	for (const slice of sliceOps.delete) {
-		await adapter.deleteSlice(slice.id);
-	}
-	for (const slice of sliceOps.insert) {
-		await adapter.createSlice(slice);
-	}
+	const sliceOps = diffArrays(remoteSlices, localSliceModels, {
+		getKey: (model) => model.id,
+		equals: (a, b) => JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
+	});
 
 	const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
-		getKey: (m) => m.id,
+		getKey: (model) => model.id,
+		equals: (a, b) =>
+			JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
 	});
-	for (const customType of customTypeOps.update) {
-		await adapter.updateCustomType(customType);
+
+	if (isExistingProjectHandoff && connectedRepository?.starter) {
+		if (remoteCustomTypes.length === 0 && remoteSlices.length === 0) {
+			throw new CommandError(
+				`Repository "${repo}" has no starter models. Use a repository created from the starter in the Prismic dashboard.`,
+			);
+		}
+		await removeStarterDocuments(connectedRepository.starter);
 	}
-	for (const customType of customTypeOps.delete) {
-		await adapter.deleteCustomType(customType.id);
-	}
-	for (const customType of customTypeOps.insert) {
-		await adapter.createCustomType(customType);
+
+	const hasStarterModelChanges =
+		isExistingProjectHandoff &&
+		[customTypeOps, sliceOps].some((ops) => ops.update.length > 0 || ops.delete.length > 0);
+
+	if (!hasStarterModelChanges) {
+		for (const slice of sliceOps.update) {
+			await adapter.updateSlice(slice);
+		}
+		for (const slice of sliceOps.delete) {
+			await adapter.deleteSlice(slice.id);
+		}
+		for (const slice of sliceOps.insert) {
+			await adapter.createSlice(slice);
+		}
+
+		for (const customType of customTypeOps.update) {
+			await adapter.updateCustomType(customType);
+		}
+		for (const customType of customTypeOps.delete) {
+			await adapter.deleteCustomType(customType.id);
+		}
+		for (const customType of customTypeOps.insert) {
+			await adapter.createCustomType(customType);
+		}
 	}
 
 	await adapter.generateTypes();
+
+	if (hasStarterModelChanges) {
+		console.warn(
+			dedent`
+				Local and remote models differ, so no model files were changed. The project is connected.
+
+				Choose the source of truth:
+				  prismic pull --force   Adopt remote models
+				  prismic push --force   Keep local models
+			`,
+		);
+	}
+
+	if (isExistingProjectHandoff && connectedRepository?.starter) {
+		await completeStarterHandoff(adapter, connectedRepository.starter, { repo, token, host });
+	}
 
 	console.info(`\nInitialized Prismic for repository "${repo}".`);
 	console.info("Run `prismic type create <name>` to create a content type.");
 	console.info("Run `prismic pull` to pull models from Prismic.");
 });
+
+async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Promise<boolean> {
+	const packageJson = await readPackageJson();
+	const starterPackageName = starter.id.split("/").at(-1);
+	return Boolean(starterPackageName && packageJson.name === starterPackageName);
+}
+
+async function removeStarterDocuments(starter: NonNullable<Repository["starter"]>): Promise<void> {
+	if (!(await isStarterPackage(starter))) {
+		console.warn(
+			"Starter seed documents were not removed because the local package does not match the repository starter.",
+		);
+		return;
+	}
+
+	const projectRoot = await findProjectRoot();
+	await rm(new URL("documents/", projectRoot), { recursive: true, force: true });
+}
+
+async function completeStarterHandoff(
+	adapter: Adapter,
+	starter: NonNullable<Repository["starter"]>,
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<void> {
+	try {
+		const hostedPreviewURL = new URL(adapter.localPreviewConfig.resolverPath, starter.deploymentUrl)
+			.href;
+		const previews = await getPreviews(config);
+		await Promise.all(
+			previews
+				.filter((preview) => preview.url === hostedPreviewURL)
+				.map((preview) => removePreview(preview.id, config)),
+		);
+		const hasDevelopmentPreview = previews.some(
+			(preview) => preview.url === adapter.localPreviewUrl,
+		);
+		if (!hasDevelopmentPreview) {
+			await addPreview(adapter.localPreviewConfig, config);
+		}
+	} catch (error) {
+		await sentryCaptureError(error);
+		console.error(
+			`Could not configure the local preview. Run \`prismic preview add ${adapter.localPreviewUrl} --name ${adapter.localPreviewConfig.name}\` manually. Continuing.`,
+		);
+	}
+
+	try {
+		await setSimulatorUrl(adapter.localSimulatorUrl, config);
+	} catch (error) {
+		await sentryCaptureError(error);
+		console.error(
+			`Could not configure the local slice simulator. Run \`prismic preview set-simulator ${adapter.localSimulatorUrl}\` manually. Continuing.`,
+		);
+	}
+
+	await completeOnboardingSteps(["instantStart_continueBuildingLocally"], config).catch(() => {});
+
+	if (await isStarterPackage(starter)) {
+		await updatePackageJsonName(config.repo);
+	}
+}

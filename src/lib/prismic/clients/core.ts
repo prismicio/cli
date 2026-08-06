@@ -30,11 +30,6 @@ export async function getPreviews(config: CoreConfig): Promise<Preview[]> {
 	return response.results;
 }
 
-export async function hasPreviewByURL(url: string, config: CoreConfig): Promise<boolean> {
-	const previews = await getPreviews(config);
-	return previews.some((preview) => preview.url === url);
-}
-
 export async function addPreview(
 	previewConfig: {
 		name: string;
@@ -65,19 +60,6 @@ export async function removePreview(id: string, config: CoreConfig): Promise<voi
 		notFoundMessage: `Preview not found: ${id}`,
 		unknownErrorMessage: "Failed to remove preview",
 	});
-}
-
-export async function removePreviewsByURL(
-	urls: Iterable<string>,
-	config: CoreConfig,
-): Promise<void> {
-	const previews = await getPreviews(config);
-	const urlSet = new Set(urls);
-	await Promise.all(
-		previews
-			.filter((preview) => urlSet.has(preview.url))
-			.map((preview) => removePreview(preview.id, config)),
-	);
 }
 
 const EnvironmentSchema = z.object({

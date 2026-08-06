@@ -41,10 +41,8 @@ declare module "vitest" {
 }
 
 export const it = base.extend<{
-	isolateRepo: boolean;
 	agent: (prompt: string) => Promise<AgentResult>;
 }>({
-	isolateRepo: true,
 	agent: async ({ home, project, login, task, repo, token, host, password }, use) => {
 		await login();
 
@@ -101,6 +99,8 @@ export const it = base.extend<{
 		} catch {}
 	},
 });
+
+it.scoped({ isolateRepo: true });
 
 expect.extend({
 	toHaveRun(result: AgentResult, bin: string, positionals: string[] = []) {

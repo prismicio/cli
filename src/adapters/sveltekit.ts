@@ -36,6 +36,12 @@ export class SvelteKitAdapter extends Adapter {
 
 	readonly environmentEnvVarName = "PUBLIC_PRISMIC_ENVIRONMENT";
 
+	readonly localPreviewConfig = {
+		name: "Development",
+		websiteURL: "http://localhost:5173",
+		resolverPath: "/api/preview",
+	};
+
 	async setupProject(): Promise<void> {
 		await addDependencies({
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
@@ -57,15 +63,12 @@ export class SvelteKitAdapter extends Adapter {
 
 		const simulatorUrl = await getSimulatorUrl({ repo, token, host });
 		if (!simulatorUrl) {
-			await setSimulatorUrl("http://localhost:5173/slice-simulator", { repo, token, host });
+			await setSimulatorUrl(this.localSimulatorUrl, { repo, token, host });
 		}
 
 		const previews = await getPreviews({ repo, token, host });
 		if (previews.length === 0) {
-			await addPreview(
-				{ name: "Development", websiteURL: "http://localhost:5173", resolverPath: "/api/preview" },
-				{ repo, token, host },
-			);
+			await addPreview(this.localPreviewConfig, { repo, token, host });
 		}
 	}
 

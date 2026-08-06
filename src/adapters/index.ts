@@ -26,6 +26,12 @@ const TYPES_FILENAME = "prismicio-types.d.ts";
 type CustomTypeMeta = { model: CustomType; modelPath: URL; directory: URL; library: URL };
 type SharedSliceMeta = { model: SharedSlice; modelPath: URL; directory: URL; library: URL };
 
+export type LocalDevelopmentPreview = {
+	name: string;
+	websiteURL: string;
+	resolverPath: string;
+};
+
 export async function getAdapter(): Promise<Adapter> {
 	const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
 	const allDependencies = { ...dependencies, ...devDependencies, ...peerDependencies };
@@ -60,6 +66,16 @@ export abstract class Adapter {
 
 	abstract readonly environmentEnvVarName: string;
 
+	abstract readonly localPreviewConfig: LocalDevelopmentPreview;
+
+	get localPreviewUrl(): string {
+		return new URL(this.localPreviewConfig.resolverPath, this.localPreviewConfig.websiteURL).href;
+	}
+
+	get localSimulatorUrl(): string {
+		return new URL("slice-simulator", this.localPreviewConfig.websiteURL).href;
+	}
+
 	abstract onProjectInitialized(): Promise<void> | void;
 	abstract onSliceCreated(model: SharedSlice, library: URL): Promise<void> | void;
 	abstract onSliceUpdated(model: SharedSlice): Promise<void> | void;
@@ -83,7 +99,7 @@ export abstract class Adapter {
 	}
 
 	async getSliceLibraries(): Promise<URL[]> {
-		let libraries = await getLibraries();
+		const libraries = await getLibraries();
 		if (libraries) return libraries;
 		const defaultSliceLibrary = await this.getDefaultSliceLibrary();
 		return [defaultSliceLibrary];
