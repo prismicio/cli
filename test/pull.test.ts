@@ -275,7 +275,10 @@ describe("with an isolated repository", () => {
 						config: {
 							label: "Social image",
 							constraint: { width: 1200, height: 630 },
-							thumbnails: [{ name: "small", width: 100, height: 50 }],
+							thumbnails: [
+								{ name: "small", width: 100, height: 50 },
+								{ name: "large", width: 400, height: 200 },
+							],
 						},
 					},
 					links: {
@@ -306,6 +309,9 @@ describe("with an isolated repository", () => {
 						},
 					},
 				},
+				Details: {
+					author: { type: "Text", config: { label: "Author", placeholder: "" } },
+				},
 			},
 		} as Partial<ReturnType<typeof buildCustomType>>);
 		slice.variations[0].primary = {
@@ -326,19 +332,47 @@ describe("with an isolated repository", () => {
 		const pulledType = await readFile(typePath, "utf8");
 		const pulledSlice = await readFile(slicePath, "utf8");
 
-		// Metadata and config keys are sorted; field order is kept.
+		// Tab, field, and slice order is kept.
 		const writtenType = JSON.parse(pulledType);
+		expect(Object.keys(writtenType.json)).toEqual(["Main", "Details"]);
 		expect(Object.keys(writtenType.json.Main)).toEqual(["social_image", "links", "slices"]);
-		expect(Object.keys(writtenType.json.Main.social_image.config.constraint)).toEqual([
-			"height",
-			"width",
-		]);
 		expect(Object.keys(writtenType.json.Main.links.config.fields)).toEqual(["url", "label"]);
 		const choices = writtenType.json.Main.slices.config.choices;
 		expect(Object.keys(choices)).toEqual([slice.id, "legacy_banner"]);
 		expect(Object.keys(choices.legacy_banner["non-repeat"])).toEqual(["title", "caption"]);
 		const writtenSlice = JSON.parse(pulledSlice);
 		expect(Object.keys(writtenSlice.variations[0].primary)).toEqual(["title", "subtitle"]);
+
+		// Every other key is sorted, and array order is kept.
+		expect(Object.keys(writtenType)).toEqual([
+			"format",
+			"id",
+			"json",
+			"label",
+			"repeatable",
+			"status",
+		]);
+		expect(Object.keys(writtenType.json.Main.slices)).toEqual(["config", "fieldset", "type"]);
+		expect(Object.keys(writtenType.json.Main.social_image.config.constraint)).toEqual([
+			"height",
+			"width",
+		]);
+		const thumbnails = writtenType.json.Main.social_image.config.thumbnails;
+		expect(thumbnails.map((thumbnail: { name: string }) => thumbnail.name)).toEqual([
+			"small",
+			"large",
+		]);
+		expect(Object.keys(thumbnails[0])).toEqual(["height", "name", "width"]);
+		expect(Object.keys(writtenSlice)).toEqual(["id", "name", "type", "variations"]);
+		expect(Object.keys(writtenSlice.variations[0])).toEqual([
+			"description",
+			"docURL",
+			"id",
+			"imageUrl",
+			"name",
+			"primary",
+			"version",
+		]);
 
 		// A second pull with no changes on either side must not touch the files.
 		const second = await prismic("pull", ["--repo", repo]);
