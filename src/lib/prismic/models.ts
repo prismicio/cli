@@ -1,11 +1,14 @@
 import type {
 	CustomType,
+	DynamicSlices,
 	DynamicWidget,
 	Link,
 	SharedSlice,
 } from "@prismicio/types-internal/lib/customtypes";
 
 type Fields = Record<string, DynamicWidget>;
+
+type Choices = NonNullable<NonNullable<DynamicSlices["config"]>["choices"]>;
 
 export type ContentRelationshipFieldSelection =
 	| string
@@ -214,6 +217,29 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 				sorted.config?.fields
 			) {
 				sorted.config.fields = canonicalizeFields(field.config.fields);
+			}
+			if (
+				field.type === "Slices" &&
+				field.config?.choices &&
+				sorted.type === "Slices" &&
+				sorted.config?.choices
+			) {
+				sorted.config.choices = canonicalizeChoices(field.config.choices);
+			}
+			return [id, sorted];
+		}),
+	);
+}
+
+// Entry order of a slice zone's choices is its slice order, and legacy slices
+// hold field maps of their own.
+function canonicalizeChoices(choices: Choices): Choices {
+	return Object.fromEntries(
+		Object.entries(choices).map(([id, choice]) => {
+			const sorted = sortKeys(choice);
+			if (choice.type === "Slice" && sorted.type === "Slice") {
+				if (choice["non-repeat"]) sorted["non-repeat"] = canonicalizeFields(choice["non-repeat"]);
+				if (choice.repeat) sorted.repeat = canonicalizeFields(choice.repeat);
 			}
 			return [id, sorted];
 		}),
