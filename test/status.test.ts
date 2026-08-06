@@ -6,7 +6,6 @@ import {
 	it,
 	readLocalCustomType,
 	readLocalSlice,
-	scramble,
 	writeLocalCustomType,
 	writeLocalSlice,
 } from "./it";
@@ -79,7 +78,10 @@ describe("with an isolated repository", () => {
 		token,
 		host,
 	}) => {
+		// Written with unsorted keys at every depth, so the fixtures double as the
+		// non-canonical local files below.
 		const customType = buildCustomType({
+			format: "custom",
 			json: {
 				Main: {
 					title: { type: "Text", config: { label: "Title", placeholder: "Enter a title" } },
@@ -117,19 +119,16 @@ describe("with an isolated repository", () => {
 		const pull = await prismic("pull", ["--repo", repo]);
 		expect(pull.exitCode, pull.stderr).toBe(0);
 
-		// Hand-edit the local files: reverse key order at every depth, leaving all
-		// values and the field order unchanged.
+		// Write the fixtures back over the pulled files. Same models, different
+		// key order.
 		const pulledType = await readLocalCustomType(project, customType.id);
-		const scrambledType = scramble(pulledType);
-		// Confirm the hand-edit really produced a non-canonical file.
-		expect(JSON.stringify(scrambledType, null, 2)).not.toBe(JSON.stringify(pulledType, null, 2));
-		await writeLocalCustomType(project, scrambledType);
+		expect(JSON.stringify(customType, null, 2)).not.toBe(JSON.stringify(pulledType, null, 2));
+		await writeLocalCustomType(project, customType);
 
 		const pulledSlice = await readLocalSlice(project, slice.id);
 		if (!pulledSlice) throw new Error(`Slice "${slice.id}" was not pulled.`);
-		const scrambledSlice = scramble(pulledSlice);
-		expect(JSON.stringify(scrambledSlice, null, 2)).not.toBe(JSON.stringify(pulledSlice, null, 2));
-		await writeLocalSlice(project, scrambledSlice);
+		expect(JSON.stringify(slice, null, 2)).not.toBe(JSON.stringify(pulledSlice, null, 2));
+		await writeLocalSlice(project, slice);
 
 		// Both sides canonicalize equal, so status must report no changes.
 		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);

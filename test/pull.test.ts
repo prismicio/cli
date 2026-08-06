@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { x } from "tinyexec";
 import { describe } from "vitest";
 
-import { buildCustomType, buildSlice, it, scramble } from "./it";
+import { buildCustomType, buildSlice, it } from "./it";
 import {
 	deleteCustomType,
 	deleteSlice,
@@ -262,9 +262,12 @@ describe("with an isolated repository", () => {
 		token,
 		host,
 	}) => {
-		// Nested config objects with unsorted keys, plus field maps (tab, group,
-		// slice primary) whose entry order must be kept as-is.
+		// Written with unsorted keys at every depth, plus field maps (tab, group,
+		// slice zone, legacy slice, slice primary) whose entry order must be kept
+		// as-is.
+		const slice = buildSlice({ id: "zeta-slice", name: "ZetaSlice" });
 		const customType = buildCustomType({
+			format: "custom",
 			json: {
 				Main: {
 					social_image: {
@@ -285,10 +288,26 @@ describe("with an isolated repository", () => {
 							},
 						},
 					},
+					slices: {
+						type: "Slices",
+						fieldset: "Slice Zone",
+						config: {
+							choices: {
+								[slice.id]: { type: "SharedSlice" },
+								legacy_banner: {
+									type: "Slice",
+									fieldset: "Legacy banner",
+									"non-repeat": {
+										title: { type: "Text", config: { label: "Title", placeholder: "" } },
+										caption: { type: "Text", config: { label: "Caption", placeholder: "" } },
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		} as Partial<ReturnType<typeof buildCustomType>>);
-		const slice = buildSlice();
 		slice.variations[0].primary = {
 			title: { type: "Text", config: { placeholder: "Enter a title", label: "Title" } },
 			subtitle: { type: "Text", config: { placeholder: "Enter a subtitle", label: "Subtitle" } },
@@ -309,12 +328,15 @@ describe("with an isolated repository", () => {
 
 		// Metadata and config keys are sorted; field order is kept.
 		const writtenType = JSON.parse(pulledType);
-		expect(Object.keys(writtenType.json.Main)).toEqual(["social_image", "links"]);
+		expect(Object.keys(writtenType.json.Main)).toEqual(["social_image", "links", "slices"]);
 		expect(Object.keys(writtenType.json.Main.social_image.config.constraint)).toEqual([
 			"height",
 			"width",
 		]);
 		expect(Object.keys(writtenType.json.Main.links.config.fields)).toEqual(["url", "label"]);
+		const choices = writtenType.json.Main.slices.config.choices;
+		expect(Object.keys(choices)).toEqual([slice.id, "legacy_banner"]);
+		expect(Object.keys(choices.legacy_banner["non-repeat"])).toEqual(["title", "caption"]);
 		const writtenSlice = JSON.parse(pulledSlice);
 		expect(Object.keys(writtenSlice.variations[0].primary)).toEqual(["title", "subtitle"]);
 
@@ -325,15 +347,16 @@ describe("with an isolated repository", () => {
 		expect(await readFile(typePath, "utf8")).toBe(pulledType);
 		expect(await readFile(slicePath, "utf8")).toBe(pulledSlice);
 
-		// Files with non-canonical key order count as updates. This project has
-		// no git repo to protect local edits, so a plain pull refuses; --force
-		// writes the files back in canonical form.
-		const scrambledType = JSON.stringify(scramble(JSON.parse(pulledType)), null, 2);
-		const scrambledSlice = JSON.stringify(scramble(JSON.parse(pulledSlice)), null, 2);
-		expect(scrambledType).not.toBe(pulledType);
-		expect(scrambledSlice).not.toBe(pulledSlice);
-		await writeFile(typePath, scrambledType);
-		await writeFile(slicePath, scrambledSlice);
+		// The fixtures hold the same models in a different key order, so writing
+		// them back makes both files non-canonical. Pull counts them as updates.
+		// This project has no git repo to protect local edits, so a plain pull
+		// refuses; --force writes the files back in canonical form.
+		const unsortedType = JSON.stringify(customType, null, 2);
+		const unsortedSlice = JSON.stringify(slice, null, 2);
+		expect(unsortedType).not.toBe(pulledType);
+		expect(unsortedSlice).not.toBe(pulledSlice);
+		await writeFile(typePath, unsortedType);
+		await writeFile(slicePath, unsortedSlice);
 
 		const blocked = await prismic("pull", ["--repo", repo]);
 		expect(blocked.exitCode).toBe(1);
