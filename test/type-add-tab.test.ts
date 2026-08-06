@@ -12,7 +12,12 @@ it("adds a tab to a type", async ({ expect, prismic, project }) => {
 
 	const tabName = `Tab${crypto.randomUUID().split("-")[0]}`;
 
-	const { stdout, stderr, exitCode } = await prismic("type", ["add-tab", tabName, "--to", customType.id]);
+	const { stdout, stderr, exitCode } = await prismic("type", [
+		"add-tab",
+		tabName,
+		"--to",
+		customType.id,
+	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Added tab "${tabName}" to "${customType.id}"`);
 

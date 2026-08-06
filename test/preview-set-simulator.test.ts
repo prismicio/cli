@@ -21,7 +21,10 @@ it.sequential("sets simulator URL", async ({ expect, prismic, repo, token, host 
 
 // Must be sequential because the repo only has one simulator URL.
 it.sequential("appends /slice-simulator to URL", async ({ expect, prismic }) => {
-	const { stdout, stderr, exitCode } = await prismic("preview", ["set-simulator", "https://example.com"]);
+	const { stdout, stderr, exitCode } = await prismic("preview", [
+		"set-simulator",
+		"https://example.com",
+	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Simulator URL set: https://example.com/slice-simulator");
 });

@@ -8,7 +8,12 @@ import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
-import { installDependencies, readPackageJson, removeDependencies, updatePackageJsonName } from "../lib/packageJson";
+import {
+	installDependencies,
+	readPackageJson,
+	removeDependencies,
+	updatePackageJsonName,
+} from "../lib/packageJson";
 import {
 	addPreview,
 	getPreviews,
@@ -17,9 +22,9 @@ import {
 } from "../lib/prismic/clients/core";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getRepository, type Repository } from "../lib/prismic/clients/repository";
-import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { getProfile } from "../lib/prismic/clients/user";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
 import { dedent } from "../lib/string";
@@ -241,9 +246,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const hasStarterModelChanges =
 		isExistingProjectHandoff &&
-		[customTypeOps, sliceOps].some(
-			(ops) => ops.update.length > 0 || ops.delete.length > 0,
-		);
+		[customTypeOps, sliceOps].some((ops) => ops.update.length > 0 || ops.delete.length > 0);
 
 	if (!hasStarterModelChanges) {
 		for (const slice of sliceOps.update) {
@@ -314,17 +317,17 @@ async function completeStarterHandoff(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	try {
-		const hostedPreviewURL = new URL(
-			adapter.localPreviewConfig.resolverPath,
-			starter.deploymentUrl,
-		).href;
+		const hostedPreviewURL = new URL(adapter.localPreviewConfig.resolverPath, starter.deploymentUrl)
+			.href;
 		const previews = await getPreviews(config);
 		await Promise.all(
 			previews
 				.filter((preview) => preview.url === hostedPreviewURL)
 				.map((preview) => removePreview(preview.id, config)),
 		);
-		const hasDevelopmentPreview = previews.some((preview) => preview.url === adapter.localPreviewUrl);
+		const hasDevelopmentPreview = previews.some(
+			(preview) => preview.url === adapter.localPreviewUrl,
+		);
 		if (!hasDevelopmentPreview) {
 			await addPreview(adapter.localPreviewConfig, config);
 		}

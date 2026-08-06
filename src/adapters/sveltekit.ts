@@ -1,7 +1,4 @@
-import type {
-	CustomType,
-	SharedSlice,
-} from "@prismicio/types-internal/lib/customtypes";
+import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
 import { loadFile } from "magicast";

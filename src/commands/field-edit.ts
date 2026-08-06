@@ -185,7 +185,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 						"--allow accepts a single link type. Prismic links allow either one type or all types.",
 					);
 				} else {
-					throw new CommandError("--allow for link fields must be one of: document, media, web, any");
+					throw new CommandError(
+						"--allow for link fields must be one of: document, media, web, any",
+					);
 				}
 			}
 			if ("field" in values) {

@@ -41,9 +41,7 @@ export async function createInstantStartRepository(config: AuthConfig): Promise<
 		headers: { Authorization: `Bearer ${config.token}` },
 	});
 	if (!res.ok)
-		throw new Error(
-			`Failed to create Instant Start repository: ${res.status} ${await res.text()}`,
-		);
+		throw new Error(`Failed to create Instant Start repository: ${res.status} ${await res.text()}`);
 	const data = await res.json();
 	return data.repositoryId;
 }
@@ -55,8 +53,7 @@ export async function getOnboardingCompletedSteps(config: RepoConfig): Promise<s
 	const res = await fetch(url, {
 		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
 	});
-	if (!res.ok)
-		throw new Error(`Failed to get onboarding state: ${res.status} ${await res.text()}`);
+	if (!res.ok) throw new Error(`Failed to get onboarding state: ${res.status} ${await res.text()}`);
 	const data = await res.json();
 	return data.completedSteps;
 }
@@ -132,8 +129,7 @@ export async function deleteDocumentsByCustomType(
 		},
 		body: JSON.stringify({ customtype_ids: [customTypeId] }),
 	});
-	if (!res.ok)
-		throw new Error(`Failed to delete documents: ${res.status} ${await res.text()}`);
+	if (!res.ok) throw new Error(`Failed to delete documents: ${res.status} ${await res.text()}`);
 }
 
 export async function getSlices(config: RepoConfig): Promise<SharedSlice[]> {

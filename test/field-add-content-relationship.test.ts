@@ -9,7 +9,11 @@ import {
 } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
-	const { stdout, stderr, exitCode } = await prismic("field", ["add", "content-relationship", "--help"]);
+	const { stdout, stderr, exitCode } = await prismic("field", [
+		"add",
+		"content-relationship",
+		"--help",
+	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add content-relationship <id> [options]");
 });
