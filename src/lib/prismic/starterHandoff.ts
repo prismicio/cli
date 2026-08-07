@@ -2,7 +2,7 @@ type StarterHandoffDescriptor = {
 	deploymentUrl: string
 }
 
-export const INSTANT_PREVIEW_DEPLOYMENT_PATH = "deployment/instant-preview"
+export const INSTANT_PREVIEW_DEPLOYMENT_PATH = ".deployment/instant-preview"
 
 export function buildHostedPreviewUrl(args: {
 	deploymentUrl: string
