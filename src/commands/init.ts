@@ -24,6 +24,7 @@ import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getRepository, type Repository } from "../lib/prismic/clients/repository";
 import {
 	getHostedPreviewURLsToRemove,
+	isHostedPreviewUrl,
 } from "../lib/prismic/starterHandoff";
 import { getProfile } from "../lib/prismic/clients/user";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
@@ -318,7 +319,15 @@ async function completeStarterHandoff(
 		const previews = await getPreviews(config);
 		await Promise.all(
 			previews
-				.filter((preview) => hostedPreviewURLs.has(preview.url))
+				.filter(
+					(preview) =>
+						hostedPreviewURLs.has(preview.url) ||
+						isHostedPreviewUrl({
+							previewUrl: preview.url,
+							deploymentUrl: starter.deploymentUrl,
+							repositoryName: config.repo,
+						}),
+				)
 				.map((preview) => removePreview(preview.id, config)),
 		);
 		const hasDevelopmentPreview = previews.some(

@@ -9,6 +9,24 @@ export function buildHostedPreviewUrl(args: {
 	return new URL(`/api/preview/${args.repositoryName}`, args.deploymentUrl).href
 }
 
+export function isHostedPreviewUrl(args: {
+	previewUrl: string
+	deploymentUrl: string
+	repositoryName: string
+}): boolean {
+	try {
+		const preview = new URL(args.previewUrl)
+		const deployment = new URL(args.deploymentUrl)
+
+		return (
+			preview.origin === deployment.origin &&
+			preview.pathname === `/api/preview/${args.repositoryName}`
+		)
+	} catch {
+		return false
+	}
+}
+
 export function getHostedPreviewURLsToRemove(args: {
 	starter: StarterHandoffDescriptor
 	repositoryName: string
