@@ -24,7 +24,6 @@ import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getRepository, type Repository } from "../lib/prismic/clients/repository";
 import {
 	getHostedPreviewURLsToRemove,
-	INSTANT_PREVIEW_DEPLOYMENT_PATH,
 } from "../lib/prismic/starterHandoff";
 import { getProfile } from "../lib/prismic/clients/user";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
@@ -245,7 +244,7 @@ export default createCommand(config, async ({ values }) => {
 				`Repository "${repo}" has no starter models. Use a repository created from the starter in the Prismic dashboard.`,
 			);
 		}
-		await removeStarterDocuments(connectedRepository.starter);
+		await cleanupStarterProject(connectedRepository.starter);
 	}
 
 	const hasStarterModelChanges =
@@ -303,18 +302,6 @@ async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Pr
 	return Boolean(starterPackageName && packageJson.name === starterPackageName);
 }
 
-async function removeStarterDocuments(starter: NonNullable<Repository["starter"]>): Promise<void> {
-	if (!(await isStarterPackage(starter))) {
-		console.warn(
-			"Starter seed documents were not removed because the local package does not match the repository starter.",
-		);
-		return;
-	}
-
-	const projectRoot = await findProjectRoot();
-	await rm(new URL("documents/", projectRoot), { recursive: true, force: true });
-}
-
 async function completeStarterHandoff(
 	adapter: Adapter,
 	starter: NonNullable<Repository["starter"]>,
@@ -360,14 +347,17 @@ async function completeStarterHandoff(
 
 	if (await isStarterPackage(starter)) {
 		await updatePackageJsonName(config.repo);
-		await removeHostedPreviewDeployment();
 	}
 }
 
-async function removeHostedPreviewDeployment(): Promise<void> {
+async function cleanupStarterProject(
+	starter: NonNullable<Repository["starter"]>,
+): Promise<void> {
+	if (!(await isStarterPackage(starter))) return;
+	
 	const projectRoot = await findProjectRoot();
-	await rm(new URL(`${INSTANT_PREVIEW_DEPLOYMENT_PATH}/`, projectRoot), {
-		recursive: true,
-		force: true,
-	});
+	await Promise.all([
+		rm(new URL(".deployment", projectRoot), { recursive: true, force: true }),
+		rm(new URL("documents", projectRoot), { recursive: true, force: true }),
+	]);
 }
