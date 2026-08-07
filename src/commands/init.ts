@@ -24,7 +24,7 @@ import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getRepository, type Repository } from "../lib/prismic/clients/repository";
 import {
 	getHostedPreviewURLsToRemove,
-	HOSTED_PREVIEW_DEPLOYMENT_PATH,
+	INSTANT_PREVIEW_DEPLOYMENT_PATH,
 } from "../lib/prismic/starterHandoff";
 import { getProfile } from "../lib/prismic/clients/user";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
@@ -366,7 +366,7 @@ async function completeStarterHandoff(
 
 async function removeHostedPreviewDeployment(): Promise<void> {
 	const projectRoot = await findProjectRoot();
-	await rm(new URL(`${HOSTED_PREVIEW_DEPLOYMENT_PATH}/`, projectRoot), {
+	await rm(new URL(`${INSTANT_PREVIEW_DEPLOYMENT_PATH}/`, projectRoot), {
 		recursive: true,
 		force: true,
 	});
