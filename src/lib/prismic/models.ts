@@ -8,8 +8,6 @@ import type {
 
 type Fields = Record<string, DynamicWidget>;
 
-type Choices = NonNullable<NonNullable<DynamicSlices["config"]>["choices"]>;
-
 export type ContentRelationshipFieldSelection =
 	| string
 	| {
@@ -231,6 +229,8 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 	);
 }
 
+type Choices = NonNullable<NonNullable<DynamicSlices["config"]>["choices"]>;
+
 // Entry order of a slice zone's choices is its slice order, and legacy slices
 // hold field maps of their own.
 function canonicalizeChoices(choices: Choices): Choices {
@@ -246,8 +246,6 @@ function canonicalizeChoices(choices: Choices): Choices {
 	);
 }
 
-// Sorts keys recursively. Entry order of field maps encodes field position,
-// so callers restore those from the unsorted input.
 function sortKeys<T>(object: T): T {
 	if (Array.isArray(object)) return object.map(sortKeys) as T;
 	if (object === null || typeof object !== "object") return object;

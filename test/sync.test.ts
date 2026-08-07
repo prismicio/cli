@@ -37,9 +37,6 @@ describe("with an isolated repository", () => {
 		await expect(project).toContainCustomType(customType);
 		await expect(project).toContainSlice(slice);
 
-		// A later remote change must only re-sync models that actually changed.
-		// The custom type's local file has canonical key order while the remote
-		// returns its own order, so this fails if sync compares raw JSON.
 		const outputLengthBeforeSliceB = output().length;
 		const newOutput = () => output().slice(outputLengthBeforeSliceB);
 		const sliceB = buildSlice();

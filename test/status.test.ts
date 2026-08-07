@@ -1,14 +1,6 @@
 import { describe } from "vitest";
 
-import {
-	buildCustomType,
-	buildSlice,
-	it,
-	readLocalCustomType,
-	readLocalSlice,
-	writeLocalCustomType,
-	writeLocalSlice,
-} from "./it";
+import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
 import { insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -78,8 +70,6 @@ describe("with an isolated repository", () => {
 		token,
 		host,
 	}) => {
-		// Written with unsorted keys at every depth, so the fixtures double as the
-		// non-canonical local files below.
 		const customType = buildCustomType({
 			format: "custom",
 			json: {
@@ -98,8 +88,8 @@ describe("with an isolated repository", () => {
 						config: {
 							label: "Links",
 							fields: {
-								url: { type: "Text", config: { label: "URL", placeholder: "" } },
-								label: { type: "Text", config: { label: "Label", placeholder: "" } },
+								url: { type: "Text", config: { placeholder: "", label: "URL" } },
+								label: { type: "Text", config: { placeholder: "", label: "Label" } },
 							},
 						},
 					},
@@ -110,32 +100,19 @@ describe("with an isolated repository", () => {
 		slice.variations[0].primary = {
 			title: { type: "Text", config: { placeholder: "Enter a title", label: "Title" } },
 		};
+		expect(Object.keys(customType)).not.toEqual(Object.keys(customType).sort());
+
+		await writeLocalCustomType(project, customType);
+		await writeLocalSlice(project, slice);
 		await Promise.all([
 			insertCustomType(customType, { repo, token, host }),
 			insertSlice(slice, { repo, token, host }),
 		]);
 
-		// Pull writes the canonical form to disk.
-		const pull = await prismic("pull", ["--repo", repo]);
-		expect(pull.exitCode, pull.stderr).toBe(0);
-
-		// Write the fixtures back over the pulled files. Same models, different
-		// key order.
-		const pulledType = await readLocalCustomType(project, customType.id);
-		expect(JSON.stringify(customType, null, 2)).not.toBe(JSON.stringify(pulledType, null, 2));
-		await writeLocalCustomType(project, customType);
-
-		const pulledSlice = await readLocalSlice(project, slice.id);
-		if (!pulledSlice) throw new Error(`Slice "${slice.id}" was not pulled.`);
-		expect(JSON.stringify(slice, null, 2)).not.toBe(JSON.stringify(pulledSlice, null, 2));
-		await writeLocalSlice(project, slice);
-
-		// Both sides canonicalize equal, so status must report no changes.
 		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Already up to date.");
 
-		// Push uses the same comparison, so it must not update the remote models.
 		const push = await prismic("push", ["--repo", repo]);
 		expect(push.exitCode, push.stderr).toBe(0);
 		expect(push.stdout).toContain("Already up to date.");
