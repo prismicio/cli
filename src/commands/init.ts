@@ -22,10 +22,6 @@ import {
 } from "../lib/prismic/clients/core";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getRepository, type Repository } from "../lib/prismic/clients/repository";
-import {
-	getHostedPreviewURLsToRemove,
-	isHostedPreviewUrl,
-} from "../lib/prismic/starterHandoff";
 import { getProfile } from "../lib/prismic/clients/user";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
@@ -309,25 +305,10 @@ async function completeStarterHandoff(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	try {
-		const hostedPreviewURLs = new Set(
-			getHostedPreviewURLsToRemove({
-				starter,
-				repositoryName: config.repo,
-				resolverPath: adapter.localPreviewConfig.resolverPath,
-			}),
-		);
 		const previews = await getPreviews(config);
 		await Promise.all(
 			previews
-				.filter(
-					(preview) =>
-						hostedPreviewURLs.has(preview.url) ||
-						isHostedPreviewUrl({
-							previewUrl: preview.url,
-							deploymentUrl: starter.deploymentUrl,
-							repositoryName: config.repo,
-						}),
-				)
+				.filter((preview) => preview.label === "Starter Preview")
 				.map((preview) => removePreview(preview.id, config)),
 		);
 		const hasDevelopmentPreview = previews.some(
@@ -359,11 +340,9 @@ async function completeStarterHandoff(
 	}
 }
 
-async function cleanupStarterProject(
-	starter: NonNullable<Repository["starter"]>,
-): Promise<void> {
+async function cleanupStarterProject(starter: NonNullable<Repository["starter"]>): Promise<void> {
 	if (!(await isStarterPackage(starter))) return;
-	
+
 	const projectRoot = await findProjectRoot();
 	await Promise.all([
 		rm(new URL(".deployment", projectRoot), { recursive: true, force: true }),

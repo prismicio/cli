@@ -335,7 +335,7 @@ it("completes the handoff for a starter project", async ({
 		const previews = await getPreviews({ repo, token, host });
 		const previewLabels = previews.map((preview) => preview.label);
 		expect(previewLabels).toContain("Development");
-		expect(previewLabels).not.toContain("Production");
+		expect(previewLabels).not.toContain("Starter Preview");
 
 		const repository = await getRepository({ repo, token, host });
 		expect(repository.simulatorUrl).toBe("http://localhost:3000/slice-simulator");
