@@ -315,6 +315,8 @@ it("completes the handoff for a starter project", async ({
 		);
 		await mkdir(new URL("documents/", project), { recursive: true });
 		await writeFile(new URL("documents/homepage.json", project), "{}");
+		await mkdir(new URL(".deployment/foo/", project), { recursive: true });
+		await writeFile(new URL(".deployment/foo/bar", project), "test");
 
 		const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
 		expect(exitCode, stderr).toBe(0);
@@ -325,14 +327,15 @@ it("completes the handoff for a starter project", async ({
 		const packageJson = JSON.parse(await readFile(new URL("package.json", project), "utf-8"));
 		expect(packageJson.name).toBe(repo);
 
-		// Seed documents are removed.
+		// Starter artifacts are removed.
 		await expect(access(new URL("documents/", project))).rejects.toThrow();
+		await expect(access(new URL(".deployment/", project))).rejects.toThrow();
 
 		// The hosted preview is replaced by the local Development preview.
 		const previews = await getPreviews({ repo, token, host });
 		const previewLabels = previews.map((preview) => preview.label);
 		expect(previewLabels).toContain("Development");
-		expect(previewLabels).not.toContain("Production");
+		expect(previewLabels).not.toContain("Starter Preview");
 
 		const repository = await getRepository({ repo, token, host });
 		expect(repository.simulatorUrl).toBe("http://localhost:3000/slice-simulator");
@@ -344,7 +347,7 @@ it("completes the handoff for a starter project", async ({
 	}
 }, 120_000);
 
-it("keeps seed documents when the local package does not match the starter", async ({
+it("keeps starter artifacts when the local package does not match the starter", async ({
 	expect,
 	project,
 	prismic,
@@ -357,12 +360,14 @@ it("keeps seed documents when the local package does not match the starter", asy
 		// The fixture package.json has no name, so it cannot match the starter.
 		await mkdir(new URL("documents/", project), { recursive: true });
 		await writeFile(new URL("documents/homepage.json", project), "{}");
+		await mkdir(new URL(".deployment/foo/", project), { recursive: true });
+		await writeFile(new URL(".deployment/foo/bar", project), "test");
 
 		const { stderr, exitCode } = await prismic("init", ["--repo", repo, "--no-setup"]);
 		expect(exitCode, stderr).toBe(0);
-		expect(stderr).toContain("Starter seed documents were not removed");
 
 		await expect(access(new URL("documents/", project))).resolves.toBeUndefined();
+		await expect(access(new URL(".deployment/", project))).resolves.toBeUndefined();
 	} finally {
 		await deleteRepository(repo, { token, password, host });
 	}

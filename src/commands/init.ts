@@ -241,7 +241,7 @@ export default createCommand(config, async ({ values }) => {
 				`Repository "${repo}" has no starter models. Use a repository created from the starter in the Prismic dashboard.`,
 			);
 		}
-		await removeStarterDocuments(connectedRepository.starter);
+		await cleanupStarterProject(connectedRepository.starter);
 	}
 
 	const hasStarterModelChanges =
@@ -299,30 +299,16 @@ async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Pr
 	return Boolean(starterPackageName && packageJson.name === starterPackageName);
 }
 
-async function removeStarterDocuments(starter: NonNullable<Repository["starter"]>): Promise<void> {
-	if (!(await isStarterPackage(starter))) {
-		console.warn(
-			"Starter seed documents were not removed because the local package does not match the repository starter.",
-		);
-		return;
-	}
-
-	const projectRoot = await findProjectRoot();
-	await rm(new URL("documents/", projectRoot), { recursive: true, force: true });
-}
-
 async function completeStarterHandoff(
 	adapter: Adapter,
 	starter: NonNullable<Repository["starter"]>,
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	try {
-		const hostedPreviewURL = new URL(adapter.localPreviewConfig.resolverPath, starter.deploymentUrl)
-			.href;
 		const previews = await getPreviews(config);
 		await Promise.all(
 			previews
-				.filter((preview) => preview.url === hostedPreviewURL)
+				.filter((preview) => preview.label === "Starter Preview")
 				.map((preview) => removePreview(preview.id, config)),
 		);
 		const hasDevelopmentPreview = previews.some(
@@ -352,4 +338,14 @@ async function completeStarterHandoff(
 	if (await isStarterPackage(starter)) {
 		await updatePackageJsonName(config.repo);
 	}
+}
+
+async function cleanupStarterProject(starter: NonNullable<Repository["starter"]>): Promise<void> {
+	if (!(await isStarterPackage(starter))) return;
+
+	const projectRoot = await findProjectRoot();
+	await Promise.all([
+		rm(new URL(".deployment", projectRoot), { recursive: true, force: true }),
+		rm(new URL("documents", projectRoot), { recursive: true, force: true }),
+	]);
 }
