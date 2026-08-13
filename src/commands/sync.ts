@@ -70,7 +70,10 @@ export default createCommand(config, async ({ values }) => {
 				getCustomTypes({ repo, token, host }),
 				getSlices({ repo, token, host }),
 			]);
-			const nextHash = hash({ remoteCustomTypes, remoteSlices });
+			const nextHash = hash({
+				remoteCustomTypes: remoteCustomTypes.map((model) => canonicalizeCustomType(model)),
+				remoteSlices: remoteSlices.map((model) => canonicalizeSlice(model)),
+			});
 
 			if (nextHash !== lastHash) {
 				const isInitial = lastHash === "";
@@ -123,7 +126,9 @@ export default createCommand(config, async ({ values }) => {
 					changed.push("custom types");
 				}
 
-				await adapter.generateTypes();
+				if (isInitial || changed.length > 0) {
+					await adapter.generateTypes();
+				}
 
 				lastHash = nextHash;
 
@@ -134,7 +139,7 @@ export default createCommand(config, async ({ values }) => {
 						host,
 					}).catch(() => {});
 					console.info("Initial sync complete.");
-				} else {
+				} else if (changed.length > 0) {
 					const timestamp = new Date().toLocaleTimeString();
 					console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
 				}
