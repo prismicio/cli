@@ -149,6 +149,7 @@ export abstract class Adapter {
 	async updateSlice(model: SharedSlice): Promise<void> {
 		const slice = await this.getSlice(model.id);
 		await writeFileRecursive(slice.modelPath, stringify(canonicalizeSlice(model)));
+		await this.createSliceIndexFile(slice.library);
 		await this.onSliceUpdated(model);
 	}
 
