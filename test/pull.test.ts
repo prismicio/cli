@@ -273,7 +273,15 @@ describe("with an isolated repository", () => {
 		const slice = buildSlice({ id: "zeta-slice", name: "ZetaSlice" });
 		slice.variations[0].primary = {
 			title: { type: "Text", config: { placeholder: "Enter a title", label: "Title" } },
-			subtitle: { type: "Text", config: { placeholder: "Enter a subtitle", label: "Subtitle" } },
+			alignment: {
+				type: "Select",
+				config: {
+					placeholder: "",
+					label: "Alignment",
+					options: ["right", "center", "left"],
+					default_value: "left",
+				},
+			},
 		};
 		const customType = buildCustomType({
 			format: "custom",
@@ -391,7 +399,18 @@ describe("with an isolated repository", () => {
 			"primary",
 			"version",
 		]);
-		expect(Object.keys(writtenSlice.variations[0].primary)).toEqual(["title", "subtitle"]);
+		expect(Object.keys(writtenSlice.variations[0].primary)).toEqual(["title", "alignment"]);
+		expect(Object.keys(writtenSlice.variations[0].primary.alignment.config)).toEqual([
+			"default_value",
+			"label",
+			"options",
+			"placeholder",
+		]);
+		expect(writtenSlice.variations[0].primary.alignment.config.options).toEqual([
+			"right",
+			"center",
+			"left",
+		]);
 
 		const second = await prismic("pull", ["--repo", repo]);
 		expect(second.exitCode, second.stderr).toBe(0);
