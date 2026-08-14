@@ -35,7 +35,8 @@ it("creates a slice with a custom id", async ({ expect, prismic, project }) => {
 });
 
 it("quotes the slice ID in the slice index file", async ({ expect, prismic, project }) => {
-	const { id, name } = buildSlice();
+	const { name, id: baseId } = buildSlice();
+	const id = `with-dash-${baseId}`;
 
 	const { stderr, exitCode } = await prismic("slice", ["create", name, "--id", id]);
 	expect(exitCode, stderr).toBe(0);
