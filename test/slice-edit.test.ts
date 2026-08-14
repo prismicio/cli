@@ -24,3 +24,15 @@ it("edits a slice name", async ({ expect, prismic, project }) => {
 	const updated = await readLocalSlice(project, slice.id);
 	expect(updated?.name).toBe(newName);
 });
+
+it("regenerates the slice library index file", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	await writeLocalSlice(project, slice);
+
+	const newName = `SliceS${crypto.randomUUID().split("-")[0]}`;
+
+	const { stderr, exitCode } = await prismic("slice", ["edit", slice.id, "--name", newName]);
+	expect(exitCode, stderr).toBe(0);
+
+	await expect(project).toHaveFile("slices/index.js", { contains: newName });
+});
