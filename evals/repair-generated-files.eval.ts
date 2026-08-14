@@ -6,8 +6,7 @@ import { it, trials } from "./it";
 it.for(trials)(
 	"regenerates a stale slice index instead of editing it by hand",
 	async (_, { project, agent, expect }) => {
-		const suffix = crypto.randomUUID().split("-")[0];
-		const slice = buildSlice({ id: `slice_s${suffix}`, name: `SliceS${suffix}` });
+		const slice = buildSlice();
 		await writeLocalSlice(project, slice);
 		await writeFile(
 			new URL("slices/index.js", project),
