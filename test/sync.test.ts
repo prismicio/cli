@@ -36,5 +36,14 @@ describe("with an isolated repository", () => {
 
 		await expect(project).toContainCustomType(customType);
 		await expect(project).toContainSlice(slice);
+
+		const outputLengthBeforeSliceB = output().length;
+		const newOutput = () => output().slice(outputLengthBeforeSliceB);
+		const sliceB = buildSlice();
+		await insertSlice(sliceB, { repo, token, host });
+
+		await expect.poll(newOutput, { timeout: 30_000 }).toContain("Changes detected in slices");
+		expect(newOutput()).not.toContain("custom types");
+		await expect(project).toContainSlice(sliceB);
 	}, 60_000);
 });

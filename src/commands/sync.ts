@@ -8,6 +8,7 @@ import { getErrorMessage } from "../error";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
 import { diffArrays } from "../lib/diff";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
@@ -69,7 +70,10 @@ export default createCommand(config, async ({ values }) => {
 				getCustomTypes({ repo, token, host }),
 				getSlices({ repo, token, host }),
 			]);
-			const nextHash = hash({ remoteCustomTypes, remoteSlices });
+			const nextHash = hash({
+				remoteCustomTypes: remoteCustomTypes.map((model) => canonicalizeCustomType(model)),
+				remoteSlices: remoteSlices.map((model) => canonicalizeSlice(model)),
+			});
 
 			if (nextHash !== lastHash) {
 				const isInitial = lastHash === "";
@@ -83,7 +87,11 @@ export default createCommand(config, async ({ values }) => {
 
 				const changed: string[] = [];
 
-				const sliceOps = diffArrays(remoteSlices, localSliceModels, { getKey: (m) => m.id });
+				const sliceOps = diffArrays(remoteSlices, localSliceModels, {
+					getKey: (m) => m.id,
+					equals: (remote, local) =>
+						JSON.stringify(canonicalizeSlice(remote)) === JSON.stringify(local),
+				});
 				if (sliceOps.insert.length + sliceOps.update.length + sliceOps.delete.length > 0) {
 					for (const slice of sliceOps.update) {
 						await adapter.updateSlice(slice);
@@ -99,6 +107,8 @@ export default createCommand(config, async ({ values }) => {
 
 				const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
 					getKey: (m) => m.id,
+					equals: (remote, local) =>
+						JSON.stringify(canonicalizeCustomType(remote)) === JSON.stringify(local),
 				});
 				if (
 					customTypeOps.insert.length + customTypeOps.update.length + customTypeOps.delete.length >
@@ -116,7 +126,9 @@ export default createCommand(config, async ({ values }) => {
 					changed.push("custom types");
 				}
 
-				await adapter.generateTypes();
+				if (isInitial || changed.length > 0) {
+					await adapter.generateTypes();
+				}
 
 				lastHash = nextHash;
 
@@ -127,7 +139,7 @@ export default createCommand(config, async ({ values }) => {
 						host,
 					}).catch(() => {});
 					console.info("Initial sync complete.");
-				} else {
+				} else if (changed.length > 0) {
 					const timestamp = new Date().toLocaleTimeString();
 					console.info(`[${timestamp}] Changes detected in ${changed.join(" and ")}`);
 				}

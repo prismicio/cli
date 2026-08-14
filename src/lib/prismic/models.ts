@@ -1,5 +1,6 @@
 import type {
 	CustomType,
+	DynamicSlices,
 	DynamicWidget,
 	Link,
 	SharedSlice,
@@ -196,8 +197,8 @@ export function canonicalizeSlice(model: SharedSlice): SharedSlice {
 		...sortKeys(model),
 		variations: model.variations.map((variation) => {
 			const sorted = sortKeys(variation);
-			if (sorted.primary) sorted.primary = canonicalizeFields(sorted.primary);
-			if (sorted.items) sorted.items = canonicalizeFields(sorted.items);
+			if (variation.primary) sorted.primary = canonicalizeFields(variation.primary);
+			if (variation.items) sorted.items = canonicalizeFields(variation.items);
 			return sorted;
 		}),
 	};
@@ -207,10 +208,38 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 	return Object.fromEntries(
 		Object.entries(fields).map(([id, field]) => {
 			const sorted = sortKeys(field);
-			if ("config" in sorted && sorted.config) {
-				sorted.config = sortKeys(sorted.config);
-				const group = sorted.config as { fields?: Fields };
-				if (group.fields) group.fields = canonicalizeFields(group.fields);
+			if (
+				field.type === "Group" &&
+				field.config?.fields &&
+				sorted.type === "Group" &&
+				sorted.config?.fields
+			) {
+				sorted.config.fields = canonicalizeFields(field.config.fields);
+			}
+			if (
+				field.type === "Slices" &&
+				field.config?.choices &&
+				sorted.type === "Slices" &&
+				sorted.config?.choices
+			) {
+				sorted.config.choices = canonicalizeChoices(field.config.choices);
+			}
+			return [id, sorted];
+		}),
+	);
+}
+
+type Choices = NonNullable<NonNullable<DynamicSlices["config"]>["choices"]>;
+
+// Entry order of a slice zone's choices is its slice order, and legacy slices
+// hold field maps of their own.
+function canonicalizeChoices(choices: Choices): Choices {
+	return Object.fromEntries(
+		Object.entries(choices).map(([id, choice]) => {
+			const sorted = sortKeys(choice);
+			if (choice.type === "Slice" && sorted.type === "Slice") {
+				if (choice["non-repeat"]) sorted["non-repeat"] = canonicalizeFields(choice["non-repeat"]);
+				if (choice.repeat) sorted.repeat = canonicalizeFields(choice.repeat);
 			}
 			return [id, sorted];
 		}),
@@ -218,8 +247,12 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 }
 
 function sortKeys<T>(object: T): T {
+	if (Array.isArray(object)) return object.map(sortKeys) as T;
+	if (object === null || typeof object !== "object") return object;
 	return Object.fromEntries(
-		Object.entries(object as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)),
+		Object.entries(object)
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([key, value]) => [key, sortKeys(value)]),
 	) as T;
 }
 
