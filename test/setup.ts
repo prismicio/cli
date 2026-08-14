@@ -64,7 +64,7 @@ expect.extend({
 			const sliceIndexPath = new URL("../index.js", sliceDirectory);
 			try {
 				const sliceIndex = await readFile(sliceIndexPath, "utf8");
-				if (!new RegExp(`\\b${slice.id}: `).test(sliceIndex)) {
+				if (!new RegExp(`(?:"|\\b)${slice.id}"?: `).test(sliceIndex)) {
 					problems.push(
 						`slice "${slice.id}" not found in slice library index (${sliceIndexPath.href})`,
 					);

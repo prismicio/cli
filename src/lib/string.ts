@@ -15,6 +15,10 @@ export function dedent(strings: TemplateStringsArray | string, ...values: unknow
 	return baseDedentWithOptions(Object.assign(resolved, { raw: resolved }), ...values);
 }
 
+export function formatObjectKey(key: string): string {
+	return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : JSON.stringify(key);
+}
+
 export function formatTable(
 	rows: string[][],
 	config?: { headers?: string[]; separator?: string },
