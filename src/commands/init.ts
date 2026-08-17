@@ -296,10 +296,9 @@ export default createCommand(config, async ({ values }) => {
 
 		if (!hasStarterModelChanges) {
 			console.info("\n---");
-			console.info("\nYour project is ready!");
-			console.info("\nHere's what you can do next:");
-			console.info("• Start the development server: `npm run dev`");
-			console.info(`• Preview your pages live at https://${repo}.${host}/builder`);
+			console.info("\nYour project is ready! Here's what you can do next:");
+			console.info("- Run `npm run dev` to start the development server");
+			console.info(`- Open https://${repo}.${host}/builder to preview pages live`);
 			console.info("\nStart building 🚀");
 		}
 	} else {
