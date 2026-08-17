@@ -293,12 +293,15 @@ export default createCommand(config, async ({ values }) => {
 			token,
 			host,
 		});
-		console.info("\n---");
-		console.info("\nYour project is ready!");
-		console.info("\nHere's what you can do next:");
-		console.info("• Start the development server: `npm run dev`");
-		console.info(`• Preview your pages live at https://${repo}.${host}/builder`);
-		console.info("\nStart building 🚀");
+
+		if (!hasStarterModelChanges) {
+			console.info("\n---");
+			console.info("\nYour project is ready!");
+			console.info("\nHere's what you can do next:");
+			console.info("• Start the development server: `npm run dev`");
+			console.info(`• Preview your pages live at https://${repo}.${host}/builder`);
+			console.info("\nStart building 🚀");
+		}
 	} else {
 		console.info("\n---");
 		console.info(`\nInitialized Prismic for repository "${repo}".`);
