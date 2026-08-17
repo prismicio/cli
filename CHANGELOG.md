@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.0](https://github.com/prismicio/cli/compare/v1.15.0...v1.16.0) (2026-08-17)
+
+
+### Features
+
+* **init:** show starter-specific success message after handoff ([#261](https://github.com/prismicio/cli/issues/261)) ([d09b591](https://github.com/prismicio/cli/commit/d09b59186c33ce72218000644eb4738ce592d227))
+
 ## [1.15.0](https://github.com/prismicio/cli/compare/v1.14.0...v1.15.0) (2026-08-14)
 
 
