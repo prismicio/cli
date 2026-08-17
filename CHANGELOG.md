@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.15.0](https://github.com/prismicio/cli/compare/v1.14.0...v1.15.0) (2026-08-14)
+
+
+### Features
+
+* add `prismic gen slice-index` and regenerate index files on slice updates ([#258](https://github.com/prismicio/cli/issues/258)) ([948e27e](https://github.com/prismicio/cli/commit/948e27eee2cddcad8da6b419f138f9d24cc4d054))
+* **instant-start:** remove Starter Preview on init handoff ([#257](https://github.com/prismicio/cli/issues/257)) ([600dcd3](https://github.com/prismicio/cli/commit/600dcd349b68af7c1d0ba331cabb7ad8e9dff6fe))
+* **instant-start:** setup starter provisioned repo on init ([#245](https://github.com/prismicio/cli/issues/245)) ([74454bd](https://github.com/prismicio/cli/commit/74454bdebdc7f098235f0d5b461eabda38802160))
+
+
+### Bug Fixes
+
+* pull writes canonical model files and detects changes reliably ([#243](https://github.com/prismicio/cli/issues/243)) ([d5ab9bd](https://github.com/prismicio/cli/commit/d5ab9bd6b913bad51aac4c4a0d250b597594e1ef))
+* quote slice IDs in generated slice index files when necessary ([#259](https://github.com/prismicio/cli/issues/259)) ([3ee5f47](https://github.com/prismicio/cli/commit/3ee5f4737158480689108d273dad4307a6e6cfef))
+
 ## [1.14.0](https://github.com/prismicio/cli/compare/v1.13.0...v1.14.0) (2026-07-31)
 
 
