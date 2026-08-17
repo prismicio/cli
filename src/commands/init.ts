@@ -143,7 +143,10 @@ export default createCommand(config, async ({ values }) => {
 			);
 		}
 
-		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, { token, host });
+		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, {
+			token,
+			host,
+		});
 		if (!isTypeBuilderEnabled) {
 			throw new TypeBuilderRequiredError(repo, host);
 		}
@@ -285,12 +288,23 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (isExistingProjectHandoff && connectedRepository?.starter) {
-		await completeStarterHandoff(adapter, connectedRepository.starter, { repo, token, host });
+		await completeStarterHandoff(adapter, connectedRepository.starter, {
+			repo,
+			token,
+			host,
+		});
+		console.info("\n---");
+		console.info("\nYour project is ready!");
+		console.info("\nHere's what you can do next:");
+		console.info("• Start the development server: `npm run dev`");
+		console.info(`• Preview your pages live at https://${repo}.${host}/builder`);
+		console.info("\nStart building 🚀");
+	} else {
+		console.info("\n---");
+		console.info(`\nInitialized Prismic for repository "${repo}".`);
+		console.info("Run `prismic type create <name>` to create a content type.");
+		console.info("Run `prismic pull` to pull models from Prismic.");
 	}
-
-	console.info(`\nInitialized Prismic for repository "${repo}".`);
-	console.info("Run `prismic type create <name>` to create a content type.");
-	console.info("Run `prismic pull` to pull models from Prismic.");
 });
 
 async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Promise<boolean> {
