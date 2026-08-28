@@ -43,6 +43,9 @@ import {
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 import { createRepo } from "./repo-create";
 
+const AI_AGENT_HINT =
+	"For AI agents: run `npx skills add --global prismicio/skills` to install the Prismic skill, or run `npx prismic docs list` for a quick reference.";
+
 const config = {
 	name: "prismic init",
 	description: `
@@ -300,18 +303,14 @@ export default createCommand(config, async ({ values }) => {
 			console.info("- Run `npm run dev` to start the development server");
 			console.info(`- Open https://${repo}.${host}/builder to preview pages live`);
 			console.info("\nStart building 🚀");
-			console.info(
-				"\nFor AI agents: run `npx skills add --global prismicio/skills` to install the Prismic skill, or run `npx prismic docs list` for a quick reference.",
-			);
+			console.info(`\n${AI_AGENT_HINT}`);
 		}
 	} else {
 		console.info("\n---");
 		console.info(`\nInitialized Prismic for repository "${repo}".`);
 		console.info("Run `prismic type create <name>` to create a content type.");
 		console.info("Run `prismic pull` to pull models from Prismic.");
-		console.info(
-			"\nFor AI agents: run `npx skills add --global prismicio/skills` to install the Prismic skill, or run `npx prismic docs list` for a quick reference.",
-		);
+		console.info(`\n${AI_AGENT_HINT}`);
 	}
 });
 
