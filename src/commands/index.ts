@@ -1,4 +1,5 @@
 import { createCommandRouter } from "../lib/command";
+import { dedent } from "../lib/string";
 import docs from "./docs";
 import env from "./env";
 import field from "./field";
@@ -21,7 +22,13 @@ import whoami from "./whoami";
 
 export default createCommandRouter({
 	name: "prismic",
-	description: "Prismic CLI for managing repositories and configurations.",
+	description: dedent`
+		Prismic CLI for managing repositories and configurations.
+
+		For AI agents: run \`npx skills add --global prismicio/skills\` to
+		install the Prismic skill, or run \`npx prismic docs list\` for a
+		quick reference.
+	`,
 	sections: {
 		DOCUMENTATION: `
 			Run \`prismic docs list\` to browse available documentation topics.
