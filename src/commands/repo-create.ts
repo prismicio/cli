@@ -14,7 +14,7 @@ const config = {
 	description: `
 		Create a new Prismic repository.
 
-		The CLI picks a random domain for the new repository (for example, 0b4d7321). You cannot choose or change the domain. The command prints the domain and the repository URL when it finishes.
+		The CLI picks a random domain for the new repository (for example, 0b4d7321). This is expected. The command prints the domain and the repository URL when it finishes.
 	`,
 	options: {
 		name: { type: "string", short: "n", description: "Display name for the repository" },

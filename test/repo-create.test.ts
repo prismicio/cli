@@ -6,7 +6,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic repo create [options]");
 	expect(stdout).toContain("The CLI picks a random domain for the new repository");
-	expect(stdout).toContain("You cannot choose or change the domain");
+	expect(stdout).toContain("This is expected");
 	expect(stdout).toContain("The command prints the domain and the repository URL when it finishes");
 });
 
