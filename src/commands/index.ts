@@ -1,3 +1,4 @@
+import { AI_AGENT_HINT } from "../lib/ai";
 import { createCommandRouter } from "../lib/command";
 import { dedent } from "../lib/string";
 import docs from "./docs";
@@ -25,7 +26,7 @@ export default createCommandRouter({
 	description: dedent`
 		Prismic CLI for managing repositories and configurations.
 
-		Using an AI agent? Teach it how to use Prismic by installing the Prismic skill: \`npx skills add --global prismicio/skills\`
+		${AI_AGENT_HINT}
 	`,
 	sections: {
 		DOCUMENTATION: `

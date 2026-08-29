@@ -5,6 +5,7 @@ import type { Profile } from "../lib/prismic/clients/user";
 import { getAdapter, type Adapter } from "../adapters";
 import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
+import { AI_AGENT_HINT } from "../lib/ai";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
@@ -42,9 +43,6 @@ import {
 } from "../project";
 import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
 import { createRepo } from "./repo-create";
-
-const AI_AGENT_HINT =
-	"Using an AI agent? Teach it how to use Prismic by installing the Prismic skill: `npx skills add --global prismicio/skills`";
 
 const config = {
 	name: "prismic init",

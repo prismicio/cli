@@ -1,5 +1,8 @@
 import { exists } from "./file";
 
+export const AI_AGENT_HINT =
+	"Using an AI agent? Teach it how to use Prismic by installing the Prismic skill: `npx skills add --global --yes prismicio/skills`";
+
 export async function detectAgent(): Promise<string | undefined> {
 	if (process.env.AI_AGENT) return process.env.AI_AGENT.toLowerCase();
 
