@@ -25,9 +25,8 @@ export default createCommandRouter({
 	description: dedent`
 		Prismic CLI for managing repositories and configurations.
 
-		For AI agents: run \`npx skills add --global prismicio/skills\` to
-		install the Prismic skill, or run \`npx prismic docs list\` for a
-		quick reference.
+		Using an AI agent? Teach it how to use Prismic by installing the
+		Prismic skill: \`npx skills add --global prismicio/skills\`
 	`,
 	sections: {
 		DOCUMENTATION: `

@@ -44,7 +44,7 @@ import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project"
 import { createRepo } from "./repo-create";
 
 const AI_AGENT_HINT =
-	"For AI agents: run `npx skills add --global prismicio/skills` to install the Prismic skill, or run `npx prismic docs list` for a quick reference.";
+	"Using an AI agent? Teach it how to use Prismic by installing the Prismic skill: `npx skills add --global prismicio/skills`";
 
 const config = {
 	name: "prismic init",
