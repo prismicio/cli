@@ -25,7 +25,6 @@ const LOCAL_RESULTS_PATH = fileURLToPath(new URL("results.local.json", import.me
 // always holds one full run; history lives in git.
 export default class EvalReporter implements Reporter {
 	onTestRunEnd(testModules: ReadonlyArray<TestModule>): void {
-		let model = "";
 		let filtered = false;
 		const evals: Record<string, object[]> = {};
 
@@ -45,9 +44,9 @@ export default class EvalReporter implements Reporter {
 					filtered = true;
 					continue;
 				}
-				model = trial.model;
-				(evals[`${testModule.relativeModuleId} / ${test.name}`] ??= []).push({
+				(evals[`${testModule.relativeModuleId} / ${test.fullName}`] ??= []).push({
 					pass: state === "passed",
+					model: trial.model,
 					costUsd: Math.round(trial.costUsd * 100) / 100,
 					durationS: trial.durationS,
 					calls: trial.calls,
@@ -59,7 +58,7 @@ export default class EvalReporter implements Reporter {
 		const sorted = Object.fromEntries(Object.entries(evals).sort(([a], [b]) => a.localeCompare(b)));
 		// Single-line output keeps run-over-run diffs to one changed line; read
 		// it with jq or `node --run evals:report`.
-		const report = JSON.stringify({ model, evals: sorted }) + "\n";
+		const report = JSON.stringify({ evals: sorted }) + "\n";
 		writeFileSync(LOCAL_RESULTS_PATH, report);
 
 		const evalFiles = readdirSync(EVALS_DIR).filter((file) => file.endsWith(".eval.ts"));

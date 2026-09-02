@@ -29,6 +29,13 @@ const SKILL = await fetchSkill();
 
 export const trials = Array.from({ length: EVAL_TRIALS }, (_, i) => i + 1);
 
+export const models = [
+	"claude-sonnet-5",
+	"claude-haiku-4-5",
+	"claude-sonnet-4-5",
+	"claude-opus-4-1",
+];
+
 declare module "vitest" {
 	interface TaskMeta {
 		agent?: Trial;
@@ -41,43 +48,55 @@ declare module "vitest" {
 }
 
 export const it = base.extend<{
+	installSkill: boolean;
+	installCli: boolean;
+	model: string;
 	agent: (prompt: string) => Promise<AgentResult>;
 }>({
-	agent: async ({ home, project, login, task, repo, token, host, password }, use) => {
+	installSkill: true,
+	installCli: true,
+	model: EVAL_MODEL,
+	agent: async (
+		{ home, project, login, task, repo, token, host, password, installSkill, installCli, model },
+		use,
+	) => {
 		await login();
 
 		const claudeConfigDir = await createClaudeConfigDir();
 
-		const nodeModulesBinDir = new URL("node_modules/.bin/", project);
-		await mkdir(nodeModulesBinDir, { recursive: true });
-		await symlink(BIN, new URL("prismic", nodeModulesBinDir));
-
-		const env = {
+		const env: Record<string, string | undefined> = {
 			...process.env,
 			HOME: fileURLToPath(home),
-			PRISMIC_CONFIG_DIR: fileURLToPath(new URL(".config/prismic/", home)),
-			PRISMIC_TYPE_BUILDER_ENABLED: "true",
-			PRISMIC_SENTRY_ENABLED: "false",
-			PRISMIC_TELEMETRY_ENABLED: "false",
 			NO_UPDATE_NOTIFIER: "1",
 			CLAUDE_CONFIG_DIR: claudeConfigDir,
 			CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
 			CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
 		};
 
-		const trial: Trial = { model: EVAL_MODEL, costUsd: 0, durationS: 0, calls: [] };
+		if (installCli) {
+			const nodeModulesBinDir = new URL("node_modules/.bin/", project);
+			await mkdir(nodeModulesBinDir, { recursive: true });
+			await symlink(BIN, new URL("prismic", nodeModulesBinDir));
+			env.PRISMIC_CONFIG_DIR = fileURLToPath(new URL(".config/prismic/", home));
+			env.PRISMIC_TYPE_BUILDER_ENABLED = "true";
+			env.PRISMIC_SENTRY_ENABLED = "false";
+			env.PRISMIC_TELEMETRY_ENABLED = "false";
+		}
+
+		const trial: Trial = { model, costUsd: 0, durationS: 0, calls: [] };
 		task.meta.agent = trial;
 		let durationMs = 0;
 
 		await use(async (prompt: string) => {
 			const result = await agent(prompt, {
-				systemPromptAppend: SKILL,
+				model,
+				systemPromptAppend: installSkill ? SKILL : undefined,
 				cwd: project,
 				env,
 				// Recorded as commands stream so a timed-out trial keeps its trail.
 				onCommand: (command) => {
 					if (/(^|\s)(npx\s+)?prismic(@|\s|$)/.test(command)) {
-						trial.calls.push(command.replace(/^.*?(^|\s)(npx\s+)?prismic(@\S+)?\s+/, ""));
+						trial.calls.push(command.replace(/^.*?(^|\s)(npx\s+)?prismic(?=@|\s)\s*/, ""));
 					}
 				},
 			});
@@ -145,13 +164,14 @@ type AgentResult = {
 async function agent(
 	prompt: string,
 	config: {
+		model: string;
 		systemPromptAppend?: string;
 		cwd: URL;
 		env: NodeJS.ProcessEnv;
 		onCommand?: (command: string) => void;
 	},
 ) {
-	const { systemPromptAppend, cwd, env, onCommand } = config;
+	const { model, systemPromptAppend, cwd, env, onCommand } = config;
 
 	let result: SDKResultMessage | undefined;
 	const commands: string[] = [];
@@ -159,7 +179,7 @@ async function agent(
 	for await (const message of query({
 		prompt,
 		options: {
-			model: EVAL_MODEL,
+			model,
 			systemPrompt: {
 				type: "preset",
 				preset: "claude_code",
