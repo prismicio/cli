@@ -4,8 +4,6 @@ import { describe } from "vitest";
 
 import { it, trials } from "./it";
 
-it.scoped({ installSkill: false, installCli: false, isolateRepo: false });
-
 describe.for([
 	"claude-fable-5-1",
 	"claude-opus-5",
@@ -13,7 +11,7 @@ describe.for([
 	"gpt-5.6-sol",
 	"gpt-5.6-terra",
 ])("%s", (model) => {
-	it.scoped({ model });
+	it.scoped({ model, installSkill: false, installCli: false, isolateRepo: false });
 
 	it.for(trials)(
 		"tells the user Slice Machine is replaced and moves to the CLI",

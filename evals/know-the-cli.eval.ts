@@ -4,8 +4,6 @@ import { describe } from "vitest";
 
 import { it, trials } from "./it";
 
-it.scoped({ installSkill: false, installCli: false, isolateRepo: false });
-
 describe.for([
 	"claude-fable-5-1",
 	"claude-opus-5",
@@ -15,7 +13,7 @@ describe.for([
 	"gpt-5.6-terra",
 	"gpt-5.5",
 ])("%s", (model) => {
-	it.scoped({ model });
+	it.scoped({ model, installSkill: false, installCli: false, isolateRepo: false });
 
 	it.for(trials)(
 		"plans a Prismic site with the CLI, not Slice Machine",

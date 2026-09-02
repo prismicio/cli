@@ -22,7 +22,6 @@ if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
 
 const BIN = new URL("../dist/index.mjs", import.meta.url);
 const EVAL_TRIALS = Number(process.env.EVAL_TRIALS ?? 3);
-const MODEL = "claude-sonnet-5";
 const JUDGE_MODEL = "claude-sonnet-5";
 const PRISMIC_SKILL_REF = "2bd340e6af4e67a9c1179e97b495f7bda564b46f";
 
@@ -49,20 +48,21 @@ export const it = base.extend<{
 }>({
 	installSkill: true,
 	installCli: true,
-	model: MODEL,
+	model: "claude-sonnet-5",
 	agent: async (
 		{ home, project, login, task, repo, token, host, password, installSkill, installCli, model },
 		use,
 	) => {
 		await login();
 
-		const env: Record<string, string | undefined> = {
+		const env: NodeJS.ProcessEnv = {
 			...process.env,
 			HOME: fileURLToPath(home),
 			NO_UPDATE_NOTIFIER: "1",
 			CLAUDE_CONFIG_DIR: await createClaudeConfigDir(),
 			CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
 			CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+			CODEX_HOME: await createCodexHome(),
 		};
 
 		if (installCli) {
@@ -102,7 +102,7 @@ export const it = base.extend<{
 			trial.tokens += tokens;
 			trial.durationS = Math.round(durationMs / 1000);
 
-			return { text, commands, tokens };
+			return { text, commands };
 		});
 
 		for (const file of ["prismic.config.json", "slicemachine.config.json"]) {
@@ -156,22 +156,17 @@ expect.extend({
 type AgentResult = {
 	text: string;
 	commands: string[];
-	tokens: number;
 };
-
-type RunResult = Omit<AgentResult, "commands">;
 
 type RunOptions = {
 	model: string;
 	skill?: string;
 	cwd: URL;
-	env: Record<string, string | undefined>;
+	env: NodeJS.ProcessEnv;
 	onCommand: (command: string) => void;
 };
 
-async function runClaudeCode(prompt: string, options: RunOptions): Promise<RunResult> {
-	const { model, skill, cwd, env, onCommand } = options;
-
+async function runClaudeCode(prompt: string, { model, skill, cwd, env, onCommand }: RunOptions) {
 	let result: SDKResultMessage | undefined;
 
 	for await (const message of query({
@@ -213,14 +208,12 @@ async function runClaudeCode(prompt: string, options: RunOptions): Promise<RunRe
 	return { text: result.result, tokens };
 }
 
-async function runCodex(prompt: string, options: RunOptions): Promise<RunResult> {
-	const { model, skill, cwd, env, onCommand } = options;
-
+async function runCodex(prompt: string, { model, skill, cwd, env, onCommand }: RunOptions) {
 	if (skill) await writeFile(new URL("AGENTS.md", cwd), skill);
 
 	const codex = new Codex({
 		apiKey: process.env.OPENAI_API_KEY,
-		env: { ...env, CODEX_HOME: await createCodexHome() } as Record<string, string>,
+		env: env as Record<string, string>,
 	});
 	const thread = codex.startThread({
 		model,
