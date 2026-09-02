@@ -1,4 +1,5 @@
 import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { Codex } from "@openai/codex-sdk";
 import dedent from "dedent";
 import { copyFile, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
@@ -20,21 +21,14 @@ if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
 }
 
 const BIN = new URL("../dist/index.mjs", import.meta.url);
-const EVAL_MODEL = process.env.EVAL_MODEL ?? "claude-sonnet-5";
 const EVAL_TRIALS = Number(process.env.EVAL_TRIALS ?? 3);
+const MODEL = "claude-sonnet-5";
 const JUDGE_MODEL = "claude-sonnet-5";
 const PRISMIC_SKILL_REF = "2bd340e6af4e67a9c1179e97b495f7bda564b46f";
 
 const SKILL = await fetchSkill();
 
 export const trials = Array.from({ length: EVAL_TRIALS }, (_, i) => i + 1);
-
-export const models = [
-	"claude-sonnet-5",
-	"claude-haiku-4-5",
-	"claude-sonnet-4-5",
-	"claude-opus-4-1",
-];
 
 declare module "vitest" {
 	interface TaskMeta {
@@ -55,20 +49,18 @@ export const it = base.extend<{
 }>({
 	installSkill: true,
 	installCli: true,
-	model: EVAL_MODEL,
+	model: MODEL,
 	agent: async (
 		{ home, project, login, task, repo, token, host, password, installSkill, installCli, model },
 		use,
 	) => {
 		await login();
 
-		const claudeConfigDir = await createClaudeConfigDir();
-
 		const env: Record<string, string | undefined> = {
 			...process.env,
 			HOME: fileURLToPath(home),
 			NO_UPDATE_NOTIFIER: "1",
-			CLAUDE_CONFIG_DIR: claudeConfigDir,
+			CLAUDE_CONFIG_DIR: await createClaudeConfigDir(),
 			CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1",
 			CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
 		};
@@ -83,30 +75,34 @@ export const it = base.extend<{
 			env.PRISMIC_TELEMETRY_ENABLED = "false";
 		}
 
-		const trial: Trial = { model, costUsd: 0, durationS: 0, calls: [] };
+		const trial: Trial = { model, tokens: 0, durationS: 0, calls: [] };
 		task.meta.agent = trial;
 		let durationMs = 0;
 
+		const run = model.startsWith("claude-") ? runClaudeCode : runCodex;
+
 		await use(async (prompt: string) => {
-			const result = await agent(prompt, {
+			const start = performance.now();
+			const commands: string[] = [];
+			const { text, tokens } = await run(prompt, {
 				model,
-				systemPromptAppend: installSkill ? SKILL : undefined,
+				skill: installSkill ? SKILL : undefined,
 				cwd: project,
 				env,
 				// Recorded as commands stream so a timed-out trial keeps its trail.
 				onCommand: (command) => {
+					commands.push(command);
 					if (/(^|\s)(npx\s+)?prismic(@|\s|$)/.test(command)) {
 						trial.calls.push(command.replace(/^.*?(^|\s)(npx\s+)?prismic(?=@|\s)\s*/, ""));
 					}
 				},
 			});
 
-			const run = result.result;
-			trial.costUsd += run.total_cost_usd;
-			durationMs += run.duration_ms;
+			durationMs += performance.now() - start;
+			trial.tokens += tokens;
 			trial.durationS = Math.round(durationMs / 1000);
 
-			return result;
+			return { text, commands, tokens };
 		});
 
 		try {
@@ -141,8 +137,7 @@ expect.extend({
 				const wanted = [bin, ...positionals].join(" ");
 				if (pass) return `expected no command matching \`${wanted}\`, but one ran`;
 				const seen = result.commands.map((c) => `  ${c}`).join("\n") || "  (no commands ran)";
-				const final = "result" in result.result ? result.result.result : "";
-				return `expected a command matching \`${wanted}\`, but saw:\n${seen}\n\nagent's final message:\n${final}`;
+				return `expected a command matching \`${wanted}\`, but saw:\n${seen}\n\nagent's final message:\n${result.text}`;
 			},
 		};
 	},
@@ -157,34 +152,31 @@ expect.extend({
 });
 
 type AgentResult = {
-	result: SDKResultMessage;
+	text: string;
 	commands: string[];
+	tokens: number;
 };
 
-async function agent(
-	prompt: string,
-	config: {
-		model: string;
-		systemPromptAppend?: string;
-		cwd: URL;
-		env: NodeJS.ProcessEnv;
-		onCommand?: (command: string) => void;
-	},
-) {
-	const { model, systemPromptAppend, cwd, env, onCommand } = config;
+type RunResult = Omit<AgentResult, "commands">;
+
+type RunOptions = {
+	model: string;
+	skill?: string;
+	cwd: URL;
+	env: Record<string, string | undefined>;
+	onCommand: (command: string) => void;
+};
+
+async function runClaudeCode(prompt: string, options: RunOptions): Promise<RunResult> {
+	const { model, skill, cwd, env, onCommand } = options;
 
 	let result: SDKResultMessage | undefined;
-	const commands: string[] = [];
 
 	for await (const message of query({
 		prompt,
 		options: {
 			model,
-			systemPrompt: {
-				type: "preset",
-				preset: "claude_code",
-				append: systemPromptAppend,
-			},
+			systemPrompt: { type: "preset", preset: "claude_code", append: skill },
 			permissionMode: "bypassPermissions",
 			allowDangerouslySkipPermissions: true,
 			settingSources: [],
@@ -199,8 +191,7 @@ async function agent(
 				if (block.type === "tool_use" && block.name === "Bash") {
 					const command = (block.input as { command?: string }).command;
 					if (typeof command !== "string") continue;
-					commands.push(command);
-					onCommand?.(command);
+					onCommand(command);
 				}
 			}
 		}
@@ -210,7 +201,52 @@ async function agent(
 		throw new Error(`Agent run failed (${result?.subtype ?? "no result message"})`);
 	}
 
-	return { result, commands };
+	const { usage } = result;
+	const tokens =
+		usage.input_tokens +
+		usage.cache_read_input_tokens +
+		usage.cache_creation_input_tokens +
+		usage.output_tokens;
+
+	return { text: result.result, tokens };
+}
+
+async function runCodex(prompt: string, options: RunOptions): Promise<RunResult> {
+	const { model, skill, cwd, env, onCommand } = options;
+
+	if (skill) await writeFile(new URL("AGENTS.md", cwd), skill);
+
+	const codex = new Codex({
+		env: { ...env, CODEX_HOME: await createCodexHome() } as Record<string, string>,
+	});
+	const thread = codex.startThread({
+		model,
+		workingDirectory: fileURLToPath(cwd),
+		sandboxMode: "danger-full-access",
+		approvalPolicy: "never",
+		skipGitRepoCheck: true,
+	});
+
+	let text = "";
+	let tokens = 0;
+
+	const { events } = await thread.runStreamed(prompt);
+	for await (const event of events) {
+		if (event.type === "item.started" && event.item.type === "command_execution") {
+			onCommand(event.item.command);
+		}
+		if (event.type === "item.completed" && event.item.type === "agent_message") {
+			text = event.item.text;
+		}
+		if (event.type === "turn.completed") {
+			tokens = event.usage.input_tokens + event.usage.output_tokens;
+		}
+		if (event.type === "turn.failed") {
+			throw new Error(`Agent run failed (${event.error.message})`);
+		}
+	}
+
+	return { text, tokens };
 }
 
 async function judge(
@@ -284,4 +320,15 @@ async function createClaudeConfigDir() {
 		} catch {}
 	}
 	return claudeConfigDir;
+}
+
+async function createCodexHome() {
+	const codexHome = await mkdtemp(join(tmpdir(), "prismic-eval-codex-"));
+	if (!process.env.OPENAI_API_KEY) {
+		const source = process.env.CODEX_HOME ?? join(homedir(), ".codex");
+		try {
+			await copyFile(join(source, "auth.json"), join(codexHome, "auth.json"));
+		} catch {}
+	}
+	return codexHome;
 }

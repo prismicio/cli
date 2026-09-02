@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 /** Per-trial stats recorded by the agent fixture; the reporter adds `pass`. */
 export type Trial = {
 	model: string;
-	/** Billed agent cost for the trial; judge calls not included. */
-	costUsd: number;
+	/** Agent tokens in and out for the trial; judge calls not included. */
+	tokens: number;
 	/** Agent wall time in seconds, excluding fixture setup and judging. */
 	durationS: number;
 	/** prismic CLI invocations, verbatim minus the leading `npx prismic`. */
@@ -47,7 +47,7 @@ export default class EvalReporter implements Reporter {
 				(evals[`${testModule.relativeModuleId} / ${test.fullName}`] ??= []).push({
 					pass: state === "passed",
 					model: trial.model,
-					costUsd: Math.round(trial.costUsd * 100) / 100,
+					tokens: trial.tokens,
 					durationS: trial.durationS,
 					calls: trial.calls,
 				});
