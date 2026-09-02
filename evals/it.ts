@@ -105,13 +105,15 @@ export const it = base.extend<{
 			return { text, commands, tokens };
 		});
 
-		try {
-			const configFile = await readFile(new URL("prismic.config.json", project), "utf8");
-			const created = JSON.parse(configFile).repositoryName;
-			if (created && created !== repo && password) {
-				await deleteRepository(created, { token, password, host });
-			}
-		} catch {}
+		for (const file of ["prismic.config.json", "slicemachine.config.json"]) {
+			try {
+				const configFile = await readFile(new URL(file, project), "utf8");
+				const created = JSON.parse(configFile).repositoryName;
+				if (created && created !== repo && password) {
+					await deleteRepository(created, { token, password, host });
+				}
+			} catch {}
+		}
 	},
 });
 
@@ -217,6 +219,7 @@ async function runCodex(prompt: string, options: RunOptions): Promise<RunResult>
 	if (skill) await writeFile(new URL("AGENTS.md", cwd), skill);
 
 	const codex = new Codex({
+		apiKey: process.env.OPENAI_API_KEY,
 		env: { ...env, CODEX_HOME: await createCodexHome() } as Record<string, string>,
 	});
 	const thread = codex.startThread({
