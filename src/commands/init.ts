@@ -46,20 +46,28 @@ import { createRepo } from "./repo-create";
 const config = {
 	name: "prismic init",
 	description: `
-		Initialize a new Prismic project by creating a repository and
-		prismic.config.json file. Detects the project framework, installs
-		dependencies, and pulls models from Prismic.
+		Set up Prismic in the current project. Creates a new Prismic
+		repository, writes prismic.config.json, detects the framework,
+		installs the Prismic packages, adds the Prismic files, pulls the
+		models of the repository, and generates types.
 
-		Use --repo to connect to an existing repository instead. If a
-		slicemachine.config.json exists, its repository and settings will be
-		migrated.
+		The new repository is empty and belongs to your account. Existing
+		project files are kept. The repository gets a generated domain.
+		Rename it later with \`prismic repo set-name\`.
+
+		If a slicemachine.config.json exists, its repository is used and the
+		file is migrated to prismic.config.json.
 	`,
 	options: {
-		repo: { type: "string", short: "r", description: "Repository name" },
+		repo: {
+			type: "string",
+			short: "r",
+			description: "Connect to an existing repository by domain instead of creating one",
+		},
 		lang: {
 			type: "string",
 			short: "l",
-			description: "Master locale for a new repository (default: en-us)",
+			description: "Master locale for the new repository (default: en-us)",
 		},
 		"no-browser": {
 			type: "boolean",
