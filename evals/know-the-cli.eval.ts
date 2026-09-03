@@ -11,6 +11,7 @@ describe.for([
 	"claude-opus-4-8",
 	"gpt-5.6-sol",
 	"gpt-5.6-terra",
+	"gpt-5.6-luna",
 	"gpt-5.5",
 ])("%s", (model) => {
 	it.scoped({ model, installSkill: false, installCli: false, isolateRepo: false });
@@ -38,6 +39,7 @@ describe.for([
 	"claude-sonnet-5",
 	"gpt-5.6-sol",
 	"gpt-5.6-terra",
+	"gpt-5.6-luna",
 ])("%s", (model) => {
 	it.scoped({ model, installSkill: false, installCli: false, isolateRepo: false });
 

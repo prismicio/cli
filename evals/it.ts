@@ -93,7 +93,7 @@ export const it = base.extend<{
 				onCommand: (command) => {
 					commands.push(command);
 					if (/(^|\s)(npx\s+)?prismic(@|\s|$)/.test(command)) {
-						trial.calls.push(command.replace(/^.*?(^|\s)(npx\s+)?prismic(?=@|\s)\s*/, ""));
+						trial.calls.push(command.replace(/^.*?(^|\s)(npx\s+)?prismic(@\S+)?(?=\s|$)\s*/, ""));
 					}
 				},
 			});
