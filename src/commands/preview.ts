@@ -6,7 +6,27 @@ import previewSetSimulator from "./preview-set-simulator";
 
 export default createCommandRouter({
 	name: "prismic preview",
-	description: "Manage preview configurations in a Prismic repository.",
+	description: `
+		Manage previews in a Prismic repository.
+
+		A repository has two preview settings. Both must point at the same website:
+
+		- Preview URLs let writers browse the website with draft content. Manage them
+		  with add, list, and remove.
+		- The simulator URL lets the Page Builder load live slice previews. Set it
+		  with set-simulator.
+
+		A website needs both a preview URL and a simulator URL. When the website gets
+		a new address, for example after a deploy, add its preview URL and set its
+		simulator URL.
+	`,
+	sections: {
+		EXAMPLES: `
+			# Set up previews for a deployed website
+			prismic preview add https://example.com/api/preview --name Production
+			prismic preview set-simulator https://example.com
+		`,
+	},
 	commands: {
 		add: {
 			handler: previewAdd,
@@ -22,7 +42,7 @@ export default createCommandRouter({
 		},
 		"set-simulator": {
 			handler: previewSetSimulator,
-			description: "Set the slice simulator URL",
+			description: "Set the slice simulator URL for live previews",
 		},
 	},
 });

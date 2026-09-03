@@ -6,7 +6,12 @@ import { addPreview } from "../lib/prismic/clients/core";
 const config = {
 	name: "prismic preview add",
 	description: `
-		Add a preview configuration to a Prismic repository.
+		Add a preview URL to a Prismic repository.
+
+		A preview URL lets writers browse the website with draft content. It does not
+		enable live slice previews in the Page Builder. A website needs both a preview
+		URL and a simulator URL. After you add the preview URL, set the simulator URL
+		for the same website with \`prismic preview set-simulator\`.
 
 		By default, this command reads the repository from prismic.config.json at the
 		project root.
@@ -46,5 +51,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await addPreview({ name: displayName, websiteURL, resolverPath }, { repo, token, host });
 
 	console.info(`Preview added: ${previewUrl}`);
-	console.info("Run `prismic preview set-simulator <url>` to set the slice simulator URL.");
+	console.info("");
+	console.info("Next:");
+	console.info(
+		`  prismic preview set-simulator ${websiteURL}  # the Page Builder loads live slice previews from this URL`,
+	);
 });

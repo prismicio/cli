@@ -8,15 +8,20 @@ const config = {
 	description: `
 		Set the slice simulator URL for a Prismic repository.
 
+		The Page Builder loads live slice previews from the simulator URL. Point it at
+		the website that serves the /slice-simulator route: the local dev server
+		during development, and the production domain after a deploy. A preview URL
+		(\`prismic preview add\`) does not replace it.
+
 		If the URL pathname does not end with /slice-simulator, it is appended
-		automatically.
+		automatically. You can pass the website URL alone.
 
 		By default, this command reads the repository from prismic.config.json at the
 		project root.
 	`,
 	positionals: {
 		url: {
-			description: "Simulator URL (e.g. https://example.com/slice-simulator)",
+			description: "Website or simulator URL (e.g. https://example.com)",
 			required: true,
 		},
 	},

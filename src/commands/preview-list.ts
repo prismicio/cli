@@ -45,20 +45,17 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	if (previews.length === 0 && !simulatorUrl) {
+	if (previews.length === 0) {
 		console.info("No preview configurations found.");
-		return;
-	}
-
-	if (previews.length > 0) {
+	} else {
 		const rows = previews.map((preview) => [preview.url, preview.label]);
 		console.info(formatTable(rows, { headers: ["URL", "NAME"] }));
 	}
 
-	if (simulatorUrl) {
-		if (previews.length > 0) {
-			console.info("");
-		}
-		console.info(`Simulator: ${simulatorUrl}`);
-	}
+	console.info("");
+	console.info(
+		simulatorUrl
+			? `Simulator: ${simulatorUrl}`
+			: "Simulator: not set. The Page Builder loads live slice previews from the simulator URL. Set it with `prismic preview set-simulator <url>`.",
+	);
 });
