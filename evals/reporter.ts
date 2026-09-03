@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 /** Per-trial stats recorded by the agent fixture; the reporter adds `pass`. */
 export type Trial = {
 	model: string;
-	/** Billed agent cost for the trial; judge calls not included. */
-	costUsd: number;
+	/** Agent tokens in and out for the trial; judge calls not included. */
+	tokens: number;
 	/** Agent wall time in seconds, excluding fixture setup and judging. */
 	durationS: number;
 	/** prismic CLI invocations, verbatim minus the leading `npx prismic`. */
@@ -25,7 +25,6 @@ const LOCAL_RESULTS_PATH = fileURLToPath(new URL("results.local.json", import.me
 // always holds one full run; history lives in git.
 export default class EvalReporter implements Reporter {
 	onTestRunEnd(testModules: ReadonlyArray<TestModule>): void {
-		let model = "";
 		let filtered = false;
 		const evals: Record<string, object[]> = {};
 
@@ -45,10 +44,10 @@ export default class EvalReporter implements Reporter {
 					filtered = true;
 					continue;
 				}
-				model = trial.model;
-				(evals[`${testModule.relativeModuleId} / ${test.name}`] ??= []).push({
+				(evals[`${testModule.relativeModuleId} / ${test.fullName}`] ??= []).push({
 					pass: state === "passed",
-					costUsd: Math.round(trial.costUsd * 100) / 100,
+					model: trial.model,
+					tokens: trial.tokens,
 					durationS: trial.durationS,
 					calls: trial.calls,
 				});
@@ -59,7 +58,7 @@ export default class EvalReporter implements Reporter {
 		const sorted = Object.fromEntries(Object.entries(evals).sort(([a], [b]) => a.localeCompare(b)));
 		// Single-line output keeps run-over-run diffs to one changed line; read
 		// it with jq or `node --run evals:report`.
-		const report = JSON.stringify({ model, evals: sorted }) + "\n";
+		const report = JSON.stringify({ evals: sorted }) + "\n";
 		writeFileSync(LOCAL_RESULTS_PATH, report);
 
 		const evalFiles = readdirSync(EVALS_DIR).filter((file) => file.endsWith(".eval.ts"));
