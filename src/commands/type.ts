@@ -11,6 +11,15 @@ import typeView from "./type-view";
 export default createCommandRouter({
 	name: "prismic type",
 	description: "Manage content types.",
+	sections: {
+		ROUTES: `
+			Page types get a URL from a route in prismic.config.json, for example:
+			  { "type": "blog_post", "path": "/blog/:uid" }
+			prismic.config.json is project configuration, not a model file, so edit
+			it directly. There is no route command.
+			Run \`prismic docs view routes\` for path keywords and route properties.
+		`,
+	},
 	commands: {
 		create: {
 			handler: typeCreate,

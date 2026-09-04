@@ -4,6 +4,7 @@ import { snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { readConfig } from "../project";
 
 const config = {
 	name: "prismic type create",
@@ -26,7 +27,8 @@ const config = {
 			         category). This is the default.
 			page     A page type with a URL (e.g. homepage, blog post, landing
 			         page). Includes a slice zone and SEO & Metadata tab by
-			         default, and configures a route in prismic.config.json.
+			         default, and adds a default route to prismic.config.json.
+			         Edit prismic.config.json to change the route.
 		`,
 		EXAMPLES: `
 			Create a page type:
@@ -107,6 +109,15 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await adapter.generateTypes();
 
 	console.info(`Created type "${name}" (id: "${id}", format: "${format}")`);
+	if (format === "page") {
+		const { routes = [] } = await readConfig();
+		const route = routes.find((route) => route.type === id);
+		if (route) {
+			console.info(
+				`Route: ${route.path} in prismic.config.json. Edit prismic.config.json to change it.`,
+			);
+		}
+	}
 	console.info(`Run \`prismic field add <type> --to-type ${id}\` to add fields.`);
 	console.info(`Run \`prismic type view ${id}\` to view the type.`);
 });
