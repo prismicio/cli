@@ -8,7 +8,6 @@ import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getProfile } from "../lib/prismic/clients/user";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
-import { dedent } from "../lib/string";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
 
@@ -18,7 +17,8 @@ const config = {
 		Show local vs remote model differences.
 
 		Reports what would be pushed to or pulled from Prismic, plus any local
-		model files with uncommitted git changes that would block pull and push.
+		model files with uncommitted git changes that must be committed before
+		pull and push.
 	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
@@ -143,29 +143,31 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
+	// Every line is pasteable shell, in the order it must run: the commit comes
+	// first because push and pull refuse to run over uncommitted model files.
+	const next: string[] = [];
 	if (dirtyModelFiles.length > 0) {
-		console.info("");
-		console.info(
-			dedent`
-				Pull and push won't run while these model files have uncommitted git changes:
-				  ${dirtyModelFiles.join("\n")}
-
-				To unblock, commit them:
-				  git add ${dirtyModelFiles.join(" ")}
-				  git commit -m "Update Prismic models"
-
-				Or override with \`prismic push --force\` (keep local) or \`prismic pull --force\` (discard local).
-			`,
-		);
+		next.push(`git add ${dirtyModelFiles.join(" ")}`);
+		next.push(`git commit -m "Update Prismic models"`);
 	}
-
 	if (customTypeOps && sliceOps && !inSync) {
 		const pushI = customTypeOps.insert.length + sliceOps.insert.length;
 		const pushU = customTypeOps.update.length + sliceOps.update.length;
 		const pushD = customTypeOps.delete.length + sliceOps.delete.length;
+		next.push(`prismic push  # creates ${pushI}, updates ${pushU}, deletes ${pushD}`);
+		next.push(`prismic pull  # creates ${pushD}, updates ${pushU}, deletes ${pushI}`);
+	}
+
+	if (dirtyModelFiles.length > 0) {
+		console.info("");
+		console.info(
+			"Prismic keeps model history in git. Commit model changes before you push or pull them.",
+		);
+	}
+
+	if (next.length > 0) {
 		console.info("");
 		console.info("Next:");
-		console.info(`  prismic push  — would create ${pushI}, update ${pushU}, delete ${pushD}`);
-		console.info(`  prismic pull  — would create ${pushD}, update ${pushU}, delete ${pushI}`);
+		for (const line of next) console.info(`  ${line}`);
 	}
 });

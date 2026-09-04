@@ -32,9 +32,17 @@ const config = {
 
 		Local models are the source of truth. Remote models are created,
 		updated, or deleted to match.
+
+		Prismic keeps model history in git. Commit model changes before you push
+		them. Pushing creates and updates models and never changes documents.
+		Deleting a remote model needs --force.
 	`,
 	options: {
-		force: { type: "boolean", short: "f", description: "Skip safety checks" },
+		force: {
+			type: "boolean",
+			short: "f",
+			description: "Skip the git history and deletion checks. Not recommended.",
+		},
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
 		env: {
 			type: "string",
@@ -79,13 +87,14 @@ export default createCommand(config, async ({ values }) => {
 
 		if (dirtyFiles.length > 0) {
 			throw new CommandError(`
-				Local model files have uncommitted changes. Commit them, then push:
+				Local model files have uncommitted changes. Prismic keeps model history in
+				git. Commit model changes before you push them:
 
 				  git add ${dirtyFiles.join(" ")}
 				  git commit -m "Update Prismic models"
 				  prismic push
 
-				Or skip the safety check with \`prismic push --force\`.
+				Or skip the check with \`prismic push --force\`.
 			`);
 		}
 	}
