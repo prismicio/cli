@@ -16,6 +16,7 @@ it("views a type", async ({ expect, prismic, project }) => {
 	expect(stdout).toContain(`Name: ${customType.label}`);
 	expect(stdout).toContain("Format: custom");
 	expect(stdout).toContain("Repeatable: true");
+	expect(stdout).toContain("Route: none");
 	expect(stdout).toContain("Main:");
 });
 

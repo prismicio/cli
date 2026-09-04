@@ -27,6 +27,13 @@ export default createCommandRouter({
 			Run \`prismic docs list\` to browse available documentation topics.
 			Run \`prismic docs view <path>\` to read a topic.
 		`,
+		ROUTES: `
+			Page URLs are routes in prismic.config.json, for example:
+			  { "type": "blog_post", "path": "/blog/:uid" }
+			prismic.config.json is project configuration, not a model file, so edit
+			it directly. There is no route command.
+			Run \`prismic docs view routes\` for path keywords and route properties.
+		`,
 	},
 	commands: {
 		init: {

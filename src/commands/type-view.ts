@@ -2,6 +2,7 @@ import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { formatTable } from "../lib/string";
+import { readConfig } from "../project";
 
 const config = {
 	name: "prismic type view",
@@ -26,10 +27,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 		return;
 	}
 
+	const route = (await readConfig()).routes?.find((route) => route.type === type.id);
+
 	console.info(`ID: ${type.id}`);
 	console.info(`Name: ${type.label || "(no name)"}`);
-	console.info(`Format: ${type.format}`);
+	console.info(`Format: ${type.format ?? "custom"}`);
 	console.info(`Repeatable: ${type.repeatable}`);
+	console.info(`Route: ${route?.path ?? "none"}`);
 
 	for (const [tabName, fields] of Object.entries(type.json)) {
 		console.info("");
