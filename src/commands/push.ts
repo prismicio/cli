@@ -41,7 +41,7 @@ const config = {
 		force: {
 			type: "boolean",
 			short: "f",
-			description: "Skip the git history and deletion checks. Not recommended.",
+			description: "Skip the git history and deletion checks",
 		},
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
 		env: {

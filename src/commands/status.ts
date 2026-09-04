@@ -147,6 +147,10 @@ export default createCommand(config, async ({ values }) => {
 	// first because push and pull refuse to run over uncommitted model files.
 	const next: string[] = [];
 	if (dirtyModelFiles.length > 0) {
+		console.info("");
+		console.info(
+			"Prismic keeps model history in git. Commit model changes before you push or pull them.",
+		);
 		next.push(`git add ${dirtyModelFiles.join(" ")}`);
 		next.push(`git commit -m "Update Prismic models"`);
 	}
@@ -156,13 +160,6 @@ export default createCommand(config, async ({ values }) => {
 		const pushD = customTypeOps.delete.length + sliceOps.delete.length;
 		next.push(`prismic push  # creates ${pushI}, updates ${pushU}, deletes ${pushD}`);
 		next.push(`prismic pull  # creates ${pushD}, updates ${pushU}, deletes ${pushI}`);
-	}
-
-	if (dirtyModelFiles.length > 0) {
-		console.info("");
-		console.info(
-			"Prismic keeps model history in git. Commit model changes before you push or pull them.",
-		);
 	}
 
 	if (next.length > 0) {

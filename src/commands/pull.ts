@@ -24,7 +24,7 @@ const config = {
 		force: {
 			type: "boolean",
 			short: "f",
-			description: "Skip the git history check and overwrite local changes. Not recommended.",
+			description: "Skip the git history check and overwrite local changes",
 		},
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
 		env: {
