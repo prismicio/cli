@@ -16,9 +16,6 @@ const config = {
 
 		Remote models are the source of truth. Local files are created, updated,
 		or deleted to match.
-
-		Prismic keeps model history in git. Commit model changes before you pull
-		them.
 	`,
 	options: {
 		force: {
