@@ -40,7 +40,7 @@ it.for(trials)(
 		await writeLocalCustomType(project, page);
 
 		await agent(
-			`Pages live at /<uid>. Non-default locales should get a locale prefix, like /fr-fr/<uid>, while the default locale stays at /<uid>.`,
+			`Route pages at /<uid>. Non-default locales should get a locale prefix, like /fr-fr/<uid>, while the default locale stays at /<uid>.`,
 		);
 
 		const config = JSON.parse(await readFile(new URL("prismic.config.json", project), "utf8"));
