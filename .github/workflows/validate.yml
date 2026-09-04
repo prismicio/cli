@@ -50,6 +50,7 @@ jobs:
       matrix:
         node: [20, 22, 24]
       fail-fast: false
+      max-parallel: 1
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
