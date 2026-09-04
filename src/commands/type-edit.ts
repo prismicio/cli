@@ -9,12 +9,7 @@ const config = {
 	},
 	options: {
 		name: { type: "string", short: "n", description: "New name for the type" },
-		format: {
-			type: "string",
-			short: "f",
-			description:
-				'Type format: "custom" or "page". "page" adds a default route to prismic.config.json, "custom" removes it',
-		},
+		format: { type: "string", short: "f", description: 'Type format: "custom" or "page"' },
 	},
 } satisfies CommandConfig;
 

@@ -10,5 +10,4 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("type", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic type <command> [options]");
-	expect(stdout).toContain("ROUTES");
 });

@@ -26,8 +26,7 @@ const config = {
 			         category). This is the default.
 			page     A page type with a URL (e.g. homepage, blog post, landing
 			         page). Includes a slice zone and SEO & Metadata tab by
-			         default, and adds a default route to prismic.config.json.
-			         Edit prismic.config.json to change the route.
+			         default, and configures a route in prismic.config.json.
 		`,
 		EXAMPLES: `
 			Create a page type:

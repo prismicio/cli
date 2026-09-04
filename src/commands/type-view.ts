@@ -27,14 +27,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 		return;
 	}
 
-	const { routes = [] } = await readConfig();
-	const route = routes.find((route) => route.type === type.id);
+	const route = (await readConfig()).routes?.find((route) => route.type === type.id);
 
 	console.info(`ID: ${type.id}`);
 	console.info(`Name: ${type.label || "(no name)"}`);
 	console.info(`Format: ${type.format ?? "custom"}`);
 	console.info(`Repeatable: ${type.repeatable}`);
-	console.info(route ? `Route: ${route.path} in prismic.config.json` : "Route: none");
+	console.info(`Route: ${route?.path ?? "none"}`);
 
 	for (const [tabName, fields] of Object.entries(type.json)) {
 		console.info("");
