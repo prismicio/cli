@@ -30,15 +30,9 @@ it("edits a type format", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType({ format: "custom" });
 	await writeLocalCustomType(project, customType);
 
-	const { stdout, stderr, exitCode } = await prismic("type", [
-		"edit",
-		customType.id,
-		"--format",
-		"page",
-	]);
+	const { stderr, exitCode } = await prismic("type", ["edit", customType.id, "--format", "page"]);
 	expect(stderr).toBe("");
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("Route: /");
 
 	const updated = await readLocalCustomType(project, customType.id);
 	expect(updated.format).toBe("page");

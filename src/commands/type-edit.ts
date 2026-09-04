@@ -1,6 +1,5 @@
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { readConfig } from "../project";
 
 const config = {
 	name: "prismic type edit",
@@ -36,15 +35,4 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await adapter.generateTypes();
 
 	console.info(`Type updated: "${customType.label}" (id: ${customType.id})`);
-	if ("format" in values) {
-		const { routes = [] } = await readConfig();
-		const route = routes.find((route) => route.type === customType.id);
-		if (route) {
-			console.info(
-				`Route: ${route.path} in prismic.config.json. Edit prismic.config.json to change it.`,
-			);
-		} else {
-			console.info(`Removed the route for ${customType.id} from prismic.config.json.`);
-		}
-	}
 });

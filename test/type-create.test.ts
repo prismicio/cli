@@ -32,7 +32,6 @@ it("creates a page type with --format page", async ({ expect, prismic, project }
 	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Created type "${label}"`);
-	expect(stdout).toContain("Route: /");
 
 	const id = snakeCase(label!);
 	const created = await readLocalCustomType(project, id);

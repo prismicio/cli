@@ -4,7 +4,6 @@ import { snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { readConfig } from "../project";
 
 const config = {
 	name: "prismic type create",
@@ -109,15 +108,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await adapter.generateTypes();
 
 	console.info(`Created type "${name}" (id: "${id}", format: "${format}")`);
-	if (format === "page") {
-		const { routes = [] } = await readConfig();
-		const route = routes.find((route) => route.type === id);
-		if (route) {
-			console.info(
-				`Route: ${route.path} in prismic.config.json. Edit prismic.config.json to change it.`,
-			);
-		}
-	}
 	console.info(`Run \`prismic field add <type> --to-type ${id}\` to add fields.`);
 	console.info(`Run \`prismic type view ${id}\` to view the type.`);
 });
