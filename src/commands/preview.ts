@@ -22,7 +22,7 @@ export default createCommandRouter({
 		},
 		"set-simulator": {
 			handler: previewSetSimulator,
-			description: "Set the slice simulator URL for live previews",
+			description: "Set the slice simulator URL",
 		},
 	},
 });

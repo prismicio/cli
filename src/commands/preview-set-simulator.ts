@@ -16,7 +16,7 @@ const config = {
 	`,
 	positionals: {
 		url: {
-			description: "Website or simulator URL (e.g. https://example.com)",
+			description: "Simulator URL (e.g. https://example.com/slice-simulator)",
 			required: true,
 		},
 	},
