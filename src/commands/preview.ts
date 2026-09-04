@@ -9,7 +9,8 @@ export default createCommandRouter({
 	description: `
 		Manage previews in a Prismic repository.
 
-		A repository has two preview settings. Both must point at the same website:
+		A repository has two preview settings. They usually point at the same
+		website, so when you change one, change the other:
 
 		- Preview URLs let writers browse the website with draft content. Manage them
 		  with add, list, and remove.
