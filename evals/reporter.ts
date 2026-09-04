@@ -13,6 +13,8 @@ export type Trial = {
 	durationS: number;
 	/** prismic CLI invocations, verbatim minus the leading `npx prismic`. */
 	calls: string[];
+	/** The agent's final message, the only record of why it stopped. */
+	text: string;
 };
 
 const EVALS_DIR = fileURLToPath(new URL(".", import.meta.url));
@@ -50,6 +52,7 @@ export default class EvalReporter implements Reporter {
 					tokens: trial.tokens,
 					durationS: trial.durationS,
 					calls: trial.calls,
+					text: trial.text,
 				});
 			}
 		}

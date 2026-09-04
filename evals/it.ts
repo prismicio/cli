@@ -75,7 +75,7 @@ export const it = base.extend<{
 			env.PRISMIC_TELEMETRY_ENABLED = "false";
 		}
 
-		const trial: Trial = { model, tokens: 0, durationS: 0, calls: [] };
+		const trial: Trial = { model, tokens: 0, durationS: 0, calls: [], text: "" };
 		task.meta.agent = trial;
 		let durationMs = 0;
 
@@ -99,6 +99,7 @@ export const it = base.extend<{
 			});
 
 			durationMs += performance.now() - start;
+			trial.text = text;
 			trial.tokens += tokens;
 			trial.durationS = Math.round(durationMs / 1000);
 
