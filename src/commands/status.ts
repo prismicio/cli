@@ -143,8 +143,6 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	// Every line is pasteable shell, in the order it must run: the commit comes
-	// first because push and pull refuse to run over uncommitted model files.
 	const next: string[] = [];
 	if (dirtyModelFiles.length > 0) {
 		console.info("");

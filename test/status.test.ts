@@ -151,8 +151,7 @@ describe("with an isolated repository", () => {
 		const pull = await prismic("pull", ["--repo", repo]);
 		expect(pull.exitCode, pull.stderr).toBe(0);
 
-		const cwd = fileURLToPath(project);
-		await x("git", ["init", "-q", "-b", "main"], { nodeOptions: { cwd } });
+		await x("git", ["init", "-q", "-b", "main"], { nodeOptions: { cwd: fileURLToPath(project) } });
 		await writeLocalCustomType(project, buildCustomType({ id: "article", label: "Article" }));
 
 		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
@@ -160,7 +159,6 @@ describe("with an isolated repository", () => {
 		expect(stdout).toContain(
 			"Prismic keeps model history in git. Commit model changes before you push or pull them.",
 		);
-		// The commit is step 1 of the push, not a blocker with a --force workaround.
 		expect(stdout).toContain("Next:");
 		expect(stdout.indexOf("git commit")).toBeLessThan(stdout.indexOf("prismic push"));
 		expect(stdout).toContain("prismic push  # creates 1, updates 0, deletes 0");
