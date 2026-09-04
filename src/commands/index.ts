@@ -27,6 +27,13 @@ export default createCommandRouter({
 			Run \`prismic docs list\` to browse available documentation topics.
 			Run \`prismic docs view <path>\` to read a topic.
 		`,
+		MODELING: `
+			Run \`prismic type list\` and \`prismic slice list\` before you model.
+			The project can already have a type or slice that the new model needs.
+			To reuse a type, add a content relationship field that links to it.
+			For example, a blog post links to its author. Do not copy the data of
+			that type into text fields.
+		`,
 		ROUTES: `
 			Page URLs are routes in prismic.config.json, for example:
 			  { "type": "blog_post", "path": "/blog/:uid" }
