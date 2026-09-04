@@ -5,6 +5,7 @@ import {
 	getPreviews,
 	getRepository,
 	getWebhooks,
+	setSimulatorUrl,
 } from "../test/prismic";
 import { it, trials } from "./it";
 
@@ -22,6 +23,7 @@ it.for(trials)(
 	"updates previews for production after a deploy",
 	async (_, { agent, expect, repo, token, host }) => {
 		await addPreview("http://localhost:3000/api/preview", "Development", { repo, token, host });
+		await setSimulatorUrl("http://localhost:3000/slice-simulator", { repo, token, host });
 
 		const result = await agent(
 			`We just deployed the site to https://example.com. Set up content previews for production.`,

@@ -34,6 +34,14 @@ export default createCommandRouter({
 			it directly. There is no route command.
 			Run \`prismic docs view routes\` for path keywords and route properties.
 		`,
+		PREVIEWS: `
+			Previews need two settings. After a deploy, set both:
+			  prismic preview add https://example.com/api/preview
+			  prismic preview set-simulator https://example.com
+			A repository can hold multiple preview URLs but only one simulator URL,
+			which the Page Builder loads live slice previews from.
+			Run \`prismic docs view previews\` for details.
+		`,
 	},
 	commands: {
 		init: {
@@ -91,7 +99,7 @@ export default createCommandRouter({
 		},
 		preview: {
 			handler: preview,
-			description: "Manage preview configurations",
+			description: "Manage preview and simulator URLs",
 		},
 		token: {
 			handler: token,
