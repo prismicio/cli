@@ -50,8 +50,6 @@ jobs:
       matrix:
         node: [20, 22, 24]
       fail-fast: false
-      # One at a time: these jobs share one e2e Prismic account, and
-      # concurrent jobs make the user service answer with 500.
       max-parallel: 1
     steps:
       - uses: actions/checkout@v6
