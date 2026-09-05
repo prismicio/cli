@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.1](https://github.com/prismicio/cli/compare/v1.16.0...v1.16.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **status:** show the commit as the first step of a push ([#288](https://github.com/prismicio/cli/issues/288)) ([1fb48dd](https://github.com/prismicio/cli/commit/1fb48ddc820c7f4c45b6ae0e10c5532990d00cda)), closes [#277](https://github.com/prismicio/cli/issues/277) [#276](https://github.com/prismicio/cli/issues/276)
+* **type:** say where page routes live and how to change them ([#283](https://github.com/prismicio/cli/issues/283)) ([89619f4](https://github.com/prismicio/cli/commit/89619f4407300db731760b6b96b0e47bb63422b2))
+
 ## [1.16.0](https://github.com/prismicio/cli/compare/v1.15.0...v1.16.0) (2026-08-17)
 
 
