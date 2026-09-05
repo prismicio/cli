@@ -28,10 +28,11 @@ export default createCommandRouter({
 			Run \`prismic docs view <path>\` to read a topic.
 		`,
 		MODELING: `
-			A new model can reuse a type that the project already has. Run
-			\`prismic type list\` to see them. To reuse a type, add a content
-			relationship field that links to it. For example, a blog post links to
-			its author. Do not copy the data of that type into text fields.
+			A document can reference a document of another type. A blog post
+			references its author. Add a content relationship field for the
+			reference. Do not copy the data of that document into text fields.
+			Run \`prismic type list\` to see the types a project has, and
+			\`prismic docs view fields/content-relationship\` for details.
 		`,
 		ROUTES: `
 			Page URLs are routes in prismic.config.json, for example:
