@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+import { x } from "tinyexec";
 import { describe } from "vitest";
 
 import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
@@ -138,5 +140,28 @@ describe("with an isolated repository", () => {
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("Differ:");
 		expect(stdout).toContain(`${customType.id} (custom type)`);
+	});
+
+	it("lists the commit as the first step when model files are uncommitted", async ({
+		expect,
+		project,
+		prismic,
+		repo,
+	}) => {
+		const pull = await prismic("pull", ["--repo", repo]);
+		expect(pull.exitCode, pull.stderr).toBe(0);
+
+		await x("git", ["init", "-q", "-b", "main"], { nodeOptions: { cwd: fileURLToPath(project) } });
+		await writeLocalCustomType(project, buildCustomType({ id: "article", label: "Article" }));
+
+		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(
+			"Prismic keeps model history in git. Commit model changes before you push or pull them.",
+		);
+		expect(stdout).toContain("Next:");
+		expect(stdout.indexOf("git commit")).toBeLessThan(stdout.indexOf("prismic push"));
+		expect(stdout).toContain("prismic push  # creates 1, updates 0, deletes 0");
+		expect(stdout).not.toContain("--force");
 	});
 });

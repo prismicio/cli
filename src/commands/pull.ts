@@ -18,7 +18,11 @@ const config = {
 		or deleted to match.
 	`,
 	options: {
-		force: { type: "boolean", short: "f", description: "Overwrite local changes" },
+		force: {
+			type: "boolean",
+			short: "f",
+			description: "Skip the git history check and overwrite local changes",
+		},
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
 		env: {
 			type: "string",
@@ -63,8 +67,9 @@ export default createCommand(config, async ({ values }) => {
 
 		if (dirtyFiles.length > 0) {
 			throw new CommandError(`
-				Local model files have uncommitted changes. Commit them first so a
-				pull won't silently discard your edits:
+				Local model files have uncommitted changes. Prismic keeps model history in
+				git. Commit model changes before you pull them, so this pull can't discard
+				your edits:
 
 				  git add ${dirtyFiles.join(" ")}
 				  git commit -m "Update Prismic models"
