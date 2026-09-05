@@ -27,6 +27,14 @@ export default createCommandRouter({
 			Run \`prismic docs list\` to browse available documentation topics.
 			Run \`prismic docs view <path>\` to read a topic.
 		`,
+		MODELING: `
+			Pages are page types, built from slices and fields. Content that is
+			not a page is a custom type, such as an author or a navigation menu.
+			A page references a custom type with a content relationship field,
+			instead of repeating its content.
+			Run \`prismic type list\` to see what a project has, and
+			\`prismic docs view content-modeling\` for details.
+		`,
 		ROUTES: `
 			Page URLs are routes in prismic.config.json, for example:
 			  { "type": "blog_post", "path": "/blog/:uid" }
