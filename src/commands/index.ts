@@ -28,11 +28,12 @@ export default createCommandRouter({
 			Run \`prismic docs view <path>\` to read a topic.
 		`,
 		MODELING: `
-			A document can reference a document of another type. A blog post
-			references its author. Add a content relationship field for the
-			reference. Do not copy the data of that document into text fields.
-			Run \`prismic type list\` to see the types a project has, and
-			\`prismic docs view fields/content-relationship\` for details.
+			Pages are page types, built from slices and fields. Content that is
+			not a page is a custom type, such as an author or a navigation menu.
+			A page references a custom type with a content relationship field,
+			instead of repeating its content.
+			Run \`prismic type list\` to see what a project has, and
+			\`prismic docs view content-modeling\` for details.
 		`,
 		ROUTES: `
 			Page URLs are routes in prismic.config.json, for example:
