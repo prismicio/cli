@@ -35,6 +35,7 @@ export default createCommandRouter({
 			Run \`prismic docs view routes\` for path keywords and route properties.
 		`,
 		PREVIEWS: `
+			Writers use previews to see draft content before it is published.
 			Previews need two settings. After a deploy, set both:
 			  prismic preview add https://example.com/api/preview
 			  prismic preview set-simulator https://example.com
