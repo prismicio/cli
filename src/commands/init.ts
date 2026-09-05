@@ -55,7 +55,11 @@ const config = {
 		migrated.
 	`,
 	options: {
-		repo: { type: "string", short: "r", description: "Repository name" },
+		repo: {
+			type: "string",
+			short: "r",
+			description: "Domain of an existing repository to connect to",
+		},
 		lang: {
 			type: "string",
 			short: "l",
