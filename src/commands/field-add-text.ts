@@ -11,8 +11,9 @@ const config = {
 	description: `
 		Add a key text field to a slice or custom type.
 
-		Key text is a short plain string with no formatting. Titles and headings
-		are rich text limited to one heading block:
+		Key text is a short plain string with no formatting, which makes it a
+		good fit for names, usernames, and labels. For a title or a heading,
+		rich text limited to a single heading block is usually a better fit:
 
 		  prismic field add rich-text title --to-type blog_post --allow heading1 --single
 	`,
