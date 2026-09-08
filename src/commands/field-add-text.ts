@@ -11,8 +11,7 @@ const config = {
 	description: `
 		Add a key text field to a slice or custom type.
 
-		Key text is a short plain string with no formatting, which makes it a
-		good fit for names, usernames, and labels.
+		Key text is a short plain string with no formatting.
 
 		For a title or a heading, rich text limited to a single heading block
 		is usually a better fit:
