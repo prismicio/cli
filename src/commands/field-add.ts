@@ -89,7 +89,8 @@ export default createCommandRouter({
 		},
 		text: {
 			handler: fieldAddText,
-			description: "Add a text field",
+			description:
+				"Add a key text field for short plain strings (not for titles or headings -- use rich-text --allow heading1 --single)",
 		},
 		timestamp: {
 			handler: fieldAddTimestamp,

@@ -8,7 +8,14 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add text",
-	description: "Add a text field to a slice or custom type.",
+	description: `
+		Add a key text field to a slice or custom type.
+
+		Key text is a short plain string with no formatting. Titles and headings
+		are rich text limited to one heading block:
+
+		  prismic field add rich-text title --to-type blog_post --allow heading1 --single
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},
