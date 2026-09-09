@@ -64,4 +64,6 @@ it("shows --analytics-intent and --analytics-task-id in help only when an agent 
 		expect((await prismic(root, args, agent)).stdout).toContain("--analytics-task-id");
 		expect((await prismic(root, args, human)).stdout).not.toContain("--analytics-task-id");
 	}
+	expect((await prismic("", ["--help"], agent)).stdout).toContain("AGENTS");
+	expect((await prismic("", ["--help"], human)).stdout).not.toContain("AGENTS");
 });
