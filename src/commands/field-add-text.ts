@@ -9,9 +9,9 @@ import { addField } from "../lib/prismic/models";
 const config = {
 	name: "prismic field add text",
 	description: `
-		Add a key text field to a slice or custom type.
+		Add a text field to a slice or custom type.
 
-		Key text is a short plain string with no formatting.
+		A text field holds a short plain string with no formatting.
 
 		For a title or a heading, rich text limited to a single heading block
 		is usually a better fit:
