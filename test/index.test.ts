@@ -8,6 +8,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic <command> [options]");
 	expect(stdout).toContain("ROUTES");
+	expect(stdout).toContain("PREVIEWS");
 	expect(stdout).not.toContain("starter");
 });
 
