@@ -17,8 +17,8 @@ it.for(trials)("writes a slice component", async (_, { project, agent, expect })
 
 	const dir = new URL("slices/Testimonial/", project);
 	const files = await readdir(dir);
-	const componentFile = files.find((file) => /\.(t|j)sx$/.test(file));
-	expect(componentFile).toBeTruthy();
+	const componentFile = files.find((file) => /\.(tsx|jsx?)$/.test(file));
+	expect(componentFile, `slices/Testimonial/ has ${files.join(", ")}`).toBeTruthy();
 	const component = await readFile(new URL(componentFile!, dir), "utf8");
 	expect(component).toContain("quote");
 	expect(component).toContain("avatar");
