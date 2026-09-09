@@ -2,6 +2,7 @@ import type { ParseArgsOptionDescriptor } from "node:util";
 
 import { parseArgs } from "node:util";
 
+import { detectAgent } from "./ai";
 import { dedent, formatTable } from "./string";
 
 export type CommandConfig = {
@@ -16,18 +17,23 @@ export type CommandConfig = {
 			required?: boolean;
 			dependsOn?: string | string[];
 			deprecated?: string;
-			hidden?: boolean;
 		}
 	>;
 };
 
-type Options = NonNullable<CommandConfig["options"]>;
-
-let globalOptions: Options = {};
-
-export function setGlobalOptions(options: Options): void {
-	globalOptions = options;
-}
+/** Accepted by every command. Agents pass them so analytics can group commands by task. */
+export const AGENT_OPTIONS = {
+	intent: {
+		type: "string",
+		description:
+			"The user's overall task in one short sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task. Analytics only, no effect on behavior.",
+	},
+	"task-id": {
+		type: "string",
+		description:
+			"A globally unique ID (UUID) for the user's task. Generate one per task and pass the same value to every command for that task. Analytics only, no effect on behavior.",
+	},
+} as const satisfies CommandConfig["options"];
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
 	values: ParseArgsRequiredValues<T>;
@@ -62,7 +68,7 @@ export function createCommand<T extends CommandConfig>(
 				args,
 				options: {
 					...options,
-					...globalOptions,
+					...AGENT_OPTIONS,
 					help: { type: "boolean", short: "h" },
 				},
 				allowPositionals,
@@ -81,7 +87,7 @@ export function createCommand<T extends CommandConfig>(
 		}
 
 		if (result.values.help) {
-			console.info(buildCommandHelp(config));
+			console.info(await buildCommandHelp(config));
 			return;
 		}
 
@@ -112,7 +118,7 @@ export function createCommand<T extends CommandConfig>(
 	};
 }
 
-function buildCommandHelp(config: CommandConfig): string {
+async function buildCommandHelp(config: CommandConfig): Promise<string> {
 	const { description, sections, positionals = {}, options } = config;
 
 	const positionalNames = Object.keys(positionals);
@@ -142,7 +148,7 @@ function buildCommandHelp(config: CommandConfig): string {
 
 	lines.push("");
 	lines.push("OPTIONS");
-	lines.push(formatTable(optionRows({ ...options, ...globalOptions })));
+	lines.push(formatTable(await optionRows(options)));
 
 	if (sections) {
 		for (const sectionName in sections) {
@@ -163,10 +169,11 @@ function buildCommandHelp(config: CommandConfig): string {
 	return lines.join("\n");
 }
 
-function optionRows(options: Options): string[][] {
+async function optionRows(options: CommandConfig["options"] = {}): Promise<string[][]> {
 	const rows: string[][] = [];
-	for (const [name, option] of Object.entries(options)) {
-		if (option.deprecated || option.hidden) continue;
+	const shown = (await detectAgent()) ? { ...options, ...AGENT_OPTIONS } : options;
+	for (const [name, option] of Object.entries(shown)) {
+		if (option.deprecated) continue;
 		const shortPart = option.short ? `-${option.short}, ` : "    ";
 		const typeSuffix = option.type === "string" ? " string" : "";
 		const description = option.description + (option.required ? " (required)" : "");
@@ -209,11 +216,11 @@ export function createCommandRouter(config: CreateCommandRouterConfig): () => Pr
 			throw new CommandError(`Unknown command: ${subcommand}`);
 		}
 
-		console.info(buildRouterHelp(config));
+		console.info(await buildRouterHelp(config));
 	};
 }
 
-function buildRouterHelp(config: CreateCommandRouterConfig): string {
+async function buildRouterHelp(config: CreateCommandRouterConfig): Promise<string> {
 	const { name, description, sections, commands } = config;
 
 	const lines = [dedent(description)];
@@ -231,7 +238,7 @@ function buildRouterHelp(config: CreateCommandRouterConfig): string {
 
 	lines.push("");
 	lines.push("OPTIONS");
-	lines.push(formatTable(optionRows(globalOptions)));
+	lines.push(formatTable(await optionRows()));
 
 	if (sections) {
 		for (const sectionName in sections) {

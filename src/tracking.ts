@@ -5,6 +5,7 @@ import * as z from "zod/mini";
 import type { Profile } from "./lib/prismic/clients/user";
 
 import { DEFAULT_PRISMIC_HOST } from "./env";
+import { detectAgent } from "./lib/ai";
 import { readJsonFile } from "./lib/file";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
@@ -20,14 +21,14 @@ let taskId: string | undefined;
 export async function initTracking(config: {
 	host: string;
 	repo?: string;
-	agent?: string;
 	userIntent?: string;
 	taskId?: string;
 }): Promise<void> {
 	const { host, repo } = config;
 	if (repo) repository = repo;
-	({ agent, userIntent, taskId } = config);
+	({ userIntent, taskId } = config);
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
+	agent = await detectAgent();
 	await initSegment({ writeKey });
 }
 

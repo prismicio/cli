@@ -9,8 +9,7 @@ import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
 import { getErrorMessage } from "./error";
-import { detectAgent } from "./lib/ai";
-import { CommandError, setGlobalOptions } from "./lib/command";
+import { AGENT_OPTIONS, CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
 import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
@@ -91,23 +90,6 @@ async function main(): Promise<void> {
 
 	cleanupLegacyAuthFile().catch(() => {});
 
-	const agent = await detectAgent();
-	const agentOptions = {
-		intent: {
-			type: "string",
-			hidden: !agent,
-			description:
-				"The user's overall task in one short sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task. Analytics only, no effect on behavior.",
-		},
-		"task-id": {
-			type: "string",
-			hidden: !agent,
-			description:
-				"A globally unique ID (UUID) for the user's task. Generate one per task and pass the same value to every command for that task. Analytics only, no effect on behavior.",
-		},
-	} as const;
-	setGlobalOptions(agentOptions);
-
 	const {
 		positionals: [command = ""],
 		values: {
@@ -119,7 +101,7 @@ async function main(): Promise<void> {
 		},
 	} = parseArgs({
 		options: {
-			...agentOptions,
+			...AGENT_OPTIONS,
 			version: { type: "boolean", short: "v" },
 			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
@@ -135,7 +117,6 @@ async function main(): Promise<void> {
 
 	const repo = typeof repoValue === "string" ? repoValue : undefined;
 	const task = {
-		agent,
 		userIntent: typeof intent === "string" ? intent : undefined,
 		taskId: typeof taskId === "string" ? taskId : undefined,
 	};
