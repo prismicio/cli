@@ -17,23 +17,28 @@ export type CommandConfig = {
 			required?: boolean;
 			dependsOn?: string | string[];
 			deprecated?: string;
+			hidden?: boolean;
 		}
 	>;
 };
 
-/** Accepted by every command. Agents pass them so analytics can group commands by task. */
-export const AGENT_OPTIONS = {
+const isAgent = detectAgent() !== undefined;
+
+// Accepted by every command so agents can group the commands of one task in analytics.
+const AGENT_OPTIONS = {
 	intent: {
 		type: "string",
+		hidden: !isAgent,
 		description:
 			"The user's overall task in one short sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task. Analytics only, no effect on behavior.",
 	},
 	"task-id": {
 		type: "string",
+		hidden: !isAgent,
 		description:
 			"A globally unique ID (UUID) for the user's task. Generate one per task and pass the same value to every command for that task. Analytics only, no effect on behavior.",
 	},
-} as const satisfies CommandConfig["options"];
+} satisfies CommandConfig["options"];
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
 	values: ParseArgsRequiredValues<T>;
@@ -87,7 +92,7 @@ export function createCommand<T extends CommandConfig>(
 		}
 
 		if (result.values.help) {
-			console.info(await buildCommandHelp(config));
+			console.info(buildCommandHelp(config));
 			return;
 		}
 
@@ -118,7 +123,7 @@ export function createCommand<T extends CommandConfig>(
 	};
 }
 
-async function buildCommandHelp(config: CommandConfig): Promise<string> {
+function buildCommandHelp(config: CommandConfig): string {
 	const { description, sections, positionals = {}, options } = config;
 
 	const positionalNames = Object.keys(positionals);
@@ -148,7 +153,7 @@ async function buildCommandHelp(config: CommandConfig): Promise<string> {
 
 	lines.push("");
 	lines.push("OPTIONS");
-	lines.push(formatTable(optionRows(await helpOptions(options))));
+	lines.push(formatTable(optionRows({ ...options, ...AGENT_OPTIONS })));
 
 	if (sections) {
 		for (const sectionName in sections) {
@@ -169,18 +174,10 @@ async function buildCommandHelp(config: CommandConfig): Promise<string> {
 	return lines.join("\n");
 }
 
-/** Agent options are listed only when an agent is detected. */
-async function helpOptions(
-	options: CommandConfig["options"] = {},
-): Promise<CommandConfig["options"]> {
-	if (await detectAgent()) return { ...options, ...AGENT_OPTIONS };
-	return options;
-}
-
-function optionRows(options: CommandConfig["options"] = {}): string[][] {
+function optionRows(options: NonNullable<CommandConfig["options"]>): string[][] {
 	const rows: string[][] = [];
 	for (const [name, option] of Object.entries(options)) {
-		if (option.deprecated) continue;
+		if (option.deprecated || option.hidden) continue;
 		const shortPart = option.short ? `-${option.short}, ` : "    ";
 		const typeSuffix = option.type === "string" ? " string" : "";
 		const description = option.description + (option.required ? " (required)" : "");
@@ -223,11 +220,11 @@ export function createCommandRouter(config: CreateCommandRouterConfig): () => Pr
 			throw new CommandError(`Unknown command: ${subcommand}`);
 		}
 
-		console.info(await buildRouterHelp(config));
+		console.info(buildRouterHelp(config));
 	};
 }
 
-async function buildRouterHelp(config: CreateCommandRouterConfig): Promise<string> {
+function buildRouterHelp(config: CreateCommandRouterConfig): string {
 	const { name, description, sections, commands } = config;
 
 	const lines = [dedent(description)];
@@ -245,7 +242,7 @@ async function buildRouterHelp(config: CreateCommandRouterConfig): Promise<strin
 
 	lines.push("");
 	lines.push("OPTIONS");
-	lines.push(formatTable(optionRows(await helpOptions())));
+	lines.push(formatTable(optionRows(AGENT_OPTIONS)));
 
 	if (sections) {
 		for (const sectionName in sections) {

@@ -9,7 +9,7 @@ import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
 import { getErrorMessage } from "./error";
-import { AGENT_OPTIONS, CommandError } from "./lib/command";
+import { CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
 import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
@@ -96,15 +96,16 @@ async function main(): Promise<void> {
 			version,
 			help,
 			repo: repoValue = await safeGetRepositoryName(),
-			intent,
-			"task-id": taskId,
+			intent: intentValue,
+			"task-id": taskIdValue,
 		},
 	} = parseArgs({
 		options: {
-			...AGENT_OPTIONS,
 			version: { type: "boolean", short: "v" },
 			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
+			intent: { type: "string" },
+			"task-id": { type: "string" },
 		},
 		allowPositionals: true,
 		strict: false,
@@ -116,10 +117,8 @@ async function main(): Promise<void> {
 	}
 
 	const repo = typeof repoValue === "string" ? repoValue : undefined;
-	const task = {
-		userIntent: typeof intent === "string" ? intent : undefined,
-		taskId: typeof taskId === "string" ? taskId : undefined,
-	};
+	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
+	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
 
 	if (!help) {
 		const { token, host } = await getCredentials();
@@ -128,10 +127,10 @@ async function main(): Promise<void> {
 		const sentryEnabled = env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD);
 
 		if (sentryEnabled) {
-			await initSentry({ host, repo, ...task });
+			await initSentry({ host, repo, userIntent, taskId });
 		}
 		if (telemetryEnabled) {
-			await initTracking({ host, repo, ...task });
+			await initTracking({ host, repo, userIntent, taskId });
 		}
 
 		if (token) {

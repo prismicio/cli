@@ -26,9 +26,10 @@ export async function initTracking(config: {
 }): Promise<void> {
 	const { host, repo } = config;
 	if (repo) repository = repo;
-	({ userIntent, taskId } = config);
+	userIntent = config.userIntent;
+	taskId = config.taskId;
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
-	agent = await detectAgent();
+	agent = detectAgent();
 	await initSegment({ writeKey });
 }
 
