@@ -42,3 +42,23 @@ it("prints an update notification when a newer version is cached", async ({
 	expect(stderr).toContain("Update available");
 	expect(stderr).toContain("99.0.0");
 });
+
+it("accepts --intent and --task-id on every command", async ({ expect, prismic }) => {
+	const args = ["--intent", "Add a blog", "--task-id", crypto.randomUUID()];
+	const { stderr, exitCode } = await prismic("docs", ["list", ...args]);
+	expect(exitCode, stderr).toBe(0);
+});
+
+it("shows --intent and --task-id in help only when an agent is detected", async ({
+	expect,
+	prismic,
+}) => {
+	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
+	const human = { nodeOptions: { env: { AI_AGENT: "", CLAUDECODE: "" } } };
+
+	for (const [root, ...rest] of [[""], ["repo"], ["repo", "view"]]) {
+		const args = [...rest, "--help"];
+		expect((await prismic(root, args, agent)).stdout).toContain("--task-id");
+		expect((await prismic(root, args, human)).stdout).not.toContain("--task-id");
+	}
+});

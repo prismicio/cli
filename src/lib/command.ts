@@ -16,9 +16,18 @@ export type CommandConfig = {
 			required?: boolean;
 			dependsOn?: string | string[];
 			deprecated?: string;
+			hidden?: boolean;
 		}
 	>;
 };
+
+type Options = NonNullable<CommandConfig["options"]>;
+
+let globalOptions: Options = {};
+
+export function setGlobalOptions(options: Options): void {
+	globalOptions = options;
+}
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
 	values: ParseArgsRequiredValues<T>;
@@ -53,6 +62,7 @@ export function createCommand<T extends CommandConfig>(
 				args,
 				options: {
 					...options,
+					...globalOptions,
 					help: { type: "boolean", short: "h" },
 				},
 				allowPositionals,
@@ -132,22 +142,7 @@ function buildCommandHelp(config: CommandConfig): string {
 
 	lines.push("");
 	lines.push("OPTIONS");
-	const optionEntries: { left: string; description: string }[] = [];
-	if (options) {
-		const optionNames = Object.keys(options);
-		for (const optionName of optionNames) {
-			const option = options[optionName];
-			if (option.deprecated) continue;
-			const shortPart = option.short ? `-${option.short}, ` : "    ";
-			const typeSuffix = option.type === "string" ? " string" : "";
-			const left = `${shortPart}--${optionName}${typeSuffix}`;
-			const description = option.description + (option.required ? " (required)" : "");
-			optionEntries.push({ left, description });
-		}
-	}
-	optionEntries.push({ left: "-h, --help", description: "Show help for command" });
-	const optionRows = optionEntries.map((entry) => [`  ${entry.left}`, entry.description]);
-	lines.push(formatTable(optionRows));
+	lines.push(formatTable(optionRows({ ...options, ...globalOptions })));
 
 	if (sections) {
 		for (const sectionName in sections) {
@@ -166,6 +161,19 @@ function buildCommandHelp(config: CommandConfig): string {
 	lines.push(`  Use \`${bin} <command> --help\` for more information about a command.`);
 
 	return lines.join("\n");
+}
+
+function optionRows(options: Options): string[][] {
+	const rows: string[][] = [];
+	for (const [name, option] of Object.entries(options)) {
+		if (option.deprecated || option.hidden) continue;
+		const shortPart = option.short ? `-${option.short}, ` : "    ";
+		const typeSuffix = option.type === "string" ? " string" : "";
+		const description = option.description + (option.required ? " (required)" : "");
+		rows.push([`  ${shortPart}--${name}${typeSuffix}`, description]);
+	}
+	rows.push(["  -h, --help", "Show help for command"]);
+	return rows;
 }
 
 type CreateCommandRouterConfig = {
@@ -223,7 +231,7 @@ function buildRouterHelp(config: CreateCommandRouterConfig): string {
 
 	lines.push("");
 	lines.push("OPTIONS");
-	lines.push("  -h, --help   Show help for command");
+	lines.push(formatTable(optionRows(globalOptions)));
 
 	if (sections) {
 		for (const sectionName in sections) {

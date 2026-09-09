@@ -5,7 +5,6 @@ import * as z from "zod/mini";
 import type { Profile } from "./lib/prismic/clients/user";
 
 import { DEFAULT_PRISMIC_HOST } from "./env";
-import { detectAgent } from "./lib/ai";
 import { readJsonFile } from "./lib/file";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
@@ -15,12 +14,20 @@ const STAGING_WRITE_KEY = "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG";
 
 let repository: string | undefined;
 let agent: string | undefined;
+let userIntent: string | undefined;
+let taskId: string | undefined;
 
-export async function initTracking(config: { host: string; repo?: string }): Promise<void> {
+export async function initTracking(config: {
+	host: string;
+	repo?: string;
+	agent?: string;
+	userIntent?: string;
+	taskId?: string;
+}): Promise<void> {
 	const { host, repo } = config;
 	if (repo) repository = repo;
+	({ agent, userIntent, taskId } = config);
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
-	agent = await detectAgent();
 	await initSegment({ writeKey });
 }
 
@@ -37,6 +44,8 @@ export function trackCommandStart(command: string, config: { watch?: boolean } =
 			repository,
 			watch,
 			agent,
+			userIntent,
+			taskId,
 		},
 		groupId: repository ? { Repository: repository } : undefined,
 	});
@@ -57,6 +66,8 @@ export function trackCommandEnd(
 			watch,
 			error: errorMessage?.slice(0, 512),
 			agent,
+			userIntent,
+			taskId,
 		},
 		groupId: repository ? { Repository: repository } : undefined,
 	});

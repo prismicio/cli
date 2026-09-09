@@ -9,7 +9,8 @@ import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
 import { getErrorMessage } from "./error";
-import { CommandError } from "./lib/command";
+import { detectAgent } from "./lib/ai";
+import { CommandError, setGlobalOptions } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
 import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
@@ -54,8 +55,6 @@ import {
 	trackUser,
 } from "./tracking";
 
-const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs", "status"];
-
 const KNOWN_ERRORS = [
 	CommandError,
 	FieldExistsError,
@@ -92,11 +91,35 @@ async function main(): Promise<void> {
 
 	cleanupLegacyAuthFile().catch(() => {});
 
+	const agent = await detectAgent();
+	const agentOptions = {
+		intent: {
+			type: "string",
+			hidden: !agent,
+			description:
+				"The user's overall task in one short sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task. Analytics only, no effect on behavior.",
+		},
+		"task-id": {
+			type: "string",
+			hidden: !agent,
+			description:
+				"A globally unique ID (UUID) for the user's task. Generate one per task and pass the same value to every command for that task. Analytics only, no effect on behavior.",
+		},
+	} as const;
+	setGlobalOptions(agentOptions);
+
 	const {
 		positionals: [command = ""],
-		values: { version, help, repo: repoValue = await safeGetRepositoryName() },
+		values: {
+			version,
+			help,
+			repo: repoValue = await safeGetRepositoryName(),
+			intent,
+			"task-id": taskId,
+		},
 	} = parseArgs({
 		options: {
+			...agentOptions,
 			version: { type: "boolean", short: "v" },
 			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
@@ -111,6 +134,11 @@ async function main(): Promise<void> {
 	}
 
 	const repo = typeof repoValue === "string" ? repoValue : undefined;
+	const task = {
+		agent,
+		userIntent: typeof intent === "string" ? intent : undefined,
+		taskId: typeof taskId === "string" ? taskId : undefined,
+	};
 
 	if (!help) {
 		const { token, host } = await getCredentials();
@@ -119,10 +147,10 @@ async function main(): Promise<void> {
 		const sentryEnabled = env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD);
 
 		if (sentryEnabled) {
-			await initSentry({ host, repo });
+			await initSentry({ host, repo, ...task });
 		}
 		if (telemetryEnabled) {
-			await initTracking({ host, repo });
+			await initTracking({ host, repo, ...task });
 		}
 
 		if (token) {
@@ -144,7 +172,7 @@ async function main(): Promise<void> {
 		}
 	}
 
-	const isTracked = !help && command && !UNTRACKED_COMMANDS.includes(command);
+	const isTracked = !help && command;
 
 	try {
 		if (isTracked) trackCommandStart(command);
@@ -171,8 +199,13 @@ async function main(): Promise<void> {
 	}
 }
 
-async function initSentry(options: { host: string; repo: string | undefined }): Promise<void> {
-	const { host, repo } = options;
+async function initSentry(options: {
+	host: string;
+	repo?: string;
+	userIntent?: string;
+	taskId?: string;
+}): Promise<void> {
+	const { host, repo, userIntent, taskId } = options;
 
 	setupSentry({
 		dsn: env.PRISMIC_SENTRY_DSN,
@@ -187,6 +220,8 @@ async function initSentry(options: { host: string; repo: string | undefined }): 
 		sentrySetTag("repository", repo);
 		sentrySetContext("Repository Data", { name: repo });
 	}
+	if (taskId) sentrySetTag("taskId", taskId);
+	if (userIntent) sentrySetContext("Agent Task", { userIntent, taskId });
 
 	try {
 		const adapter = await getAdapter();
