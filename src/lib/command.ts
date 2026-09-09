@@ -148,7 +148,7 @@ async function buildCommandHelp(config: CommandConfig): Promise<string> {
 
 	lines.push("");
 	lines.push("OPTIONS");
-	lines.push(formatTable(await optionRows(options)));
+	lines.push(formatTable(optionRows(await helpOptions(options))));
 
 	if (sections) {
 		for (const sectionName in sections) {
@@ -169,10 +169,17 @@ async function buildCommandHelp(config: CommandConfig): Promise<string> {
 	return lines.join("\n");
 }
 
-async function optionRows(options: CommandConfig["options"] = {}): Promise<string[][]> {
+/** Agent options are listed only when an agent is detected. */
+async function helpOptions(
+	options: CommandConfig["options"] = {},
+): Promise<CommandConfig["options"]> {
+	if (await detectAgent()) return { ...options, ...AGENT_OPTIONS };
+	return options;
+}
+
+function optionRows(options: CommandConfig["options"] = {}): string[][] {
 	const rows: string[][] = [];
-	const shown = (await detectAgent()) ? { ...options, ...AGENT_OPTIONS } : options;
-	for (const [name, option] of Object.entries(shown)) {
+	for (const [name, option] of Object.entries(options)) {
 		if (option.deprecated) continue;
 		const shortPart = option.short ? `-${option.short}, ` : "    ";
 		const typeSuffix = option.type === "string" ? " string" : "";
@@ -238,7 +245,7 @@ async function buildRouterHelp(config: CreateCommandRouterConfig): Promise<strin
 
 	lines.push("");
 	lines.push("OPTIONS");
-	lines.push(formatTable(await optionRows()));
+	lines.push(formatTable(optionRows(await helpOptions())));
 
 	if (sections) {
 		for (const sectionName in sections) {
