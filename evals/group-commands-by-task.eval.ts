@@ -25,15 +25,15 @@ it.for(trials)(
 		const seen = calls.map((argv) => argv.join(" ")).join("\n");
 		expect(calls.length, seen).toBeGreaterThan(0);
 
-		const taskIds = new Set(calls.map((argv) => optionValue(argv, "task-id")));
+		const taskIds = new Set(calls.map((argv) => optionValue(argv, "analytics-task-id")));
 		expect([...taskIds], seen).toHaveLength(1);
 		expect([...taskIds][0], seen).toMatch(UUID);
 
-		const intents = new Set(calls.map((argv) => optionValue(argv, "intent")));
+		const intents = new Set(calls.map((argv) => optionValue(argv, "analytics-intent")));
 		expect([...intents], seen).toHaveLength(1);
 		await expect([...intents][0]).toSatisfyJudge(dedent`
 			The user asked an agent: ${request}
-			Above is the value the agent passed as --intent to the Prismic CLI.
+			Above is the value the agent passed as --analytics-intent to the Prismic CLI.
 			Passes if it paraphrases the user's request in one short sentence.
 			Fails if it is empty, describes a single CLI command rather than the whole request, or is not a sentence.
 		`);

@@ -26,13 +26,13 @@ const isAgent = detectAgent() !== undefined;
 
 // Accepted by every command so agents can group the commands of one task in analytics.
 const AGENT_OPTIONS = {
-	intent: {
+	"analytics-intent": {
 		type: "string",
 		hidden: !isAgent,
 		description:
 			"The user's overall task in one short sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task. Analytics only, no effect on behavior.",
 	},
-	"task-id": {
+	"analytics-task-id": {
 		type: "string",
 		hidden: !isAgent,
 		description:

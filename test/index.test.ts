@@ -43,13 +43,16 @@ it("prints an update notification when a newer version is cached", async ({
 	expect(stderr).toContain("99.0.0");
 });
 
-it("accepts --intent and --task-id on every command", async ({ expect, prismic }) => {
-	const args = ["--intent", "Add a blog", "--task-id", crypto.randomUUID()];
+it("accepts --analytics-intent and --analytics-task-id on every command", async ({
+	expect,
+	prismic,
+}) => {
+	const args = ["--analytics-intent", "Add a blog", "--analytics-task-id", crypto.randomUUID()];
 	const { stderr, exitCode } = await prismic("docs", ["list", ...args]);
 	expect(exitCode, stderr).toBe(0);
 });
 
-it("shows --intent and --task-id in help only when an agent is detected", async ({
+it("shows --analytics-intent and --analytics-task-id in help only when an agent is detected", async ({
 	expect,
 	prismic,
 }) => {
@@ -58,7 +61,7 @@ it("shows --intent and --task-id in help only when an agent is detected", async 
 
 	for (const [root, ...rest] of [[""], ["repo"], ["repo", "view"]]) {
 		const args = [...rest, "--help"];
-		expect((await prismic(root, args, agent)).stdout).toContain("--task-id");
-		expect((await prismic(root, args, human)).stdout).not.toContain("--task-id");
+		expect((await prismic(root, args, agent)).stdout).toContain("--analytics-task-id");
+		expect((await prismic(root, args, human)).stdout).not.toContain("--analytics-task-id");
 	}
 });

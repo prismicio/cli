@@ -23,7 +23,7 @@ if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
 const BIN = new URL("../dist/index.mjs", import.meta.url);
 const EVAL_TRIALS = Number(process.env.EVAL_TRIALS ?? 3);
 const JUDGE_MODEL = "claude-sonnet-5";
-const PRISMIC_SKILL_REF = "8e2ee3487ff52059a4303a9914e755d4fd61d80f";
+const PRISMIC_SKILL_REF = "ac98dc4a32c90e801b3f3db8d587e1b5c27f950a";
 
 const SKILL = await fetchSkill();
 
