@@ -16,7 +16,7 @@ it.for(trials)(
 			`Set up content previews for this project so editors can preview drafts.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["docs"]);
+		expect(result).toHaveRun(["docs"]);
 	},
 );
 
@@ -32,7 +32,7 @@ it.for(trials)(
 			`Change the "getting-started" document from the "article" type to "blog_post".`,
 		);
 
-		expect(result).not.toHaveRun("prismic", ["type", "remove"]);
+		expect(result).not.toHaveRun(["type", "remove"]);
 		const models = await readLocalCustomTypes(project);
 		expect(models.find((model) => model.id === article.id)).toEqual(article);
 		expect(models.find((model) => model.id === post.id)).toEqual(post);
@@ -56,7 +56,7 @@ it.for(trials)(
 
 		const result = await agent(`Clean up the fields on "article".`);
 
-		expect(result).not.toHaveRun("prismic", ["field", "remove"]);
+		expect(result).not.toHaveRun(["field", "remove"]);
 		const model = await readLocalCustomType(project, article.id);
 		expect(model.json.Main.title).toEqual(article.json.Main.title);
 		expect(model.json.Main.body).toEqual(article.json.Main.body);

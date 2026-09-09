@@ -17,7 +17,7 @@ it.for(trials)(
 			`Create a testimonial slice: a quote, author name, author role, an avatar, and a company logo.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["slice", "create"]);
+		expect(result).toHaveRun(["slice", "create"]);
 		const slices = await readLocalSlices(project);
 		expect(slices.length).toBe(1);
 		await expect(JSON.stringify(slices[0], null, 2)).toSatisfyJudge(
@@ -37,7 +37,7 @@ it.for(trials)("models a slice from a screenshot", async (_, { project, agent, e
 
 	const result = await agent(`Model a Prismic slice for the section design in feature-slice.png.`);
 
-	expect(result).toHaveRun("prismic", ["slice", "create"]);
+	expect(result).toHaveRun(["slice", "create"]);
 	const slices = await readLocalSlices(project);
 	expect(slices.length).toBe(1);
 	await expect(JSON.stringify(slices[0], null, 2)).toSatisfyJudge(
@@ -59,7 +59,7 @@ it.for(trials)(
 			`model a Prismic blog post: a title, publish date, hero image, author, and body`,
 		);
 
-		expect(result).toHaveRun("prismic", ["type", "create"]);
+		expect(result).toHaveRun(["type", "create"]);
 		const models = (await readLocalCustomTypes(project)).filter((model) => model.id !== author.id);
 
 		await expect(JSON.stringify(models, null, 2)).toSatisfyJudge(
@@ -76,7 +76,7 @@ it.for(trials)(
 	async (_, { project, agent, expect }) => {
 		const result = await agent(`Model a landing page and a global navigation menu.`);
 
-		expect(result).toHaveRun("prismic", ["type", "create"]);
+		expect(result).toHaveRun(["type", "create"]);
 		const models = await readLocalCustomTypes(project);
 		const landingPage = models.find((model) => /landing/.test(model.id));
 		const navigation = models.find((model) => /nav/.test(model.id));
@@ -95,7 +95,7 @@ it.for(trials)(
 
 		const result = await agent(`The homepage needs a flexible hero.`);
 
-		expect(result).toHaveRun("prismic");
+		expect(result).toHaveRun();
 		const models = await readLocalCustomTypes(project);
 		const slices = await readLocalSlices(project);
 		await expect(JSON.stringify({ models, slices }, null, 2)).toSatisfyJudge(
@@ -118,7 +118,7 @@ it.for(trials)(
 			`Add a star rating (1 to 5) and a call-to-action button to the "product" type.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["field", "add"]);
+		expect(result).toHaveRun(["field", "add"]);
 		const model = await readLocalCustomType(project, product.id);
 		await expect(JSON.stringify(model, null, 2)).toSatisfyJudge(
 			dedent`
@@ -137,7 +137,7 @@ it.for(trials)(
 		const result = await agent(
 			`Set up the "blog_post" type: it needs a title and the author's Bluesky handle.`,
 		);
-		expect(result).toHaveRun("prismic", ["field", "add"]);
+		expect(result).toHaveRun(["field", "add"]);
 		const model = await readLocalCustomType(project, customType.id);
 
 		await expect(JSON.stringify(model, null, 2)).toSatisfyJudge(

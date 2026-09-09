@@ -22,8 +22,8 @@ it.for(trials)(
 			`The models in this Prismic repo were updated by a teammate. Bring this project up to date.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["pull"]);
-		expect(result).not.toHaveRun("prismic", ["push"]);
+		expect(result).toHaveRun(["pull"]);
+		expect(result).not.toHaveRun(["push"]);
 		const local = await readLocalCustomType(project, article.id);
 		expect(local.json.Main.subtitle).toEqual(subtitle);
 		const remoteTypes = await getCustomTypes({ repo, token, host });
@@ -55,7 +55,7 @@ it.for(trials)(
 			`I finished modeling the "article" type. Publish it so editors can start using it.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["push"]);
+		expect(result).toHaveRun(["push"]);
 		const remoteTypes = await getCustomTypes({ repo, token, host });
 		expect(remoteTypes.some((type) => type.id === article.id)).toBe(true);
 		const status = await exec("git", ["status", "--porcelain", "customtypes"]);
