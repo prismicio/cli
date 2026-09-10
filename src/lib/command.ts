@@ -213,7 +213,7 @@ export function createCommandRouter(config: CreateCommandRouterConfig): () => Pr
 			positionals: [subcommand],
 		} = parseArgs({
 			args,
-			options: { help: { type: "boolean", short: "h" } },
+			options: { ...AGENT_OPTIONS, help: { type: "boolean", short: "h" } },
 			allowPositionals: true,
 			strict: false,
 		});

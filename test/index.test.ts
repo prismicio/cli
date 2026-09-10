@@ -48,8 +48,11 @@ it("accepts --analytics-intent and --analytics-task-id on every command", async 
 	prismic,
 }) => {
 	const args = ["--analytics-intent", "Add a blog", "--analytics-task-id", crypto.randomUUID()];
-	const { stderr, exitCode } = await prismic("docs", ["list", ...args]);
-	expect(exitCode, stderr).toBe(0);
+	const leaf = await prismic("docs", ["list", ...args]);
+	expect(leaf.exitCode, leaf.stderr).toBe(0);
+	const router = await prismic("repo", args);
+	expect(router.exitCode, router.stderr).toBe(0);
+	expect(router.stdout).toContain("prismic repo <command> [options]");
 });
 
 it("shows --analytics-intent and --analytics-task-id in help only when an agent is detected", async ({
