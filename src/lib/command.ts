@@ -24,7 +24,6 @@ export type CommandConfig = {
 
 const isAgent = detectAgent() !== undefined;
 
-// Accepted by every command so agents can group the commands of one task in analytics.
 const AGENT_OPTIONS = {
 	"analytics-intent": {
 		type: "string",
@@ -40,18 +39,14 @@ const AGENT_OPTIONS = {
 	},
 } satisfies CommandConfig["options"];
 
-const AGENT_SECTIONS: Record<string, string> = isAgent
-	? {
-			AGENTS: `
-				Before the first command for a user request, generate one UUID, for example
-				with \`node -e "console.log(crypto.randomUUID())"\`. Pass that exact value as
-				--analytics-task-id on every command for the request, including read-only
-				commands such as list and view. Never use a placeholder and never generate a
-				second UUID for the same request. Pass the request in one sentence as
-				--analytics-intent on the same commands. Analytics only, no effect on behavior.
-			`,
-		}
-	: {};
+const AGENTS_HELP = `
+	Before the first command for a user request, generate one UUID, for example
+	with \`node -e "console.log(crypto.randomUUID())"\`. Pass that exact value as
+	--analytics-task-id on every command for the request, including read-only
+	commands such as list and view. Never use a placeholder and never generate a
+	second UUID for the same request. Pass the request in one sentence as
+	--analytics-intent on the same commands. Analytics only, no effect on behavior.
+`;
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
 	values: ParseArgsRequiredValues<T>;
@@ -239,7 +234,8 @@ export function createCommandRouter(config: CreateCommandRouterConfig): () => Pr
 
 function buildRouterHelp(config: CreateCommandRouterConfig): string {
 	const { name, description, commands } = config;
-	const sections = { ...config.sections, ...AGENT_SECTIONS };
+	const sections = { ...config.sections };
+	if (isAgent) sections.AGENTS = AGENTS_HELP;
 
 	const lines = [dedent(description)];
 
