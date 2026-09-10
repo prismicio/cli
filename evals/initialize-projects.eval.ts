@@ -9,7 +9,7 @@ it.for(trials)(
 
 		const result = await agent(`Set up Prismic in this Next.js project.`);
 
-		expect(result).toHaveRun("prismic", ["init"]);
+		expect(result).toHaveRun(["init"]);
 		const config = JSON.parse(await readFile(new URL("prismic.config.json", project), "utf8"));
 		expect(config.repositoryName).toBeTruthy();
 	},
@@ -24,7 +24,7 @@ it.for(trials)(
 
 		const result = await agent(`Add Prismic to this existing Next.js app.`);
 
-		expect(result).toHaveRun("prismic", ["init"]);
+		expect(result).toHaveRun(["init"]);
 		const config = JSON.parse(await readFile(new URL("prismic.config.json", project), "utf8"));
 		expect(config.repositoryName).toBeTruthy();
 		const page = await readFile(new URL("app/page.tsx", project), "utf8");
@@ -41,7 +41,7 @@ it.for(trials)(
 			`Set up Prismic in this project using the existing "${repo}" Prismic repository.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["init"]);
+		expect(result).toHaveRun(["init"]);
 		const config = JSON.parse(await readFile(new URL("prismic.config.json", project), "utf8"));
 		expect(config.repositoryName).toBe(repo);
 	},

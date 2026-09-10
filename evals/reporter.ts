@@ -11,8 +11,8 @@ export type Trial = {
 	tokens: number;
 	/** Agent wall time in seconds, excluding fixture setup and judging. */
 	durationS: number;
-	/** prismic CLI invocations, verbatim minus the leading `npx prismic`. */
-	calls: string[];
+	/** prismic CLI invocations, each as the argv the CLI received. */
+	calls: string[][];
 	/** The agent's final message, the only record of why it stopped. */
 	text: string;
 };

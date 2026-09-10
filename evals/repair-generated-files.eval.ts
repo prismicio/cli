@@ -17,7 +17,7 @@ it.for(trials)(
 			`The components map in slices/index.js is out of date and my slice does not render. Fix it.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["gen", "slice-index"]);
+		expect(result).toHaveRun(["gen", "slice-index"]);
 		expect(await readFile(new URL("slices/index.js", project), "utf8")).toContain(slice.id);
 	},
 );

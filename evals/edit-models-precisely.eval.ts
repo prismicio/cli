@@ -23,7 +23,7 @@ it.for(trials)("adds a field", async (_, { project, agent, expect }) => {
 
 	const result = await agent(`Add an "excerpt" rich text field to the "article" type.`);
 
-	expect(result).toHaveRun("prismic", ["field", "add", "rich-text", "excerpt"]);
+	expect(result).toHaveRun(["field", "add", "rich-text", "excerpt"]);
 	const model = await readLocalCustomType(project, article.id);
 	expect(model.json.Main.excerpt.type).toBe("StructuredText");
 	expect(model.json.Main.title).toEqual(article.json.Main.title);
@@ -42,7 +42,7 @@ it.for(trials)(
 
 		const result = await agent(`Add a "centered" variation to the "Hero" slice.`);
 
-		expect(result).toHaveRun("prismic", ["slice", "add-variation"]);
+		expect(result).toHaveRun(["slice", "add-variation"]);
 		const model = await readLocalSlice(project, slice.id);
 		const ids = model?.variations.map((variation) => variation.id);
 		expect(ids).toContain("default");
@@ -68,7 +68,7 @@ it.todo("renames a field without disturbing field order", async ({ project, agen
 
 	const result = await agent(`Rename the "tagline" field on "article" to "subtitle".`);
 
-	expect(result).toHaveRun("prismic", ["field", "edit"]);
+	expect(result).toHaveRun(["field", "edit"]);
 	const model = await readLocalCustomType(project, article.id);
 	expect(Object.keys(model.json.Main)).toEqual(["title", "subtitle", "body"]);
 	expect(model.json.Main.subtitle.type).toBe("Text");
@@ -88,7 +88,7 @@ it.for(trials)(
 			`The testimonial design now also shows the author's company logo and a star rating. Update the "Testimonial" slice.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["field", "add"]);
+		expect(result).toHaveRun(["field", "add"]);
 		const model = await readLocalSlice(project, slice.id);
 		const primary = model?.variations[0].primary ?? {};
 		expect(primary.quote).toEqual(slice.variations[0].primary.quote);
@@ -107,7 +107,7 @@ it.for(trials)(
 		const firstRun = await agent(`add a "body" rich text field to "homepage"`);
 		await agent(`add a "body" rich text field to "homepage"`);
 
-		expect(firstRun).toHaveRun("prismic", ["field", "add"]);
+		expect(firstRun).toHaveRun(["field", "add"]);
 		const model = await readLocalCustomType(project, homepage.id);
 		const bodyLikeKeys = Object.keys(model.json.Main).filter((key) => /body/i.test(key));
 		expect(bodyLikeKeys).toEqual(["body"]);
@@ -123,7 +123,7 @@ it.for(trials)("adds a group field with nested fields", async (_, { project, age
 		`Add a repeatable "features" group to the "product" type. Each feature has an icon image and a label.`,
 	);
 
-	expect(result).toHaveRun("prismic", ["field", "add", "group"]);
+	expect(result).toHaveRun(["field", "add", "group"]);
 	const model = await readLocalCustomType(project, product.id);
 	const features = model.json.Main.features;
 	expect(features.type).toBe("Group");
@@ -148,7 +148,7 @@ it.for(trials)(
 
 		// Both `field add content-relationship` and `field add link --allow document`
 		// model a constrained relationship; judge the resulting model, not the command.
-		expect(result).toHaveRun("prismic", ["field", "add"]);
+		expect(result).toHaveRun(["field", "add"]);
 		const model = await readLocalCustomType(project, product.id);
 		expect(model.json.Main.size.type).toBe("Select");
 		expect((model.json.Main.size.config as { options: string[] }).options).toEqual(["S", "M", "L"]);
@@ -180,7 +180,7 @@ it.for(trials)(
 			`Restrict the "title" field on "post" so editors can only write a single H1.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["field", "edit"]);
+		expect(result).toHaveRun(["field", "edit"]);
 		const model = await readLocalCustomType(project, post.id);
 		const config = model.json.Main.title.config as { single?: string; multi?: string };
 		expect(config.single).toBe("heading1");
@@ -200,7 +200,7 @@ it.for(trials)("connects a slice to a page type", async (_, { project, agent, ex
 
 	const result = await agent(`Make the "Testimonial" slice available on the "page" type.`);
 
-	expect(result).toHaveRun("prismic", ["slice", "connect"]);
+	expect(result).toHaveRun(["slice", "connect"]);
 	const model = await readLocalCustomType(project, page.id);
 	const choices = (model.json.Main.slices.config as { choices: Record<string, unknown> }).choices;
 	expect(Object.keys(choices)).toContain(slice.id);
