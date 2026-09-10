@@ -1,7 +1,7 @@
 import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { Codex } from "@openai/codex-sdk";
 import dedent from "dedent";
-import { copyFile, mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,7 +23,7 @@ if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
 const BIN = new URL("../dist/index.mjs", import.meta.url);
 const EVAL_TRIALS = Number(process.env.EVAL_TRIALS ?? 3);
 const JUDGE_MODEL = "claude-sonnet-5";
-const PRISMIC_SKILL_REF = "5028eeae6dae77e6441af610702a1dd62ce6a5d5";
+const PRISMIC_SKILL_REF = "b458cc6f74146152be7cbcff02b4924a7ded38b6";
 
 const SKILL = await fetchSkill();
 
@@ -35,7 +35,7 @@ declare module "vitest" {
 	}
 	// oxlint-disable-next-line no-explicit-any
 	interface Matchers<T = any> {
-		toHaveRun(bin: string, positionals?: string[]): T;
+		toHaveRun(positionals?: string[]): T;
 		toSatisfyJudge(criterion: string): Promise<T>;
 	}
 }
@@ -65,10 +65,21 @@ export const it = base.extend<{
 			CODEX_HOME: await createCodexHome(),
 		};
 
+		// The project's `prismic` bin records the argv of every call before running the
+		// CLI, so evals see the arguments as the CLI received them, not as the agent typed them.
+		const argvLog = join(tmpdir(), `prismic-argv-${crypto.randomUUID()}.jsonl`);
 		if (installCli) {
-			const nodeModulesBinDir = new URL("node_modules/.bin/", project);
-			await mkdir(nodeModulesBinDir, { recursive: true });
-			await symlink(BIN, new URL("prismic", nodeModulesBinDir));
+			const bin = new URL("node_modules/.bin/prismic", project);
+			await mkdir(new URL(".", bin), { recursive: true });
+			await writeFile(
+				bin,
+				dedent`
+					#!/bin/sh
+					node -e 'console.log(JSON.stringify(process.argv.slice(1)))' -- "$@" >> ${JSON.stringify(argvLog)}
+					exec node ${JSON.stringify(fileURLToPath(BIN))} "$@"
+				`,
+				{ mode: 0o755 },
+			);
 			env.PRISMIC_CONFIG_DIR = fileURLToPath(new URL(".config/prismic/", home));
 			env.PRISMIC_TYPE_BUILDER_ENABLED = "true";
 			env.PRISMIC_SENTRY_ENABLED = "false";
@@ -89,22 +100,21 @@ export const it = base.extend<{
 				skill: installSkill ? SKILL : undefined,
 				cwd: project,
 				env,
-				// Recorded as commands stream so a timed-out trial keeps its trail.
-				onCommand: (command) => {
-					commands.push(command);
-					if (/(^|\s)(npx\s+)?prismic(@|\s|$)/.test(command)) {
-						trial.calls.push(command.replace(/^.*?(^|\s)(npx\s+)?prismic(@\S+)?(?=\s|$)\s*/, ""));
-					}
-				},
+				onCommand: (command) => commands.push(command),
+			}).finally(async () => {
+				// Recorded even when the run fails so a timed-out trial keeps its trail.
+				durationMs += performance.now() - start;
+				trial.durationS = Math.round(durationMs / 1000);
+				trial.calls = await readArgvLog(argvLog);
 			});
 
-			durationMs += performance.now() - start;
 			trial.text = text;
 			trial.tokens += tokens;
-			trial.durationS = Math.round(durationMs / 1000);
 
-			return { text, commands };
+			return { text, commands, calls: trial.calls };
 		});
+
+		await rm(argvLog, { force: true });
 
 		for (const file of ["prismic.config.json", "slicemachine.config.json"]) {
 			try {
@@ -121,25 +131,21 @@ export const it = base.extend<{
 it.scoped({ isolateRepo: true });
 
 expect.extend({
-	toHaveRun(result: AgentResult, bin: string, positionals: string[] = []) {
-		const pass = result.commands.some((command) => {
-			return command.split(/&&|\|\||;|\||\n/).some((segment) => {
-				const words = segment.split(/\s+/).filter(Boolean);
-				if (words.includes("--help") || words.includes("-h")) return false;
-				const start = words.findIndex((word) => new RegExp(`^${bin}@?`).test(word));
-				if (start === -1) return false;
-
-				const got = words.slice(start + 1).filter((w) => !w.startsWith("-"));
-				return positionals.every((p, i) => got[i] === p);
-			});
+	toHaveRun(result: AgentResult, positionals: string[] = []) {
+		const pass = result.calls.some((argv) => {
+			if (argv.includes("--help") || argv.includes("-h")) return false;
+			const got = argv.filter((arg) => !arg.startsWith("-"));
+			return positionals.every((p, i) => got[i] === p);
 		});
 
 		return {
 			pass,
 			message: () => {
-				const wanted = [bin, ...positionals].join(" ");
+				const wanted = ["prismic", ...positionals].join(" ");
 				if (pass) return `expected no command matching \`${wanted}\`, but one ran`;
-				const seen = result.commands.map((c) => `  ${c}`).join("\n") || "  (no commands ran)";
+				const seen =
+					result.calls.map((argv) => `  prismic ${argv.join(" ")}`).join("\n") ||
+					"  (no commands ran)";
 				return `expected a command matching \`${wanted}\`, but saw:\n${seen}\n\nagent's final message:\n${result.text}`;
 			},
 		};
@@ -156,7 +162,10 @@ expect.extend({
 
 type AgentResult = {
 	text: string;
+	/** Every shell command the agent ran, as typed. */
 	commands: string[];
+	/** Every prismic CLI call, as the argv the CLI received. */
+	calls: string[][];
 };
 
 type RunOptions = {
@@ -291,6 +300,15 @@ async function judge(
 	}
 
 	return result.structured_output as { reason: string; pass: boolean };
+}
+
+async function readArgvLog(path: string): Promise<string[][]> {
+	const log = await readFile(path, "utf8").catch(() => "");
+	return log
+		.trim()
+		.split("\n")
+		.filter(Boolean)
+		.map((line) => JSON.parse(line));
 }
 
 async function fetchSkill() {

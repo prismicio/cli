@@ -27,12 +27,29 @@ export default createCommandRouter({
 			Run \`prismic docs list\` to browse available documentation topics.
 			Run \`prismic docs view <path>\` to read a topic.
 		`,
+		MODELING: `
+			Pages are page types, built from slices and fields. Content that is
+			not a page is a custom type, such as an author or a navigation menu.
+			A page references a custom type with a content relationship field,
+			instead of repeating its content.
+			Run \`prismic type list\` to see what a project has, and
+			\`prismic docs view content-modeling\` for details.
+		`,
 		ROUTES: `
 			Page URLs are routes in prismic.config.json, for example:
 			  { "type": "blog_post", "path": "/blog/:uid" }
 			prismic.config.json is project configuration, not a model file, so edit
 			it directly. There is no route command.
 			Run \`prismic docs view routes\` for path keywords and route properties.
+		`,
+		PREVIEWS: `
+			Writers use previews to see draft content before it is published.
+			Previews need two settings. After a deploy, set both:
+			  prismic preview add https://example.com/api/preview
+			  prismic preview set-simulator https://example.com
+			A repository can hold multiple preview URLs but only one simulator URL,
+			which the Page Builder loads live slice previews from.
+			Run \`prismic docs view previews\` for details.
 		`,
 	},
 	commands: {
@@ -91,7 +108,7 @@ export default createCommandRouter({
 		},
 		preview: {
 			handler: preview,
-			description: "Manage preview configurations",
+			description: "Manage preview and simulator URLs",
 		},
 		token: {
 			handler: token,

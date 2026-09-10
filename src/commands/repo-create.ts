@@ -47,7 +47,7 @@ export async function createRepo(config: {
 
 	const adapter = await getAdapter().catch(() => undefined);
 	const framework = adapter?.id ?? "other";
-	const agent = await detectAgent();
+	const agent = detectAgent();
 
 	await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
 

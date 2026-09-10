@@ -1,6 +1,6 @@
-import { exists } from "./file";
+import { existsSync } from "node:fs";
 
-export async function detectAgent(): Promise<string | undefined> {
+export function detectAgent(): string | undefined {
 	if (process.env.AI_AGENT) return process.env.AI_AGENT.toLowerCase();
 
 	if (process.env.CLAUDE_CODE_IS_COWORK === "1" || process.env.CLAUDE_CODE_IS_COWORK === "true") {
@@ -31,10 +31,7 @@ export async function detectAgent(): Promise<string | undefined> {
 	const agent = process.env.AGENT?.toLowerCase();
 	if (agent === "goose" || agent === "amp") return agent;
 
-	if (process.platform === "linux") {
-		const isDevin = await exists(new URL("file:///opt/.devin"));
-		if (isDevin) return "devin";
-	}
+	if (process.platform === "linux" && existsSync("/opt/.devin")) return "devin";
 
 	if (process.env.IS_SANDBOX === "yes") return "unknown-sandbox";
 }

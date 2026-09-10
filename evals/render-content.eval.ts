@@ -17,8 +17,8 @@ it.for(trials)("writes a slice component", async (_, { project, agent, expect })
 
 	const dir = new URL("slices/Testimonial/", project);
 	const files = await readdir(dir);
-	const componentFile = files.find((file) => /\.(t|j)sx$/.test(file));
-	expect(componentFile).toBeTruthy();
+	const componentFile = files.find((file) => /\.(tsx|jsx?)$/.test(file));
+	expect(componentFile, `slices/Testimonial/ has ${files.join(", ")}`).toBeTruthy();
 	const component = await readFile(new URL(componentFile!, dir), "utf8");
 	expect(component).toContain("quote");
 	expect(component).toContain("avatar");
@@ -40,9 +40,9 @@ it.for(trials)(
 			`Build a Prismic landing page for this project: a "landing_page" type with a hero slice (heading, description, image, CTA), wired up so the page renders its slices.`,
 		);
 
-		expect(result).toHaveRun("prismic", ["type", "create"]);
-		expect(result).toHaveRun("prismic", ["slice", "create"]);
-		expect(result).toHaveRun("prismic", ["slice", "connect"]);
+		expect(result).toHaveRun(["type", "create"]);
+		expect(result).toHaveRun(["slice", "create"]);
+		expect(result).toHaveRun(["slice", "connect"]);
 		const models = await readLocalCustomTypes(project);
 		const landingPage = models.find((model) => model.id === "landing_page");
 		expect(landingPage).toBeTruthy();
