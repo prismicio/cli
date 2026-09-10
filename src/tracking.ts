@@ -15,12 +15,21 @@ const STAGING_WRITE_KEY = "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG";
 
 let repository: string | undefined;
 let agent: string | undefined;
+let userIntent: string | undefined;
+let taskId: string | undefined;
 
-export async function initTracking(config: { host: string; repo?: string }): Promise<void> {
+export async function initTracking(config: {
+	host: string;
+	repo?: string;
+	userIntent?: string;
+	taskId?: string;
+}): Promise<void> {
 	const { host, repo } = config;
 	if (repo) repository = repo;
+	userIntent = config.userIntent;
+	taskId = config.taskId;
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
-	agent = await detectAgent();
+	agent = detectAgent();
 	await initSegment({ writeKey });
 }
 
@@ -37,6 +46,8 @@ export function trackCommandStart(command: string, config: { watch?: boolean } =
 			repository,
 			watch,
 			agent,
+			userIntent,
+			taskId,
 		},
 		groupId: repository ? { Repository: repository } : undefined,
 	});
@@ -57,6 +68,8 @@ export function trackCommandEnd(
 			watch,
 			error: errorMessage?.slice(0, 512),
 			agent,
+			userIntent,
+			taskId,
 		},
 		groupId: repository ? { Repository: repository } : undefined,
 	});

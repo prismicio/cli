@@ -54,8 +54,6 @@ import {
 	trackUser,
 } from "./tracking";
 
-const UNTRACKED_COMMANDS = ["login", "logout", "whoami", "sync", "docs", "status"];
-
 const KNOWN_ERRORS = [
 	CommandError,
 	FieldExistsError,
@@ -94,12 +92,20 @@ async function main(): Promise<void> {
 
 	const {
 		positionals: [command = ""],
-		values: { version, help, repo: repoValue = await safeGetRepositoryName() },
+		values: {
+			version,
+			help,
+			repo: repoValue = await safeGetRepositoryName(),
+			"analytics-intent": intentValue,
+			"analytics-task-id": taskIdValue,
+		},
 	} = parseArgs({
 		options: {
 			version: { type: "boolean", short: "v" },
 			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
+			"analytics-intent": { type: "string" },
+			"analytics-task-id": { type: "string" },
 		},
 		allowPositionals: true,
 		strict: false,
@@ -111,6 +117,8 @@ async function main(): Promise<void> {
 	}
 
 	const repo = typeof repoValue === "string" ? repoValue : undefined;
+	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
+	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
 
 	if (!help) {
 		const { token, host } = await getCredentials();
@@ -119,10 +127,10 @@ async function main(): Promise<void> {
 		const sentryEnabled = env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD);
 
 		if (sentryEnabled) {
-			await initSentry({ host, repo });
+			await initSentry({ host, repo, userIntent, taskId });
 		}
 		if (telemetryEnabled) {
-			await initTracking({ host, repo });
+			await initTracking({ host, repo, userIntent, taskId });
 		}
 
 		if (token) {
@@ -144,7 +152,8 @@ async function main(): Promise<void> {
 		}
 	}
 
-	const isTracked = !help && command && !UNTRACKED_COMMANDS.includes(command);
+	// sync runs until SIGINT and tracks itself with watch: true.
+	const isTracked = !help && command && command !== "sync";
 
 	try {
 		if (isTracked) trackCommandStart(command);
@@ -171,8 +180,13 @@ async function main(): Promise<void> {
 	}
 }
 
-async function initSentry(options: { host: string; repo: string | undefined }): Promise<void> {
-	const { host, repo } = options;
+async function initSentry(options: {
+	host: string;
+	repo?: string;
+	userIntent?: string;
+	taskId?: string;
+}): Promise<void> {
+	const { host, repo, userIntent, taskId } = options;
 
 	setupSentry({
 		dsn: env.PRISMIC_SENTRY_DSN,
@@ -187,6 +201,8 @@ async function initSentry(options: { host: string; repo: string | undefined }): 
 		sentrySetTag("repository", repo);
 		sentrySetContext("Repository Data", { name: repo });
 	}
+	if (taskId) sentrySetTag("taskId", taskId);
+	if (userIntent) sentrySetContext("Agent Task", { userIntent, taskId });
 
 	try {
 		const adapter = await getAdapter();
