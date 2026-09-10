@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.17.0](https://github.com/prismicio/cli/compare/v1.16.0...v1.17.0) (2026-09-10)
+
+
+### Features
+
+* accept `--analytics-intent` and `--analytics-task-id` on every command ([#295](https://github.com/prismicio/cli/issues/295)) ([9e4d016](https://github.com/prismicio/cli/commit/9e4d016af459af7e507977b17b32afa42765642b))
+
+
+### Bug Fixes
+
+* **help:** describe the content model in the root help ([#286](https://github.com/prismicio/cli/issues/286)) ([4198198](https://github.com/prismicio/cli/commit/4198198d9985459c68a6c11cde2b2046bfc7c4fb))
+* **init:** describe --repo as an existing repository domain ([#290](https://github.com/prismicio/cli/issues/290)) ([5bfcabb](https://github.com/prismicio/cli/commit/5bfcabbeeb0cf9d430d9e037fad255f74325c8d6))
+* **preview:** say that previews need a preview URL and a simulator URL ([#285](https://github.com/prismicio/cli/issues/285)) ([399d0e4](https://github.com/prismicio/cli/commit/399d0e4064389a0788b11ab25a7a5e3f5944c1a6))
+* **status:** show the commit as the first step of a push ([#288](https://github.com/prismicio/cli/issues/288)) ([1fb48dd](https://github.com/prismicio/cli/commit/1fb48ddc820c7f4c45b6ae0e10c5532990d00cda)), closes [#277](https://github.com/prismicio/cli/issues/277) [#276](https://github.com/prismicio/cli/issues/276)
+* **type:** say where page routes live and how to change them ([#283](https://github.com/prismicio/cli/issues/283)) ([89619f4](https://github.com/prismicio/cli/commit/89619f4407300db731760b6b96b0e47bb63422b2))
+
 ## [1.16.0](https://github.com/prismicio/cli/compare/v1.15.0...v1.16.0) (2026-08-17)
 
 
