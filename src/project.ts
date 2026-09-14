@@ -241,7 +241,6 @@ export class TypeBuilderRequiredError extends Error {
 			This command requires the Type Builder, but repository "${repo}" uses the Legacy Builder.
 
 			Contact Prismic support to enable the Type Builder: https://prismic.io/docs/help-center
-			Or create a new repository with \`prismic init\`.
 
 			Learn more at https://prismic.io/docs/type-builder
 		`);
