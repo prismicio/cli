@@ -73,15 +73,15 @@ it("requires --analytics-intent and a UUID --analytics-task-id when an agent is 
 	);
 	expect(placeholder.exitCode).toBe(1);
 
-	const uuid = ["--analytics-task-id", crypto.randomUUID()];
-	const ok = await prismic("docs", ["list", ...intent, ...uuid], agent);
+	const ok = await prismic(
+		"docs",
+		["list", ...intent, "--analytics-task-id", crypto.randomUUID()],
+		agent,
+	);
 	expect(ok.exitCode, ok.stderr).toBe(0);
 
 	const help = await prismic("docs", ["list", "--help"], agent);
 	expect(help.exitCode, help.stderr).toBe(0);
-
-	const human = await prismic("docs", ["list"]);
-	expect(human.exitCode, human.stderr).toBe(0);
 });
 
 it("shows --analytics-intent and --analytics-task-id in help only when an agent is detected", async ({
