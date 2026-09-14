@@ -254,6 +254,7 @@ async function runCodex(prompt: string, { model, skill, cwd, env, onCommand }: R
 		workingDirectory: fileURLToPath(cwd),
 		sandboxMode: "danger-full-access",
 		approvalPolicy: "never",
+		skipGitRepoCheck: true,
 	});
 
 	let text = "";
