@@ -161,7 +161,7 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
 
 	if (!repo) {
-		repo = await createRepo({ lang, token, host });
+		repo = await createRepo({ lang, framework: adapter.id, token, host });
 		console.info(`Created repository: ${repo}`);
 	}
 
