@@ -18,6 +18,24 @@ export async function login(email: string, password: string, config?: HostConfig
 	return await res.text();
 }
 
+export async function getRepositoryDomains(config: AuthConfig): Promise<string[]> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("profile", `https://user-service.${host}/`);
+	const headers = { Cookie: `prismic-auth=${config.token}` };
+	// The profile endpoint intermittently returns 500 — retry a few times.
+	for (let attempt = 0; ; attempt++) {
+		const res = await fetch(url, { headers });
+		if (res.ok) {
+			const data = await res.json();
+			return data.repositories.map((repository: { domain: string }) => repository.domain);
+		}
+		if (res.status < 500 || attempt === 3) {
+			throw new Error(`Failed to get profile: ${res.status} ${await res.text()}`);
+		}
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+	}
+}
+
 export async function createRepository(domain: string, config: AuthConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("app/dashboard/repositories", `https://${host}/`);
