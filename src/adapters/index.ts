@@ -32,12 +32,7 @@ export type LocalDevelopmentPreview = {
 	resolverPath: string;
 };
 
-export const FRAMEWORKS = ["next", "nuxt", "sveltekit"] as const;
-export type Framework = (typeof FRAMEWORKS)[number];
-
-export function isFramework(value: string): value is Framework {
-	return (FRAMEWORKS as readonly string[]).includes(value);
-}
+export const FRAMEWORKS = ["next", "nuxt", "sveltekit"];
 
 export async function getAdapter(): Promise<Adapter> {
 	const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
@@ -69,7 +64,7 @@ export async function getActiveRepositoryName(): Promise<string> {
 }
 
 export abstract class Adapter {
-	abstract readonly id: Framework;
+	abstract readonly id: string;
 
 	abstract readonly environmentEnvVarName: string;
 

@@ -1,4 +1,4 @@
-import { type Framework, FRAMEWORKS, getAdapter, isFramework } from "../adapters";
+import { FRAMEWORKS, getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -35,7 +35,7 @@ export default createCommand(config, async ({ values }) => {
 			`No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project, or pass --framework <${FRAMEWORKS.join("|")}>.`,
 		);
 	}
-	if (!isFramework(framework)) {
+	if (!FRAMEWORKS.includes(framework)) {
 		throw new CommandError(
 			`Unsupported framework "${framework}". Use one of: ${FRAMEWORKS.join(", ")}.`,
 		);
@@ -51,7 +51,7 @@ export default createCommand(config, async ({ values }) => {
 export async function createRepo(config: {
 	name?: string;
 	lang?: string;
-	framework: Framework;
+	framework: string;
 	token: string | undefined;
 	host: string;
 }): Promise<string> {
