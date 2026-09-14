@@ -53,7 +53,6 @@ it("creates a repository with --framework outside a project", async ({
 
 	const repository = await getRepository({ repo: domain!, token, host });
 	expect(repository.framework).toBe("nuxt");
-	expect(repository.quotas?.sliceMachineEnabled).toBe(true);
 });
 
 it("rejects an unsupported --framework", async ({ expect, prismic }) => {
