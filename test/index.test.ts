@@ -89,7 +89,7 @@ it("shows --analytics-intent and --analytics-task-id in help only when an agent 
 	prismic,
 }) => {
 	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
-	const human = { nodeOptions: { env: { AI_AGENT: "", CLAUDECODE: "" } } };
+	const human = { nodeOptions: { env: { AI_AGENT: "" } } };
 
 	for (const [root, ...rest] of [[""], ["repo"], ["repo", "view"]]) {
 		const args = [...rest, "--help"];
