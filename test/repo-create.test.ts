@@ -57,9 +57,9 @@ it("creates a repository with --framework outside a project", async ({
 });
 
 it("rejects an unsupported --framework", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("repo", ["create", "--framework", "astro"]);
+	const { stderr, exitCode } = await prismic("repo", ["create", "--framework", "invalid"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain('Unsupported framework "astro"');
+	expect(stderr).toContain('Unsupported framework "invalid"');
 });
 
 it("activates the MCP server", async ({ expect, prismic, token, host }) => {
