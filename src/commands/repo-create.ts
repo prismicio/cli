@@ -1,4 +1,4 @@
-import { getAdapter } from "../adapters";
+import { type Framework, FRAMEWORKS, getAdapter, isFramework } from "../adapters";
 import { getCredentials } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -8,7 +8,6 @@ import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 
 const MAX_DOMAIN_TRIES = 5;
-const FRAMEWORKS = ["next", "nuxt", "sveltekit"];
 
 const config = {
 	name: "prismic repo create",
@@ -29,13 +28,14 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { name, lang, framework = (await getAdapter().catch(() => undefined))?.id } = values;
+	const adapter = await getAdapter().catch(() => undefined);
+	const { name, lang, framework = adapter?.id } = values;
 	if (!framework) {
 		throw new CommandError(
 			`No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project, or pass --framework <${FRAMEWORKS.join("|")}>.`,
 		);
 	}
-	if (!FRAMEWORKS.includes(framework)) {
+	if (!isFramework(framework)) {
 		throw new CommandError(
 			`Unsupported framework "${framework}". Use one of: ${FRAMEWORKS.join(", ")}.`,
 		);
@@ -51,7 +51,7 @@ export default createCommand(config, async ({ values }) => {
 export async function createRepo(config: {
 	name?: string;
 	lang?: string;
-	framework: string;
+	framework: Framework;
 	token: string | undefined;
 	host: string;
 }): Promise<string> {
