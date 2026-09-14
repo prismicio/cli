@@ -29,18 +29,15 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { name, lang } = values;
-
-	let { framework } = values;
-	if (framework && !FRAMEWORKS.includes(framework)) {
-		throw new CommandError(
-			`Unsupported framework "${framework}". Use one of: ${FRAMEWORKS.join(", ")}.`,
-		);
-	}
-	framework ??= (await getAdapter().catch(() => undefined))?.id;
+	const { name, lang, framework = (await getAdapter().catch(() => undefined))?.id } = values;
 	if (!framework) {
 		throw new CommandError(
 			`No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project, or pass --framework <${FRAMEWORKS.join("|")}>.`,
+		);
+	}
+	if (!FRAMEWORKS.includes(framework)) {
+		throw new CommandError(
+			`Unsupported framework "${framework}". Use one of: ${FRAMEWORKS.join(", ")}.`,
 		);
 	}
 
