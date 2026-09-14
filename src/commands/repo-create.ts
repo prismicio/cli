@@ -56,7 +56,7 @@ export async function createRepo(config: {
 	framework ??= (await getAdapter().catch(() => undefined))?.id;
 	if (!framework) {
 		throw new CommandError(
-			`No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project, or pass --framework <${FRAMEWORKS.join("|")}>. A repository created without one uses the Legacy Builder and can't be managed by the CLI.`,
+			`No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project, or pass --framework <${FRAMEWORKS.join("|")}>.`,
 		);
 	}
 
