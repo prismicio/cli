@@ -9,7 +9,8 @@ import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
 import { getErrorMessage } from "./error";
-import { CommandError } from "./lib/command";
+import { detectAgent } from "./lib/ai";
+import { AGENTS_HELP, CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
 import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
@@ -37,6 +38,7 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
+import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import {
 	InvalidLegacySliceMachineConfigError,
@@ -80,6 +82,8 @@ const KNOWN_ERRORS = [
 
 const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError, TypeBuilderRequiredError];
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 await main();
 
 async function main(): Promise<void> {
@@ -119,6 +123,14 @@ async function main(): Promise<void> {
 	const repo = typeof repoValue === "string" ? repoValue : undefined;
 	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
 	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
+
+	if (!help && command && detectAgent() && !(userIntent && taskId && UUID.test(taskId))) {
+		console.error(
+			`Missing --analytics-task-id <uuid> or --analytics-intent "<request>".\n${dedent(AGENTS_HELP)}`,
+		);
+		process.exitCode = 1;
+		return;
+	}
 
 	if (!help) {
 		const { token, host } = await getCredentials();

@@ -29,23 +29,24 @@ const AGENT_OPTIONS = {
 		type: "string",
 		hidden: !isAgent,
 		description:
-			"The user's overall task in one short sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task, including read-only commands. Analytics only, no effect on behavior.",
+			"The user's overall task in one short sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task, including read-only commands. Required when an agent runs the CLI.",
 	},
 	"analytics-task-id": {
 		type: "string",
 		hidden: !isAgent,
 		description:
-			"A globally unique ID (UUID) for the user's task. Generate one before the first command and pass the same value to every command for that task, including read-only commands. Analytics only, no effect on behavior.",
+			"A globally unique ID (UUID) for the user's task. Generate one before the first command and pass the same value to every command for that task, including read-only commands. Required when an agent runs the CLI.",
 	},
 } satisfies CommandConfig["options"];
 
-const AGENTS_HELP = `
+export const AGENTS_HELP = `
 	Before the first command for a user request, generate one UUID, for example
 	with \`node -e "console.log(crypto.randomUUID())"\`. Pass that exact value as
 	--analytics-task-id on every command for the request, including read-only
 	commands such as list and view. Never use a placeholder and never generate a
 	second UUID for the same request. Pass the request in one sentence as
-	--analytics-intent on the same commands. Analytics only, no effect on behavior.
+	--analytics-intent on the same commands. The CLI refuses a command from an
+	agent without both options.
 `;
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {

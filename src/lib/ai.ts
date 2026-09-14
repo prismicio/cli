@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 
 export function detectAgent(): string | undefined {
-	if (process.env.AI_AGENT) return process.env.AI_AGENT.toLowerCase();
+	if (process.env.AI_AGENT !== undefined) return process.env.AI_AGENT.toLowerCase() || undefined;
 
 	if (process.env.CLAUDE_CODE_IS_COWORK === "1" || process.env.CLAUDE_CODE_IS_COWORK === "true") {
 		return "claude-cowork";

@@ -152,6 +152,7 @@ export const it = test.extend<Fixtures>({
 				...options,
 				nodeOptions: {
 					env: {
+						AI_AGENT: "",
 						PRISMIC_TYPE_BUILDER_ENABLED: "true",
 						PRISMIC_SENTRY_ENABLED: "false",
 						PRISMIC_TELEMETRY_ENABLED: "false",
