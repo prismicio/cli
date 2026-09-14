@@ -6,7 +6,6 @@ import { upsertLocale } from "../lib/prismic/clients/locale";
 import { activateMCP } from "../lib/prismic/clients/mcp";
 import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients/wroom";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
-import { dedent } from "../lib/string";
 
 const MAX_DOMAIN_TRIES = 5;
 const FRAMEWORKS = ["next", "nuxt", "sveltekit"];
@@ -48,20 +47,17 @@ export async function createRepo(config: {
 }): Promise<string> {
 	const { name, lang = "en-us", token, host } = config;
 
-	if (config.framework && !FRAMEWORKS.includes(config.framework)) {
+	let { framework } = config;
+	if (framework && !FRAMEWORKS.includes(framework)) {
 		throw new CommandError(
-			`Unsupported framework "${config.framework}". Use one of: ${FRAMEWORKS.join(", ")}.`,
+			`Unsupported framework "${framework}". Use one of: ${FRAMEWORKS.join(", ")}.`,
 		);
 	}
-	// Repositories created without a supported framework don't get the Type
-	// Builder, which every CLI model command requires.
-	const framework = config.framework ?? (await getAdapter().catch(() => undefined))?.id;
+	framework ??= (await getAdapter().catch(() => undefined))?.id;
 	if (!framework) {
-		throw new CommandError(dedent`
-			No supported framework found. A repository created without one uses the Legacy Builder and can't be managed by the CLI.
-
-			Run this command in a Next.js, Nuxt, or SvelteKit project, or pass --framework <${FRAMEWORKS.join("|")}>.
-		`);
+		throw new CommandError(
+			`No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project, or pass --framework <${FRAMEWORKS.join("|")}>. A repository created without one uses the Legacy Builder and can't be managed by the CLI.`,
+		);
 	}
 
 	const domain = await findAvailableDomain({ token, host });

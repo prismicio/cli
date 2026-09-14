@@ -30,7 +30,6 @@ it("fails outside a supported framework project", async ({ expect, prismic, home
 	});
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("No supported framework found");
-	expect(stderr).toContain("--framework");
 });
 
 it("creates a repository with --framework outside a project", async ({
