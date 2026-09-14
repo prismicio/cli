@@ -388,9 +388,12 @@ export async function setSimulatorUrl(simulatorUrl: string, config: RepoConfig):
 	if (!res.ok) throw new Error(`Failed to set simulator URL: ${res.status} ${await res.text()}`);
 }
 
-export async function getRepository(
-	config: RepoConfig,
-): Promise<{ name: string; framework: string; simulatorUrl?: string }> {
+export async function getRepository(config: RepoConfig): Promise<{
+	name: string;
+	framework: string;
+	simulatorUrl?: string;
+	quotas?: { sliceMachineEnabled: boolean };
+}> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("repository/", `https://api.internal.${host}/`);
 	url.searchParams.set("repository", config.repo);

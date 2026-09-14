@@ -151,6 +151,7 @@ export const it = test.extend<Fixtures>({
 			exec("node", [BIN, command, ...args], {
 				...options,
 				nodeOptions: {
+					...options?.nodeOptions,
 					env: {
 						PRISMIC_TYPE_BUILDER_ENABLED: "true",
 						PRISMIC_SENTRY_ENABLED: "false",

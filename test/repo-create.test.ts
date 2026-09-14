@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import { it } from "./it";
 import { deleteRepository, getLocales, getMCPActivationStatus, getRepository } from "./prismic";
 
@@ -18,7 +20,47 @@ it("creates a repository", async ({ expect, prismic, token, host, password, onTe
 	onTestFinished(() => deleteRepository(domain!, { token, password, host }));
 
 	const repository = await getRepository({ repo: domain!, token, host });
-	expect(repository).toBeDefined();
+	expect(repository.framework).toBe("next");
+	expect(repository.quotas?.sliceMachineEnabled).toBe(true);
+});
+
+it("fails outside a supported framework project", async ({ expect, prismic, home }) => {
+	const { stderr, exitCode } = await prismic("repo", ["create"], {
+		nodeOptions: { cwd: fileURLToPath(home) },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("No supported framework found");
+	expect(stderr).toContain("--framework");
+});
+
+it("creates a repository with --framework outside a project", async ({
+	expect,
+	prismic,
+	home,
+	token,
+	host,
+	password,
+	onTestFinished,
+}) => {
+	const { stdout, stderr, exitCode } = await prismic("repo", ["create", "--framework", "nuxt"], {
+		nodeOptions: { cwd: fileURLToPath(home) },
+	});
+	expect(exitCode, stderr).toBe(0);
+
+	const domain = stdout.match(/Repository created: (\S+)/)?.[1];
+	expect(domain).toBeDefined();
+
+	onTestFinished(() => deleteRepository(domain!, { token, password, host }));
+
+	const repository = await getRepository({ repo: domain!, token, host });
+	expect(repository.framework).toBe("nuxt");
+	expect(repository.quotas?.sliceMachineEnabled).toBe(true);
+});
+
+it("rejects an unsupported --framework", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("repo", ["create", "--framework", "astro"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain('Unsupported framework "astro"');
 });
 
 it("activates the MCP server", async ({ expect, prismic, token, host }) => {

@@ -152,7 +152,7 @@ export default createCommand(config, async ({ values }) => {
 			host,
 		});
 		if (!isTypeBuilderEnabled) {
-			throw new TypeBuilderRequiredError(repo, host);
+			throw new TypeBuilderRequiredError(repo);
 		}
 
 		connectedRepository = await getRepository({ repo, token, host });

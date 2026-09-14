@@ -6,8 +6,10 @@ import { upsertLocale } from "../lib/prismic/clients/locale";
 import { activateMCP } from "../lib/prismic/clients/mcp";
 import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients/wroom";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
+import { dedent } from "../lib/string";
 
 const MAX_DOMAIN_TRIES = 5;
+const FRAMEWORKS = ["next", "nuxt", "sveltekit"];
 
 const config = {
 	name: "prismic repo create",
@@ -19,14 +21,19 @@ const config = {
 			short: "l",
 			description: "Master locale for the new repository (default: en-us)",
 		},
+		framework: {
+			type: "string",
+			short: "f",
+			description: `Framework the repository is for: ${FRAMEWORKS.join(", ")} (default: detected from the project)`,
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { name, lang } = values;
+	const { name, lang, framework } = values;
 
 	const { token, host } = await getCredentials();
-	const domain = await createRepo({ name, lang, token, host });
+	const domain = await createRepo({ name, lang, framework, token, host });
 
 	console.info(`Repository created: ${domain}`);
 	console.info(`URL: https://${domain}.${host}/`);
@@ -35,18 +42,33 @@ export default createCommand(config, async ({ values }) => {
 export async function createRepo(config: {
 	name?: string;
 	lang?: string;
+	framework?: string;
 	token: string | undefined;
 	host: string;
 }): Promise<string> {
 	const { name, lang = "en-us", token, host } = config;
+
+	if (config.framework && !FRAMEWORKS.includes(config.framework)) {
+		throw new CommandError(
+			`Unsupported framework "${config.framework}". Use one of: ${FRAMEWORKS.join(", ")}.`,
+		);
+	}
+	// Repositories created without a supported framework don't get the Type
+	// Builder, which every CLI model command requires.
+	const framework = config.framework ?? (await getAdapter().catch(() => undefined))?.id;
+	if (!framework) {
+		throw new CommandError(dedent`
+			No supported framework found. A repository created without one uses the Legacy Builder and can't be managed by the CLI.
+
+			Run this command in a Next.js, Nuxt, or SvelteKit project, or pass --framework <${FRAMEWORKS.join("|")}>.
+		`);
+	}
 
 	const domain = await findAvailableDomain({ token, host });
 	if (!domain) {
 		throw new CommandError("Failed to create a repository. Please try again.");
 	}
 
-	const adapter = await getAdapter().catch(() => undefined);
-	const framework = adapter?.id ?? "other";
 	const agent = detectAgent();
 
 	await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
