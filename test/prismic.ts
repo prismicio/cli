@@ -84,11 +84,12 @@ export async function deleteRepository(
 	const url = new URL("app/settings/delete", `https://${domain}.${host}/`);
 	const headers = { "Content-Type": "application/json", Cookie: `prismic-auth=${config.token}` };
 	const body = JSON.stringify({ confirm: domain, password: config.password });
-	const res = await fetch(url, { method: "POST", headers, body });
-	if (!res.ok) {
-		// Sometimes deletion returns 500 but actually succeeds — retry once
-		const retry = await fetch(url, { method: "POST", headers, body });
-		if (!retry.ok) throw new Error(`Failed to delete repository ${domain}`);
+	// Deletion sometimes returns 500 but actually succeeds, or fails transiently — retry with backoff.
+	for (let attempt = 0; ; attempt++) {
+		const res = await fetch(url, { method: "POST", headers, body });
+		if (res.ok) return;
+		if (attempt === 3) throw new Error(`Failed to delete repository ${domain}`);
+		await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
 	}
 }
 
