@@ -122,10 +122,9 @@ export const it = base.extend<{
 		const created = outputs
 			.join("\n")
 			.matchAll(/(?:Repository created|Created repository): (\S+)/g);
-		for (const domain of new Set(Array.from(created, (match) => match[1]))) {
-			if (domain !== repo && password) {
+		for (const [, domain] of created) {
+			if (domain !== repo)
 				await deleteRepository(domain, { token, password, host }).catch(() => {});
-			}
 		}
 	},
 });
@@ -211,9 +210,12 @@ async function runClaudeCode(
 		if (message.type === "user" && Array.isArray(message.message.content)) {
 			for (const block of message.message.content) {
 				if (block.type !== "tool_result") continue;
-				if (typeof block.content === "string") onOutput(block.content);
+				if (typeof block.content === "string") {
+					onOutput(block.content);
+					continue;
+				}
 				for (const part of block.content ?? []) {
-					if (typeof part !== "string" && part.type === "text") onOutput(part.text);
+					if (part.type === "text") onOutput(part.text);
 				}
 			}
 		}
