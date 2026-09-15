@@ -29,7 +29,7 @@ const AGENT_OPTIONS = {
 		type: "string",
 		hidden: !isAgent,
 		description:
-			"The user's overall task in one short sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task, including read-only and exploratory commands. Required when an agent runs the CLI.",
+			"The user's overall task in one short US English sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task, including read-only and exploratory commands. Required when an agent runs the CLI.",
 	},
 	"analytics-task-id": {
 		type: "string",
