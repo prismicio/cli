@@ -18,15 +18,6 @@ export async function login(email: string, password: string, config?: HostConfig
 	return await res.text();
 }
 
-export async function getRepositoryDomains(config: AuthConfig): Promise<string[]> {
-	const host = config.host ?? DEFAULT_HOST;
-	const url = new URL("profile", `https://user-service.${host}/`);
-	const res = await fetch(url, { headers: { Cookie: `prismic-auth=${config.token}` } });
-	if (!res.ok) throw new Error(`Failed to get profile: ${res.status} ${await res.text()}`);
-	const data = await res.json();
-	return data.repositories.map((repository: { domain: string }) => repository.domain);
-}
-
 export async function createRepository(domain: string, config: AuthConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("app/dashboard/repositories", `https://${host}/`);

@@ -92,6 +92,7 @@ export const it = base.extend<{
 
 		const run = model.startsWith("claude-") ? runClaudeCode : runCodex;
 
+		const outputs: string[] = [];
 		await use(async (prompt: string) => {
 			const start = performance.now();
 			const commands: string[] = [];
@@ -101,6 +102,7 @@ export const it = base.extend<{
 				cwd: project,
 				env,
 				onCommand: (command) => commands.push(command),
+				onOutput: (output) => outputs.push(output),
 			}).finally(async () => {
 				// Recorded even when the run fails so a timed-out trial keeps its trail.
 				durationMs += performance.now() - start;
@@ -116,14 +118,14 @@ export const it = base.extend<{
 
 		await rm(argvLog, { force: true });
 
-		for (const file of ["prismic.config.json", "slicemachine.config.json"]) {
-			try {
-				const configFile = await readFile(new URL(file, project), "utf8");
-				const created = JSON.parse(configFile).repositoryName;
-				if (created && created !== repo && password) {
-					await deleteRepository(created, { token, password, host });
-				}
-			} catch {}
+		// Delete every repository the CLI reported creating during the trial.
+		const created = outputs
+			.join("\n")
+			.matchAll(/(?:Repository created|Created repository): (\S+)/g);
+		for (const domain of new Set(Array.from(created, (match) => match[1]))) {
+			if (domain !== repo && password) {
+				await deleteRepository(domain, { token, password, host }).catch(() => {});
+			}
 		}
 	},
 });
@@ -174,9 +176,13 @@ type RunOptions = {
 	cwd: URL;
 	env: NodeJS.ProcessEnv;
 	onCommand: (command: string) => void;
+	onOutput: (output: string) => void;
 };
 
-async function runClaudeCode(prompt: string, { model, skill, cwd, env, onCommand }: RunOptions) {
+async function runClaudeCode(
+	prompt: string,
+	{ model, skill, cwd, env, onCommand, onOutput }: RunOptions,
+) {
 	let result: SDKResultMessage | undefined;
 
 	for await (const message of query({
@@ -202,6 +208,15 @@ async function runClaudeCode(prompt: string, { model, skill, cwd, env, onCommand
 				}
 			}
 		}
+		if (message.type === "user" && Array.isArray(message.message.content)) {
+			for (const block of message.message.content) {
+				if (block.type !== "tool_result") continue;
+				if (typeof block.content === "string") onOutput(block.content);
+				for (const part of block.content ?? []) {
+					if (typeof part !== "string" && part.type === "text") onOutput(part.text);
+				}
+			}
+		}
 	}
 
 	if (result?.subtype !== "success") {
@@ -218,7 +233,10 @@ async function runClaudeCode(prompt: string, { model, skill, cwd, env, onCommand
 	return { text: result.result, tokens };
 }
 
-async function runCodex(prompt: string, { model, skill, cwd, env, onCommand }: RunOptions) {
+async function runCodex(
+	prompt: string,
+	{ model, skill, cwd, env, onCommand, onOutput }: RunOptions,
+) {
 	if (skill) await writeFile(new URL("AGENTS.md", cwd), skill);
 
 	const codex = new Codex({
@@ -240,6 +258,9 @@ async function runCodex(prompt: string, { model, skill, cwd, env, onCommand }: R
 	for await (const event of events) {
 		if (event.type === "item.started" && event.item.type === "command_execution") {
 			onCommand(event.item.command);
+		}
+		if (event.type === "item.completed" && event.item.type === "command_execution") {
+			onOutput(event.item.aggregated_output);
 		}
 		if (event.type === "item.completed" && event.item.type === "agent_message") {
 			text = event.item.text;
