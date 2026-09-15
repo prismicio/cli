@@ -1,16 +1,16 @@
-import { writeFile } from "node:fs/promises";
-
 import { buildCustomType, readLocalCustomType, writeLocalCustomType } from "../test/it";
 import { getCustomTypes, insertCustomType } from "../test/prismic";
 import { it, trials } from "./it";
 
 it.for(trials)(
 	"syncs in the right direction when the repo is newer",
-	async (_, { project, agent, expect, repo, token, host }) => {
+	async (_, { project, agent, exec, expect, repo, token, host }) => {
 		const article = buildCustomType({
 			json: { Main: { title: { type: "Text", config: { label: "Title" } } } },
 		});
 		await writeLocalCustomType(project, article);
+		await exec("git", ["add", "-A"]);
+		await exec("git", ["commit", "-q", "-m", "Add article"]);
 		const subtitle = { type: "Text", config: { label: "Subtitle" } };
 		const remoteArticle = {
 			...article,
@@ -34,15 +34,7 @@ it.for(trials)(
 
 it.for(trials)(
 	"commits and pushes local model changes",
-	async (_, { project, agent, exec, expect, repo, token, host, home }) => {
-		await writeFile(new URL(".gitignore", project), "node_modules\npackage-lock.json\n");
-		await writeFile(
-			new URL(".gitconfig", home),
-			"[user]\n\temail = eval@example.com\n\tname = Eval\n",
-		);
-		await exec("git", ["init"]);
-		await exec("git", ["add", "-A"]);
-		await exec("git", ["commit", "-m", "Initial commit"]);
+	async (_, { project, agent, exec, expect, repo, token, host }) => {
 		// A field so the type looks finished; the agent balks at pushing an empty type.
 		const article = buildCustomType({
 			id: "article",

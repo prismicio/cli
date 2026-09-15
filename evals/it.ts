@@ -50,10 +50,34 @@ export const it = base.extend<{
 	installCli: true,
 	model: "claude-sonnet-5",
 	agent: async (
-		{ home, project, login, task, repo, token, host, password, installSkill, installCli, model },
+		{
+			home,
+			project,
+			login,
+			exec,
+			task,
+			repo,
+			token,
+			host,
+			password,
+			installSkill,
+			installCli,
+			model,
+		},
 		use,
 	) => {
 		await login();
+
+		// A real project is a git repo: pull and push refuse to change model files
+		// outside one. Models the eval writes next stay uncommitted, like a user's edits.
+		await writeFile(new URL(".gitignore", project), "node_modules\n");
+		await writeFile(
+			new URL(".gitconfig", home),
+			"[user]\n\temail = eval@example.com\n\tname = Eval\n",
+		);
+		await exec("git", ["init", "-q", "-b", "main"]);
+		await exec("git", ["add", "-A"]);
+		await exec("git", ["commit", "-q", "-m", "Initial commit"]);
 
 		const env: NodeJS.ProcessEnv = {
 			...process.env,
