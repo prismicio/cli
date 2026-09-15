@@ -1,4 +1,4 @@
-import { getAdapter } from "../adapters";
+import { FRAMEWORKS, getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -19,14 +19,36 @@ const config = {
 			short: "l",
 			description: "Master locale for the new repository (default: en-us)",
 		},
+		framework: {
+			type: "string",
+			short: "f",
+			description: `Framework the repository is for: ${FRAMEWORKS.join(", ")} (default: detected from the project)`,
+		},
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { name, lang } = values;
+	const adapter = await getAdapter().catch(() => undefined);
+	const { name, lang, framework = adapter?.id } = values;
+	if (!framework) {
+		throw new CommandError(`
+			No supported framework found. The CLI needs a Next.js, Nuxt, or SvelteKit project to work with a repository.
+
+			Do one of the following:
+			  - Run this command inside an existing Next.js, Nuxt, or SvelteKit project.
+			  - Create the project first, then run \`prismic init\` to create and connect a repository.
+			  - Pass --framework <${FRAMEWORKS.join("|")}> to create the repository now.
+			    You still need a compatible project to use it. Connect one later with \`prismic init --repo <domain>\`.
+		`);
+	}
+	if (!FRAMEWORKS.includes(framework)) {
+		throw new CommandError(
+			`Unsupported framework "${framework}". Use one of: ${FRAMEWORKS.join(", ")}.`,
+		);
+	}
 
 	const { token, host } = await getCredentials();
-	const domain = await createRepo({ name, lang, token, host });
+	const domain = await createRepo({ name, lang, framework, token, host });
 
 	console.info(`Repository created: ${domain}`);
 	console.info(`URL: https://${domain}.${host}/`);
@@ -35,18 +57,17 @@ export default createCommand(config, async ({ values }) => {
 export async function createRepo(config: {
 	name?: string;
 	lang?: string;
+	framework: string;
 	token: string | undefined;
 	host: string;
 }): Promise<string> {
-	const { name, lang = "en-us", token, host } = config;
+	const { name, lang = "en-us", framework, token, host } = config;
 
 	const domain = await findAvailableDomain({ token, host });
 	if (!domain) {
 		throw new CommandError("Failed to create a repository. Please try again.");
 	}
 
-	const adapter = await getAdapter().catch(() => undefined);
-	const framework = adapter?.id ?? "other";
 	const agent = detectAgent();
 
 	await createRepository({ domain, name: name ?? domain, framework, agent, token, host });

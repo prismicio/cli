@@ -236,6 +236,19 @@ it("uninstalls Slice Machine packages when migrating", async ({
 	expect(allDependencies).toHaveProperty("next");
 });
 
+it("fails with next steps when no supported framework is found", async ({
+	expect,
+	project,
+	prismic,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	await writeFile(new URL("package.json", project), JSON.stringify({ name: "my-site" }));
+	const { exitCode, stderr } = await prismic("init");
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("No supported framework found");
+	expect(stderr).toContain("prismic repo create --framework");
+});
+
 it("fails when Type Builder is not enabled", async ({ expect, project, prismic, repo }) => {
 	await rm(new URL("prismic.config.json", project));
 	const { exitCode, stderr } = await prismic("init", ["--repo", repo], {

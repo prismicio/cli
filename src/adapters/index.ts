@@ -32,6 +32,8 @@ export type LocalDevelopmentPreview = {
 	resolverPath: string;
 };
 
+export const FRAMEWORKS = ["next", "nuxt", "sveltekit"];
+
 export async function getAdapter(): Promise<Adapter> {
 	const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
 	const allDependencies = { ...dependencies, ...devDependencies, ...peerDependencies };

@@ -236,12 +236,11 @@ export async function checkIsTypeBuilderEnabled(
 
 export class TypeBuilderRequiredError extends Error {
 	name = "TypeBuilderRequired";
-	constructor(repo: string, host: string) {
+	constructor(repo: string) {
 		super(dedent`
-			This command requires the Type Builder in your repository.
+			This command requires the Type Builder, but repository "${repo}" uses the Legacy Builder.
 
-			Enable it by turning off Legacy Builder in your repository settings:
-			  https://${repo}.${host}/settings/repository/
+			Contact Prismic support to enable the Type Builder: https://prismic.io/docs/help-center
 
 			Learn more at https://prismic.io/docs/type-builder
 		`);

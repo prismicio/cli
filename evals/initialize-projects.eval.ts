@@ -46,3 +46,23 @@ it.for(trials)(
 		expect(config.repositoryName).toBe(repo);
 	},
 );
+
+it.for(trials)(
+	"creates a repository for a framework before the project exists",
+	async (_, { project, agent, expect }) => {
+		// A directory that has not been scaffolded yet: no framework, no Prismic config.
+		await writeFile(new URL("package.json", project), JSON.stringify({ name: "my-site" }));
+		await rm(new URL("node_modules/next/", project), { recursive: true });
+		await rm(new URL("app/", project), { recursive: true });
+		await rm(new URL("prismic.config.json", project));
+
+		const result = await agent(
+			`Create a Prismic repository for the Nuxt site I'm about to build in this directory.`,
+		);
+
+		const commands = result.calls.map((argv) => argv.join(" "));
+		expect(commands).toContainEqual(
+			expect.stringMatching(/^repo create .*(--framework|-f)[ =]nuxt/),
+		);
+	},
+);
