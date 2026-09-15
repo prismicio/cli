@@ -142,12 +142,9 @@ async function main(): Promise<void> {
 			}
 
 			if ((sentryEnabled || telemetryEnabled) && (!exp || exp > now)) {
-				getProfile({ token, host })
-					.then((profile) => {
-						trackUser(profile);
-						sentrySetUser({ id: profile.shortId });
-					})
-					.catch(() => {});
+				const profile = getProfile({ token, host });
+				if (telemetryEnabled) trackUser(profile);
+				profile.then((profile) => sentrySetUser({ id: profile.shortId })).catch(() => {});
 			}
 		}
 	}

@@ -4,6 +4,7 @@ import { env } from "../env";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getDocsPageContent } from "../lib/prismic/clients/docs";
+import { getTrackedUserId } from "../tracking";
 
 const config = {
 	name: "prismic docs view",
@@ -31,7 +32,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const path = hashIndex >= 0 ? rawPath.slice(0, hashIndex) : rawPath;
 	const anchor = hashIndex >= 0 ? rawPath.slice(hashIndex + 1) : undefined;
 
-	let markdown = await getDocsPageContent(path, { host: env.PRISMIC_DOCS_HOST });
+	// Lets the docs site attribute the page view to the logged-in user.
+	const userId = await getTrackedUserId();
+	let markdown = await getDocsPageContent(path, { host: env.PRISMIC_DOCS_HOST, userId });
 
 	if (anchor) {
 		const section = extractSection(markdown, anchor);

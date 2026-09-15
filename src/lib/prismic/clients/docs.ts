@@ -6,7 +6,7 @@ import { request } from "../../request";
 // overrides only.
 const DEFAULT_DOCS_HOST = "prismic.io";
 
-type DocsConfig = { host?: string };
+type DocsConfig = { host?: string; userId?: string };
 
 const DocsIndexEntrySchema = z.object({
 	path: z.string(),
@@ -47,8 +47,10 @@ export async function getDocsPageIndex(path: string, config?: DocsConfig): Promi
 
 export async function getDocsPageContent(path: string, config?: DocsConfig): Promise<string> {
 	const url = new URL(path, getDocsServiceUrl(config?.host));
+	const headers = new Headers({ Accept: "text/markdown" });
+	if (config?.userId) headers.set("X-Prismic-User-Id", config.userId);
 	return request(url, {
-		headers: { Accept: "text/markdown" },
+		headers,
 		schema: z.string(),
 		notFoundMessage: `Page not found: ${path}`,
 		unknownErrorMessage: "Failed to fetch documentation page",

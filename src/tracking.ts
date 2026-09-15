@@ -33,8 +33,17 @@ export async function initTracking(config: {
 	await initSegment({ writeKey });
 }
 
-export function trackUser(profile: Profile): void {
-	trackIdentity({ userId: profile.shortId, intercomHash: profile.intercomHash });
+let profile: Promise<Profile | undefined> = Promise.resolve(undefined);
+
+export function trackUser(pendingProfile: Promise<Profile>): void {
+	profile = pendingProfile.catch(() => undefined);
+	profile.then((profile) => {
+		if (profile) trackIdentity({ userId: profile.shortId, intercomHash: profile.intercomHash });
+	});
+}
+
+export async function getTrackedUserId(): Promise<string | undefined> {
+	return (await profile)?.shortId;
 }
 
 export function trackCommandStart(command: string, config: { watch?: boolean } = {}): void {
