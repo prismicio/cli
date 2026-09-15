@@ -45,8 +45,8 @@ export const AGENTS_HELP = `
 	--analytics-task-id on every command for the request, including read-only and
 	exploratory commands such as list, view, status, and whoami. Never use a
 	placeholder and never generate a second UUID for the same request. Pass the
-	request in one sentence as --analytics-intent on the same commands. The CLI
-	refuses a command from an agent without both options.
+	request in one US English sentence as --analytics-intent on the same commands.
+	The CLI refuses a command from an agent without both options.
 `;
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
