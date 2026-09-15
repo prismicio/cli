@@ -55,12 +55,41 @@ it("accepts --analytics-intent and --analytics-task-id on every command", async 
 	expect(router.stdout).toContain("prismic repo <command> [options]");
 });
 
+it("requires --analytics-intent and a UUID --analytics-task-id when an agent is detected", async ({
+	expect,
+	prismic,
+}) => {
+	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
+	const intent = ["--analytics-intent", "Add a blog"];
+
+	const missing = await prismic("docs", ["list"], agent);
+	expect(missing.exitCode).toBe(1);
+	expect(missing.stderr).toContain("--analytics-task-id");
+
+	const placeholder = await prismic(
+		"docs",
+		["list", ...intent, "--analytics-task-id", "temp"],
+		agent,
+	);
+	expect(placeholder.exitCode).toBe(1);
+
+	const ok = await prismic(
+		"docs",
+		["list", ...intent, "--analytics-task-id", crypto.randomUUID()],
+		agent,
+	);
+	expect(ok.exitCode, ok.stderr).toBe(0);
+
+	const help = await prismic("docs", ["list", "--help"], agent);
+	expect(help.exitCode, help.stderr).toBe(0);
+});
+
 it("shows --analytics-intent and --analytics-task-id in help only when an agent is detected", async ({
 	expect,
 	prismic,
 }) => {
 	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
-	const human = { nodeOptions: { env: { AI_AGENT: "", CLAUDECODE: "" } } };
+	const human = { nodeOptions: { env: { AI_AGENT: "" } } };
 
 	for (const [root, ...rest] of [[""], ["repo"], ["repo", "view"]]) {
 		const args = [...rest, "--help"];
