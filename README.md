@@ -6,7 +6,7 @@
 Prismic's official command line tool. Run the following in your terminal to get an overview of `prismic`'s commands.
 
 ```sh
-npx prismic@latest --help
+npx prismic --help
 ```
 
 ## Install
@@ -14,7 +14,7 @@ npx prismic@latest --help
 You do not need to install `prismic`. Use [`npx`](https://docs.npmjs.com/cli/commands/npx) to run `prismic` in your projects:
 
 ```sh
-npx prismic@latest
+npx prismic
 ```
 
 Install the skill to teach AI agents how to use the CLI:
