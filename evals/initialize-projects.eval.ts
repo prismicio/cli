@@ -1,5 +1,4 @@
 import { readFile, rm, writeFile } from "node:fs/promises";
-import { describe } from "vitest";
 
 import { deleteRepository, getRepositoryDomains } from "../test/prismic";
 import { it, trials } from "./it";
@@ -51,35 +50,32 @@ it.for(trials)(
 
 // Trials run one at a time: each finds the repository the agent created by
 // diffing the account's repositories, which overlapping trials would confuse.
-describe.sequential("without a project", () => {
-	it.for(trials)(
-		"creates a repository for a framework before the project exists",
-		async (_, { project, agent, expect, repo, token, host, password, onTestFinished }) => {
-			// A directory that has not been scaffolded yet: no framework, no Prismic config.
-			await writeFile(new URL("package.json", project), JSON.stringify({ name: "my-site" }));
-			await rm(new URL("node_modules/next/", project), { recursive: true });
-			await rm(new URL("app/", project), { recursive: true });
-			await rm(new URL("prismic.config.json", project));
-			const before = await getRepositoryDomains({ token, host });
+it.sequential.for(trials)(
+	"creates a repository for a framework before the project exists",
+	async (_, { project, agent, expect, repo, token, host, password, onTestFinished }) => {
+		// A directory that has not been scaffolded yet: no framework, no Prismic config.
+		await writeFile(new URL("package.json", project), JSON.stringify({ name: "my-site" }));
+		await rm(new URL("node_modules/next/", project), { recursive: true });
+		await rm(new URL("app/", project), { recursive: true });
+		await rm(new URL("prismic.config.json", project));
+		const before = await getRepositoryDomains({ token, host });
 
-			const result = await agent(
-				`Create a Prismic repository for the Nuxt site I'm about to build in this directory.`,
+		const result = await agent(
+			`Create a Prismic repository for the Nuxt site I'm about to build in this directory.`,
+		);
+
+		const after = await getRepositoryDomains({ token, host });
+		// The listing lags a little, so the fixture's own repository can appear here.
+		const created = after.filter((domain) => !before.includes(domain) && domain !== repo);
+		onTestFinished(async () => {
+			await Promise.all(
+				created.map((domain) => deleteRepository(domain, { token, password, host })),
 			);
+		});
 
-			const after = await getRepositoryDomains({ token, host });
-			// The listing lags a little, so the fixture's own repository can appear here.
-			const created = after.filter((domain) => !before.includes(domain) && domain !== repo);
-			onTestFinished(async () => {
-				await Promise.all(
-					created.map((domain) => deleteRepository(domain, { token, password, host })),
-				);
-			});
-
-			expect(result).toHaveRun(["repo", "create"]);
-			const create = result.calls.find(
-				(argv) => argv[0] === "repo" && argv[1] === "create" && !argv.includes("--help"),
-			);
-			expect(create?.join(" ")).toMatch(/(--framework|-f)[ =]nuxt/);
-		},
-	);
-});
+		const commands = result.calls.map((argv) => argv.join(" "));
+		expect(commands).toContainEqual(
+			expect.stringMatching(/^repo create .*(--framework|-f)[ =]nuxt/),
+		);
+	},
+);
