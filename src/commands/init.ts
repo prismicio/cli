@@ -2,7 +2,7 @@ import { rm } from "node:fs/promises";
 
 import type { Profile } from "../lib/prismic/clients/user";
 
-import { getAdapter, type Adapter } from "../adapters";
+import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from "../adapters";
 import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
@@ -10,6 +10,7 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 import { diffArrays } from "../lib/diff";
 import {
 	installDependencies,
+	MissingPackageJson,
 	readPackageJson,
 	removeDependencies,
 	updatePackageJsonName,
@@ -158,7 +159,23 @@ export default createCommand(config, async ({ values }) => {
 		connectedRepository = await getRepository({ repo, token, host });
 	}
 
-	const adapter = await getAdapter();
+	let adapter: Adapter;
+	try {
+		adapter = await getAdapter();
+	} catch (error) {
+		if (!(error instanceof NoSupportedFrameworkError || error instanceof MissingPackageJson)) {
+			throw error;
+		}
+		throw new CommandError(`
+			No supported framework found. \`prismic init\` needs a Next.js, Nuxt, or SvelteKit project.
+
+			Do one of the following:
+			  - Run this command inside an existing Next.js, Nuxt, or SvelteKit project.
+			  - Create the project first, then run \`prismic init\` again.
+			  - To create the repository now, run \`prismic repo create --framework <${FRAMEWORKS.join("|")}>\`.
+			    Connect the project later with \`prismic init --repo <domain>\`.
+		`);
+	}
 
 	if (!repo) {
 		repo = await createRepo({ lang, framework: adapter.id, token, host });

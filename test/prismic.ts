@@ -21,19 +21,10 @@ export async function login(email: string, password: string, config?: HostConfig
 export async function getRepositoryDomains(config: AuthConfig): Promise<string[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("profile", `https://user-service.${host}/`);
-	const headers = { Cookie: `prismic-auth=${config.token}` };
-	// The profile endpoint intermittently returns 500 — retry a few times.
-	for (let attempt = 0; ; attempt++) {
-		const res = await fetch(url, { headers });
-		if (res.ok) {
-			const data = await res.json();
-			return data.repositories.map((repository: { domain: string }) => repository.domain);
-		}
-		if (res.status < 500 || attempt === 3) {
-			throw new Error(`Failed to get profile: ${res.status} ${await res.text()}`);
-		}
-		await new Promise((resolve) => setTimeout(resolve, 1000));
-	}
+	const res = await fetch(url, { headers: { Cookie: `prismic-auth=${config.token}` } });
+	if (!res.ok) throw new Error(`Failed to get profile: ${res.status} ${await res.text()}`);
+	const data = await res.json();
+	return data.repositories.map((repository: { domain: string }) => repository.domain);
 }
 
 export async function createRepository(domain: string, config: AuthConfig): Promise<void> {
@@ -84,12 +75,11 @@ export async function deleteRepository(
 	const url = new URL("app/settings/delete", `https://${domain}.${host}/`);
 	const headers = { "Content-Type": "application/json", Cookie: `prismic-auth=${config.token}` };
 	const body = JSON.stringify({ confirm: domain, password: config.password });
-	// Deletion sometimes returns 500 but actually succeeds, or fails transiently — retry with backoff.
-	for (let attempt = 0; ; attempt++) {
-		const res = await fetch(url, { method: "POST", headers, body });
-		if (res.ok) return;
-		if (attempt === 3) throw new Error(`Failed to delete repository ${domain}`);
-		await new Promise((resolve) => setTimeout(resolve, 2000 * (attempt + 1)));
+	const res = await fetch(url, { method: "POST", headers, body });
+	if (!res.ok) {
+		// Sometimes deletion returns 500 but actually succeeds — retry once
+		const retry = await fetch(url, { method: "POST", headers, body });
+		if (!retry.ok) throw new Error(`Failed to delete repository ${domain}`);
 	}
 }
 

@@ -31,9 +31,15 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter().catch(() => undefined);
 	const { name, lang, framework = adapter?.id } = values;
 	if (!framework) {
-		throw new CommandError(
-			`No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project, or pass --framework <${FRAMEWORKS.join("|")}>.`,
-		);
+		throw new CommandError(`
+			No supported framework found. The CLI needs a Next.js, Nuxt, or SvelteKit project to work with a repository.
+
+			Do one of the following:
+			  - Run this command inside an existing Next.js, Nuxt, or SvelteKit project.
+			  - Create the project first, then run \`prismic init\` to create and connect a repository.
+			  - Pass --framework <${FRAMEWORKS.join("|")}> to create the repository now.
+			    You still need a compatible project to use it. Connect one later with \`prismic init --repo <domain>\`.
+		`);
 	}
 	if (!FRAMEWORKS.includes(framework)) {
 		throw new CommandError(

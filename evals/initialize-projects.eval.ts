@@ -73,7 +73,7 @@ describe.sequential("without a project", () => {
 				await Promise.all(
 					created.map((domain) => deleteRepository(domain, { token, password, host })),
 				);
-			}, 60_000);
+			});
 
 			expect(result).toHaveRun(["repo", "create"]);
 			const create = result.calls.find(
