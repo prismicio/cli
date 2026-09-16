@@ -8,7 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add date",
-	description: "Add a date field to a slice or custom type.",
+	description: `
+		Add a date field to a slice or custom type.
+
+		Run \`prismic docs view fields/date\` to learn about the date field.
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

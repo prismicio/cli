@@ -9,7 +9,11 @@ import webhookView from "./webhook-view";
 
 export default createCommandRouter({
 	name: "prismic webhook",
-	description: "Manage webhooks in a Prismic repository.",
+	description: `
+		Manage webhooks in a Prismic repository.
+
+		Run \`prismic docs view webhooks\` to learn about webhooks.
+	`,
 	commands: {
 		list: {
 			handler: webhookList,

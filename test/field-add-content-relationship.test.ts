@@ -16,6 +16,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add content-relationship <id> [options]");
+	expect(stdout).toContain("prismic docs view fields/content-relationship");
 });
 
 it("adds a content relationship field to a slice", async ({ expect, prismic, project }) => {

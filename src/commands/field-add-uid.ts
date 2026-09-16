@@ -6,7 +6,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add uid",
-	description: "Add a UID field to a content type.",
+	description: `
+		Add a UID field to a content type.
+
+		Run \`prismic docs view fields/uid\` to learn about the UID field.
+	`,
 	options: {
 		"to-type": TARGET_OPTIONS["to-type"],
 		tab: TARGET_OPTIONS.tab,

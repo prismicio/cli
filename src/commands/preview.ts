@@ -6,7 +6,11 @@ import previewSetSimulator from "./preview-set-simulator";
 
 export default createCommandRouter({
 	name: "prismic preview",
-	description: "Manage previews in a Prismic repository.",
+	description: `
+		Manage previews in a Prismic repository.
+
+		Run \`prismic docs view previews\` to learn about previews.
+	`,
 	sections: {
 		EXAMPLES: `
 			Set up previews after a deploy, using both settings:

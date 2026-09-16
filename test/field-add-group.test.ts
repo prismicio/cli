@@ -14,6 +14,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("field", ["add", "group", "--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add group <id> [options]");
+	expect(stdout).toContain("prismic docs view fields/repeatable-group");
 });
 
 it("adds a group field to a slice", async ({ expect, prismic, project }) => {

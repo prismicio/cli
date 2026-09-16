@@ -8,7 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add embed",
-	description: "Add an embed field to a slice or custom type.",
+	description: `
+		Add an embed field to a slice or custom type.
+
+		Run \`prismic docs view fields/embed\` to learn about the embed field.
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

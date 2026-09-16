@@ -4,10 +4,12 @@ it("prints help by default", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("webhook");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic webhook <command> [options]");
+	expect(stdout).toContain("prismic docs view webhooks");
 });
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("webhook", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic webhook <command> [options]");
+	expect(stdout).toContain("prismic docs view webhooks");
 });

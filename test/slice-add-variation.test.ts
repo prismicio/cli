@@ -7,6 +7,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("slice", ["add-variation", "--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic slice add-variation <name> [options]");
+	expect(stdout).toContain("prismic docs view slices#slice-variations");
 });
 
 it("adds a variation to a slice", async ({ expect, prismic, project }) => {

@@ -4,10 +4,12 @@ it("prints help by default", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("type");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic type <command> [options]");
+	expect(stdout).toContain("prismic docs view content-modeling");
 });
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("type", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic type <command> [options]");
+	expect(stdout).toContain("prismic docs view content-modeling");
 });

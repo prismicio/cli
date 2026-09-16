@@ -36,6 +36,8 @@ const config = {
 		Prismic keeps model history in git. Commit model changes before you push
 		them. Pushing creates and updates models and never changes documents.
 		Deleting a remote model needs --force.
+
+		Run \`prismic docs view cli#push-models-to-prismic\` to learn about pushing models to Prismic.
 	`,
 	options: {
 		force: {

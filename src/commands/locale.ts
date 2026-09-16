@@ -6,7 +6,11 @@ import localeSetMaster from "./locale-set-master";
 
 export default createCommandRouter({
 	name: "prismic locale",
-	description: "Manage locales in a Prismic repository.",
+	description: `
+		Manage locales in a Prismic repository.
+
+		Run \`prismic docs view locales\` to learn about locales.
+	`,
 	commands: {
 		add: {
 			handler: localeAdd,

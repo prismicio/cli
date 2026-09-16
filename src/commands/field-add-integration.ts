@@ -8,7 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add integration",
-	description: "Add an integration field to a slice or custom type.",
+	description: `
+		Add an integration field to a slice or custom type.
+
+		Run \`prismic docs view fields/integration\` to learn about the integration field.
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

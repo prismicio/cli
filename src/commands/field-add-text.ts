@@ -17,6 +17,8 @@ const config = {
 		is usually a better fit:
 
 		  prismic field add rich-text title --to-type blog_post --allow heading1 --single
+
+		Run \`prismic docs view fields/text\` to learn about the text field.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

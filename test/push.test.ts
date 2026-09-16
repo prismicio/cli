@@ -14,6 +14,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("push", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic push [options]");
+	expect(stdout).toContain("prismic docs view cli#push-models-to-prismic");
 });
 
 describe("with an isolated repository", () => {

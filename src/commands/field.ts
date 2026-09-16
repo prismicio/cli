@@ -7,7 +7,11 @@ import fieldView from "./field-view";
 
 export default createCommandRouter({
 	name: "prismic field",
-	description: "Manage fields in slices and content types.",
+	description: `
+		Manage fields in slices and content types.
+
+		Run \`prismic docs view fields\` to learn about fields.
+	`,
 	commands: {
 		add: {
 			handler: fieldAdd,

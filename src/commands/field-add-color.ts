@@ -8,7 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add color",
-	description: "Add a color field to a slice or custom type.",
+	description: `
+		Add a color field to a slice or custom type.
+
+		Run \`prismic docs view fields/color\` to learn about the color field.
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

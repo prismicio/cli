@@ -8,7 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add table",
-	description: "Add a table field to a slice or custom type.",
+	description: `
+		Add a table field to a slice or custom type.
+
+		Run \`prismic docs view fields/table\` to learn about the table field.
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

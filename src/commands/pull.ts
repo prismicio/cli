@@ -16,6 +16,8 @@ const config = {
 
 		Remote models are the source of truth. Local files are created, updated,
 		or deleted to match.
+
+		Run \`prismic docs view cli#pull-models-from-prismic\` to learn about pulling models from Prismic.
 	`,
 	options: {
 		force: {

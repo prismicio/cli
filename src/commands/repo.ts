@@ -7,7 +7,11 @@ import repoView from "./repo-view";
 
 export default createCommandRouter({
 	name: "prismic repo",
-	description: "Manage Prismic repositories.",
+	description: `
+		Manage Prismic repositories.
+
+		Run \`prismic docs view repository-settings\` to learn about repository settings.
+	`,
 	commands: {
 		create: {
 			handler: repoCreate,

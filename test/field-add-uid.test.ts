@@ -4,6 +4,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("field", ["add", "uid", "--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add uid [options]");
+	expect(stdout).toContain("prismic docs view fields/uid");
 });
 
 it("adds a uid field to a custom type", async ({ expect, prismic, project }) => {

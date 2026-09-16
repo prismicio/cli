@@ -12,6 +12,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("field", ["add", "color", "--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add color <id> [options]");
+	expect(stdout).toContain("prismic docs view fields/color");
 });
 
 it("adds a color field to a slice", async ({ expect, prismic, project }) => {
