@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add an embed field to a slice or custom type.
 
-		Run \`prismic docs view fields/embed\` to learn about the embed field.
+		Run \`prismic docs view fields/embed\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

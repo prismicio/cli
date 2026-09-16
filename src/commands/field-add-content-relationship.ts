@@ -20,7 +20,7 @@ const config = {
 		selected. These filters define exactly which documents are queryable
 		through this field. If neither is specified, all documents are allowed.
 
-		Run \`prismic docs view fields/content-relationship\` to learn about the content relationship field.
+		Run \`prismic docs view fields/content-relationship\` for details.
 	`,
 	sections: {
 		"FETCHED FIELDS": `

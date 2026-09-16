@@ -14,7 +14,7 @@ const config = {
 	description: `
 		Add a rich text field to a slice or custom type.
 
-		Run \`prismic docs view fields/rich-text\` to learn about the rich text field.
+		Run \`prismic docs view fields/rich-text\` for details.
 	`,
 	sections: {
 		BLOCKS: `

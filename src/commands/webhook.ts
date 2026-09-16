@@ -12,7 +12,7 @@ export default createCommandRouter({
 	description: `
 		Manage webhooks in a Prismic repository.
 
-		Run \`prismic docs view webhooks\` to learn about webhooks.
+		Run \`prismic docs view webhooks\` for details.
 	`,
 	commands: {
 		list: {

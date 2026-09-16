@@ -9,7 +9,7 @@ export default createCommandRouter({
 	description: `
 		Manage the active environment for a Prismic project.
 
-		Run \`prismic docs view environments\` to learn about environments.
+		Run \`prismic docs view environments\` for details.
 	`,
 	commands: {
 		set: {

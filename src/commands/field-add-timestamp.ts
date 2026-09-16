@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add a timestamp field to a slice or custom type.
 
-		Run \`prismic docs view fields/timestamp\` to learn about the timestamp field.
+		Run \`prismic docs view fields/timestamp\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

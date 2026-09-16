@@ -15,7 +15,7 @@ export default createCommandRouter({
 	description: `
 		Manage slices.
 
-		Run \`prismic docs view slices\` to learn about slices.
+		Run \`prismic docs view slices\` for details.
 	`,
 	commands: {
 		create: {

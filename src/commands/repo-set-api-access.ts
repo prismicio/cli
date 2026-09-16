@@ -13,7 +13,7 @@ const config = {
 		By default, this command reads the repository from prismic.config.json at the
 		project root.
 
-		Run \`prismic docs view repository-settings#configuration\` to learn about API access.
+		Run \`prismic docs view repository-settings#configuration\` for details.
 	`,
 	positionals: {
 		level: { description: `Access level (${VALID_LEVELS.join(", ")})`, required: true },

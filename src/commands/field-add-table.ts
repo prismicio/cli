@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add a table field to a slice or custom type.
 
-		Run \`prismic docs view fields/table\` to learn about the table field.
+		Run \`prismic docs view fields/table\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

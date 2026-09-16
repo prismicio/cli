@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add a boolean field to a slice or custom type.
 
-		Run \`prismic docs view fields/boolean\` to learn about the boolean field.
+		Run \`prismic docs view fields/boolean\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

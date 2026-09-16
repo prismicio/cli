@@ -10,7 +10,7 @@ export default createCommandRouter({
 	description: `
 		Manage fields in slices and content types.
 
-		Run \`prismic docs view fields\` to learn about fields.
+		Run \`prismic docs view fields\` for details.
 	`,
 	commands: {
 		add: {

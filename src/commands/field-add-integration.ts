@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add an integration field to a slice or custom type.
 
-		Run \`prismic docs view fields/integration\` to learn about the integration field.
+		Run \`prismic docs view fields/integration\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

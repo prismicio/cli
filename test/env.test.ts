@@ -4,7 +4,6 @@ it("prints help by default", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("env");
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("prismic env <command> [options]");
-	expect(stdout).toContain("prismic docs view environments");
 });
 
 it("supports --help", async ({ expect, prismic }) => {

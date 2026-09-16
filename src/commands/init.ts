@@ -55,7 +55,7 @@ const config = {
 		slicemachine.config.json exists, its repository and settings will be
 		migrated.
 
-		Run \`prismic docs view cli#set-up-a-type-builder-project\` to learn about how init sets up a project.
+		Run \`prismic docs view cli#set-up-a-type-builder-project\` for details.
 	`,
 	options: {
 		repo: {

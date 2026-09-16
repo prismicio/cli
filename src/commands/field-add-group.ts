@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add a group field to a slice or custom type.
 
-		Run \`prismic docs view fields/repeatable-group\` to learn about the repeatable group field.
+		Run \`prismic docs view fields/repeatable-group\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

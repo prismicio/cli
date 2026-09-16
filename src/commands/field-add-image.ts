@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add an image field to a slice or custom type.
 
-		Run \`prismic docs view fields/image\` to learn about the image field.
+		Run \`prismic docs view fields/image\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

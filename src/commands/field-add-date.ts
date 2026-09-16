@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add a date field to a slice or custom type.
 
-		Run \`prismic docs view fields/date\` to learn about the date field.
+		Run \`prismic docs view fields/date\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

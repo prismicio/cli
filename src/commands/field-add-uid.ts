@@ -9,7 +9,7 @@ const config = {
 	description: `
 		Add a UID field to a content type.
 
-		Run \`prismic docs view fields/uid\` to learn about the UID field.
+		Run \`prismic docs view fields/uid\` for details.
 	`,
 	options: {
 		"to-type": TARGET_OPTIONS["to-type"],

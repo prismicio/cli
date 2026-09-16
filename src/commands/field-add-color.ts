@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add a color field to a slice or custom type.
 
-		Run \`prismic docs view fields/color\` to learn about the color field.
+		Run \`prismic docs view fields/color\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

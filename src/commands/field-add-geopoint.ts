@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add a geopoint field to a slice or custom type.
 
-		Run \`prismic docs view fields/geopoint\` to learn about the geopoint field.
+		Run \`prismic docs view fields/geopoint\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

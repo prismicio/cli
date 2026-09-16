@@ -8,7 +8,7 @@ export default createCommandRouter({
 	description: `
 		Manage API tokens for a Prismic repository.
 
-		Run \`prismic docs view repository-settings#configuration\` to learn about API access and tokens.
+		Run \`prismic docs view repository-settings#configuration\` for details.
 	`,
 	commands: {
 		list: {

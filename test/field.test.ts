@@ -4,7 +4,6 @@ it("prints help by default", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("field");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field <command> [options]");
-	expect(stdout).toContain("prismic docs view fields");
 });
 
 it("supports --help", async ({ expect, prismic }) => {

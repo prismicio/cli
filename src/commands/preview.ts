@@ -9,7 +9,7 @@ export default createCommandRouter({
 	description: `
 		Manage previews in a Prismic repository.
 
-		Run \`prismic docs view previews\` to learn about previews.
+		Run \`prismic docs view previews\` for details.
 	`,
 	sections: {
 		EXAMPLES: `

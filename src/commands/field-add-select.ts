@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add a select field to a slice or custom type.
 
-		Run \`prismic docs view fields/select\` to learn about the select field.
+		Run \`prismic docs view fields/select\` for details.
 	`,
 	sections: {
 		EXAMPLES: `

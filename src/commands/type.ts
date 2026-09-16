@@ -13,7 +13,7 @@ export default createCommandRouter({
 	description: `
 		Manage content types.
 
-		Run \`prismic docs view content-modeling\` to learn about page types and custom types.
+		Run \`prismic docs view content-modeling\` for details.
 	`,
 	commands: {
 		create: {

@@ -11,7 +11,7 @@ const config = {
 	description: `
 		Add a number field to a slice or custom type.
 
-		Run \`prismic docs view fields/number\` to learn about the number field.
+		Run \`prismic docs view fields/number\` for details.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

@@ -22,7 +22,7 @@ export default createCommandRouter({
 	description: `
 		Add a field to a slice or custom type.
 
-		Run \`prismic docs view fields\` to learn about fields.
+		Run \`prismic docs view fields\` for details.
 	`,
 	sections: {
 		"GROUP FIELDS": `

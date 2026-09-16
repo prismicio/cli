@@ -9,7 +9,7 @@ export default createCommandRouter({
 	description: `
 		Manage locales in a Prismic repository.
 
-		Run \`prismic docs view locales\` to learn about locales.
+		Run \`prismic docs view locales\` for details.
 	`,
 	commands: {
 		add: {

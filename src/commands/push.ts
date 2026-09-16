@@ -37,7 +37,7 @@ const config = {
 		them. Pushing creates and updates models and never changes documents.
 		Deleting a remote model needs --force.
 
-		Run \`prismic docs view cli#push-models-to-prismic\` to learn about pushing models to Prismic.
+		Run \`prismic docs view cli#push-models-to-prismic\` for details.
 	`,
 	options: {
 		force: {

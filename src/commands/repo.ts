@@ -10,7 +10,7 @@ export default createCommandRouter({
 	description: `
 		Manage Prismic repositories.
 
-		Run \`prismic docs view repository-settings\` to learn about repository settings.
+		Run \`prismic docs view repository-settings\` for details.
 	`,
 	commands: {
 		create: {
