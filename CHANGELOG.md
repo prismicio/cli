@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.18.0](https://github.com/prismicio/cli/compare/v1.17.0...v1.18.0) (2026-09-15)
+
+
+### Features
+
+* require a supported framework in `prismic repo create` ([#301](https://github.com/prismicio/cli/issues/301)) ([dff94dc](https://github.com/prismicio/cli/commit/dff94dcfcf74dddf95d87152a82b495f5eefe880))
+* require the analytics options when an agent runs the CLI ([#302](https://github.com/prismicio/cli/issues/302)) ([e62fcac](https://github.com/prismicio/cli/commit/e62fcac9b8bef5654a85f90f735e59af92ca5531))
+
+
+### Bug Fixes
+
+* **field:** say a title is rich text limited to one heading ([#296](https://github.com/prismicio/cli/issues/296)) ([f1aef5c](https://github.com/prismicio/cli/commit/f1aef5c09150ce1249d5ce121845e0cdfcb4cc00))
+
 ## [1.17.0](https://github.com/prismicio/cli/compare/v1.16.0...v1.17.0) (2026-09-10)
 
 
