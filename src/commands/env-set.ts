@@ -6,11 +6,7 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic env set",
-	description: `
-		Set the active environment.
-
-		@experimental - This command may change or be removed in any release and does not follow semver.
-	`,
+	description: "Set the active environment.",
 	positionals: {
 		environment: { description: "Environment domain", required: true },
 	},

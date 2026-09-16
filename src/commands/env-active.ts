@@ -4,11 +4,7 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic env active",
-	description: `
-		Print the active environment.
-
-		@experimental - This command may change or be removed in any release and does not follow semver.
-	`,
+	description: "Print the active environment.",
 } satisfies CommandConfig;
 
 export default createCommand(config, async () => {

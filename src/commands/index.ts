@@ -84,7 +84,6 @@ export default createCommandRouter({
 		env: {
 			handler: env,
 			description: "Manage the active environment",
-			hidden: true,
 		},
 		locale: {
 			handler: locale,
