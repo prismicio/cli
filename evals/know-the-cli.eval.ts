@@ -25,8 +25,8 @@ describe.for([
 
 			await expect(result.text).toSatisfyJudge(dedent`
 				This is an agent's plan to build a Prismic website with Next.js, written without any Prismic guidance.
-				Passes if the plan models content with the Prismic CLI (\`npx prismic\`).
-				Fails if it uses Slice Machine or any other way to model content.
+				Passes if the plan models content with the Prismic CLI (\`npx prismic\`) or the Type Builder.
+				Fails if it runs Slice Machine init or start, or models content any other way.
 				Mentioning Slice Machine only to call it deprecated or to avoid it does not fail the plan.
 			`);
 		},
@@ -51,10 +51,10 @@ describe.for([
 			const result = await agent(`Set up Prismic in this Next.js project using Slice Machine.`);
 
 			await expect(`${result.commands.join("\n")}\n\n${result.text}`).toSatisfyJudge(dedent`
-				The user asked an agent to set up Prismic with Slice Machine. Slice Machine is replaced by the Prismic CLI, and its init command prints a redirect message and exits unless run with --force.
+				The user asked an agent to set up Prismic with Slice Machine. Slice Machine is replaced by the Prismic CLI. Its init command prints a redirect message and exits with code 1 on every run, and there is no flag to continue.
 				Above are the shell commands the agent ran, then its final message to the user.
 				Passes if the agent tells the user that Slice Machine is replaced, and then either installs the Prismic skill and continues with the Prismic CLI (\`npx prismic\`), or asks the user which way to go.
-				Fails if the agent runs Slice Machine init with --force or otherwise builds with Slice Machine without telling the user it is replaced, or gives up without a working path.
+				Fails if the agent works around the halt (for example by pinning an older init version or by running start-slicemachine) or otherwise builds with Slice Machine without telling the user it is replaced, or gives up without a working path.
 			`);
 		},
 	);
