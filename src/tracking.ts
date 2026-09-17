@@ -16,7 +16,7 @@ const PROD_WRITE_KEY = "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
 const STAGING_WRITE_KEY = "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG";
 
 // Amplitude counts every ID it has not seen as a new user. Stored IDs keep one
-// person one user across commands, and across the documentation site they read
+// person one user, across commands and across the documentation they read
 // through the CLI.
 const AnalyticsIdsSchema = z.object({
 	anonymousId: z.string(),
@@ -50,8 +50,8 @@ export async function initTracking(config: {
 	await initSegment({ writeKey, ...ids });
 }
 
-export function trackUser(profile: Profile, config: { remember?: boolean } = {}): void {
-	const { remember = true } = config;
+export function trackUser(profile: Profile, config: { remember: boolean }): void {
+	const { remember } = config;
 	trackIdentity({ userId: profile.shortId, intercomHash: profile.intercomHash });
 
 	if (remember && ids) {
@@ -64,7 +64,7 @@ export function getTrackedUserId(): string | undefined {
 	return ids?.userId;
 }
 
-/** Headers that let Prismic count a request as coming from this user. */
+/** Headers that let Prismic count a request as read by this user. */
 export function getAnalyticsHeaders(): Record<string, string> {
 	if (!ids) return {};
 

@@ -154,7 +154,7 @@ async function main(): Promise<void> {
 				process.on("exit", () => spawnTokenRefresh());
 			}
 
-			if ((sentryEnabled || telemetryEnabled) && (!exp || exp > now)) {
+			if (sentryEnabled || telemetryEnabled) {
 				// A token from the environment can belong to another user, so it never
 				// reads or replaces the stored ID.
 				const remember = !env.PRISMIC_TOKEN;
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
 
 				if (knownUserId) {
 					sentrySetUser({ id: knownUserId });
-				} else {
+				} else if (!exp || exp > now) {
 					getProfile({ token, host })
 						.then((profile) => {
 							trackUser(profile, { remember });
