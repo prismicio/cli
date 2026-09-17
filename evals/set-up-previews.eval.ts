@@ -1,15 +1,21 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 
 import { it, trials } from "./it";
 
 it.for(trials)(
 	"adds the preview component to a Next.js root layout",
 	async (_, { project, agent, expect }) => {
-		await writeFile(new URL("app/layout.tsx", project), "<html><body>{children}</body></html>");
+		// The fixture project has no tsconfig.json, so the layout is JavaScript.
+		await writeFile(new URL("app/layout.jsx", project), "<html><body>{children}</body></html>");
 
 		await agent(`Set up previews for this website. It is not deployed yet, so use localhost.`);
 
-		const layout = await readFile(new URL("app/layout.tsx", project), "utf8");
+		// Agents sometimes rename the layout, so read whichever one they left.
+		const appDirectory = new URL("app/", project);
+		const files = await readdir(appDirectory);
+		const layoutFile = files.find((file) => /^layout\.[jt]sx?$/.test(file));
+		expect(layoutFile, `app/ has ${files.join(", ")}`).toBeTruthy();
+		const layout = await readFile(new URL(layoutFile!, appDirectory), "utf8");
 		expect(layout).toContain("PrismicPreview");
 		expect(layout).toContain("@prismicio/next");
 	},
