@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter } from ".";
+import { Adapter, checkSourceContains } from ".";
 import { getCredentials } from "../auth";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
@@ -55,6 +55,26 @@ export class SvelteKitAdapter extends Adapter {
 		await createRootLayoutServerFile();
 		await createRootLayoutFile();
 		await modifyViteConfig();
+	}
+
+	async getPreviewComponentInstructions(): Promise<string | undefined> {
+		if (await checkSourceContains("PrismicPreview", ["**/*.{svelte,js,ts}"])) return;
+
+		return dedent`
+			Previews need one more step: add <PrismicPreview> to your root layout.
+			The Page Builder cannot preview your website without it.
+
+			Add the imports to the <script> block of src/routes/+layout.svelte:
+
+			  import { PrismicPreview } from "@prismicio/svelte/kit";
+			  import { repositoryName } from "$lib/prismicio";
+
+			Then render the component at the end of the file:
+
+			  <PrismicPreview {repositoryName} />
+
+			Docs: https://prismic.io/docs/sveltekit
+		`;
 	}
 
 	async onProjectInitialized(): Promise<void> {

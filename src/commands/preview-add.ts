@@ -1,6 +1,7 @@
-import { getActiveRepositoryName } from "../adapters";
+import { getActiveRepositoryName, getAdapter, NoSupportedFrameworkError } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { MissingPackageJson } from "../lib/packageJson";
 import { addPreview } from "../lib/prismic/clients/core";
 
 const config = {
@@ -47,4 +48,17 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	console.info(`Preview added: ${previewUrl}`);
 	console.info("Run `prismic preview set-simulator <url>` to set the slice simulator URL.");
+
+	// The preview URL is useless until the website renders the preview
+	// component, so check for it whenever a preview is added.
+	try {
+		const adapter = await getAdapter();
+		const previewInstructions = await adapter.getPreviewComponentInstructions();
+		if (previewInstructions) console.info(`\n${previewInstructions}`);
+	} catch (error) {
+		// The command supports repositories without a local project.
+		if (!(error instanceof NoSupportedFrameworkError || error instanceof MissingPackageJson)) {
+			throw error;
+		}
+	}
 });

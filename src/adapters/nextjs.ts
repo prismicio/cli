@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter } from ".";
+import { Adapter, checkSourceContains } from ".";
 import { getCredentials } from "../auth";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
@@ -51,6 +51,52 @@ export class NextJsAdapter extends Adapter {
 		await createPreviewRoute();
 		await createExitPreviewRoute();
 		await createRevalidateRoute();
+	}
+
+	async getPreviewComponentInstructions(): Promise<string | undefined> {
+		if (await checkSourceContains("PrismicPreview", ["**/*.{js,jsx,mjs,ts,tsx,mts}"])) return;
+
+		const sourceDirectory = (await checkHasSrc()) ? "src/" : "";
+		const extension = `${await getJsFileExtension()}x`;
+
+		if (await checkUsesAppRouter()) {
+			return dedent`
+				Previews need one more step: add <PrismicPreview> to your root layout.
+				The Page Builder cannot preview your website without it.
+
+				Add the imports to ${sourceDirectory}app/layout.${extension}:
+
+				  import { PrismicPreview } from "@prismicio/next";
+				  import { repositoryName } from "@/prismicio";
+
+				Then render the component as the last child of <html>:
+
+				  <html lang="en">
+				    <body>{children}</body>
+				    <PrismicPreview repositoryName={repositoryName} />
+				  </html>
+
+				Docs: https://prismic.io/docs/nextjs
+			`;
+		}
+
+		return dedent`
+			Previews need one more step: add <PrismicPreview> to your app.
+			The Page Builder cannot preview your website without it.
+
+			Add the imports to ${sourceDirectory}pages/_app.${extension}:
+
+			  import { PrismicPreview } from "@prismicio/next/pages";
+			  import { repositoryName } from "@/prismicio";
+
+			Then wrap your app with the component:
+
+			  <PrismicPreview repositoryName={repositoryName}>
+			    <Component {...pageProps} />
+			  </PrismicPreview>
+
+			Docs: https://prismic.io/docs/nextjs
+		`;
 	}
 
 	async onProjectInitialized(): Promise<void> {

@@ -33,6 +33,24 @@ it.for(trials)(
 );
 
 it.for(trials)(
+	"adds the preview component to the root layout",
+	async (_, { project, agent, expect }) => {
+		await rm(new URL("prismic.config.json", project));
+		await writeFile(
+			new URL("app/layout.tsx", project),
+			"export default function RootLayout({ children }: { children: React.ReactNode }) {\n" +
+				'\treturn (\n\t\t<html lang="en">\n\t\t\t<body>{children}</body>\n\t\t</html>\n\t);\n}\n',
+		);
+
+		const result = await agent(`Set up Prismic in this Next.js project.`);
+
+		expect(result).toHaveRun(["init"]);
+		const layout = await readFile(new URL("app/layout.tsx", project), "utf8");
+		expect(layout).toContain("PrismicPreview");
+	},
+);
+
+it.for(trials)(
 	"initializes with an existing repository",
 	async (_, { project, agent, expect, repo }) => {
 		await rm(new URL("prismic.config.json", project));

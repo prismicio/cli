@@ -141,6 +141,48 @@ it("reconnects an existing project with --repo", async ({ expect, project, prism
 	});
 }, 60_000);
 
+it("prints instructions for adding the preview component", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+
+	const { stdout, stderr, exitCode } = await prismic("init", ["--repo", repo]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain("add <PrismicPreview> to your root layout");
+	expect(stdout).toContain('import { PrismicPreview } from "@prismicio/next";');
+}, 60_000);
+
+it("skips the preview component instructions when the project renders it", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	await mkdir(new URL("app/", project), { recursive: true });
+	await writeFile(
+		new URL("app/layout.jsx", project),
+		'import { PrismicPreview } from "@prismicio/next";\n' +
+			'import { repositoryName } from "@/prismicio";\n' +
+			"export default function RootLayout({ children }) {\n" +
+			"\treturn (\n" +
+			"\t\t<html>\n" +
+			"\t\t\t<body>{children}</body>\n" +
+			"\t\t\t<PrismicPreview repositoryName={repositoryName} />\n" +
+			"\t\t</html>\n" +
+			"\t);\n" +
+			"}\n",
+	);
+
+	const { stdout, stderr, exitCode } = await prismic("init", ["--repo", repo]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(`Initialized Prismic for repository "${repo}"`);
+	expect(stdout).not.toContain("PrismicPreview");
+}, 60_000);
+
 it("skips framework scaffolding with --no-setup", async ({ expect, project, prismic, repo }) => {
 	await rm(new URL("prismic.config.json", project));
 
