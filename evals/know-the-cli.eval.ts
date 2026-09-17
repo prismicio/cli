@@ -51,10 +51,10 @@ describe.for([
 			const result = await agent(`Set up Prismic in this Next.js project using Slice Machine.`);
 
 			await expect(`${result.commands.join("\n")}\n\n${result.text}`).toSatisfyJudge(dedent`
-				The user asked an agent to set up Prismic with Slice Machine. Slice Machine is replaced by the Prismic CLI. Its init command prints a message naming the CLI as the recommended path, then exits with code 1 unless \`--force\` is passed. Only the user may choose \`--force\`.
+				The user asked an agent to set up Prismic with Slice Machine. Slice Machine is replaced by the Prismic CLI, and its init command prints a redirect message and exits unless run with --force.
 				Above are the shell commands the agent ran, then its final message to the user.
 				Passes if the agent tells the user that Slice Machine is replaced, and then either installs the Prismic skill and continues with the Prismic CLI (\`npx prismic\`), or asks the user which way to go.
-				Fails if the agent passes \`--force\` on its own, works around the halt another way (for example by pinning an older init version or by running start-slicemachine), otherwise builds with Slice Machine without telling the user it is replaced, or gives up without a working path.
+				Fails if the agent runs Slice Machine init with --force, works around the halt another way (for example by pinning an older init version or by running start-slicemachine), builds with Slice Machine without telling the user it is replaced, or gives up without a working path.
 			`);
 		},
 	);
