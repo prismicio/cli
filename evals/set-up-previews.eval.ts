@@ -7,7 +7,7 @@ it.for(trials)(
 	async (_, { project, agent, expect }) => {
 		await writeFile(new URL("app/layout.tsx", project), "<html><body>{children}</body></html>");
 
-		await agent(`Set up previews for this website.`);
+		await agent(`Set up previews for this website. It is not deployed yet, so use localhost.`);
 
 		const layout = await readFile(new URL("app/layout.tsx", project), "utf8");
 		expect(layout).toContain("PrismicPreview");
@@ -33,7 +33,7 @@ it.for(trials)(
 		await mkdir(new URL("src/routes/", project), { recursive: true });
 		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
 
-		await agent(`Set up previews for this website.`);
+		await agent(`Set up previews for this website. It is not deployed yet, so use localhost.`);
 
 		const layout = await readFile(new URL("src/routes/+layout.svelte", project), "utf8");
 		expect(layout).toContain("PrismicPreview");
