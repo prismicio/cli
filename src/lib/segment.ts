@@ -8,7 +8,7 @@ const SEGMENT_IDENTIFY_URL = "https://api.segment.io/v1/identify";
 
 const trackEvents: TrackedEvent[] = [];
 const identifyEvents: TrackedIdentity[] = [];
-const anonymousId = crypto.randomUUID();
+let anonymousId: string;
 let userId: string | undefined;
 
 type TrackedEvent = {
@@ -31,8 +31,14 @@ type TrackedIdentity = {
 	timestamp: string;
 };
 
-export async function initSegment(config: { writeKey: string }): Promise<void> {
+export async function initSegment(config: {
+	writeKey: string;
+	anonymousId: string;
+	userId?: string;
+}): Promise<void> {
 	const { writeKey } = config;
+	anonymousId = config.anonymousId;
+	userId = config.userId;
 	process.on("exit", () => flushEvents({ writeKey }));
 }
 

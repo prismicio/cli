@@ -4,19 +4,31 @@ import * as z from "zod/mini";
 
 import type { Profile } from "./lib/prismic/clients/user";
 
+import { ANALYTICS_IDS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST } from "./env";
 import { detectAgent } from "./lib/ai";
-import { readJsonFile } from "./lib/file";
+import { readJsonFile, writeFileRecursive } from "./lib/file";
+import { stringify } from "./lib/json";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
 
 const PROD_WRITE_KEY = "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
 const STAGING_WRITE_KEY = "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG";
 
+// Amplitude counts every ID it has not seen as a new user. Stored IDs keep one
+// person one user across commands, and across the documentation site they read
+// through the CLI.
+const AnalyticsIdsSchema = z.object({
+	anonymousId: z.string(),
+	userId: z.optional(z.string()),
+});
+type AnalyticsIds = z.infer<typeof AnalyticsIdsSchema>;
+
 let repository: string | undefined;
 let agent: string | undefined;
 let userIntent: string | undefined;
 let taskId: string | undefined;
+let ids: AnalyticsIds | undefined;
 
 export async function initTracking(config: {
 	host: string;
@@ -30,11 +42,50 @@ export async function initTracking(config: {
 	taskId = config.taskId;
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
 	agent = detectAgent();
-	await initSegment({ writeKey });
+
+	const storedIds = await readIds();
+	ids = storedIds ?? { anonymousId: crypto.randomUUID() };
+	if (!storedIds) await saveIds(ids);
+
+	await initSegment({ writeKey, ...ids });
 }
 
-export function trackUser(profile: Profile): void {
+export function trackUser(profile: Profile, config: { remember?: boolean } = {}): void {
+	const { remember = true } = config;
 	trackIdentity({ userId: profile.shortId, intercomHash: profile.intercomHash });
+
+	if (remember && ids) {
+		ids.userId = profile.shortId;
+		void saveIds(ids);
+	}
+}
+
+export function getTrackedUserId(): string | undefined {
+	return ids?.userId;
+}
+
+/** Headers that let Prismic count a request as coming from this user. */
+export function getAnalyticsHeaders(): Record<string, string> {
+	if (!ids) return {};
+
+	return {
+		"X-Prismic-Anonymous-Id": ids.anonymousId,
+		...(ids.userId ? { "X-Prismic-User-Id": ids.userId } : {}),
+	};
+}
+
+/** Logging in or out ends the stored user. The anonymous ID outlives both. */
+export async function forgetTrackedUser(): Promise<void> {
+	const storedIds = await readIds();
+	if (storedIds?.userId) await saveIds({ anonymousId: storedIds.anonymousId });
+}
+
+async function readIds(): Promise<AnalyticsIds | undefined> {
+	return readJsonFile(ANALYTICS_IDS_PATH, { schema: AnalyticsIdsSchema }).catch(() => undefined);
+}
+
+async function saveIds(nextIds: AnalyticsIds): Promise<void> {
+	await writeFileRecursive(ANALYTICS_IDS_PATH, stringify(nextIds)).catch(() => {});
 }
 
 export function trackCommandStart(command: string, config: { watch?: boolean } = {}): void {
