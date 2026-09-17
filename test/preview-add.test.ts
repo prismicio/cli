@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 
 import { it } from "./it";
 import { getPreviews } from "./prismic";
@@ -51,19 +51,7 @@ it("skips the preview component instructions when the project renders it", async
 	project,
 	prismic,
 }) => {
-	await mkdir(new URL("app/", project), { recursive: true });
-	await writeFile(
-		new URL("app/layout.jsx", project),
-		'import { PrismicPreview } from "@prismicio/next";\n' +
-			"export default function RootLayout({ children }) {\n" +
-			"\treturn (\n" +
-			"\t\t<html>\n" +
-			"\t\t\t<body>{children}</body>\n" +
-			'\t\t\t<PrismicPreview repositoryName="example" />\n' +
-			"\t\t</html>\n" +
-			"\t);\n" +
-			"}\n",
-	);
+	await writeFile(new URL("app/layout.jsx", project), '<PrismicPreview repositoryName="a" />');
 	const previewUrl = `https://test-${crypto.randomUUID()}.example.com/api/preview`;
 
 	const { stdout, stderr, exitCode } = await prismic("preview", ["add", previewUrl]);

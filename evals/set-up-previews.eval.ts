@@ -5,11 +5,7 @@ import { it, trials } from "./it";
 it.for(trials)(
 	"adds the preview component to a Next.js root layout",
 	async (_, { project, agent, expect }) => {
-		await writeFile(
-			new URL("app/layout.tsx", project),
-			"export default function RootLayout({ children }: { children: React.ReactNode }) {\n" +
-				'\treturn (\n\t\t<html lang="en">\n\t\t\t<body>{children}</body>\n\t\t</html>\n\t);\n}\n',
-		);
+		await writeFile(new URL("app/layout.tsx", project), "<html><body>{children}</body></html>");
 
 		await agent(`Set up previews for this website.`);
 
@@ -33,13 +29,9 @@ it.for(trials)(
 			new URL("node_modules/svelte/package.json", project),
 			JSON.stringify({ version: "5.0.0" }),
 		);
-		// A root layout the project already owns: the CLI leaves it alone, so the
-		// preview component has to be added to it by hand.
+		// The CLI leaves a layout the project already owns alone.
 		await mkdir(new URL("src/routes/", project), { recursive: true });
-		await writeFile(
-			new URL("src/routes/+layout.svelte", project),
-			"<script>\n\tlet { children } = $props();\n</script>\n\n{@render children()}\n",
-		);
+		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
 
 		await agent(`Set up previews for this website.`);
 

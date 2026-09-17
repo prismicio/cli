@@ -331,8 +331,7 @@ export default createCommand(config, async ({ values }) => {
 		console.info("Run `prismic pull` to pull models from Prismic.");
 	}
 
-	// Printed last so it is the step the reader is left with. The CLI cannot add
-	// the component itself, and previews fail silently without it.
+	// Printed last so it is the step the reader is left with.
 	const previewInstructions = await adapter.getPreviewComponentInstructions();
 	if (previewInstructions) console.info(`\n${previewInstructions}`);
 });

@@ -54,7 +54,7 @@ export class NextJsAdapter extends Adapter {
 	}
 
 	async getPreviewComponentInstructions(): Promise<string | undefined> {
-		if (await checkSourceContains("PrismicPreview", ["**/*.{js,jsx,mjs,ts,tsx,mts}"])) return;
+		if (await checkSourceContains("PrismicPreview")) return;
 
 		const sourceDirectory = (await checkHasSrc()) ? "src/" : "";
 		const extension = `${await getJsFileExtension()}x`;

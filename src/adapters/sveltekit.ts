@@ -58,7 +58,7 @@ export class SvelteKitAdapter extends Adapter {
 	}
 
 	async getPreviewComponentInstructions(): Promise<string | undefined> {
-		if (await checkSourceContains("PrismicPreview", ["**/*.{svelte,js,ts}"])) return;
+		if (await checkSourceContains("PrismicPreview")) return;
 
 		return dedent`
 			Previews need one more step: add <PrismicPreview> to your root layout.

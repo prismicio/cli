@@ -38,8 +38,7 @@ it.for(trials)(
 		await rm(new URL("prismic.config.json", project));
 		await writeFile(
 			new URL("app/layout.tsx", project),
-			"export default function RootLayout({ children }: { children: React.ReactNode }) {\n" +
-				'\treturn (\n\t\t<html lang="en">\n\t\t\t<body>{children}</body>\n\t\t</html>\n\t);\n}\n',
+			'<html lang="en"><body>{children}</body></html>',
 		);
 
 		const result = await agent(`Set up Prismic in this Next.js project.`);

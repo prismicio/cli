@@ -2,7 +2,7 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 
 import { pascalCase } from "change-case";
 import { readFile, rm } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
@@ -22,19 +22,6 @@ import { addRoute, getRepositoryName, removeRoute, updateRoute } from "../projec
 import { findProjectRoot, getLibraries } from "../project";
 
 const TYPES_FILENAME = "prismicio-types.d.ts";
-
-// Directories that hold dependencies or build output rather than project source.
-const NON_SOURCE_DIRECTORIES = [
-	"**/node_modules/**",
-	"**/.git/**",
-	"**/.next/**",
-	"**/.nuxt/**",
-	"**/.output/**",
-	"**/.svelte-kit/**",
-	"**/build/**",
-	"**/dist/**",
-	"**/out/**",
-];
 
 type CustomTypeMeta = { model: CustomType; modelPath: URL; directory: URL; library: URL };
 type SharedSliceMeta = { model: SharedSlice; modelPath: URL; directory: URL; library: URL };
@@ -65,21 +52,15 @@ export async function getAdapter(): Promise<Adapter> {
 	throw new NoSupportedFrameworkError();
 }
 
-/**
- * Checks whether any of the project's source files contain `text`.
- *
- * Build output and dependencies are ignored.
- */
-export async function checkSourceContains(text: string, patterns: string[]): Promise<boolean> {
-	const projectRoot = await findProjectRoot();
-	const paths = await glob(patterns, {
-		cwd: projectRoot,
+export async function checkSourceContains(text: string): Promise<boolean> {
+	const paths = await glob("**/*.{js,jsx,mjs,ts,tsx,mts,svelte}", {
+		// A URL cwd silently disables `ignore`, so node_modules must be a path.
+		cwd: fileURLToPath(await findProjectRoot()),
 		absolute: true,
-		ignore: NON_SOURCE_DIRECTORIES,
+		ignore: "**/{node_modules,build,dist,out}/**",
 	});
 	for (const path of paths) {
-		const contents = await readFile(path, "utf8");
-		if (contents.includes(text)) return true;
+		if ((await readFile(path, "utf8")).includes(text)) return true;
 	}
 	return false;
 }
@@ -120,14 +101,7 @@ export abstract class Adapter {
 
 	abstract setupProject(): Promise<void>;
 
-	/**
-	 * Returns instructions for adding the framework's preview component to the
-	 * project, or `undefined` when the project does not need them.
-	 *
-	 * The CLI cannot add the component itself because it belongs in a layout the
-	 * project owns, so commands that set previews up print these instructions for
-	 * the user, or their agent, to follow.
-	 */
+	/** Undefined when the project already renders the preview component. */
 	abstract getPreviewComponentInstructions(): Promise<string | undefined>;
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	abstract getDefaultSliceLibrary(): Promise<URL>;

@@ -162,20 +162,7 @@ it("skips the preview component instructions when the project renders it", async
 	repo,
 }) => {
 	await rm(new URL("prismic.config.json", project));
-	await mkdir(new URL("app/", project), { recursive: true });
-	await writeFile(
-		new URL("app/layout.jsx", project),
-		'import { PrismicPreview } from "@prismicio/next";\n' +
-			'import { repositoryName } from "@/prismicio";\n' +
-			"export default function RootLayout({ children }) {\n" +
-			"\treturn (\n" +
-			"\t\t<html>\n" +
-			"\t\t\t<body>{children}</body>\n" +
-			"\t\t\t<PrismicPreview repositoryName={repositoryName} />\n" +
-			"\t\t</html>\n" +
-			"\t);\n" +
-			"}\n",
-	);
+	await writeFile(new URL("app/layout.jsx", project), '<PrismicPreview repositoryName="a" />');
 
 	const { stdout, stderr, exitCode } = await prismic("init", ["--repo", repo]);
 	expect(exitCode, stderr).toBe(0);

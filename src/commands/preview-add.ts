@@ -49,14 +49,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 	console.info(`Preview added: ${previewUrl}`);
 	console.info("Run `prismic preview set-simulator <url>` to set the slice simulator URL.");
 
-	// The preview URL is useless until the website renders the preview
-	// component, so check for it whenever a preview is added.
+	// A preview URL is useless until the website renders the component.
 	try {
 		const adapter = await getAdapter();
 		const previewInstructions = await adapter.getPreviewComponentInstructions();
 		if (previewInstructions) console.info(`\n${previewInstructions}`);
 	} catch (error) {
-		// The command supports repositories without a local project.
+		// The command works without a local project.
 		if (!(error instanceof NoSupportedFrameworkError || error instanceof MissingPackageJson)) {
 			throw error;
 		}

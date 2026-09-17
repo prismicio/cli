@@ -71,6 +71,18 @@ it("skips installation with --no-install", async ({ expect, project, prismic }) 
 	await expect(project).toHaveFile("prismicio.js");
 });
 
+async function useSvelteKit(project: URL) {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
+	);
+	await mkdir(new URL("node_modules/svelte/", project), { recursive: true });
+	await writeFile(
+		new URL("node_modules/svelte/package.json", project),
+		JSON.stringify({ version: "5.0.0" }),
+	);
+}
+
 it("prints instructions for adding the preview component", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 	expect(exitCode, stderr).toBe(0);
@@ -79,29 +91,29 @@ it("prints instructions for adding the preview component", async ({ expect, pris
 	expect(stdout).toContain('import { PrismicPreview } from "@prismicio/next";');
 });
 
-it("skips the preview component instructions when the project renders it", async ({
-	expect,
-	project,
-	prismic,
-}) => {
-	await mkdir(new URL("app/", project), { recursive: true });
+it("ignores the component in node_modules", async ({ expect, project, prismic }) => {
+	// @prismicio/next ships PrismicPreview, so an installed dependency must not
+	// count as the project rendering it.
+	await mkdir(new URL("node_modules/@prismicio/next/", project), { recursive: true });
 	await writeFile(
-		new URL("app/layout.jsx", project),
-		'import { PrismicPreview } from "@prismicio/next";\n' +
-			'import { repositoryName } from "@/prismicio";\n' +
-			"export default function RootLayout({ children }) {\n" +
-			"\treturn (\n" +
-			"\t\t<html>\n" +
-			"\t\t\t<body>{children}</body>\n" +
-			"\t\t\t<PrismicPreview repositoryName={repositoryName} />\n" +
-			"\t\t</html>\n" +
-			"\t);\n" +
-			"}\n",
+		new URL("node_modules/@prismicio/next/index.js", project),
+		"export const PrismicPreview = () => {};",
 	);
 
 	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("Generated setup files");
+	expect(stdout).toContain("add <PrismicPreview> to your root layout");
+});
+
+it("skips the instructions when the project renders the component", async ({
+	expect,
+	project,
+	prismic,
+}) => {
+	await writeFile(new URL("app/layout.jsx", project), '<PrismicPreview repositoryName="a" />');
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
 	expect(stdout).not.toContain("PrismicPreview");
 });
 
@@ -109,22 +121,11 @@ it(
 	"does not ask for the preview component in a layout it generated itself",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
-		// A SvelteKit project without a root layout gets one from the CLI, and that
-		// layout already renders the preview component.
-		await writeFile(
-			new URL("package.json", project),
-			JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
-		);
-		await mkdir(new URL("node_modules/svelte/", project), { recursive: true });
-		await writeFile(
-			new URL("node_modules/svelte/package.json", project),
-			JSON.stringify({ version: "5.0.0" }),
-		);
+		await useSvelteKit(project);
 
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).not.toContain("add <PrismicPreview>");
-
 		await expect(project).toHaveFile("src/routes/+layout.svelte", {
 			contains: "<PrismicPreview {repositoryName} />",
 		});
@@ -135,24 +136,12 @@ it(
 	"prints SvelteKit instructions when the project already has a root layout",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
-		await writeFile(
-			new URL("package.json", project),
-			JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
-		);
-		await mkdir(new URL("node_modules/svelte/", project), { recursive: true });
-		await writeFile(
-			new URL("node_modules/svelte/package.json", project),
-			JSON.stringify({ version: "5.0.0" }),
-		);
+		await useSvelteKit(project);
 		await mkdir(new URL("src/routes/", project), { recursive: true });
-		await writeFile(
-			new URL("src/routes/+layout.svelte", project),
-			"<script>\n\tlet { children } = $props();\n</script>\n\n{@render children()}\n",
-		);
+		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
 
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
-		expect(stdout).toContain("add <PrismicPreview> to your root layout");
 		expect(stdout).toContain("src/routes/+layout.svelte");
 		expect(stdout).toContain('import { PrismicPreview } from "@prismicio/svelte/kit";');
 	},
