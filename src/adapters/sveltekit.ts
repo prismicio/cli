@@ -66,14 +66,15 @@ export class SvelteKitAdapter extends Adapter {
 			Previews do not work until you do this, and the CLI cannot edit your
 			layout for you. Make the change now.
 
-			1. Add these imports to the <script> block of src/routes/+layout.svelte:
+			Add the lines marked + to src/routes/+layout.svelte:
 
-			     import { PrismicPreview } from "@prismicio/svelte/kit";
-			     import { repositoryName } from "$lib/prismicio";
+			  <script>
+			+   import { PrismicPreview } from "@prismicio/svelte/kit";
+			+   import { repositoryName } from "$lib/prismicio";
+			  </script>
 
-			2. Render the component at the end of the file:
-
-			     <PrismicPreview {repositoryName} />
+			  {@render children()}
+			+ <PrismicPreview {repositoryName} />
 
 			Docs: https://prismic.io/docs/sveltekit
 		`;

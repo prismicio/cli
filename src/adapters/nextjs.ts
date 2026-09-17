@@ -66,17 +66,19 @@ export class NextJsAdapter extends Adapter {
 				Previews do not work until you do this, and the CLI cannot edit your
 				layout for you. Make the change now.
 
-				1. Add these imports to ${sourceDirectory}app/layout.${extension}:
+				Add the lines marked + to ${sourceDirectory}app/layout.${extension}:
 
-				     import { PrismicPreview } from "@prismicio/next";
-				     import { repositoryName } from "@/prismicio";
+				+ import { PrismicPreview } from "@prismicio/next";
+				+ import { repositoryName } from "@/prismicio";
 
-				2. Render the component as the last child of <html>:
-
-				     <html lang="en">
-				       <body>{children}</body>
-				       <PrismicPreview repositoryName={repositoryName} />
-				     </html>
+				  export default function RootLayout({ children }) {
+				    return (
+				      <html lang="en">
+				        <body>{children}</body>
+				+       <PrismicPreview repositoryName={repositoryName} />
+				      </html>
+				    );
+				  }
 
 				Docs: https://prismic.io/docs/nextjs
 			`;
@@ -88,16 +90,18 @@ export class NextJsAdapter extends Adapter {
 			Previews do not work until you do this, and the CLI cannot edit your app
 			for you. Make the change now.
 
-			1. Add these imports to ${sourceDirectory}pages/_app.${extension}:
+			Add the lines marked + to ${sourceDirectory}pages/_app.${extension}:
 
-			     import { PrismicPreview } from "@prismicio/next/pages";
-			     import { repositoryName } from "@/prismicio";
+			+ import { PrismicPreview } from "@prismicio/next/pages";
+			+ import { repositoryName } from "@/prismicio";
 
-			2. Wrap your app with the component:
-
-			     <PrismicPreview repositoryName={repositoryName}>
-			       <Component {...pageProps} />
-			     </PrismicPreview>
+			  export default function App({ Component, pageProps }) {
+			    return (
+			+     <PrismicPreview repositoryName={repositoryName}>
+			        <Component {...pageProps} />
+			+     </PrismicPreview>
+			    );
+			  }
 
 			Docs: https://prismic.io/docs/nextjs
 		`;
