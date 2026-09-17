@@ -8,11 +8,7 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic env list",
-	description: `
-		List the environments available for the project.
-
-		@experimental - This command may change or be removed in any release and does not follow semver.
-	`,
+	description: "List the environments available for the project.",
 	options: {
 		json: { type: "boolean", description: "Output as JSON" },
 		repo: { type: "string", short: "r", description: "Repository domain" },
