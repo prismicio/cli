@@ -10,7 +10,7 @@ it.for(trials)(
 
 		await agent(`Set up previews for this website. It is not deployed yet, so use localhost.`);
 
-		// Agents sometimes rename the layout, so read whichever one they left.
+		// Agents sometimes rename the layout to match the project's language.
 		const appDirectory = new URL("app/", project);
 		const files = await readdir(appDirectory);
 		const layoutFile = files.find((file) => /^layout\.[jt]sx?$/.test(file));

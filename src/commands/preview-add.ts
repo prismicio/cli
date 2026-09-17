@@ -54,11 +54,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 		const adapter = await getAdapter();
 		const previewInstructions = await adapter.getPreviewComponentInstructions();
 		if (previewInstructions) {
-			// Without the framework files, the snippet below has nothing to import
-			// from, so name the command that creates them first.
+			// The snippet has nothing to import from until `gen setup` runs.
 			const { dependencies, devDependencies } = await readPackageJson();
-			const isSetUp = "@prismicio/client" in { ...dependencies, ...devDependencies };
-			if (!isSetUp) {
+			if (!("@prismicio/client" in { ...dependencies, ...devDependencies })) {
 				console.info("\nThis project has no Prismic framework files. Run `prismic gen setup`.");
 			}
 			console.info(`\n${previewInstructions}`);
