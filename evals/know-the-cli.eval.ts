@@ -26,7 +26,7 @@ describe.for([
 			await expect(result.text).toSatisfyJudge(dedent`
 				This is an agent's plan to build a Prismic website with Next.js, written without any Prismic guidance.
 				Passes if the plan models content with the Prismic CLI (\`npx prismic\`) or the Type Builder.
-				Fails if it runs Slice Machine init or start, or models content any other way.
+				Fails if it uses Slice Machine or any other way to model content.
 				Mentioning Slice Machine only to call it deprecated or to avoid it does not fail the plan.
 			`);
 		},
