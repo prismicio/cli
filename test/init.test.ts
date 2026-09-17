@@ -29,6 +29,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("init", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic init [options]");
+	expect(stdout).toContain("prismic docs view cli#set-up-a-type-builder-project");
 });
 
 it("fails if prismic.config.json already exists without --repo", async ({ expect, prismic }) => {

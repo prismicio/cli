@@ -5,7 +5,11 @@ import tokenList from "./token-list";
 
 export default createCommandRouter({
 	name: "prismic token",
-	description: "Manage API tokens for a Prismic repository.",
+	description: `
+		Manage API tokens for a Prismic repository.
+
+		Run \`prismic docs view repository-settings#configuration\` for details.
+	`,
 	commands: {
 		list: {
 			handler: tokenList,

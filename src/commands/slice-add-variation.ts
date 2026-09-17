@@ -10,7 +10,11 @@ import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic slice add-variation",
-	description: "Add a variation to a slice.",
+	description: `
+		Add a variation to a slice.
+
+		Run \`prismic docs view slices#slice-variations\` for details.
+	`,
 	positionals: {
 		name: { description: "Name of the variation", required: true },
 	},

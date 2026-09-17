@@ -10,7 +10,11 @@ import typeView from "./type-view";
 
 export default createCommandRouter({
 	name: "prismic type",
-	description: "Manage content types.",
+	description: `
+		Manage content types.
+
+		Run \`prismic docs view content-modeling\` for details.
+	`,
 	commands: {
 		create: {
 			handler: typeCreate,

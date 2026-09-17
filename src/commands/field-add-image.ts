@@ -8,7 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add image",
-	description: "Add an image field to a slice or custom type.",
+	description: `
+		Add an image field to a slice or custom type.
+
+		Run \`prismic docs view fields/image\` for details.
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

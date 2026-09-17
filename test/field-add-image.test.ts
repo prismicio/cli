@@ -12,6 +12,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("field", ["add", "image", "--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add image <id> [options]");
+	expect(stdout).toContain("prismic docs view fields/image");
 });
 
 it("adds an image field to a slice", async ({ expect, prismic, project }) => {

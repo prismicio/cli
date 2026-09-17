@@ -19,7 +19,11 @@ import fieldAddUid from "./field-add-uid";
 
 export default createCommandRouter({
 	name: "prismic field add",
-	description: "Add a field to a slice or custom type.",
+	description: `
+		Add a field to a slice or custom type.
+
+		Run \`prismic docs view fields\` for details.
+	`,
 	sections: {
 		"GROUP FIELDS": `
 			To add a field inside a group, use dot notation for the field ID:

@@ -54,6 +54,8 @@ const config = {
 		Use --repo to connect to an existing repository instead. If a
 		slicemachine.config.json exists, its repository and settings will be
 		migrated.
+
+		Run \`prismic docs view cli#set-up-a-type-builder-project\` for details.
 	`,
 	options: {
 		repo: {

@@ -11,7 +11,11 @@ const ALL_BLOCKS =
 
 const config = {
 	name: "prismic field add rich-text",
-	description: "Add a rich text field to a slice or custom type.",
+	description: `
+		Add a rich text field to a slice or custom type.
+
+		Run \`prismic docs view fields/rich-text\` for details.
+	`,
 	sections: {
 		BLOCKS: `
 			heading1, heading2, heading3, heading4, heading5, heading6,

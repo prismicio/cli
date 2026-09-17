@@ -12,6 +12,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("field", ["add", "date", "--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add date <id> [options]");
+	expect(stdout).toContain("prismic docs view fields/date");
 });
 
 it("adds a date field to a slice", async ({ expect, prismic, project }) => {

@@ -8,7 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add geopoint",
-	description: "Add a geopoint field to a slice or custom type.",
+	description: `
+		Add a geopoint field to a slice or custom type.
+
+		Run \`prismic docs view fields/geopoint\` for details.
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

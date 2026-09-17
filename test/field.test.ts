@@ -10,4 +10,5 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("field", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field <command> [options]");
+	expect(stdout).toContain("prismic docs view fields");
 });

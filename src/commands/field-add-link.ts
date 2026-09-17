@@ -8,8 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add link",
-	description:
-		"Add a link field to a slice or custom type. Use for navigational links to URLs, documents, or media. For data-level relations between documents, use content-relationship instead.",
+	description: `
+		Add a link field to a slice or custom type. Use for navigational links to URLs, documents, or media. For data-level relations between documents, use content-relationship instead.
+
+		Run \`prismic docs view fields/link\` for details.
+	`,
 	sections: {
 		EXAMPLES: `
 			Add a link that opens in a new tab:

@@ -8,7 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add boolean",
-	description: "Add a boolean field to a slice or custom type.",
+	description: `
+		Add a boolean field to a slice or custom type.
+
+		Run \`prismic docs view fields/boolean\` for details.
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

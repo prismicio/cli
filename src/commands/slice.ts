@@ -12,7 +12,11 @@ import sliceView from "./slice-view";
 
 export default createCommandRouter({
 	name: "prismic slice",
-	description: "Manage slices.",
+	description: `
+		Manage slices.
+
+		Run \`prismic docs view slices\` for details.
+	`,
 	commands: {
 		create: {
 			handler: sliceCreate,

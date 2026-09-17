@@ -8,7 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add number",
-	description: "Add a number field to a slice or custom type.",
+	description: `
+		Add a number field to a slice or custom type.
+
+		Run \`prismic docs view fields/number\` for details.
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

@@ -10,4 +10,5 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, exitCode } = await prismic("env", ["--help"]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("prismic env <command> [options]");
+	expect(stdout).toContain("prismic docs view environments");
 });

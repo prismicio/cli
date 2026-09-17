@@ -5,6 +5,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("repo", ["set-api-access", "--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic repo set-api-access <level> [options]");
+	expect(stdout).toContain("prismic docs view repository-settings#configuration");
 });
 
 it("sets the repository API access level", async ({ expect, prismic, repo, token, host }) => {

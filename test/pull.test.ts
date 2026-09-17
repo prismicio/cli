@@ -27,6 +27,7 @@ it.sequential("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("pull", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic pull [options]");
+	expect(stdout).toContain("prismic docs view cli#pull-models-from-prismic");
 });
 
 it.sequential("pulls slices and custom types from remote", async ({

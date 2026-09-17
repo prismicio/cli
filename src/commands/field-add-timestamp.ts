@@ -8,7 +8,11 @@ import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add timestamp",
-	description: "Add a timestamp field to a slice or custom type.",
+	description: `
+		Add a timestamp field to a slice or custom type.
+
+		Run \`prismic docs view fields/timestamp\` for details.
+	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

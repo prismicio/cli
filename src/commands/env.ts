@@ -6,7 +6,11 @@ import envUnset from "./env-unset";
 
 export default createCommandRouter({
 	name: "prismic env",
-	description: "Manage the active environment for a Prismic project.",
+	description: `
+		Manage the active environment for a Prismic project.
+
+		Run \`prismic docs view environments\` for details.
+	`,
 	commands: {
 		set: {
 			handler: envSet,

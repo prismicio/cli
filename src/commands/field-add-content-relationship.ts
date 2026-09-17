@@ -19,6 +19,8 @@ const config = {
 		Use --custom-type and --tag to restrict which documents can be
 		selected. These filters define exactly which documents are queryable
 		through this field. If neither is specified, all documents are allowed.
+
+		Run \`prismic docs view fields/content-relationship\` for details.
 	`,
 	sections: {
 		"FETCHED FIELDS": `

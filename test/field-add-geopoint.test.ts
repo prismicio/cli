@@ -12,6 +12,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("field", ["add", "geopoint", "--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add geopoint <id> [options]");
+	expect(stdout).toContain("prismic docs view fields/geopoint");
 });
 
 it("adds a geopoint field to a slice", async ({ expect, prismic, project }) => {
