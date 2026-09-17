@@ -69,8 +69,8 @@ export function getAnalyticsHeaders(): Record<string, string> {
 	if (!ids) return {};
 
 	return {
-		"X-Prismic-Anonymous-Id": ids.anonymousId,
-		...(ids.userId ? { "X-Prismic-User-Id": ids.userId } : {}),
+		"Prismic-Anonymous-Id": ids.anonymousId,
+		...(ids.userId ? { "Prismic-User-Id": ids.userId } : {}),
 	};
 }
 
