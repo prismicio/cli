@@ -61,39 +61,43 @@ export class NextJsAdapter extends Adapter {
 
 		if (await checkUsesAppRouter()) {
 			return dedent`
-				Previews need one more step: add <PrismicPreview> to your root layout.
-				The Page Builder cannot preview your website without it.
+				Action required: add <PrismicPreview> to your root layout.
 
-				Add the imports to ${sourceDirectory}app/layout.${extension}:
+				Previews do not work until you do this, and the CLI cannot edit your
+				layout for you. Make the change now.
 
-				  import { PrismicPreview } from "@prismicio/next";
-				  import { repositoryName } from "@/prismicio";
+				1. Add these imports to ${sourceDirectory}app/layout.${extension}:
 
-				Then render the component as the last child of <html>:
+				     import { PrismicPreview } from "@prismicio/next";
+				     import { repositoryName } from "@/prismicio";
 
-				  <html lang="en">
-				    <body>{children}</body>
-				    <PrismicPreview repositoryName={repositoryName} />
-				  </html>
+				2. Render the component as the last child of <html>:
+
+				     <html lang="en">
+				       <body>{children}</body>
+				       <PrismicPreview repositoryName={repositoryName} />
+				     </html>
 
 				Docs: https://prismic.io/docs/nextjs
 			`;
 		}
 
 		return dedent`
-			Previews need one more step: add <PrismicPreview> to your app.
-			The Page Builder cannot preview your website without it.
+			Action required: add <PrismicPreview> to your app.
 
-			Add the imports to ${sourceDirectory}pages/_app.${extension}:
+			Previews do not work until you do this, and the CLI cannot edit your app
+			for you. Make the change now.
 
-			  import { PrismicPreview } from "@prismicio/next/pages";
-			  import { repositoryName } from "@/prismicio";
+			1. Add these imports to ${sourceDirectory}pages/_app.${extension}:
 
-			Then wrap your app with the component:
+			     import { PrismicPreview } from "@prismicio/next/pages";
+			     import { repositoryName } from "@/prismicio";
 
-			  <PrismicPreview repositoryName={repositoryName}>
-			    <Component {...pageProps} />
-			  </PrismicPreview>
+			2. Wrap your app with the component:
+
+			     <PrismicPreview repositoryName={repositoryName}>
+			       <Component {...pageProps} />
+			     </PrismicPreview>
 
 			Docs: https://prismic.io/docs/nextjs
 		`;

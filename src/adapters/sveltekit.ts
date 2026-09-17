@@ -61,17 +61,19 @@ export class SvelteKitAdapter extends Adapter {
 		if (await checkSourceContains("PrismicPreview")) return;
 
 		return dedent`
-			Previews need one more step: add <PrismicPreview> to your root layout.
-			The Page Builder cannot preview your website without it.
+			Action required: add <PrismicPreview> to your root layout.
 
-			Add the imports to the <script> block of src/routes/+layout.svelte:
+			Previews do not work until you do this, and the CLI cannot edit your
+			layout for you. Make the change now.
 
-			  import { PrismicPreview } from "@prismicio/svelte/kit";
-			  import { repositoryName } from "$lib/prismicio";
+			1. Add these imports to the <script> block of src/routes/+layout.svelte:
 
-			Then render the component at the end of the file:
+			     import { PrismicPreview } from "@prismicio/svelte/kit";
+			     import { repositoryName } from "$lib/prismicio";
 
-			  <PrismicPreview {repositoryName} />
+			2. Render the component at the end of the file:
+
+			     <PrismicPreview {repositoryName} />
 
 			Docs: https://prismic.io/docs/sveltekit
 		`;

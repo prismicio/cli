@@ -1,7 +1,7 @@
 import { getActiveRepositoryName, getAdapter, NoSupportedFrameworkError } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { MissingPackageJson } from "../lib/packageJson";
+import { MissingPackageJson, readPackageJson } from "../lib/packageJson";
 import { addPreview } from "../lib/prismic/clients/core";
 
 const config = {
@@ -53,7 +53,16 @@ export default createCommand(config, async ({ positionals, values }) => {
 	try {
 		const adapter = await getAdapter();
 		const previewInstructions = await adapter.getPreviewComponentInstructions();
-		if (previewInstructions) console.info(`\n${previewInstructions}`);
+		if (previewInstructions) {
+			// Without the framework files, the snippet below has nothing to import
+			// from, so name the command that creates them first.
+			const { dependencies, devDependencies } = await readPackageJson();
+			const isSetUp = "@prismicio/client" in { ...dependencies, ...devDependencies };
+			if (!isSetUp) {
+				console.info("\nThis project has no Prismic framework files. Run `prismic gen setup`.");
+			}
+			console.info(`\n${previewInstructions}`);
+		}
 	} catch (error) {
 		// The command works without a local project.
 		if (!(error instanceof NoSupportedFrameworkError || error instanceof MissingPackageJson)) {
