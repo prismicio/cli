@@ -133,6 +133,24 @@ it(
 );
 
 it(
+	"works when Svelte is declared but not installed",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		// node_modules is absent, so the Svelte version cannot be read.
+		await writeFile(
+			new URL("package.json", project),
+			JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
+		);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("add <PrismicPreview> to your root layout");
+	},
+);
+
+it(
 	"prints Svelte 4 syntax in the instructions for a Svelte 4 project",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {

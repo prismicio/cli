@@ -313,8 +313,13 @@ async function getJsFileExtension(): Promise<string> {
 async function getSvelteMajor(): Promise<number> {
 	const packageJsonPath = await findPackageJson();
 	const require = createRequire(packageJsonPath);
-	const { version } = require("svelte/package.json");
-	const major = Number.parseInt(version.split(".")[0]);
-	if (Number.isNaN(major)) return Infinity;
-	return major;
+	try {
+		const { version } = require("svelte/package.json");
+		const major = Number.parseInt(version.split(".")[0]);
+		if (Number.isNaN(major)) return Infinity;
+		return major;
+	} catch {
+		// Svelte is not installed yet, so assume the newest major.
+		return Infinity;
+	}
 }
