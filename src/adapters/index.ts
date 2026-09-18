@@ -60,7 +60,10 @@ export async function checkSourceContains(text: string): Promise<boolean> {
 		ignore: "**/{node_modules,build,dist,out}/**",
 	});
 	for (const path of paths) {
-		if ((await readFile(path, "utf8")).includes(text)) return true;
+		// A file the command cannot read is not worth failing the command over.
+		try {
+			if ((await readFile(path, "utf8")).includes(text)) return true;
+		} catch {}
 	}
 	return false;
 }
