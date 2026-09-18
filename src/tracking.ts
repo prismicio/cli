@@ -5,7 +5,7 @@ import * as z from "zod/mini";
 import type { Profile } from "./lib/prismic/clients/user";
 
 import { ANALYTICS_IDS_PATH } from "./config";
-import { DEFAULT_PRISMIC_HOST } from "./env";
+import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { detectAgent } from "./lib/ai";
 import { readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
@@ -15,14 +15,17 @@ import { appendTrailingSlash } from "./lib/url";
 const PROD_WRITE_KEY = "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
 const STAGING_WRITE_KEY = "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG";
 
-// Amplitude counts every ID it has not seen as a new user. Stored IDs keep one
-// person one user, across commands and across the documentation they read
-// through the CLI.
+// Stored IDs tie every command, and every documentation page read through the
+// CLI, to one user.
 const AnalyticsIdsSchema = z.object({
 	anonymousId: z.string(),
 	userId: z.optional(z.string()),
 });
 type AnalyticsIds = z.infer<typeof AnalyticsIdsSchema>;
+
+// A token from the environment can belong to another user, so it neither reads
+// nor replaces the stored user.
+const usesStoredUser = !env.PRISMIC_TOKEN;
 
 let repository: string | undefined;
 let agent: string | undefined;
@@ -47,34 +50,37 @@ export async function initTracking(config: {
 	ids = storedIds ?? { anonymousId: crypto.randomUUID() };
 	if (!storedIds) await saveIds(ids);
 
-	await initSegment({ writeKey, ...ids });
+	await initSegment({
+		writeKey,
+		anonymousId: ids.anonymousId,
+		userId: getTrackedUserId(),
+	});
 }
 
-export function trackUser(profile: Profile, config: { remember: boolean }): void {
-	const { remember } = config;
+export function trackUser(profile: Profile): void {
 	trackIdentity({ userId: profile.shortId, intercomHash: profile.intercomHash });
 
-	if (remember && ids) {
+	if (usesStoredUser && ids) {
 		ids.userId = profile.shortId;
 		void saveIds(ids);
 	}
 }
 
 export function getTrackedUserId(): string | undefined {
-	return ids?.userId;
+	return usesStoredUser ? ids?.userId : undefined;
 }
 
-/** Headers that let Prismic count a request as read by this user. */
 export function getAnalyticsHeaders(): Record<string, string> {
 	if (!ids) return {};
 
+	const userId = getTrackedUserId();
+
 	return {
 		"Prismic-Anonymous-Id": ids.anonymousId,
-		...(ids.userId ? { "Prismic-User-Id": ids.userId } : {}),
+		...(userId ? { "Prismic-User-Id": userId } : {}),
 	};
 }
 
-/** Logging in or out ends the stored user. The anonymous ID outlives both. */
 export async function forgetTrackedUser(): Promise<void> {
 	const storedIds = await readIds();
 	if (storedIds?.userId) await saveIds({ anonymousId: storedIds.anonymousId });
