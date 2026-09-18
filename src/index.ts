@@ -83,7 +83,8 @@ const KNOWN_ERRORS = [
 
 const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError, TypeBuilderRequiredError];
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// The CLI issues task ids, so it decides the format: a value it did not issue cannot match.
+const TASK_ID = /^pt_[0-9a-hjkmnp-tv-z]{16}$/;
 
 await main();
 
@@ -101,14 +102,18 @@ async function main(): Promise<void> {
 			version,
 			help,
 			repo: repoValue = await safeGetRepositoryName(),
-			"analytics-intent": intentValue,
-			"analytics-task-id": taskIdValue,
+			"user-intent": intentValue,
+			"task-id": taskIdValue,
+			"analytics-intent": legacyIntentValue,
+			"analytics-task-id": legacyTaskIdValue,
 		},
 	} = parseArgs({
 		options: {
 			version: { type: "boolean", short: "v" },
 			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
+			"user-intent": { type: "string" },
+			"task-id": { type: "string" },
 			"analytics-intent": { type: "string" },
 			"analytics-task-id": { type: "string" },
 		},
@@ -122,12 +127,25 @@ async function main(): Promise<void> {
 	}
 
 	const repo = typeof repoValue === "string" ? repoValue : undefined;
-	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
-	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
+	const intent = intentValue ?? legacyIntentValue;
+	const id = taskIdValue ?? legacyTaskIdValue;
+	const userIntent = typeof intent === "string" ? intent : undefined;
+	const taskId = typeof id === "string" ? id : undefined;
 
-	if (!help && command && detectAgent() && !(userIntent && taskId && UUID.test(taskId))) {
+	// An agent that runs a command without the options gets an id it can use, not a recipe for
+	// making one. The command still stops, because the id has to be on the first command for the
+	// request to group at all.
+	if (
+		!help &&
+		command &&
+		command !== "task-id" &&
+		detectAgent() &&
+		!(userIntent && taskId && TASK_ID.test(taskId))
+	) {
 		console.error(
-			`Missing --analytics-task-id <uuid> or --analytics-intent "<request>".\n${dedent(AGENTS_HELP)}`,
+			`error: missing --task-id\n` +
+				"run `prismic task-id` for an id, then pass --task-id <id> --user-intent " +
+				'"<what the user asked for>" on every command until the user asks for something else',
 		);
 		process.exitCode = 1;
 		return;

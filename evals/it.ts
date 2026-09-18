@@ -359,6 +359,14 @@ async function readArgvLog(path: string): Promise<string[][]> {
 }
 
 async function fetchSkill() {
+	// A local skill lets a CLI change and the skill change it needs be tested together, before
+	// the skill is published.
+	if (process.env.EVAL_SKILL_FILE) {
+		return (await readFile(process.env.EVAL_SKILL_FILE, "utf8"))
+			.replace(/^---\n[\s\S]*?\n---\n/, "")
+			.trim();
+	}
+
 	const response = await fetch(
 		`https://raw.githubusercontent.com/prismicio/skills/${PRISMIC_SKILL_REF}/skills/prismic/SKILL.md`,
 	);

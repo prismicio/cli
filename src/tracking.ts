@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
@@ -162,4 +163,13 @@ export async function isTelemetryEnabled(): Promise<boolean> {
 	} catch {
 		return true;
 	}
+}
+
+/** A task ID the CLI issued: a prefix it recognises and enough randomness to be unique. */
+export function mintTaskId(): string {
+	const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
+	let out = "";
+	for (const byte of randomBytes(16)) out += alphabet[byte % alphabet.length];
+
+	return `pt_${out}`;
 }

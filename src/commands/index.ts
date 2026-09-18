@@ -1,3 +1,4 @@
+import { detectAgent } from "../lib/ai";
 import { createCommandRouter } from "../lib/command";
 import docs from "./docs";
 import env from "./env";
@@ -14,6 +15,7 @@ import repo from "./repo";
 import slice from "./slice";
 import status from "./status";
 import sync from "./sync";
+import taskId from "./task-id";
 import token from "./token";
 import type_ from "./type";
 import webhook from "./webhook";
@@ -128,6 +130,12 @@ export default createCommandRouter({
 		whoami: {
 			handler: whoami,
 			description: "Show the currently logged in user",
+		},
+		"task-id": {
+			handler: taskId,
+			description: "Print a task ID for --task-id",
+			// Only agents pass --task-id, so only agents are shown where to get one.
+			hidden: detectAgent() === undefined,
 		},
 	},
 });
