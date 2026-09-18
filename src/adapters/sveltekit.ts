@@ -60,6 +60,8 @@ export class SvelteKitAdapter extends Adapter {
 	async getPreviewComponentInstructions(): Promise<string | undefined> {
 		if (await checkSourceContains("PrismicPreview")) return;
 
+		const children = (await getSvelteMajor()) <= 4 ? "<slot />" : "{@render children()}";
+
 		return dedent`
 			Action required: add <PrismicPreview> to your root layout.
 
@@ -73,7 +75,7 @@ export class SvelteKitAdapter extends Adapter {
 			+   import { repositoryName } from "$lib/prismicio";
 			  </script>
 
-			  {@render children()}
+			  ${children}
 			+ <PrismicPreview {repositoryName} />
 
 			Run \`prismic docs view sveltekit\` for details.

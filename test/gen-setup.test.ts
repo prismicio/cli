@@ -71,7 +71,7 @@ it("skips installation with --no-install", async ({ expect, project, prismic }) 
 	await expect(project).toHaveFile("prismicio.js");
 });
 
-async function useSvelteKit(project: URL) {
+async function useSvelteKit(project: URL, version = "5.0.0") {
 	await writeFile(
 		new URL("package.json", project),
 		JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
@@ -79,7 +79,7 @@ async function useSvelteKit(project: URL) {
 	await mkdir(new URL("node_modules/svelte/", project), { recursive: true });
 	await writeFile(
 		new URL("node_modules/svelte/package.json", project),
-		JSON.stringify({ version: "5.0.0" }),
+		JSON.stringify({ version }),
 	);
 }
 
@@ -129,6 +129,21 @@ it(
 		await expect(project).toHaveFile("src/routes/+layout.svelte", {
 			contains: "<PrismicPreview {repositoryName} />",
 		});
+	},
+);
+
+it(
+	"prints Svelte 4 syntax in the instructions for a Svelte 4 project",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "4.2.19");
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+layout.svelte", project), "<slot />");
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("<slot />");
+		expect(stdout).not.toContain("{@render children()}");
 	},
 );
 
