@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.19.0](https://github.com/prismicio/cli/compare/v1.18.0...v1.19.0) (2026-09-18)
+
+
+### Features
+
+* **analytics:** attribute events to the user ([#309](https://github.com/prismicio/cli/issues/309)) ([a777446](https://github.com/prismicio/cli/commit/a777446ce7dd60f45a564c1d7f749f50fe40b830))
+* **env:** make env commands public ([#306](https://github.com/prismicio/cli/issues/306)) ([b7e6f92](https://github.com/prismicio/cli/commit/b7e6f9200d8a9160be58a9f48304deb7286d0b4c))
+* **help:** link to Prismic docs from command help ([00a8837](https://github.com/prismicio/cli/commit/00a883746bb5a4a5e1e50ab113c7f4e130a753bd))
+
 ## [1.18.0](https://github.com/prismicio/cli/compare/v1.17.0...v1.18.0) (2026-09-15)
 
 
