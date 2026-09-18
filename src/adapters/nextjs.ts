@@ -199,9 +199,7 @@ async function createRevalidateRoute(): Promise<void> {
 	const filePath = new URL(`app/api/revalidate/route.${extension}`, sourceRoot);
 	if (await exists(filePath)) return;
 
-	const version = await getNextJsVersion();
-	const major = Number.parseInt(version.split(".")[0]);
-	const supportsCacheLife = major >= 16;
+	const supportsCacheLife = (await getNextJsMajor()) >= 16;
 
 	const contents = revalidateRouteTemplate({ supportsCacheLife });
 	await writeFileRecursive(filePath, contents);
@@ -323,9 +321,16 @@ async function getJsFileExtension() {
 	return jsFileExtension;
 }
 
-async function getNextJsVersion() {
+async function getNextJsMajor(): Promise<number> {
 	const packageJsonPath = await findPackageJson();
 	const require = createRequire(packageJsonPath);
-	const { version } = require("next/package.json");
-	return version;
+	try {
+		const { version } = require("next/package.json");
+		const major = Number.parseInt(version.split(".")[0]);
+		if (Number.isNaN(major)) return Infinity;
+		return major;
+	} catch {
+		// Next.js is not installed yet, so assume the newest major.
+		return Infinity;
+	}
 }

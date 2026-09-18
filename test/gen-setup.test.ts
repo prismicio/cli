@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 
 import { it } from "./it";
 
@@ -131,6 +131,16 @@ it(
 		});
 	},
 );
+
+it("works when Next.js is declared but not installed", async ({ expect, project, prismic }) => {
+	// node_modules is absent, so the Next.js version cannot be read.
+	await rm(new URL("node_modules/next/", project), { recursive: true });
+
+	const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+
+	await expect(project).toHaveFile("app/api/revalidate/route.js");
+});
 
 it(
 	"works when Svelte is declared but not installed",
