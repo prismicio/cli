@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.0](https://github.com/prismicio/cli/compare/v1.19.0...v1.20.0) (2026-09-18)
+
+
+### Features
+
+* **previews:** tell users to add the preview component ([#311](https://github.com/prismicio/cli/issues/311)) ([3f72bdd](https://github.com/prismicio/cli/commit/3f72bdd5d50919145fa84e7ff23e6856a480f0ed))
+
 ## [1.19.0](https://github.com/prismicio/cli/compare/v1.18.0...v1.19.0) (2026-09-18)
 
 
