@@ -120,6 +120,7 @@ export const it = base.extend<{
 		await use(async (prompt: string) => {
 			const start = performance.now();
 			const commands: string[] = [];
+			const firstOutput = outputs.length;
 			const { text, tokens } = await run(prompt, {
 				model,
 				skill: installSkill ? SKILL : undefined,
@@ -137,7 +138,7 @@ export const it = base.extend<{
 			trial.text = text;
 			trial.tokens += tokens;
 
-			return { text, commands, calls: trial.calls };
+			return { text, commands, calls: trial.calls, outputs: outputs.slice(firstOutput) };
 		});
 
 		await rm(argvLog, { force: true });
@@ -191,6 +192,8 @@ type AgentResult = {
 	commands: string[];
 	/** Every prismic CLI call, as the argv the CLI received. */
 	calls: string[][];
+	/** Every tool result the agent read, in order. */
+	outputs: string[];
 };
 
 type RunOptions = {
