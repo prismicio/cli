@@ -46,7 +46,6 @@ export class NuxtAdapter extends Adapter {
 		await modifySliceLibraryPath(this);
 	}
 
-	// The @nuxtjs/prismic module adds the toolbar on its own.
 	async getPreviewComponentInstructions(): Promise<undefined> {}
 
 	async onProjectInitialized(): Promise<void> {

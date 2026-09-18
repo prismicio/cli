@@ -80,7 +80,7 @@ export class NextJsAdapter extends Adapter {
 				    );
 				  }
 
-				Docs: https://prismic.io/docs/nextjs
+				Run \`prismic docs view nextjs\` for details.
 			`;
 		}
 
@@ -97,13 +97,14 @@ export class NextJsAdapter extends Adapter {
 
 			  export default function App({ Component, pageProps }) {
 			    return (
-			+     <PrismicPreview repositoryName={repositoryName}>
+			+     <>
 			        <Component {...pageProps} />
-			+     </PrismicPreview>
+			+       <PrismicPreview repositoryName={repositoryName} />
+			+     </>
 			    );
 			  }
 
-			Docs: https://prismic.io/docs/nextjs
+			Run \`prismic docs view nextjs\` for details.
 		`;
 	}
 

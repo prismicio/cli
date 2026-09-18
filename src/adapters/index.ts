@@ -101,7 +101,6 @@ export abstract class Adapter {
 
 	abstract setupProject(): Promise<void>;
 
-	/** Undefined when the project already renders the preview component. */
 	abstract getPreviewComponentInstructions(): Promise<string | undefined>;
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	abstract getDefaultSliceLibrary(): Promise<URL>;

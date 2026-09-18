@@ -76,7 +76,7 @@ export class SvelteKitAdapter extends Adapter {
 			  {@render children()}
 			+ <PrismicPreview {repositoryName} />
 
-			Docs: https://prismic.io/docs/sveltekit
+			Run \`prismic docs view sveltekit\` for details.
 		`;
 	}
 
