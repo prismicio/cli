@@ -4,19 +4,38 @@ import * as z from "zod/mini";
 
 import type { Profile } from "./lib/prismic/clients/user";
 
-import { DEFAULT_PRISMIC_HOST } from "./env";
+import { ANALYTICS_IDS_PATH } from "./config";
+import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { detectAgent } from "./lib/ai";
-import { readJsonFile } from "./lib/file";
+import { readJsonFile, writeFileRecursive } from "./lib/file";
+import { stringify } from "./lib/json";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
 
 const PROD_WRITE_KEY = "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
 const STAGING_WRITE_KEY = "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG";
 
+// Stored IDs tie every command, and every documentation page read through the
+// CLI, to one user.
+const AnalyticsIdsSchema = z.object({
+	anonymousId: z.string(),
+	userId: z.optional(z.string()),
+});
+type AnalyticsIds = z.infer<typeof AnalyticsIdsSchema>;
+
+// A token from the environment can belong to another user, so it neither reads
+// nor replaces the stored user.
+const usesStoredUser = !env.PRISMIC_TOKEN;
+
+// A profile request started before a login or a logout can still answer, and
+// it answers for the user who just left.
+let forgotUser = false;
+
 let repository: string | undefined;
 let agent: string | undefined;
 let userIntent: string | undefined;
 let taskId: string | undefined;
+let ids: AnalyticsIds | undefined;
 
 export async function initTracking(config: {
 	host: string;
@@ -30,11 +49,55 @@ export async function initTracking(config: {
 	taskId = config.taskId;
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
 	agent = detectAgent();
-	await initSegment({ writeKey });
+
+	const storedIds = await readIds();
+	ids = storedIds ?? { anonymousId: crypto.randomUUID() };
+	if (!storedIds) await saveIds(ids);
+
+	await initSegment({
+		writeKey,
+		anonymousId: ids.anonymousId,
+		userId: getTrackedUserId(),
+	});
 }
 
 export function trackUser(profile: Profile): void {
 	trackIdentity({ userId: profile.shortId, intercomHash: profile.intercomHash });
+
+	if (usesStoredUser && !forgotUser && ids) {
+		ids.userId = profile.shortId;
+		void saveIds(ids);
+	}
+}
+
+export function getTrackedUserId(): string | undefined {
+	return usesStoredUser ? ids?.userId : undefined;
+}
+
+export function getAnalyticsHeaders(): Record<string, string> {
+	if (!ids) return {};
+
+	const userId = getTrackedUserId();
+
+	return {
+		"Prismic-Anonymous-Id": ids.anonymousId,
+		...(userId ? { "Prismic-User-Id": userId } : {}),
+	};
+}
+
+export async function forgetTrackedUser(): Promise<void> {
+	forgotUser = true;
+
+	const storedIds = await readIds();
+	if (storedIds?.userId) await saveIds({ anonymousId: storedIds.anonymousId });
+}
+
+async function readIds(): Promise<AnalyticsIds | undefined> {
+	return readJsonFile(ANALYTICS_IDS_PATH, { schema: AnalyticsIdsSchema }).catch(() => undefined);
+}
+
+async function saveIds(nextIds: AnalyticsIds): Promise<void> {
+	await writeFileRecursive(ANALYTICS_IDS_PATH, stringify(nextIds)).catch(() => {});
 }
 
 export function trackCommandStart(command: string, config: { watch?: boolean } = {}): void {

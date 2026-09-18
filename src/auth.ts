@@ -11,6 +11,7 @@ import { exists, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { refreshToken as baseRefreshToken } from "./lib/prismic/clients/auth";
 import { appendTrailingSlash } from "./lib/url";
+import { forgetTrackedUser } from "./tracking";
 
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const PREFERRED_PORT = 5555;
@@ -45,6 +46,7 @@ export async function logout(): Promise<boolean> {
 
 	try {
 		await rm(CREDENTIALS_PATH, { force: true });
+		await forgetTrackedUser();
 		return true;
 	} catch {
 		return false;
@@ -109,6 +111,7 @@ export async function createLoginSession(options?: {
 						}
 
 						await saveCredentials({ token, host });
+						await forgetTrackedUser();
 
 						res.writeHead(200, {
 							"Access-Control-Allow-Origin": corsOrigin,

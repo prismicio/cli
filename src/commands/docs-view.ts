@@ -4,6 +4,7 @@ import { env } from "../env";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getDocsPageContent } from "../lib/prismic/clients/docs";
+import { getAnalyticsHeaders } from "../tracking";
 
 const config = {
 	name: "prismic docs view",
@@ -31,7 +32,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const path = hashIndex >= 0 ? rawPath.slice(0, hashIndex) : rawPath;
 	const anchor = hashIndex >= 0 ? rawPath.slice(hashIndex + 1) : undefined;
 
-	let markdown = await getDocsPageContent(path, { host: env.PRISMIC_DOCS_HOST });
+	let markdown = await getDocsPageContent(path, {
+		host: env.PRISMIC_DOCS_HOST,
+		headers: getAnalyticsHeaders(),
+	});
 
 	if (anchor) {
 		const section = extractSection(markdown, anchor);

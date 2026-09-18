@@ -49,6 +49,7 @@ import {
 	UnknownProjectRootError,
 } from "./project";
 import {
+	getTrackedUserId,
 	initTracking,
 	isTelemetryEnabled,
 	trackCommandEnd,
@@ -153,13 +154,19 @@ async function main(): Promise<void> {
 				process.on("exit", () => spawnTokenRefresh());
 			}
 
-			if ((sentryEnabled || telemetryEnabled) && (!exp || exp > now)) {
-				getProfile({ token, host })
-					.then((profile) => {
-						trackUser(profile);
-						sentrySetUser({ id: profile.shortId });
-					})
-					.catch(() => {});
+			if (sentryEnabled || telemetryEnabled) {
+				const knownUserId = getTrackedUserId();
+
+				if (knownUserId) {
+					sentrySetUser({ id: knownUserId });
+				} else if (!exp || exp > now) {
+					getProfile({ token, host })
+						.then((profile) => {
+							trackUser(profile);
+							sentrySetUser({ id: profile.shortId });
+						})
+						.catch(() => {});
+				}
 			}
 		}
 	}
