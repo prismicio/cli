@@ -27,6 +27,10 @@ type AnalyticsIds = z.infer<typeof AnalyticsIdsSchema>;
 // nor replaces the stored user.
 const usesStoredUser = !env.PRISMIC_TOKEN;
 
+// A profile request started before a login or a logout can still answer, and
+// it answers for the user who just left.
+let forgotUser = false;
+
 let repository: string | undefined;
 let agent: string | undefined;
 let userIntent: string | undefined;
@@ -60,7 +64,7 @@ export async function initTracking(config: {
 export function trackUser(profile: Profile): void {
 	trackIdentity({ userId: profile.shortId, intercomHash: profile.intercomHash });
 
-	if (usesStoredUser && ids) {
+	if (usesStoredUser && !forgotUser && ids) {
 		ids.userId = profile.shortId;
 		void saveIds(ids);
 	}
@@ -82,6 +86,8 @@ export function getAnalyticsHeaders(): Record<string, string> {
 }
 
 export async function forgetTrackedUser(): Promise<void> {
+	forgotUser = true;
+
 	const storedIds = await readIds();
 	if (storedIds?.userId) await saveIds({ anonymousId: storedIds.anonymousId });
 }
