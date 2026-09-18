@@ -7,7 +7,7 @@ import { createRequire } from "node:module";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter } from ".";
+import { Adapter, checkSourceContains } from ".";
 import { getCredentials } from "../auth";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
@@ -55,6 +55,31 @@ export class SvelteKitAdapter extends Adapter {
 		await createRootLayoutServerFile();
 		await createRootLayoutFile();
 		await modifyViteConfig();
+	}
+
+	async getPreviewComponentInstructions(): Promise<string | undefined> {
+		if (await checkSourceContains("PrismicPreview")) return;
+
+		const children = (await getSvelteMajor()) <= 4 ? "<slot />" : "{@render children()}";
+
+		return dedent`
+			Action required: add <PrismicPreview> to your root layout.
+
+			Previews do not work until you do this, and the CLI cannot edit your
+			layout for you. Make the change now.
+
+			Add the lines marked + to src/routes/+layout.svelte:
+
+			  <script>
+			+   import { PrismicPreview } from "@prismicio/svelte/kit";
+			+   import { repositoryName } from "$lib/prismicio";
+			  </script>
+
+			  ${children}
+			+ <PrismicPreview {repositoryName} />
+
+			Run \`prismic docs view sveltekit\` for details.
+		`;
 	}
 
 	async onProjectInitialized(): Promise<void> {
@@ -288,8 +313,13 @@ async function getJsFileExtension(): Promise<string> {
 async function getSvelteMajor(): Promise<number> {
 	const packageJsonPath = await findPackageJson();
 	const require = createRequire(packageJsonPath);
-	const { version } = require("svelte/package.json");
-	const major = Number.parseInt(version.split(".")[0]);
-	if (Number.isNaN(major)) return Infinity;
-	return major;
+	try {
+		const { version } = require("svelte/package.json");
+		const major = Number.parseInt(version.split(".")[0]);
+		if (Number.isNaN(major)) return Infinity;
+		return major;
+	} catch {
+		// Svelte is not installed yet, so assume the newest major.
+		return Infinity;
+	}
 }

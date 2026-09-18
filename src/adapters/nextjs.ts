@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter } from ".";
+import { Adapter, checkSourceContains } from ".";
 import { getCredentials } from "../auth";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
@@ -51,6 +51,61 @@ export class NextJsAdapter extends Adapter {
 		await createPreviewRoute();
 		await createExitPreviewRoute();
 		await createRevalidateRoute();
+	}
+
+	async getPreviewComponentInstructions(): Promise<string | undefined> {
+		if (await checkSourceContains("PrismicPreview")) return;
+
+		const sourceDirectory = (await checkHasSrc()) ? "src/" : "";
+		const extension = `${await getJsFileExtension()}x`;
+
+		if (await checkUsesAppRouter()) {
+			return dedent`
+				Action required: add <PrismicPreview> to your root layout.
+
+				Previews do not work until you do this, and the CLI cannot edit your
+				layout for you. Make the change now.
+
+				Add the lines marked + to ${sourceDirectory}app/layout.${extension}:
+
+				+ import { PrismicPreview } from "@prismicio/next";
+				+ import { repositoryName } from "@/prismicio";
+
+				  export default function RootLayout({ children }) {
+				    return (
+				      <html lang="en">
+				        <body>{children}</body>
+				+       <PrismicPreview repositoryName={repositoryName} />
+				      </html>
+				    );
+				  }
+
+				Run \`prismic docs view nextjs\` for details.
+			`;
+		}
+
+		return dedent`
+			Action required: add <PrismicPreview> to your app.
+
+			Previews do not work until you do this, and the CLI cannot edit your app
+			for you. Make the change now.
+
+			Add the lines marked + to ${sourceDirectory}pages/_app.${extension}:
+
+			+ import { PrismicPreview } from "@prismicio/next/pages";
+			+ import { repositoryName } from "@/prismicio";
+
+			  export default function App({ Component, pageProps }) {
+			    return (
+			+     <>
+			        <Component {...pageProps} />
+			+       <PrismicPreview repositoryName={repositoryName} />
+			+     </>
+			    );
+			  }
+
+			Run \`prismic docs view nextjs\` for details.
+		`;
 	}
 
 	async onProjectInitialized(): Promise<void> {
@@ -144,9 +199,7 @@ async function createRevalidateRoute(): Promise<void> {
 	const filePath = new URL(`app/api/revalidate/route.${extension}`, sourceRoot);
 	if (await exists(filePath)) return;
 
-	const version = await getNextJsVersion();
-	const major = Number.parseInt(version.split(".")[0]);
-	const supportsCacheLife = major >= 16;
+	const supportsCacheLife = (await getNextJsMajor()) >= 16;
 
 	const contents = revalidateRouteTemplate({ supportsCacheLife });
 	await writeFileRecursive(filePath, contents);
@@ -268,9 +321,16 @@ async function getJsFileExtension() {
 	return jsFileExtension;
 }
 
-async function getNextJsVersion() {
+async function getNextJsMajor(): Promise<number> {
 	const packageJsonPath = await findPackageJson();
 	const require = createRequire(packageJsonPath);
-	const { version } = require("next/package.json");
-	return version;
+	try {
+		const { version } = require("next/package.json");
+		const major = Number.parseInt(version.split(".")[0]);
+		if (Number.isNaN(major)) return Infinity;
+		return major;
+	} catch {
+		// Next.js is not installed yet, so assume the newest major.
+		return Infinity;
+	}
 }

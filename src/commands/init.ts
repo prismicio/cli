@@ -330,6 +330,10 @@ export default createCommand(config, async ({ values }) => {
 		console.info("Run `prismic type create <name>` to create a content type.");
 		console.info("Run `prismic pull` to pull models from Prismic.");
 	}
+
+	// Printed last so it is the step the reader is left with.
+	const previewInstructions = await adapter.getPreviewComponentInstructions();
+	if (previewInstructions) console.info(`\n${previewInstructions}`);
 });
 
 async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Promise<boolean> {
