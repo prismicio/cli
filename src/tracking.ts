@@ -1,16 +1,23 @@
+import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
 import type { Profile } from "./lib/prismic/clients/user";
 
-import { ANALYTICS_IDS_PATH } from "./config";
+import { AGENT_TASK_PATH, ANALYTICS_IDS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { detectAgent } from "./lib/ai";
 import { readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
+
+const AgentTaskSchema = z.object({ taskId: z.string(), updatedAt: z.number() });
+
+// Commands run close together belong to one request. Long enough to cover a slow
+// task, short enough that the next request starts its own.
+const TASK_WINDOW_MS = 30 * 60 * 1000;
 
 const PROD_WRITE_KEY = "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
 const STAGING_WRITE_KEY = "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG";
@@ -162,4 +169,21 @@ export async function isTelemetryEnabled(): Promise<boolean> {
 	} catch {
 		return true;
 	}
+}
+
+/**
+ * The task id for this command: the one the agent passed, or one the CLI keeps for
+ * itself so commands still group into a request when nothing is passed.
+ */
+export async function resolveTaskId(passed: string | undefined): Promise<string> {
+	if (passed) return passed;
+
+	const now = Date.now();
+	const stored = await readJsonFile(AGENT_TASK_PATH, { schema: AgentTaskSchema }).catch(
+		() => undefined,
+	);
+	const taskId = stored && now - stored.updatedAt < TASK_WINDOW_MS ? stored.taskId : randomUUID();
+	await writeFileRecursive(AGENT_TASK_PATH, stringify({ taskId, updatedAt: now })).catch(() => {});
+
+	return taskId;
 }

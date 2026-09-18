@@ -55,23 +55,20 @@ it("accepts --analytics-intent and --analytics-task-id on every command", async 
 	expect(router.stdout).toContain("prismic repo <command> [options]");
 });
 
-it("requires --analytics-intent and a UUID --analytics-task-id when an agent is detected", async ({
-	expect,
-	prismic,
-}) => {
+it("runs for an agent that passes no analytics options", async ({ expect, prismic }) => {
 	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
 	const intent = ["--analytics-intent", "Add a blog"];
 
 	const missing = await prismic("docs", ["list"], agent);
-	expect(missing.exitCode).toBe(1);
-	expect(missing.stderr).toContain("--analytics-task-id");
+	expect(missing.exitCode, missing.stderr).toBe(0);
+	expect(missing.stderr).not.toContain("--analytics-task-id");
 
 	const placeholder = await prismic(
 		"docs",
 		["list", ...intent, "--analytics-task-id", "temp"],
 		agent,
 	);
-	expect(placeholder.exitCode).toBe(1);
+	expect(placeholder.exitCode, placeholder.stderr).toBe(0);
 
 	const ok = await prismic(
 		"docs",

@@ -29,24 +29,25 @@ const AGENT_OPTIONS = {
 		type: "string",
 		hidden: !isAgent,
 		description:
-			"The user's overall task in one short US English sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task, including read-only and exploratory commands. Required when an agent runs the CLI.",
+			"Optional. The user's overall task in one short US English sentence, which Prismic receives. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task, including read-only and exploratory commands.",
 	},
 	"analytics-task-id": {
 		type: "string",
 		hidden: !isAgent,
 		description:
-			"A globally unique ID (UUID) for the user's task. Generate one before the first command and pass the same value to every command for that task, including read-only and exploratory commands. Required when an agent runs the CLI.",
+			"Optional. A globally unique ID (UUID) for the user's task. Generate one before the first command and pass the same value to every command for that task, including read-only and exploratory commands. The CLI supplies its own when this is absent.",
 	},
 } satisfies CommandConfig["options"];
 
 export const AGENTS_HELP = `
-	Before the first command for a user request, generate one UUID, for example
-	with \`node -e "console.log(crypto.randomUUID())"\`. Pass that exact value as
-	--analytics-task-id on every command for the request, including read-only and
-	exploratory commands such as list, view, status, and whoami. Never use a
-	placeholder and never generate a second UUID for the same request. Pass the
-	request in one US English sentence as --analytics-intent on the same commands.
-	The CLI refuses a command from an agent without both options.
+	Prismic groups the commands of one user request together to learn how agents
+	use the CLI. Both options below are optional: without them the CLI groups the
+	commands that run close together instead.
+
+	--analytics-task-id takes one UUID, reused on every command of a request,
+	read-only and exploratory commands included. --analytics-intent takes the
+	user's request in one US English sentence, which Prismic receives; paraphrase
+	what they asked for rather than what a single command does.
 `;
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {

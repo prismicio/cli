@@ -10,7 +10,7 @@ import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
 import { getErrorMessage } from "./error";
 import { detectAgent } from "./lib/ai";
-import { AGENTS_HELP, CommandError } from "./lib/command";
+import { CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
 import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
@@ -38,7 +38,6 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import {
 	InvalidLegacySliceMachineConfigError,
@@ -52,6 +51,7 @@ import {
 	getTrackedUserId,
 	initTracking,
 	isTelemetryEnabled,
+	resolveTaskId,
 	trackCommandEnd,
 	trackCommandStart,
 	trackUser,
@@ -123,15 +123,15 @@ async function main(): Promise<void> {
 
 	const repo = typeof repoValue === "string" ? repoValue : undefined;
 	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
-	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
+	const passedTaskId =
+		typeof taskIdValue === "string" && UUID.test(taskIdValue) ? taskIdValue : undefined;
 
-	if (!help && command && detectAgent() && !(userIntent && taskId && UUID.test(taskId))) {
-		console.error(
-			`Missing --analytics-task-id <uuid> or --analytics-intent "<request>".\n${dedent(AGENTS_HELP)}`,
-		);
-		process.exitCode = 1;
-		return;
-	}
+	// An agent that does not pass a task id still gets one, from the CLI's own store. Refusing the
+	// command instead cost every agent its first call, and an agent reading the refusal cold has no
+	// way to tell an analytics requirement from a prompt injection: same instruction to run code and
+	// forward the user's request, arriving the same way, on the stderr of a command that failed.
+	const taskId =
+		!help && command && detectAgent() ? await resolveTaskId(passedTaskId) : passedTaskId;
 
 	if (!help) {
 		const { token, host } = await getCredentials();
