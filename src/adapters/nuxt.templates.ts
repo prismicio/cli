@@ -4,9 +4,7 @@ import { pascalCase } from "change-case";
 
 import { dedent } from "../lib/string";
 
-export function sliceTemplate(args: { name: string; typescript: boolean }): string {
-	const { name, typescript } = args;
-
+export function sliceTemplate({ name, typescript }: { name: string; typescript: boolean }): string {
 	const pascalName = pascalCase(name);
 
 	if (typescript) {
@@ -54,17 +52,20 @@ export function sliceTemplate(args: { name: string; typescript: boolean }): stri
 	`;
 }
 
-export function pageTemplate(args: { model: CustomType; typescript: boolean }): string {
-	const { model, typescript } = args;
-
-	const scriptAttributes = ["setup"];
-	if (typescript) scriptAttributes.push('lang="ts"');
+export function pageTemplate({
+	model,
+	typescript,
+}: {
+	model: CustomType;
+	typescript: boolean;
+}): string {
+	const scriptAttributes = typescript ? 'setup lang="ts"' : "setup";
 
 	if (model.repeatable) {
 		const uidExpression = typescript ? "route.params.uid as string" : "route.params.uid";
 
 		return dedent`
-			<script ${scriptAttributes.join(" ")}>
+			<script ${scriptAttributes}>
 			import { components } from "~/slices";
 
 			const prismic = usePrismic();
@@ -83,7 +84,7 @@ export function pageTemplate(args: { model: CustomType; typescript: boolean }): 
 	}
 
 	return dedent`
-		<script ${scriptAttributes.join(" ")}>
+		<script ${scriptAttributes}>
 		import { components } from "~/slices";
 
 		const prismic = usePrismic();
@@ -100,16 +101,11 @@ export function pageTemplate(args: { model: CustomType; typescript: boolean }): 
 	`;
 }
 
-export function sliceSimulatorPageTemplate(args: { typescript: boolean }): string {
-	const { typescript } = args;
-
-	const scriptAttributes = ["setup"];
-	if (typescript) {
-		scriptAttributes.push('lang="ts"');
-	}
+export function sliceSimulatorPageTemplate({ typescript }: { typescript: boolean }): string {
+	const scriptAttributes = typescript ? 'setup lang="ts"' : "setup";
 
 	return dedent`
-		<script ${scriptAttributes.join(" ")}>
+		<script ${scriptAttributes}>
 		import { components } from "~/slices";
 		</script>
 

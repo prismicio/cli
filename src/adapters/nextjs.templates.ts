@@ -17,9 +17,15 @@ const SLICE_MARKUP = dedent`
 	)
 `;
 
-export function sliceTemplate(args: { name: string; id: string; typescript: boolean }): string {
-	const { name, id, typescript } = args;
-
+export function sliceTemplate({
+	name,
+	id,
+	typescript,
+}: {
+	name: string;
+	id: string;
+	typescript: boolean;
+}): string {
 	const pascalName = pascalCase(name);
 	const pascalId = pascalCase(id);
 
@@ -59,14 +65,17 @@ export function sliceTemplate(args: { name: string; id: string; typescript: bool
 	return typescript ? TS : JS;
 }
 
-export function pageTemplate(args: {
+export function pageTemplate({
+	model,
+	routePath,
+	typescript,
+	appRouter,
+}: {
 	model: CustomType;
 	routePath: string;
 	typescript: boolean;
 	appRouter: boolean;
 }): string {
-	const { model, routePath, typescript, appRouter } = args;
-
 	if (appRouter) {
 		if (model.repeatable) {
 			if (typescript) {
@@ -222,145 +231,130 @@ export function pageTemplate(args: {
 	`;
 }
 
-export function prismicIOFileTemplate(args: {
+export function prismicIOFileTemplate({
+	typescript,
+	appRouter,
+	hasSrcDirectory,
+}: {
 	typescript: boolean;
 	appRouter: boolean;
 	hasSrcDirectory: boolean;
 }): string {
-	const { typescript, appRouter, hasSrcDirectory } = args;
 	const configImportPath = `${hasSrcDirectory ? ".." : "."}/prismic.config.json`;
 
 	let importsContents: string;
 	let createClientContents: string;
 
-	if (appRouter) {
-		if (typescript) {
-			importsContents = dedent`
-				import {
-					createClient as baseCreateClient,
-					type ClientConfig,
-				} from "@prismicio/client";
-				import { enableAutoPreviews } from "@prismicio/next";
-				import prismicConfig from "${configImportPath}";
-			`;
+	if (appRouter && typescript) {
+		importsContents = dedent`
+			import {
+				createClient as baseCreateClient,
+				type ClientConfig,
+			} from "@prismicio/client";
+			import { enableAutoPreviews } from "@prismicio/next";
+			import prismicConfig from "${configImportPath}";
+		`;
 
-			createClientContents = dedent`
-				/**
-				 * Creates a Prismic client for the project's repository. The client is used to
-				 * query content from the Prismic API.
-				 *
-				 * @param config - Configuration for the Prismic client.
-				 */
-				export const createClient = (config: ClientConfig = {}) => {
-					const client = baseCreateClient(repositoryName, {
-						routes: prismicConfig.routes,
-						fetchOptions:
-							process.env.NODE_ENV === 'production'
-								? { next: { tags: ['prismic'] }, cache: 'force-cache' }
-								: { next: { revalidate: 5 } },
-						...config,
-					});
-
-					enableAutoPreviews({ client });
-
-					return client;
-				};
-			`;
-		} else {
-			importsContents = dedent`
-				import { createClient as baseCreateClient } from "@prismicio/client";
-				import { enableAutoPreviews } from "@prismicio/next";
-				import prismicConfig from "${configImportPath}";
-			`;
-
-			createClientContents = dedent`
-				/**
-				 * Creates a Prismic client for the project's repository. The client is used to
-				 * query content from the Prismic API.
-				 *
-				 * @param {import("@prismicio/client").ClientConfig} config - Configuration for the Prismic client.
-				 */
-				export const createClient = (config = {}) => {
-					const client = baseCreateClient(repositoryName, {
-						routes: prismicConfig.routes,
-						fetchOptions:
-							process.env.NODE_ENV === 'production'
-								? { next: { tags: ['prismic'] }, cache: 'force-cache' }
-								: { next: { revalidate: 5 } },
-						...config,
-					});
-
-					enableAutoPreviews({ client });
-
-					return client;
-				};
-			`;
-		}
-	} else {
-		if (typescript) {
-			importsContents = dedent`
-				import { createClient as baseCreateClient } from "@prismicio/client";
-				import { enableAutoPreviews, type CreateClientConfig } from "@prismicio/next/pages";
-				import prismicConfig from "${configImportPath}";
-			`;
-
-			createClientContents = dedent`
-				/**
-				 * Creates a Prismic client for the project's repository. The client is used to
-				 * query content from the Prismic API.
-				 *
-				 * @param config - Configuration for the Prismic client.
-				 */
-				export const createClient = ({ previewData, req, ...config }: CreateClientConfig = {}) => {
-					const client = baseCreateClient(repositoryName, {
-						routes: prismicConfig.routes,
-						...config,
-					});
-
-					enableAutoPreviews({ client, previewData, req });
-
-					return client;
-				};
-			`;
-		} else {
-			importsContents = dedent`
-				import { createClient as baseCreateClient } from "@prismicio/client";
-				import { enableAutoPreviews } from "@prismicio/next/pages";
-				import prismicConfig from "${configImportPath}";
-			`;
-
-			createClientContents = dedent`
-				/**
-				 * Creates a Prismic client for the project's repository. The client is used to
-				 * query content from the Prismic API.
-				 *
-				 * @param {import("@prismicio/next/pages").CreateClientConfig} config - Configuration for the Prismic client.
-				 */
-				export const createClient = ({ previewData, req, ...config } = {}) => {
-					const client = baseCreateClient(repositoryName, {
-						routes: prismicConfig.routes,
-						...config,
-					});
-
-					enableAutoPreviews({ client, previewData, req });
-
-					return client;
-				};
-			`;
-		}
-	}
-
-	if (typescript) {
-		return dedent`
-			${importsContents}
-
+		createClientContents = dedent`
 			/**
-			 * The project's Prismic repository name.
+			 * Creates a Prismic client for the project's repository. The client is used to
+			 * query content from the Prismic API.
+			 *
+			 * @param config - Configuration for the Prismic client.
 			 */
-			export const repositoryName =
-				process.env.NEXT_PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
+			export const createClient = (config: ClientConfig = {}) => {
+				const client = baseCreateClient(repositoryName, {
+					routes: prismicConfig.routes,
+					fetchOptions:
+						process.env.NODE_ENV === 'production'
+							? { next: { tags: ['prismic'] }, cache: 'force-cache' }
+							: { next: { revalidate: 5 } },
+					...config,
+				});
 
-			${createClientContents}
+				enableAutoPreviews({ client });
+
+				return client;
+			};
+		`;
+	} else if (appRouter) {
+		importsContents = dedent`
+			import { createClient as baseCreateClient } from "@prismicio/client";
+			import { enableAutoPreviews } from "@prismicio/next";
+			import prismicConfig from "${configImportPath}";
+		`;
+
+		createClientContents = dedent`
+			/**
+			 * Creates a Prismic client for the project's repository. The client is used to
+			 * query content from the Prismic API.
+			 *
+			 * @param {import("@prismicio/client").ClientConfig} config - Configuration for the Prismic client.
+			 */
+			export const createClient = (config = {}) => {
+				const client = baseCreateClient(repositoryName, {
+					routes: prismicConfig.routes,
+					fetchOptions:
+						process.env.NODE_ENV === 'production'
+							? { next: { tags: ['prismic'] }, cache: 'force-cache' }
+							: { next: { revalidate: 5 } },
+					...config,
+				});
+
+				enableAutoPreviews({ client });
+
+				return client;
+			};
+		`;
+	} else if (typescript) {
+		importsContents = dedent`
+			import { createClient as baseCreateClient } from "@prismicio/client";
+			import { enableAutoPreviews, type CreateClientConfig } from "@prismicio/next/pages";
+			import prismicConfig from "${configImportPath}";
+		`;
+
+		createClientContents = dedent`
+			/**
+			 * Creates a Prismic client for the project's repository. The client is used to
+			 * query content from the Prismic API.
+			 *
+			 * @param config - Configuration for the Prismic client.
+			 */
+			export const createClient = ({ previewData, req, ...config }: CreateClientConfig = {}) => {
+				const client = baseCreateClient(repositoryName, {
+					routes: prismicConfig.routes,
+					...config,
+				});
+
+				enableAutoPreviews({ client, previewData, req });
+
+				return client;
+			};
+		`;
+	} else {
+		importsContents = dedent`
+			import { createClient as baseCreateClient } from "@prismicio/client";
+			import { enableAutoPreviews } from "@prismicio/next/pages";
+			import prismicConfig from "${configImportPath}";
+		`;
+
+		createClientContents = dedent`
+			/**
+			 * Creates a Prismic client for the project's repository. The client is used to
+			 * query content from the Prismic API.
+			 *
+			 * @param {import("@prismicio/next/pages").CreateClientConfig} config - Configuration for the Prismic client.
+			 */
+			export const createClient = ({ previewData, req, ...config } = {}) => {
+				const client = baseCreateClient(repositoryName, {
+					routes: prismicConfig.routes,
+					...config,
+				});
+
+				enableAutoPreviews({ client, previewData, req });
+
+				return client;
+			};
 		`;
 	}
 
@@ -377,12 +371,13 @@ export function prismicIOFileTemplate(args: {
 	`;
 }
 
-export function sliceSimulatorPageTemplate(args: {
+export function sliceSimulatorPageTemplate({
+	typescript,
+	appRouter,
+}: {
 	typescript: boolean;
 	appRouter: boolean;
 }): string {
-	const { typescript, appRouter } = args;
-
 	const appTS = dedent`
 		import { SliceSimulator, SliceSimulatorParams, getSlices } from "@prismicio/next";
 		import { SliceZone } from "@prismicio/react";
@@ -436,16 +431,17 @@ export function sliceSimulatorPageTemplate(args: {
 		}
 	`;
 
-	if (appRouter) {
-		return typescript ? appTS : appJS;
-	} else {
-		return pages;
-	}
+	if (!appRouter) return pages;
+	return typescript ? appTS : appJS;
 }
 
-export function previewRouteTemplate(args: { typescript: boolean; appRouter: boolean }): string {
-	const { typescript, appRouter } = args;
-
+export function previewRouteTemplate({
+	typescript,
+	appRouter,
+}: {
+	typescript: boolean;
+	appRouter: boolean;
+}): string {
 	const appTS = dedent`
 		import { NextRequest } from "next/server";
 		import { redirectToPreviewURL } from "@prismicio/next";
@@ -500,19 +496,17 @@ export function previewRouteTemplate(args: { typescript: boolean; appRouter: boo
 		};
 	`;
 
-	if (appRouter) {
-		return typescript ? appTS : appJS;
-	} else {
-		return typescript ? pagesTS : pagesJS;
-	}
+	if (appRouter) return typescript ? appTS : appJS;
+	return typescript ? pagesTS : pagesJS;
 }
 
-export function exitPreviewRouteTemplate(args: {
+export function exitPreviewRouteTemplate({
+	typescript,
+	appRouter,
+}: {
 	typescript: boolean;
 	appRouter: boolean;
 }): string {
-	const { typescript, appRouter } = args;
-
 	const app = dedent`
 		import { exitPreview } from "@prismicio/next";
 
@@ -538,16 +532,15 @@ export function exitPreviewRouteTemplate(args: {
 		}
 	`;
 
-	if (appRouter) {
-		return app;
-	} else {
-		return typescript ? pagesTS : pagesJS;
-	}
+	if (appRouter) return app;
+	return typescript ? pagesTS : pagesJS;
 }
 
-export function revalidateRouteTemplate(args: { supportsCacheLife: boolean }): string {
-	const { supportsCacheLife } = args;
-
+export function revalidateRouteTemplate({
+	supportsCacheLife,
+}: {
+	supportsCacheLife: boolean;
+}): string {
 	return dedent`
 		import { NextResponse } from "next/server";
 		import { revalidateTag } from "next/cache";

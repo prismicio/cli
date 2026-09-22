@@ -2,10 +2,12 @@ import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/cust
 
 import { pascalCase } from "change-case";
 import { readFile, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
+import { getCredentials } from "../auth";
 import {
 	exists,
 	readEnvFile,
@@ -15,22 +17,27 @@ import {
 	writeFileRecursive,
 } from "../lib/file";
 import { stringify } from "../lib/json";
-import { readPackageJson } from "../lib/packageJson";
+import { findPackageJson, readPackageJson } from "../lib/packageJson";
+import {
+	addPreview,
+	getPreviews,
+	getSimulatorUrl,
+	setSimulatorUrl,
+} from "../lib/prismic/clients/core";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { appendTrailingSlash } from "../lib/url";
-import { addRoute, getRepositoryName, removeRoute, updateRoute } from "../project";
-import { findProjectRoot, getLibraries } from "../project";
+import {
+	addRoute,
+	buildRoutePath,
+	checkIsTypeScriptProject,
+	findProjectRoot,
+	getLibraries,
+	getRepositoryName,
+	removeRoute,
+	updateRoute,
+} from "../project";
 
-const TYPES_FILENAME = "prismicio-types.d.ts";
-
-type CustomTypeMeta = { model: CustomType; modelPath: URL; directory: URL; library: URL };
-type SharedSliceMeta = { model: SharedSlice; modelPath: URL; directory: URL; library: URL };
-
-export type LocalDevelopmentPreview = {
-	name: string;
-	websiteURL: string;
-	resolverPath: string;
-};
+type ModelMeta<T> = { model: T; modelPath: URL; directory: URL; library: URL };
 
 export const FRAMEWORKS = ["next", "nuxt", "sveltekit"];
 
@@ -52,6 +59,17 @@ export async function getAdapter(): Promise<Adapter> {
 	throw new NoSupportedFrameworkError();
 }
 
+export class NoSupportedFrameworkError extends Error {
+	name = "NoSupportedFrameworkError";
+	message =
+		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
+}
+
+export async function getActiveRepositoryName(): Promise<string> {
+	const adapter = await getAdapter();
+	return (await adapter.getEnvironment()) ?? (await getRepositoryName());
+}
+
 export async function checkSourceContains(text: string): Promise<boolean> {
 	const paths = await glob("**/*.{js,jsx,mjs,ts,tsx,mts,svelte}", {
 		// A URL cwd silently disables `ignore`, so node_modules must be a path.
@@ -67,23 +85,31 @@ export async function checkSourceContains(text: string): Promise<boolean> {
 	return false;
 }
 
-export class NoSupportedFrameworkError extends Error {
-	name = "NoSupportedFrameworkError";
-	message =
-		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
+export async function writeFileIfMissing(path: URL, contents: string): Promise<void> {
+	if (await exists(path)) return;
+	await writeFileRecursive(path, contents);
 }
 
-export async function getActiveRepositoryName(): Promise<string> {
-	const adapter = await getAdapter();
-	return (await adapter.getEnvironment()) ?? (await getRepositoryName());
+export async function getJsFileExtension(): Promise<string> {
+	return (await checkIsTypeScriptProject()) ? "ts" : "js";
+}
+
+export async function getInstalledMajor(packageName: string): Promise<number> {
+	const require = createRequire(await findPackageJson());
+	try {
+		const { version } = require(`${packageName}/package.json`);
+		const major = Number.parseInt(version.split(".")[0]);
+		return Number.isNaN(major) ? Infinity : major;
+	} catch {
+		// Not installed yet, so assume the newest major.
+		return Infinity;
+	}
 }
 
 export abstract class Adapter {
 	abstract readonly id: string;
-
 	abstract readonly environmentEnvVarName: string;
-
-	abstract readonly localPreviewConfig: LocalDevelopmentPreview;
+	abstract readonly localPreviewConfig: { name: string; websiteURL: string; resolverPath: string };
 
 	get localPreviewUrl(): string {
 		return new URL(this.localPreviewConfig.resolverPath, this.localPreviewConfig.websiteURL).href;
@@ -93,159 +119,112 @@ export abstract class Adapter {
 		return new URL("slice-simulator", this.localPreviewConfig.websiteURL).href;
 	}
 
-	abstract onProjectInitialized(): Promise<void> | void;
-	abstract onSliceCreated(model: SharedSlice, library: URL): Promise<void> | void;
-	abstract onSliceUpdated(model: SharedSlice): Promise<void> | void;
-	abstract onSliceDeleted(id: string): Promise<void> | void;
-	abstract onCustomTypeCreated(model: CustomType): Promise<void> | void;
-	abstract onCustomTypeUpdated(model: CustomType): Promise<void> | void;
-	abstract onCustomTypeDeleted(id: string): Promise<void> | void;
-
 	abstract setupProject(): Promise<void>;
-
 	abstract getPreviewComponentInstructions(): Promise<string | undefined>;
 	abstract createSliceIndexFile(library: URL): Promise<void>;
-	abstract getDefaultSliceLibrary(): Promise<URL>;
-	abstract getDefaultCustomTypeLibrary(): Promise<URL>;
+	protected abstract getDefaultSliceLibrary(): Promise<URL>;
+	protected abstract createSliceComponent(model: SharedSlice, directory: URL): Promise<void>;
+	protected abstract createPageFile(model: CustomType, routePath: string): Promise<void>;
 
 	async initProject({ setup = true }: { setup?: boolean } = {}): Promise<void> {
-		const libraries = await this.getSliceLibraries();
-		for (const library of libraries) {
+		for (const library of await this.getSliceLibraries()) {
 			await this.createSliceIndexFile(library);
 		}
 		if (setup) await this.setupProject();
-		await this.onProjectInitialized();
+
+		const config = { repo: await getRepositoryName(), ...(await getCredentials()) };
+		if (!(await getSimulatorUrl(config))) {
+			await setSimulatorUrl(this.localSimulatorUrl, config);
+		}
+		if ((await getPreviews(config)).length === 0) {
+			await addPreview(this.localPreviewConfig, config);
+		}
 	}
 
 	async getSliceLibraries(): Promise<URL[]> {
-		const libraries = await getLibraries();
-		if (libraries) return libraries;
-		const defaultSliceLibrary = await this.getDefaultSliceLibrary();
-		return [defaultSliceLibrary];
+		return (await getLibraries()) ?? [await this.getDefaultSliceLibrary()];
 	}
 
-	async getSlices(): Promise<SharedSliceMeta[]> {
-		const allSlices: SharedSliceMeta[] = [];
-
-		const libraries = await this.getSliceLibraries();
-		for (const library of libraries) {
-			const sliceModelPaths = Array.from(
-				await glob("*/model.json", { absolute: true, cwd: library }),
-				(path) => pathToFileURL(path),
-			);
-			const slices = await Promise.all(
-				sliceModelPaths.map(async (sliceModelPath) => {
-					const directory = new URL(".", sliceModelPath);
-					const model = await readJsonFile<SharedSlice>(sliceModelPath);
-					return { library, directory, modelPath: sliceModelPath, model };
-				}),
-			);
-			allSlices.push(...slices);
-		}
-
-		return allSlices.sort((a, b) =>
-			a.model.id.toLowerCase().localeCompare(b.model.id.toLowerCase()),
-		);
+	async getSlices(): Promise<ModelMeta<SharedSlice>[]> {
+		return readModels(await this.getSliceLibraries(), "*/model.json");
 	}
 
-	async getSlice(id: string): Promise<SharedSliceMeta> {
-		const slices = await this.getSlices();
-		const slice = slices.find((s) => s.model.id === id);
+	async getSlice(id: string): Promise<ModelMeta<SharedSlice>> {
+		const slice = (await this.getSlices()).find((s) => s.model.id === id);
 		if (!slice) throw new Error(`No slice found with ID: ${id}`);
 		return slice;
 	}
 
 	async createSlice(model: SharedSlice, library?: URL): Promise<void> {
 		library ??= (await this.getSliceLibraries())[0];
-		const sliceDirectoryName = pascalCase(model.name);
-		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
-		const modelPath = new URL("model.json", appendTrailingSlash(sliceDirectory));
-		await writeFileRecursive(modelPath, stringify(canonicalizeSlice(model)));
+		const directory = appendTrailingSlash(
+			new URL(pascalCase(model.name), appendTrailingSlash(library)),
+		);
+		await writeFileRecursive(new URL("model.json", directory), stringify(canonicalizeSlice(model)));
 		await this.createSliceIndexFile(library);
-		await this.onSliceCreated(model, library);
+		await this.createSliceComponent(model, directory);
 	}
 
 	async updateSlice(model: SharedSlice): Promise<void> {
 		const slice = await this.getSlice(model.id);
 		await writeFileRecursive(slice.modelPath, stringify(canonicalizeSlice(model)));
 		await this.createSliceIndexFile(slice.library);
-		await this.onSliceUpdated(model);
 	}
 
 	async deleteSlice(id: string): Promise<void> {
 		const slice = await this.getSlice(id);
 		await rm(slice.directory, { recursive: true });
 		await this.createSliceIndexFile(slice.library);
-		await this.onSliceDeleted(id);
 	}
 
 	async getCustomTypeLibraries(): Promise<URL[]> {
-		const defaultCustomTypeLibrary = await this.getDefaultCustomTypeLibrary();
-		return [defaultCustomTypeLibrary];
+		return [new URL("customtypes/", await findProjectRoot())];
 	}
 
-	async getCustomTypes(): Promise<CustomTypeMeta[]> {
-		const allCustomTypes: CustomTypeMeta[] = [];
-
-		const libraries = await this.getCustomTypeLibraries();
-		for (const library of libraries) {
-			const customTypeModelPaths = Array.from(
-				await glob("*/index.json", { absolute: true, cwd: library }),
-				(path) => pathToFileURL(path),
-			);
-			const customTypes = await Promise.all(
-				customTypeModelPaths.map(async (customTypeModelPath) => {
-					const directory = new URL(".", customTypeModelPath);
-					const model = await readJsonFile<CustomType>(customTypeModelPath);
-					return { library, directory, modelPath: customTypeModelPath, model };
-				}),
-			);
-			allCustomTypes.push(...customTypes);
-		}
-
-		return allCustomTypes.sort((a, b) =>
-			a.model.id.toLowerCase().localeCompare(b.model.id.toLowerCase()),
-		);
+	async getCustomTypes(): Promise<ModelMeta<CustomType>[]> {
+		return readModels(await this.getCustomTypeLibraries(), "*/index.json");
 	}
 
-	async getCustomType(id: string): Promise<CustomTypeMeta> {
-		const customTypes = await this.getCustomTypes();
-		const customType = customTypes.find((s) => s.model.id === id);
+	async getCustomType(id: string): Promise<ModelMeta<CustomType>> {
+		const customType = (await this.getCustomTypes()).find((s) => s.model.id === id);
 		if (!customType) throw new Error(`No custom type found with ID: ${id}`);
 		return customType;
 	}
 
 	async createCustomType(model: CustomType, library?: URL): Promise<void> {
-		library ??= await this.getDefaultCustomTypeLibrary();
-		const customTypeDirectory = new URL(model.id, appendTrailingSlash(library));
-		const modelPath = new URL("index.json", appendTrailingSlash(customTypeDirectory));
-		await writeFileRecursive(modelPath, stringify(canonicalizeCustomType(model)));
-		if (model.format === "page") await addRoute(model);
-		await this.onCustomTypeCreated(model);
+		library ??= (await this.getCustomTypeLibraries())[0];
+		const directory = appendTrailingSlash(new URL(model.id, appendTrailingSlash(library)));
+		await writeFileRecursive(
+			new URL("index.json", directory),
+			stringify(canonicalizeCustomType(model)),
+		);
+		if (model.format !== "page") return;
+		await addRoute(model);
+		const routePath = buildRoutePath(model)
+			.split("/")
+			.filter(Boolean)
+			.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
+			.join("/");
+		await this.createPageFile(model, routePath);
 	}
 
 	async updateCustomType(model: CustomType): Promise<void> {
 		const customType = await this.getCustomType(model.id);
 		await writeFileRecursive(customType.modelPath, stringify(canonicalizeCustomType(model)));
 		await updateRoute(model);
-		await this.onCustomTypeUpdated(model);
 	}
 
 	async deleteCustomType(id: string): Promise<void> {
 		const customType = await this.getCustomType(id);
 		await rm(customType.directory, { recursive: true });
 		await removeRoute(id);
-		await this.onCustomTypeDeleted(id);
 	}
 
 	async generateTypes(): Promise<URL> {
-		const projectRoot = await findProjectRoot();
-		const output = new URL(TYPES_FILENAME, projectRoot);
-		const slices = await this.getSlices();
-		const customTypes = await this.getCustomTypes();
+		const output = new URL("prismicio-types.d.ts", await findProjectRoot());
 		const types = generateTypes({
-			customTypeModels: customTypes.map((customType) => customType.model),
-			sharedSliceModels: slices.map((slice) => slice.model),
+			customTypeModels: (await this.getCustomTypes()).map((customType) => customType.model),
+			sharedSliceModels: (await this.getSlices()).map((slice) => slice.model),
 			clientIntegration: {
 				includeContentNamespace: true,
 				includeCreateClientInterface: true,
@@ -258,22 +237,39 @@ export abstract class Adapter {
 	}
 
 	async getEnvironment(): Promise<string | undefined> {
-		const projectRoot = await findProjectRoot();
-		const envLocalPath = new URL(".env.local", projectRoot);
+		const envLocalPath = await getEnvLocalPath();
 		if (!(await exists(envLocalPath))) return undefined;
-		const envLocalVars = await readEnvFile(envLocalPath);
-		return envLocalVars[this.environmentEnvVarName] || undefined;
+		return (await readEnvFile(envLocalPath))[this.environmentEnvVarName] || undefined;
 	}
 
 	async setEnvironment(environment: string): Promise<void> {
-		const projectRoot = await findProjectRoot();
-		const envLocalPath = new URL(".env.local", projectRoot);
-		await setEnvFileVar(envLocalPath, this.environmentEnvVarName, environment);
+		await setEnvFileVar(await getEnvLocalPath(), this.environmentEnvVarName, environment);
 	}
 
 	async unsetEnvironment(): Promise<void> {
-		const projectRoot = await findProjectRoot();
-		const envLocalPath = new URL(".env.local", projectRoot);
-		await unsetEnvFileVar(envLocalPath, this.environmentEnvVarName);
+		await unsetEnvFileVar(await getEnvLocalPath(), this.environmentEnvVarName);
 	}
+}
+
+async function getEnvLocalPath(): Promise<URL> {
+	return new URL(".env.local", await findProjectRoot());
+}
+
+async function readModels<T extends { id: string }>(
+	libraries: URL[],
+	pattern: string,
+): Promise<ModelMeta<T>[]> {
+	const models: ModelMeta<T>[] = [];
+	for (const library of libraries) {
+		const paths = await glob(pattern, { absolute: true, cwd: library });
+		const libraryModels = await Promise.all(
+			paths.map(async (path) => {
+				const modelPath = pathToFileURL(path);
+				const model = await readJsonFile<T>(modelPath);
+				return { library, directory: new URL(".", modelPath), modelPath, model };
+			}),
+		);
+		models.push(...libraryModels);
+	}
+	return models.sort((a, b) => a.model.id.toLowerCase().localeCompare(b.model.id.toLowerCase()));
 }
