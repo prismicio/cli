@@ -130,13 +130,11 @@ async function main(): Promise<void> {
 	const userIntent = typeof intent === "string" ? intent : undefined;
 	const taskId = typeof id === "string" ? id : undefined;
 
-	if (
-		!help &&
-		command &&
-		command !== "task-id" &&
-		detectAgent() &&
-		!(userIntent && taskId && TASK_ID.test(taskId))
-	) {
+	const agentNeedsTaskId =
+		!help && command !== "" && command !== "task-id" && detectAgent() !== undefined;
+	const hasTaskIdAndIntent = Boolean(userIntent) && TASK_ID.test(taskId ?? "");
+
+	if (agentNeedsTaskId && !hasTaskIdAndIntent) {
 		console.error(
 			`error: missing --task-id\n` +
 				"run `prismic task-id` for an id, then pass --task-id <id> --user-intent " +
