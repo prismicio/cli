@@ -138,13 +138,17 @@ const PrismicRcSchema = z.object({ telemetry: z.boolean() });
 // A .prismicrc in the home directory or the project can opt out.
 export async function isTelemetryEnabled(): Promise<boolean> {
 	try {
-		for (const dir of [homedir(), process.cwd()]) {
-			const path = new URL(".prismicrc", appendTrailingSlash(pathToFileURL(dir)));
-			const rc = await readJsonFile(path, { schema: PrismicRcSchema }).catch(() => undefined);
-			if (rc?.telemetry === false) return false;
-		}
-		return true;
+		// Read the home opt-out before calling process.cwd(), which throws if the
+		// current directory was deleted.
+		if (await isTelemetryDisabledIn(homedir())) return false;
+		return !(await isTelemetryDisabledIn(process.cwd()));
 	} catch {
 		return true;
 	}
+}
+
+async function isTelemetryDisabledIn(dir: string): Promise<boolean> {
+	const path = new URL(".prismicrc", appendTrailingSlash(pathToFileURL(dir)));
+	const rc = await readJsonFile(path, { schema: PrismicRcSchema }).catch(() => undefined);
+	return rc?.telemetry === false;
 }
