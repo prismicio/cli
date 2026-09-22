@@ -12,12 +12,10 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { json } = values;
-
 	const adapter = await getAdapter();
 	const slices = await adapter.getSlices();
 
-	if (json) {
+	if (values.json) {
 		console.info(stringify(slices.map((s) => s.model)));
 		return;
 	}

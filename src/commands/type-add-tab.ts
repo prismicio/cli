@@ -13,9 +13,8 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [name] = positionals;
-	const { to, "with-slice-zone": withSliceZone } = values;
+export default createCommand(config, async ({ positionals: [name], values }) => {
+	const { to } = values;
 
 	const adapter = await getAdapter();
 	const { model: customType } = await adapter.getCustomType(to);
@@ -24,7 +23,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError(`Tab "${name}" already exists in "${to}".`);
 	}
 
-	customType.json[name] = withSliceZone
+	customType.json[name] = values["with-slice-zone"]
 		? {
 				slices: {
 					type: "Slices",

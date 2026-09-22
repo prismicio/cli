@@ -1,10 +1,7 @@
-import type { Link } from "@prismicio/types-internal/lib/customtypes";
-
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add link",
@@ -50,50 +47,36 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const ALLOWED_LINK_TYPES = ["document", "media", "web"] as const;
+const ALLOWED_LINK_TYPES = ["document", "media", "web"];
 
-	const {
-		label,
-		allow,
-		"allow-target-blank": allowTargetBlank,
-		"allow-text": allowText,
-		repeatable: repeat,
-		variant: variants,
-		"custom-type": customtypes,
-	} = values;
+export default createCommand(config, async ({ positionals: [id], values }) => {
+	const { allow, "custom-type": customtypes } = values;
 
 	if (allow?.includes(",")) {
 		throw new CommandError(
 			"--allow accepts a single link type. Prismic links allow either one type or all types.",
 		);
 	}
-	if (allow && !ALLOWED_LINK_TYPES.includes(allow as (typeof ALLOWED_LINK_TYPES)[number])) {
+	if (allow && !ALLOWED_LINK_TYPES.includes(allow)) {
 		throw new CommandError(`--allow must be one of: ${ALLOWED_LINK_TYPES.join(", ")}`);
 	}
-	const select = allow as (typeof ALLOWED_LINK_TYPES)[number] | undefined;
-
-	if (customtypes && (select === "media" || select === "web")) {
-		throw new CommandError(`--custom-type cannot be used with --allow ${select}`);
+	if (customtypes && (allow === "media" || allow === "web")) {
+		throw new CommandError(`--custom-type cannot be used with --allow ${allow}`);
 	}
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
-
-	const field: Link = {
+	fields[fieldId] = {
 		type: "Link",
 		config: {
-			label: label ?? capitalCase(fieldId),
-			select,
-			allowTargetBlank,
-			allowText,
-			repeat,
-			variants,
+			label: values.label ?? capitalCase(fieldId),
+			select: allow as "document" | "media" | "web" | undefined,
+			allowTargetBlank: values["allow-target-blank"],
+			allowText: values["allow-text"],
+			repeat: values.repeatable,
+			variants: values.variant,
 			customtypes,
 		},
 	};
-
-	addField(fields, fieldId, field);
 	await save();
 
 	console.info(`Field added: ${id}`);

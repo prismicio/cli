@@ -20,8 +20,7 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const { "from-slice": sliceId, screenshot } = values;
 
 	const adapter = await getAdapter();
@@ -40,22 +39,21 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
 		const blob = await readURLFile(url);
-		let screenshotUrl;
 		try {
-			screenshotUrl = await uploadScreenshot(blob, {
+			const screenshotUrl = await uploadScreenshot(blob, {
 				sliceId: slice.id,
 				variationId: variation.id,
 				repo,
 				token,
 				host,
 			});
+			variation.imageUrl = screenshotUrl.toString();
 		} catch (error) {
 			if (error instanceof UnsupportedFileTypeError) {
 				throw new CommandError(error.message);
 			}
 			throw error;
 		}
-		variation.imageUrl = screenshotUrl.toString();
 	}
 
 	await adapter.updateSlice(slice);

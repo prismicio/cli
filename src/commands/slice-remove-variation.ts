@@ -12,19 +12,17 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const { from } = values;
 
 	const adapter = await getAdapter();
 	const { model: slice } = await adapter.getSlice(from);
 
-	const variation = slice.variations.find((v) => v.id === id);
-	if (!variation) {
+	if (!slice.variations.some((v) => v.id === id)) {
 		throw new CommandError(`Variation "${id}" not found in slice "${from}".`);
 	}
 
-	slice.variations = slice.variations.filter((v) => v.id !== variation.id);
+	slice.variations = slice.variations.filter((v) => v.id !== id);
 
 	await adapter.updateSlice(slice);
 	await adapter.generateTypes();

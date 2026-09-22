@@ -4,7 +4,6 @@ import { capitalCase } from "change-case";
 
 import { getContentRelationshipFieldSelection, getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add content-relationship",
@@ -69,11 +68,10 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const { label, tag: tags, "custom-type": customtypes, field: fieldSelection } = values;
+export default createCommand(config, async ({ positionals: [id], values }) => {
+	const { "custom-type": customtypes, field: fieldSelection } = values;
 
-	if (fieldSelection && (!customtypes || customtypes.length !== 1)) {
+	if (fieldSelection && customtypes?.length !== 1) {
 		throw new CommandError("--field requires exactly one --custom-type.");
 	}
 
@@ -90,17 +88,15 @@ export default createCommand(config, async ({ positionals, values }) => {
 		] as typeof resolvedCustomTypes;
 	}
 
-	const field: Link = {
+	fields[fieldId] = {
 		type: "Link",
 		config: {
-			label: label ?? capitalCase(fieldId),
+			label: values.label ?? capitalCase(fieldId),
 			select: "document",
-			tags,
+			tags: values.tag,
 			customtypes: resolvedCustomTypes,
 		},
 	};
-
-	addField(fields, fieldId, field);
 	await save();
 
 	console.info(`Field added: ${id}`);

@@ -1,10 +1,7 @@
-import type { Timestamp } from "@prismicio/types-internal/lib/customtypes";
-
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add timestamp",
@@ -24,22 +21,16 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const { label, placeholder, default: defaultValue } = values;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
-
-	const field: Timestamp = {
+	fields[fieldId] = {
 		type: "Timestamp",
 		config: {
-			label: label ?? capitalCase(fieldId),
-			placeholder,
-			default: defaultValue,
+			label: values.label ?? capitalCase(fieldId),
+			placeholder: values.placeholder,
+			default: values.default,
 		},
 	};
-
-	addField(fields, fieldId, field);
 	await save();
 
 	console.info(`Field added: ${id}`);

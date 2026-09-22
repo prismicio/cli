@@ -13,9 +13,7 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	if ("format" in values && values.format !== "custom" && values.format !== "page") {
 		throw new CommandError(`Invalid format: "${values.format}". Use "custom" or "page".`);
 	}

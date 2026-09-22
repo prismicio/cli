@@ -96,9 +96,7 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const { field, save } = await getExistingField(id, values);
 	field.config ??= {};
 

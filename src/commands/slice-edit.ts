@@ -12,9 +12,7 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const adapter = await getAdapter();
 	const { model: slice } = await adapter.getSlice(id);
 

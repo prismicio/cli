@@ -12,12 +12,10 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { json } = values;
-
 	const adapter = await getAdapter();
 	const types = await adapter.getCustomTypes();
 
-	if (json) {
+	if (values.json) {
 		console.info(stringify(types.map((t) => t.model)));
 		return;
 	}
@@ -27,9 +25,6 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const rows = types.map(({ model }) => {
-		const label = model.label || "(no name)";
-		return [label, model.id, model.format ?? ""];
-	});
+	const rows = types.map(({ model }) => [model.label || "(no name)", model.id, model.format ?? ""]);
 	console.info(formatTable(rows, { headers: ["NAME", "ID", "FORMAT"] }));
 });

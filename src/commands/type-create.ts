@@ -41,9 +41,8 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [name] = positionals;
-	const { format = "custom", single = false, id = snakeCase(name) } = values;
+export default createCommand(config, async ({ positionals: [name], values }) => {
+	const { format = "custom", single, id = snakeCase(name) } = values;
 
 	if (format !== "custom" && format !== "page") {
 		throw new CommandError(`Invalid format: "${format}". Use "custom" or "page".`);
@@ -93,17 +92,15 @@ export default createCommand(config, async ({ positionals, values }) => {
 		};
 	}
 
-	const model: CustomType = {
+	const adapter = await getAdapter();
+	await adapter.createCustomType({
 		id,
 		label: name,
 		repeatable: !single,
 		status: true,
 		format,
 		json,
-	};
-
-	const adapter = await getAdapter();
-	await adapter.createCustomType(model);
+	});
 	await adapter.generateTypes();
 
 	console.info(`Created type "${name}" (id: "${id}", format: "${format}")`);

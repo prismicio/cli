@@ -1,10 +1,7 @@
-import type { Select } from "@prismicio/types-internal/lib/customtypes";
-
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add select",
@@ -38,23 +35,17 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const { label, placeholder, "default-value": default_value, option: options } = values;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
-
-	const field: Select = {
+	fields[fieldId] = {
 		type: "Select",
 		config: {
-			label: label ?? capitalCase(fieldId),
-			placeholder,
-			default_value,
-			options,
+			label: values.label ?? capitalCase(fieldId),
+			placeholder: values.placeholder,
+			default_value: values["default-value"],
+			options: values.option,
 		},
 	};
-
-	addField(fields, fieldId, field);
 	await save();
 
 	console.info(`Field added: ${id}`);

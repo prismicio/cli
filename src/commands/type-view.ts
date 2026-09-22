@@ -15,14 +15,11 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const { json } = values;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const adapter = await getAdapter();
 	const { model: type } = await adapter.getCustomType(id);
 
-	if (json) {
+	if (values.json) {
 		console.info(stringify(type));
 		return;
 	}
@@ -41,14 +38,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 		const entries = Object.entries(fields);
 		if (entries.length === 0) {
 			console.info("  (no fields)");
-		} else {
-			const rows = entries.map(([id, field]) => {
-				const config = field.config as Record<string, unknown> | undefined;
-				const label = (config?.label as string) || "";
-				const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
-				return [`  ${id}`, field.type, label, placeholder];
-			});
-			console.info(formatTable(rows));
+			continue;
 		}
+		const rows = entries.map(([id, field]) => {
+			const config = field.config as Record<string, unknown> | undefined;
+			const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
+			return [`  ${id}`, field.type, (config?.label as string) || "", placeholder];
+		});
+		console.info(formatTable(rows));
 	}
 });

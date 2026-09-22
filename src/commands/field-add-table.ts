@@ -1,10 +1,7 @@
-import type { Table } from "@prismicio/types-internal/lib/customtypes";
-
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add table",
@@ -22,20 +19,14 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const { label } = values;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
-
-	const field: Table = {
+	fields[fieldId] = {
 		type: "Table",
 		config: {
-			label: label ?? capitalCase(fieldId),
+			label: values.label ?? capitalCase(fieldId),
 		},
 	};
-
-	addField(fields, fieldId, field);
 	await save();
 
 	console.info(`Field added: ${id}`);

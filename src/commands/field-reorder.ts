@@ -15,20 +15,14 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const { key: position, value: anchor } = exactlyOneOption(values, ["before", "after"]);
 
 	if (id === anchor) {
 		throw new CommandError(`Cannot reorder "${id}" relative to itself.`);
 	}
 
-	const idParent = id.lastIndexOf(".");
-	const anchorParent = anchor.lastIndexOf(".");
-	if (
-		(idParent === -1 ? "" : id.slice(0, idParent)) !==
-		(anchorParent === -1 ? "" : anchor.slice(0, anchorParent))
-	) {
+	if (id.split(".").slice(0, -1).join(".") !== anchor.split(".").slice(0, -1).join(".")) {
 		throw new CommandError(
 			`Cannot reorder "${id}" relative to "${anchor}": fields must be in the same container.`,
 		);

@@ -1,8 +1,5 @@
-import type { UID } from "@prismicio/types-internal/lib/customtypes";
-
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add uid",
@@ -20,19 +17,14 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { label = "UID", placeholder } = values;
-
 	const { fields, fieldId, save } = await getNewFieldTarget("uid", values);
-
-	const field: UID = {
+	fields[fieldId] = {
 		type: "UID",
 		config: {
-			label,
-			placeholder,
+			label: values.label ?? "UID",
+			placeholder: values.placeholder,
 		},
 	};
-
-	addField(fields, fieldId, field);
 	await save();
 
 	console.info("Field added: uid");

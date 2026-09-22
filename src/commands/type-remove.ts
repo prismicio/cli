@@ -9,11 +9,8 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals }) => {
-	const [id] = positionals;
-
+export default createCommand(config, async ({ positionals: [id] }) => {
 	const adapter = await getAdapter();
-
 	await adapter.deleteCustomType(id);
 	await adapter.generateTypes();
 

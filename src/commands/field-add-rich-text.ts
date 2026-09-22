@@ -1,10 +1,7 @@
-import type { RichText } from "@prismicio/types-internal/lib/customtypes";
-
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { addField } from "../lib/prismic/models";
 
 const ALL_BLOCKS =
 	"paragraph,preformatted,heading1,heading2,heading3,heading4,heading5,heading6,strong,em,hyperlink,image,embed,list-item,o-list-item,rtl";
@@ -50,34 +47,23 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const {
-		label,
-		placeholder,
-		allow = ALL_BLOCKS,
-		single: isSingle,
-		labels,
-		"allow-target-blank": allowTargetBlank,
-	} = values;
+export default createCommand(config, async ({ positionals: [id], values }) => {
+	const { allow = ALL_BLOCKS } = values;
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
-
-	const field: RichText = {
+	fields[fieldId] = {
 		type: "StructuredText",
 		config: {
-			label: label ?? capitalCase(fieldId),
-			placeholder,
-			...(isSingle ? { single: allow } : { multi: allow }),
-			labels: labels
+			label: values.label ?? capitalCase(fieldId),
+			placeholder: values.placeholder,
+			...(values.single ? { single: allow } : { multi: allow }),
+			labels: values.labels
 				?.split(",")
 				.map((label) => label.trim())
 				.filter(Boolean),
-			allowTargetBlank,
+			allowTargetBlank: values["allow-target-blank"],
 		},
 	};
-
-	addField(fields, fieldId, field);
 	await save();
 
 	console.info(`Field added: ${id}`);

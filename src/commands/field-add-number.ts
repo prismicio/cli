@@ -1,10 +1,7 @@
-import type { Number as NumberField } from "@prismicio/types-internal/lib/customtypes";
-
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add number",
@@ -26,28 +23,22 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const { label, placeholder } = values;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const min = parseNumber(values.min, "min");
 	const max = parseNumber(values.max, "max");
 	const step = parseNumber(values.step, "step");
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
-
-	const field: NumberField = {
+	fields[fieldId] = {
 		type: "Number",
 		config: {
-			label: label ?? capitalCase(fieldId),
-			placeholder,
+			label: values.label ?? capitalCase(fieldId),
+			placeholder: values.placeholder,
 			min,
 			max,
 			step,
 		},
 	};
-
-	addField(fields, fieldId, field);
 	await save();
 
 	console.info(`Field added: ${id}`);

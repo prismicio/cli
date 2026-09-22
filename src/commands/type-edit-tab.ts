@@ -17,8 +17,7 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [currentName] = positionals;
+export default createCommand(config, async ({ positionals: [currentName], values }) => {
 	const { "from-type": typeId } = values;
 
 	const adapter = await getAdapter();
@@ -32,11 +31,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError("Cannot use --with-slice-zone and --without-slice-zone together.");
 	}
 
-	if ("with-slice-zone" in values) {
-		const tab = customType.json[currentName];
-		const hasSliceZone = Object.values(tab).some((field) => field.type === "Slices");
+	const tab = customType.json[currentName];
 
-		if (hasSliceZone) {
+	if ("with-slice-zone" in values) {
+		if (Object.values(tab).some((field) => field.type === "Slices")) {
 			throw new CommandError(`Tab "${currentName}" already has a slice zone.`);
 		}
 
@@ -48,7 +46,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	if ("without-slice-zone" in values) {
-		const tab = customType.json[currentName];
 		const sliceZoneEntry = Object.entries(tab).find(([, field]) => field.type === "Slices");
 
 		if (!sliceZoneEntry) {

@@ -12,8 +12,7 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [name] = positionals;
+export default createCommand(config, async ({ positionals: [name], values }) => {
 	const { from } = values;
 
 	const adapter = await getAdapter();
