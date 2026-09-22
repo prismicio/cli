@@ -17,11 +17,14 @@ import {
 	updateCustomType,
 	updateSlice,
 } from "../lib/prismic/clients/custom-types";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import {
+	canonicalizeCustomType,
+	canonicalizeSlice,
+	getDirtyModelFiles,
+} from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
 import { BadRequestError } from "../lib/request";
 import { appendTrailingSlash, relativePathname } from "../lib/url";
-import { getDirtyModelFiles } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {

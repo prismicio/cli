@@ -7,6 +7,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
+import type { ArrayDiff } from "../lib/diff";
+
 import { getCredentials } from "../auth";
 import {
 	exists,
@@ -218,6 +220,18 @@ export abstract class Adapter {
 		const customType = await this.getCustomType(id);
 		await rm(customType.directory, { recursive: true });
 		await removeRoute(id);
+	}
+
+	async writeModels(
+		customTypeOps: ArrayDiff<CustomType>,
+		sliceOps: ArrayDiff<SharedSlice>,
+	): Promise<void> {
+		for (const model of sliceOps.update) await this.updateSlice(model);
+		for (const model of sliceOps.delete) await this.deleteSlice(model.id);
+		for (const model of sliceOps.insert) await this.createSlice(model);
+		for (const model of customTypeOps.update) await this.updateCustomType(model);
+		for (const model of customTypeOps.delete) await this.deleteCustomType(model.id);
+		for (const model of customTypeOps.insert) await this.createCustomType(model);
 	}
 
 	async generateTypes(): Promise<URL> {

@@ -7,8 +7,11 @@ import { diffArrays, type ArrayDiff } from "../lib/diff";
 import { getGitRoot } from "../lib/git";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getProfile } from "../lib/prismic/clients/user";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
-import { getDirtyModelFiles } from "../models";
+import {
+	canonicalizeCustomType,
+	canonicalizeSlice,
+	getDirtyModelFiles,
+} from "../lib/prismic/models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {

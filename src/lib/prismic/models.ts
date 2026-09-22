@@ -5,6 +5,9 @@ import type {
 	SharedSlice,
 } from "@prismicio/types-internal/lib/customtypes";
 
+import { getDirtyPaths } from "../git";
+import { isDescendant, relativePathname } from "../url";
+
 type Fields = Record<string, DynamicWidget>;
 
 export type ContentRelationshipFieldSelection =
@@ -305,4 +308,22 @@ export class SliceVariationNotFoundError extends Error {
 	constructor(id: string, sliceId: string) {
 		super(`Variation "${id}" does not exist on slice "${sliceId}".`);
 	}
+}
+
+export async function getDirtyModelFiles(config: {
+	gitRoot: URL;
+	projectRoot: URL;
+	customTypeLibraries: URL[];
+	sliceLibraries: URL[];
+}): Promise<string[]> {
+	const { gitRoot, projectRoot, customTypeLibraries, sliceLibraries } = config;
+	return (await getDirtyPaths(gitRoot))
+		.filter(
+			(path) =>
+				(path.pathname.endsWith("/model.json") &&
+					sliceLibraries.some((lib) => isDescendant(lib, path))) ||
+				(path.pathname.endsWith("/index.json") &&
+					customTypeLibraries.some((lib) => isDescendant(lib, path))),
+		)
+		.map((path) => relativePathname(projectRoot, path));
 }

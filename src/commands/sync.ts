@@ -10,7 +10,6 @@ import { diffArrays } from "../lib/diff";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
-import { writeModelOps } from "../models";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
 
@@ -100,7 +99,7 @@ export default createCommand(config, async ({ values }) => {
 					(local) => local,
 				);
 
-				await writeModelOps(adapter, customTypeOps, sliceOps);
+				await adapter.writeModels(customTypeOps, sliceOps);
 
 				const changed: string[] = [];
 				if (sliceOps.insert.length + sliceOps.update.length + sliceOps.delete.length > 0) {

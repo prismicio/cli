@@ -4,10 +4,13 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 import { diffArrays } from "../lib/diff";
 import { getGitRoot } from "../lib/git";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import {
+	canonicalizeCustomType,
+	canonicalizeSlice,
+	getDirtyModelFiles,
+} from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { relativePathname } from "../lib/url";
-import { getDirtyModelFiles } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
