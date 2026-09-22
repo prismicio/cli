@@ -112,16 +112,16 @@ export function trackCommandStart(command: string, config: { watch?: boolean } =
 
 export function trackCommandEnd(
 	command: string,
-	config: { watch?: boolean; success?: boolean; error?: unknown } = {},
+	config: { watch?: boolean; error?: unknown } = {},
 ): void {
-	const { watch, success = !process.exitCode, error } = config;
+	const { watch, error } = config;
 	let errorMessage: string | undefined;
 	if (error) errorMessage = error instanceof Error ? error.message : String(error);
 	trackEvent("Prismic CLI End", {
 		properties: {
 			commandType: command,
 			fullCommand: process.argv.join(" "),
-			success,
+			success: !process.exitCode,
 			repository,
 			watch,
 			error: errorMessage?.slice(0, 512),

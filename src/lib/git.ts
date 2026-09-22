@@ -12,9 +12,7 @@ export async function getGitRoot(start: URL): Promise<URL | undefined> {
 		});
 		const top = stdout.trim();
 		return top ? appendTrailingSlash(pathToFileURL(await realpath(top))) : undefined;
-	} catch {
-		return undefined;
-	}
+	} catch {}
 }
 
 export async function getDirtyPaths(gitRoot: URL): Promise<URL[]> {

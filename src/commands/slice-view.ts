@@ -1,7 +1,7 @@
 import { getAdapter } from "../adapters";
+import { formatFieldTable } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { formatTable } from "../lib/string";
 
 const config = {
 	name: "prismic slice view",
@@ -29,16 +29,6 @@ export default createCommand(config, async ({ positionals: [id], values }) => {
 	for (const variation of slice.variations ?? []) {
 		console.info("");
 		console.info(`${variation.id}:`);
-		const entries = Object.entries(variation.primary ?? {});
-		if (entries.length === 0) {
-			console.info("  (no fields)");
-			continue;
-		}
-		const rows = entries.map(([id, field]) => {
-			const config = field.config as Record<string, unknown> | undefined;
-			const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
-			return [`  ${id}`, field.type, (config?.label as string) || "", placeholder];
-		});
-		console.info(formatTable(rows));
+		console.info(formatFieldTable(variation.primary ?? {}));
 	}
 });

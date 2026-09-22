@@ -10,6 +10,7 @@ import { diffArrays } from "../lib/diff";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
+import { writeModelOps } from "../models";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
 
@@ -89,28 +90,17 @@ export default createCommand(config, async ({ values }) => {
 				const sliceOps = diffArrays(
 					remoteSlices,
 					localSlices.map((slice) => slice.model),
-					{
-						getKey: (model) => model.id,
-						equals: (remote, local) =>
-							JSON.stringify(canonicalizeSlice(remote)) === JSON.stringify(local),
-					},
+					canonicalizeSlice,
+					(local) => local,
 				);
 				const customTypeOps = diffArrays(
 					remoteCustomTypes,
 					localCustomTypes.map((customType) => customType.model),
-					{
-						getKey: (model) => model.id,
-						equals: (remote, local) =>
-							JSON.stringify(canonicalizeCustomType(remote)) === JSON.stringify(local),
-					},
+					canonicalizeCustomType,
+					(local) => local,
 				);
 
-				for (const model of sliceOps.update) await adapter.updateSlice(model);
-				for (const model of sliceOps.delete) await adapter.deleteSlice(model.id);
-				for (const model of sliceOps.insert) await adapter.createSlice(model);
-				for (const model of customTypeOps.update) await adapter.updateCustomType(model);
-				for (const model of customTypeOps.delete) await adapter.deleteCustomType(model.id);
-				for (const model of customTypeOps.insert) await adapter.createCustomType(model);
+				await writeModelOps(adapter, customTypeOps, sliceOps);
 
 				const changed: string[] = [];
 				if (sliceOps.insert.length + sliceOps.update.length + sliceOps.delete.length > 0) {

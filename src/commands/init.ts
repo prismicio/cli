@@ -27,6 +27,7 @@ import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
 import { dedent } from "../lib/string";
+import { writeModelOps } from "../models";
 import {
 	checkIsTypeBuilderEnabled,
 	createConfig,
@@ -235,20 +236,12 @@ export default createCommand(config, async ({ values }) => {
 	const sliceOps = diffArrays(
 		remoteSlices,
 		localSlices.map((slice) => slice.model),
-		{
-			getKey: (model) => model.id,
-			equals: (a, b) =>
-				JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
-		},
+		canonicalizeSlice,
 	);
 	const customTypeOps = diffArrays(
 		remoteCustomTypes,
 		localCustomTypes.map((customType) => customType.model),
-		{
-			getKey: (model) => model.id,
-			equals: (a, b) =>
-				JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
-		},
+		canonicalizeCustomType,
 	);
 
 	let isStarterPackage = false;
@@ -276,14 +269,7 @@ export default createCommand(config, async ({ values }) => {
 		hasConfig &&
 		[customTypeOps, sliceOps].some((ops) => ops.update.length > 0 || ops.delete.length > 0);
 
-	if (!hasModelConflicts) {
-		for (const model of sliceOps.update) await adapter.updateSlice(model);
-		for (const model of sliceOps.delete) await adapter.deleteSlice(model.id);
-		for (const model of sliceOps.insert) await adapter.createSlice(model);
-		for (const model of customTypeOps.update) await adapter.updateCustomType(model);
-		for (const model of customTypeOps.delete) await adapter.deleteCustomType(model.id);
-		for (const model of customTypeOps.insert) await adapter.createCustomType(model);
-	}
+	if (!hasModelConflicts) await writeModelOps(adapter, customTypeOps, sliceOps);
 
 	await adapter.generateTypes();
 

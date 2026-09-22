@@ -1,7 +1,7 @@
 import { capitalCase } from "change-case";
 
-import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { getNewFieldTarget, parseNumber, TARGET_OPTIONS } from "../fields";
+import { createCommand, type CommandConfig } from "../lib/command";
 
 const config = {
 	name: "prismic field add number",
@@ -43,12 +43,3 @@ export default createCommand(config, async ({ positionals: [id], values }) => {
 
 	console.info(`Field added: ${id}`);
 });
-
-function parseNumber(value: string | undefined, optionName: string): number | undefined {
-	if (value === undefined) return undefined;
-	const number = Number(value);
-	if (Number.isNaN(number)) {
-		throw new CommandError(`--${optionName} must be a valid number, got "${value}"`);
-	}
-	return number;
-}

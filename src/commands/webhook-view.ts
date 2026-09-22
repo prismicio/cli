@@ -42,9 +42,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	console.info(`Status:  ${webhookConfig.active ? "enabled" : "disabled"}`);
 	console.info(`Secret:  ${webhookConfig.secret ? "(set)" : "(none)"}`);
 
-	const enabledTriggers = WEBHOOK_TRIGGERS.filter(
-		(trigger) => webhookConfig[trigger as keyof typeof webhookConfig],
-	);
+	const enabledTriggers = WEBHOOK_TRIGGERS.filter((trigger) => webhookConfig[trigger]);
 	console.info(`Triggers: ${enabledTriggers.length > 0 ? enabledTriggers.join(", ") : "(none)"}`);
 
 	const headers = Object.entries(webhookConfig.headers);

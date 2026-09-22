@@ -17,7 +17,11 @@ const WebhookTriggersSchema = z.object({
 	tagsDeleted: z.boolean(),
 });
 
-export const WEBHOOK_TRIGGERS = Object.keys(WebhookTriggersSchema.shape);
+export type WebhookTriggers = z.infer<typeof WebhookTriggersSchema>;
+
+export const WEBHOOK_TRIGGERS = Object.keys(
+	WebhookTriggersSchema.shape,
+) as (keyof WebhookTriggers)[];
 
 const WebhookSchema = z.object({
 	config: z.extend(WebhookTriggersSchema, {
@@ -75,10 +79,10 @@ function toWebhookFormData(webhook: Omit<Webhook["config"], "_id">): FormData {
 	body.set("url", webhook.url);
 	body.set("name", webhook.name ?? "");
 	body.set("secret", webhook.secret ?? "");
-	body.set("headers", JSON.stringify(webhook.headers ?? {}));
+	body.set("headers", JSON.stringify(webhook.headers));
 	body.set("active", webhook.active ? "on" : "off");
 	for (const trigger of WEBHOOK_TRIGGERS) {
-		body.set(trigger, String(webhook[trigger as keyof typeof webhook]));
+		body.set(trigger, String(webhook[trigger]));
 	}
 	return body;
 }
@@ -212,12 +216,7 @@ export async function getRepositoryAccess(config: WroomConfig): Promise<string> 
 	return response.repository.api_access;
 }
 
-export type RepositoryAccessLevel = "private" | "public" | "open";
-
-export async function setRepositoryAccess(
-	level: RepositoryAccessLevel,
-	config: WroomConfig,
-): Promise<void> {
+export async function setRepositoryAccess(level: string, config: WroomConfig): Promise<void> {
 	await wroomRequest("settings/security/apiaccess", config, {
 		method: "POST",
 		json: { api_access: level },

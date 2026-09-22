@@ -1,7 +1,11 @@
 import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { createWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
+import {
+	createWebhook,
+	WEBHOOK_TRIGGERS,
+	type WebhookTriggers,
+} from "../lib/prismic/clients/wroom";
 
 const config = {
 	name: "prismic webhook create",
@@ -66,7 +70,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	} = values;
 
 	for (const t of trigger) {
-		if (!WEBHOOK_TRIGGERS.includes(t)) {
+		if (!WEBHOOK_TRIGGERS.includes(t as keyof WebhookTriggers)) {
 			throw new CommandError(
 				`Invalid trigger: ${t}\nValid triggers: ${WEBHOOK_TRIGGERS.join(", ")}`,
 			);
@@ -76,20 +80,12 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const { token, host } = await getCredentials();
 
 	// No triggers means all triggers.
-	const all = trigger.length === 0;
+	const triggers = Object.fromEntries(
+		WEBHOOK_TRIGGERS.map((name) => [name, trigger.length === 0 || trigger.includes(name)]),
+	) as WebhookTriggers;
 
 	await createWebhook(
-		{
-			url: webhookUrl,
-			name: name ?? null,
-			secret: secret ?? null,
-			documentsPublished: trigger.includes("documentsPublished") || all,
-			documentsUnpublished: trigger.includes("documentsUnpublished") || all,
-			releasesCreated: trigger.includes("releasesCreated") || all,
-			releasesUpdated: trigger.includes("releasesUpdated") || all,
-			tagsCreated: trigger.includes("tagsCreated") || all,
-			tagsDeleted: trigger.includes("tagsDeleted") || all,
-		},
+		{ url: webhookUrl, name: name ?? null, secret: secret ?? null, ...triggers },
 		{ repo, token, host },
 	);
 

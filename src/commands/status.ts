@@ -4,11 +4,11 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays, type ArrayDiff } from "../lib/diff";
-import { getDirtyPaths, getGitRoot } from "../lib/git";
+import { getGitRoot } from "../lib/git";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getProfile } from "../lib/prismic/clients/user";
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
-import { isDescendant, relativePathname } from "../lib/url";
+import { getDirtyModelFiles } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
@@ -62,34 +62,23 @@ export default createCommand(config, async ({ values }) => {
 		customTypeOps = diffArrays(
 			localCustomTypesMeta.map((ct) => ct.model),
 			remoteCustomTypes,
-			{
-				getKey: (m) => m.id,
-				equals: (a, b) =>
-					JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
-			},
+			canonicalizeCustomType,
 		);
 		sliceOps = diffArrays(
 			localSlicesMeta.map((s) => s.model),
 			remoteSlices,
-			{
-				getKey: (m) => m.id,
-				equals: (a, b) =>
-					JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
-			},
+			canonicalizeSlice,
 		);
 	}
 
 	let dirtyModelFiles: string[] = [];
 	if (gitRoot) {
-		dirtyModelFiles = (await getDirtyPaths(gitRoot))
-			.filter(
-				(path) =>
-					(path.pathname.endsWith("/model.json") &&
-						sliceLibraries.some((lib) => isDescendant(lib, path))) ||
-					(path.pathname.endsWith("/index.json") &&
-						customTypeLibraries.some((lib) => isDescendant(lib, path))),
-			)
-			.map((path) => relativePathname(projectRoot, path));
+		dirtyModelFiles = await getDirtyModelFiles({
+			gitRoot,
+			projectRoot,
+			customTypeLibraries,
+			sliceLibraries,
+		});
 	}
 
 	console.info(`Repository: ${repositoryName}`);

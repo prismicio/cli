@@ -54,8 +54,8 @@ async function saveCredentials(token: string, host: string): Promise<void> {
 	await writeFileRecursive(CREDENTIALS_PATH, stringify({ token, host }));
 }
 
-export async function createLoginSession(options?: {
-	onReady?: (url: URL) => void;
+export async function createLoginSession(options: {
+	onReady: (url: URL) => void;
 }): Promise<{ email: string }> {
 	const { host } = await getCredentials();
 	const corsOrigin = `https://${host}`;
@@ -132,7 +132,7 @@ export async function createLoginSession(options?: {
 			const url = new URL("dashboard/cli/login", `https://${host}/`);
 			url.searchParams.set("source", "prismic-cli");
 			url.searchParams.set("port", address.port.toString());
-			options?.onReady?.(url);
+			options.onReady(url);
 		};
 
 		server.on("error", (error: NodeJS.ErrnoException) => {
@@ -153,9 +153,7 @@ export async function cleanupLegacyAuthFile(): Promise<void> {
 	const path = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 	try {
 		const json = JSON.parse(await readFile(path, "utf-8"));
-		if (!json || (json.latestKnownVersion === undefined && json.lastUpdateCheckAt === undefined)) {
-			return;
-		}
+		if (json?.latestKnownVersion === undefined && json?.lastUpdateCheckAt === undefined) return;
 		await rm(path, { force: true });
 	} catch {}
 }

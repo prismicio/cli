@@ -4,7 +4,7 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { diffArrays } from "../lib/diff";
-import { getDirtyPaths, getGitRoot } from "../lib/git";
+import { getGitRoot } from "../lib/git";
 import { getDocumentTotalByCustomTypes } from "../lib/prismic/clients/core";
 import {
 	deleteScreenshots,
@@ -20,7 +20,8 @@ import {
 import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
 import { BadRequestError } from "../lib/request";
-import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
+import { appendTrailingSlash, relativePathname } from "../lib/url";
+import { getDirtyModelFiles } from "../models";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
@@ -74,15 +75,12 @@ export default createCommand(config, async ({ values }) => {
 	]);
 
 	if (!force && gitRoot) {
-		const dirtyFiles = (await getDirtyPaths(gitRoot))
-			.filter(
-				(path) =>
-					(path.pathname.endsWith("/model.json") &&
-						sliceLibraries.some((lib) => isDescendant(lib, path))) ||
-					(path.pathname.endsWith("/index.json") &&
-						customTypeLibraries.some((lib) => isDescendant(lib, path))),
-			)
-			.map((path) => relativePathname(projectRoot, path));
+		const dirtyFiles = await getDirtyModelFiles({
+			gitRoot,
+			projectRoot,
+			customTypeLibraries,
+			sliceLibraries,
+		});
 
 		if (dirtyFiles.length > 0) {
 			throw new CommandError(`
@@ -107,20 +105,12 @@ export default createCommand(config, async ({ values }) => {
 	const customTypeOps = diffArrays(
 		localCustomTypes.map((customType) => customType.model),
 		remoteCustomTypes,
-		{
-			getKey: (model) => model.id,
-			equals: (a, b) =>
-				JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
-		},
+		canonicalizeCustomType,
 	);
 	const sliceOps = diffArrays(
 		localSlices.map((slice) => slice.model),
 		remoteSlices,
-		{
-			getKey: (model) => model.id,
-			equals: (a, b) =>
-				JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
-		},
+		canonicalizeSlice,
 	);
 
 	if (!force) {

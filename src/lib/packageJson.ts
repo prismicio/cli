@@ -67,8 +67,8 @@ export async function updatePackageJsonName(name: string): Promise<void> {
 	});
 }
 
-export async function getNpmPackageVersion(name: string, tag = "latest"): Promise<string> {
-	const url = new URL(`${name}/${tag}`, "https://registry.npmjs.org/");
+export async function getNpmPackageVersion(name: string): Promise<string> {
+	const url = new URL(`${name}/latest`, "https://registry.npmjs.org/");
 	const { version } = await request(url, { schema: z.object({ version: z.string() }) });
 	return version;
 }

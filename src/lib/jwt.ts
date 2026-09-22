@@ -6,7 +6,5 @@ export function decodePayload(token: string): z.infer<typeof JWTPayloadSchema> |
 	try {
 		const json = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString());
 		return z.parse(JWTPayloadSchema, json);
-	} catch {
-		return undefined;
-	}
+	} catch {}
 }

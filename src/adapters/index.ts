@@ -126,7 +126,7 @@ export abstract class Adapter {
 	protected abstract createSliceComponent(model: SharedSlice, directory: URL): Promise<void>;
 	protected abstract createPageFile(model: CustomType, routePath: string): Promise<void>;
 
-	async initProject({ setup = true }: { setup?: boolean } = {}): Promise<void> {
+	async initProject({ setup }: { setup: boolean }): Promise<void> {
 		for (const library of await this.getSliceLibraries()) {
 			await this.createSliceIndexFile(library);
 		}
@@ -155,8 +155,8 @@ export abstract class Adapter {
 		return slice;
 	}
 
-	async createSlice(model: SharedSlice, library?: URL): Promise<void> {
-		library ??= (await this.getSliceLibraries())[0];
+	async createSlice(model: SharedSlice): Promise<void> {
+		const [library] = await this.getSliceLibraries();
 		const directory = appendTrailingSlash(
 			new URL(pascalCase(model.name), appendTrailingSlash(library)),
 		);
@@ -191,8 +191,8 @@ export abstract class Adapter {
 		return customType;
 	}
 
-	async createCustomType(model: CustomType, library?: URL): Promise<void> {
-		library ??= (await this.getCustomTypeLibraries())[0];
+	async createCustomType(model: CustomType): Promise<void> {
+		const [library] = await this.getCustomTypeLibraries();
 		const directory = appendTrailingSlash(new URL(model.id, appendTrailingSlash(library)));
 		await writeFileRecursive(
 			new URL("index.json", directory),

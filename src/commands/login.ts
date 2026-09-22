@@ -11,11 +11,9 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { "no-browser": noBrowser } = values;
-
 	const { email } = await createLoginSession({
 		onReady: (url) => {
-			if (noBrowser) {
+			if (values["no-browser"]) {
 				console.info(`Open this URL to log in: ${url}`);
 			} else {
 				console.info("Opening browser to complete login...");

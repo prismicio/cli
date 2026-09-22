@@ -1,4 +1,9 @@
-import { getContentRelationshipFieldSelection, getExistingField, SOURCE_OPTIONS } from "../fields";
+import {
+	getContentRelationshipFieldSelection,
+	getExistingField,
+	parseNumber,
+	SOURCE_OPTIONS,
+} from "../fields";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 
 const config = {
@@ -230,12 +235,3 @@ export default createCommand(config, async ({ positionals: [id], values }) => {
 
 	console.info(`Field updated: ${id}`);
 });
-
-function parseNumber(value: string | undefined, optionName: string): number | undefined {
-	if (value === undefined) return undefined;
-	const number = Number(value);
-	if (Number.isNaN(number)) {
-		throw new CommandError(`--${optionName} must be a valid number, got "${value}"`);
-	}
-	return number;
-}

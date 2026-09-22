@@ -15,7 +15,7 @@ export type CommandConfig = {
 		ParseArgsOptionDescriptor & {
 			description: string;
 			required?: boolean;
-			dependsOn?: string | string[];
+			dependsOn?: string;
 			deprecated?: string;
 		}
 	>;
@@ -123,10 +123,8 @@ export function createCommand<T extends CommandConfig>(
 			if (option.deprecated) {
 				console.warn(`--${name} is deprecated. ${option.deprecated}`);
 			}
-			for (const dep of [option.dependsOn ?? []].flat()) {
-				if (!(dep in result.values)) {
-					throw new CommandError(`--${name} can only be used with --${dep}.`);
-				}
+			if (option.dependsOn && !(option.dependsOn in result.values)) {
+				throw new CommandError(`--${name} can only be used with --${option.dependsOn}.`);
 			}
 		}
 

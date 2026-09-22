@@ -1,9 +1,9 @@
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { type RepositoryAccessLevel, setRepositoryAccess } from "../lib/prismic/clients/wroom";
+import { setRepositoryAccess } from "../lib/prismic/clients/wroom";
 import { getRepositoryName } from "../project";
 
-const VALID_LEVELS: RepositoryAccessLevel[] = ["private", "public", "open"];
+const VALID_LEVELS = ["private", "public", "open"];
 
 const config = {
 	name: "prismic repo set-api-access",
@@ -27,7 +27,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [level] = positionals;
 	const { repo = await getRepositoryName() } = values;
 
-	if (!VALID_LEVELS.includes(level as RepositoryAccessLevel)) {
+	if (!VALID_LEVELS.includes(level)) {
 		throw new CommandError(
 			`Invalid access level: ${level}. Must be one of: ${VALID_LEVELS.join(", ")}`,
 		);
@@ -35,7 +35,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { token, host } = await getCredentials();
 
-	await setRepositoryAccess(level as RepositoryAccessLevel, { repo, token, host });
+	await setRepositoryAccess(level, { repo, token, host });
 
 	console.info(`Repository access set to: ${level}`);
 });

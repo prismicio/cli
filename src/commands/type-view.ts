@@ -1,7 +1,7 @@
 import { getAdapter } from "../adapters";
+import { formatFieldTable } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { formatTable } from "../lib/string";
 import { readConfig } from "../project";
 
 const config = {
@@ -35,16 +35,6 @@ export default createCommand(config, async ({ positionals: [id], values }) => {
 	for (const [tabName, fields] of Object.entries(type.json)) {
 		console.info("");
 		console.info(`${tabName}:`);
-		const entries = Object.entries(fields);
-		if (entries.length === 0) {
-			console.info("  (no fields)");
-			continue;
-		}
-		const rows = entries.map(([id, field]) => {
-			const config = field.config as Record<string, unknown> | undefined;
-			const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
-			return [`  ${id}`, field.type, (config?.label as string) || "", placeholder];
-		});
-		console.info(formatTable(rows));
+		console.info(formatFieldTable(fields));
 	}
 });

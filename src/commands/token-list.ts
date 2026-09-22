@@ -30,7 +30,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const [apps, writeTokensInfo] = await Promise.all([
+	const [apps, { tokens: writeTokens }] = await Promise.all([
 		getOAuthApps({ repo, token, host }),
 		getWriteTokens({ repo, token, host }),
 	]);
@@ -43,7 +43,6 @@ export default createCommand(config, async ({ values }) => {
 			createdAt: new Date(auth.created_at.$date).toISOString().split("T")[0],
 		})),
 	);
-	const writeTokens = writeTokensInfo.tokens;
 
 	if (json) {
 		console.info(stringify({ accessTokens, writeTokens }));

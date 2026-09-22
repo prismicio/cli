@@ -3,7 +3,7 @@ import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
 import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
 
 import { getAdapter } from "./adapters";
-import { exactlyOneOption, type CommandConfig } from "./lib/command";
+import { CommandError, exactlyOneOption, type CommandConfig } from "./lib/command";
 import {
 	FieldExistsError,
 	FieldNotFoundError,
@@ -11,6 +11,7 @@ import {
 	resolveContentRelationshipFieldSelection,
 	resolveSliceFieldContainer,
 } from "./lib/prismic/models";
+import { formatTable } from "./lib/string";
 
 export const TARGET_OPTIONS = {
 	"to-slice": {
@@ -128,4 +129,24 @@ export async function getContentRelationshipFieldSelection(
 		targetTypeId,
 		customTypes.map(({ model }) => model),
 	);
+}
+
+export function parseNumber(value: string | undefined, optionName: string): number | undefined {
+	if (value === undefined) return undefined;
+	const number = Number(value);
+	if (Number.isNaN(number)) {
+		throw new CommandError(`--${optionName} must be a valid number, got "${value}"`);
+	}
+	return number;
+}
+
+export function formatFieldTable(fields: Record<string, DynamicWidget>): string {
+	const entries = Object.entries(fields);
+	if (entries.length === 0) return "  (no fields)";
+	const rows = entries.map(([id, field]) => {
+		const config = field.config as Record<string, unknown> | undefined;
+		const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
+		return [`  ${id}`, field.type, (config?.label as string) || "", placeholder];
+	});
+	return formatTable(rows);
 }

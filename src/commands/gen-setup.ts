@@ -12,10 +12,7 @@ const config = {
 		Skips files that already exist.
 	`,
 	options: {
-		"no-install": {
-			type: "boolean",
-			description: "Skip installing dependencies",
-		},
+		"no-install": { type: "boolean", description: "Skip installing dependencies" },
 	},
 } satisfies CommandConfig;
 

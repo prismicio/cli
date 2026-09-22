@@ -174,10 +174,6 @@ export async function findProjectRoot(): Promise<URL> {
 	return appendTrailingSlash(pathToFileURL(projectRoot));
 }
 
-export async function safeGetRepositoryName(): Promise<string | undefined> {
-	return getRepositoryName().catch(() => undefined);
-}
-
 export async function getRepositoryName(): Promise<string> {
 	try {
 		return (await readConfig()).repositoryName;
@@ -209,7 +205,6 @@ export async function checkIsTypeBuilderEnabled(
 	config: { token: string | undefined; host: string },
 ): Promise<boolean> {
 	if (env.PRISMIC_TYPE_BUILDER_ENABLED !== undefined) return env.PRISMIC_TYPE_BUILDER_ENABLED;
-	const { token, host } = config;
-	const repository = await getRepository({ repo, token, host });
+	const repository = await getRepository({ repo, ...config });
 	return repository.quotas?.sliceMachineEnabled === true;
 }

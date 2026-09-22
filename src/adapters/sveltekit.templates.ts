@@ -123,6 +123,20 @@ export function previewAPIRouteTemplate({ typescript }: { typescript: boolean })
 	`;
 }
 
+const HEAD_MARKUP = dedent`
+	<svelte:head>
+		<title>{page.data.page?.data.meta_title}</title>
+		<meta property="og:title" content={page.data.page?.data.meta_title} />
+		{#if isFilled.keyText(page.data.page?.data.meta_description)}
+			<meta name="description" content={page.data.page.data.meta_description} />
+			<meta property="og:description" content={page.data.page.data.meta_description} />
+		{/if}
+		{#if isFilled.image(page.data.page?.data.meta_image)}
+			<meta property="og:image" content={asImageSrc(page.data.page.data.meta_image)} />
+		{/if}
+	</svelte:head>
+`;
+
 export function rootLayoutTemplate({ version }: { version: number }): string {
 	const v5 = dedent`
 		<script>
@@ -134,17 +148,7 @@ export function rootLayoutTemplate({ version }: { version: number }): string {
 			const { children } = $props();
 		</script>
 
-		<svelte:head>
-			<title>{page.data.page?.data.meta_title}</title>
-			<meta property="og:title" content={page.data.page?.data.meta_title} />
-			{#if isFilled.keyText(page.data.page?.data.meta_description)}
-				<meta name="description" content={page.data.page.data.meta_description} />
-				<meta property="og:description" content={page.data.page.data.meta_description} />
-			{/if}
-			{#if isFilled.image(page.data.page?.data.meta_image)}
-				<meta property="og:image" content={asImageSrc(page.data.page.data.meta_image)} />
-			{/if}
-		</svelte:head>
+		${HEAD_MARKUP}
 		{@render children()}
 		<PrismicPreview {repositoryName} />
 	`;
@@ -157,17 +161,7 @@ export function rootLayoutTemplate({ version }: { version: number }): string {
 			import { repositoryName } from '$lib/prismicio';
 		</script>
 
-		<svelte:head>
-			<title>{page.data.page?.data.meta_title}</title>
-			<meta property="og:title" content={page.data.page?.data.meta_title} />
-			{#if isFilled.keyText(page.data.page?.data.meta_description)}
-				<meta name="description" content={page.data.page.data.meta_description} />
-				<meta property="og:description" content={page.data.page.data.meta_description} />
-			{/if}
-			{#if isFilled.image(page.data.page?.data.meta_image)}
-				<meta property="og:image" content={asImageSrc(page.data.page.data.meta_image)} />
-			{/if}
-		</svelte:head>
+		${HEAD_MARKUP}
 		<slot />
 		<PrismicPreview {repositoryName} />
 	`;
