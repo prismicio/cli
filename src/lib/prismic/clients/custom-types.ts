@@ -12,17 +12,12 @@ type CustomTypesConfig = {
 	host: string;
 };
 
-export function getCustomTypes(config: CustomTypesConfig): Promise<CustomType[]> {
-	const url = new URL("customtypes", getCustomTypesServiceUrl(config.host));
-	return customTypesServiceRequest<CustomType[]>(url, config);
+export async function getCustomTypes(config: CustomTypesConfig): Promise<CustomType[]> {
+	return customTypesRequest("customtypes", config);
 }
 
 export async function getCustomType(id: string, config: CustomTypesConfig): Promise<CustomType> {
-	const url = new URL(
-		`customtypes/${encodeURIComponent(id)}`,
-		getCustomTypesServiceUrl(config.host),
-	);
-	return customTypesServiceRequest<CustomType>(url, config, {
+	return customTypesRequest(`customtypes/${encodeURIComponent(id)}`, config, {
 		notFoundMessage: `Type not found: ${id}`,
 	});
 }
@@ -31,8 +26,7 @@ export async function insertCustomType(
 	model: CustomType,
 	config: CustomTypesConfig,
 ): Promise<void> {
-	const url = new URL("customtypes/insert", getCustomTypesServiceUrl(config.host));
-	await customTypesServiceRequest(url, config, {
+	await customTypesRequest("customtypes/insert", config, {
 		method: "POST",
 		json: model,
 		unknownErrorMessage: `Failed to create type "${model.id}"`,
@@ -43,8 +37,7 @@ export async function updateCustomType(
 	model: CustomType,
 	config: CustomTypesConfig,
 ): Promise<void> {
-	const url = new URL("customtypes/update", getCustomTypesServiceUrl(config.host));
-	await customTypesServiceRequest(url, config, {
+	await customTypesRequest("customtypes/update", config, {
 		method: "POST",
 		json: model,
 		notFoundMessage: `Type not found: ${model.id}`,
@@ -53,32 +46,25 @@ export async function updateCustomType(
 }
 
 export async function removeCustomType(id: string, config: CustomTypesConfig): Promise<void> {
-	const url = new URL(
-		`customtypes/${encodeURIComponent(id)}`,
-		getCustomTypesServiceUrl(config.host),
-	);
-	await customTypesServiceRequest(url, config, {
+	await customTypesRequest(`customtypes/${encodeURIComponent(id)}`, config, {
 		method: "DELETE",
 		notFoundMessage: `Type not found: ${id}`,
 		unknownErrorMessage: `Failed to delete type "${id}"`,
 	});
 }
 
-export function getSlices(config: CustomTypesConfig): Promise<SharedSlice[]> {
-	const url = new URL("slices", getCustomTypesServiceUrl(config.host));
-	return customTypesServiceRequest<SharedSlice[]>(url, config);
+export async function getSlices(config: CustomTypesConfig): Promise<SharedSlice[]> {
+	return customTypesRequest("slices", config);
 }
 
 export async function getSlice(id: string, config: CustomTypesConfig): Promise<SharedSlice> {
-	const url = new URL(`slices/${encodeURIComponent(id)}`, getCustomTypesServiceUrl(config.host));
-	return customTypesServiceRequest<SharedSlice>(url, config, {
+	return customTypesRequest(`slices/${encodeURIComponent(id)}`, config, {
 		notFoundMessage: `Slice not found: ${id}`,
 	});
 }
 
 export async function insertSlice(model: SharedSlice, config: CustomTypesConfig): Promise<void> {
-	const url = new URL("slices/insert", getCustomTypesServiceUrl(config.host));
-	await customTypesServiceRequest(url, config, {
+	await customTypesRequest("slices/insert", config, {
 		method: "POST",
 		json: model,
 		unknownErrorMessage: `Failed to create slice "${model.id}"`,
@@ -86,8 +72,7 @@ export async function insertSlice(model: SharedSlice, config: CustomTypesConfig)
 }
 
 export async function updateSlice(model: SharedSlice, config: CustomTypesConfig): Promise<void> {
-	const url = new URL("slices/update", getCustomTypesServiceUrl(config.host));
-	await customTypesServiceRequest(url, config, {
+	await customTypesRequest("slices/update", config, {
 		method: "POST",
 		json: model,
 		notFoundMessage: `Slice not found: ${model.id}`,
@@ -96,21 +81,12 @@ export async function updateSlice(model: SharedSlice, config: CustomTypesConfig)
 }
 
 export async function removeSlice(id: string, config: CustomTypesConfig): Promise<void> {
-	const url = new URL(`slices/${encodeURIComponent(id)}`, getCustomTypesServiceUrl(config.host));
-	await customTypesServiceRequest(url, config, {
+	await customTypesRequest(`slices/${encodeURIComponent(id)}`, config, {
 		method: "DELETE",
 		notFoundMessage: `Slice not found: ${id}`,
 		unknownErrorMessage: `Failed to delete slice "${id}"`,
 	});
 }
-
-const ScreenshotPresignedUrlResponseSchema = z.object({
-	values: z.object({
-		url: z.string(),
-		fields: z.record(z.string(), z.string()),
-	}),
-	imgixEndpoint: z.string(),
-});
 
 const SUPPORTED_IMAGE_MIME_TYPES: Record<string, string> = {
 	"image/png": ".png",
@@ -120,8 +96,7 @@ const SUPPORTED_IMAGE_MIME_TYPES: Record<string, string> = {
 };
 
 export async function deleteScreenshots(sliceId: string, config: CustomTypesConfig): Promise<void> {
-	const url = new URL("delete", getScreenshotServiceUrl(config.host));
-	await screenshotServiceRequest(url, config, {
+	await screenshotRequest("delete", config, {
 		method: "POST",
 		json: { sliceId },
 	});
@@ -137,22 +112,24 @@ export async function uploadScreenshot(
 		host: string;
 	},
 ): Promise<URL> {
-	const { sliceId, variationId, repo, host } = config;
+	const { sliceId, variationId, repo } = config;
 
-	const type = blob.type;
-	if (!(type in SUPPORTED_IMAGE_MIME_TYPES)) {
-		throw new UnsupportedFileTypeError(type);
-	}
+	if (!(blob.type in SUPPORTED_IMAGE_MIME_TYPES)) throw new UnsupportedFileTypeError(blob.type);
 
-	const presignedUrl = new URL("presigned-url", getScreenshotServiceUrl(host));
-	const presigned = await screenshotServiceRequest(presignedUrl, config, {
-		schema: ScreenshotPresignedUrlResponseSchema,
+	const presigned = await screenshotRequest("presigned-url", config, {
+		schema: z.object({
+			values: z.object({
+				url: z.string(),
+				fields: z.record(z.string(), z.string()),
+			}),
+			imgixEndpoint: z.string(),
+		}),
 	});
 
-	const extension = SUPPORTED_IMAGE_MIME_TYPES[type];
 	const digest = createHash("sha1")
 		.update(new Uint8Array(await blob.arrayBuffer()))
 		.digest("hex");
+	const extension = SUPPORTED_IMAGE_MIME_TYPES[blob.type];
 	const key = `${repo}/shared-slices/${sliceId}/${variationId}/${digest}${extension}`;
 
 	const formData = new FormData();
@@ -160,14 +137,13 @@ export async function uploadScreenshot(
 		formData.append(field, value);
 	}
 	formData.set("key", key);
-	formData.set("Content-Type", type);
+	formData.set("Content-Type", blob.type);
 	formData.set("file", blob);
 
 	await request(presigned.values.url, { method: "POST", body: formData });
 
 	const url = new URL(key, appendTrailingSlash(presigned.imgixEndpoint));
 	url.searchParams.set("auto", "compress,format");
-
 	return url;
 }
 
@@ -175,19 +151,17 @@ export class UnsupportedFileTypeError extends Error {
 	name = "UnsupportedFileTypeError";
 
 	constructor(mimeType: string) {
-		const supportedTypes = Object.keys(SUPPORTED_IMAGE_MIME_TYPES);
-		super(
-			`Unsupported file type: ${mimeType || "unknown"}. Supported: ${supportedTypes.join(", ")}`,
-		);
+		const supportedTypes = Object.keys(SUPPORTED_IMAGE_MIME_TYPES).join(", ");
+		super(`Unsupported file type: ${mimeType || "unknown"}. Supported: ${supportedTypes}`);
 	}
 }
 
-function customTypesServiceRequest<T>(
-	url: URL,
+async function customTypesRequest<T>(
+	path: string,
 	config: CustomTypesConfig,
 	options: RequestOptions<T> = {},
 ): Promise<T> {
-	return request(url, {
+	return request(new URL(path, `https://customtypes.${config.host}/`), {
 		headers: {
 			repository: config.repo,
 			Authorization: `Bearer ${config.token}`,
@@ -197,26 +171,18 @@ function customTypesServiceRequest<T>(
 	});
 }
 
-function screenshotServiceRequest<T>(
-	url: URL,
+async function screenshotRequest<T>(
+	path: string,
 	config: CustomTypesConfig,
-	options: RequestOptions<T> = {},
+	options: RequestOptions<T>,
 ): Promise<T> {
-	const scopedUrl = new URL(url);
-	scopedUrl.searchParams.set("repository", config.repo);
-	return request(scopedUrl, {
+	const url = new URL(path, `https://api.internal.${config.host}/screenshot/`);
+	url.searchParams.set("repository", config.repo);
+	return request(url, {
 		headers: {
 			repository: config.repo,
 			Authorization: `Bearer ${config.token}`,
 		},
 		...options,
 	});
-}
-
-function getCustomTypesServiceUrl(host: string): URL {
-	return new URL(`https://customtypes.${host}/`);
-}
-
-function getScreenshotServiceUrl(host: string): URL {
-	return new URL(`https://api.internal.${host}/screenshot/`);
 }

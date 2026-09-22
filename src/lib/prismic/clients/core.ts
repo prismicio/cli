@@ -13,18 +13,11 @@ const PreviewSchema = z.object({
 	label: z.string(),
 	url: z.string(),
 });
-
-const GetPreviewsResponseSchema = z.object({
-	results: z.array(PreviewSchema),
-});
-
 export type Preview = z.infer<typeof PreviewSchema>;
 
 export async function getPreviews(config: CoreConfig): Promise<Preview[]> {
-	const { repo, host } = config;
-	const url = new URL("core/repository/preview_configs", getCoreServiceUrl(repo, host));
-	const response = await coreServiceRequest(url, config, {
-		schema: GetPreviewsResponseSchema,
+	const response = await coreRequest("core/repository/preview_configs", config, {
+		schema: z.object({ results: z.array(PreviewSchema) }),
 		unknownErrorMessage: "Failed to load previews",
 	});
 	return response.results;
@@ -38,23 +31,16 @@ export async function addPreview(
 	},
 	config: CoreConfig,
 ): Promise<void> {
-	const { repo, host } = config;
-	const url = new URL("previews/new", getCoreServiceUrl(repo, host));
-	await coreServiceRequest(url, config, {
+	const { name, websiteURL, resolverPath } = previewConfig;
+	await coreRequest("previews/new", config, {
 		method: "POST",
-		json: {
-			name: previewConfig.name,
-			websiteURL: previewConfig.websiteURL,
-			resolverPath: previewConfig.resolverPath,
-		},
+		json: { name, websiteURL, resolverPath },
 		unknownErrorMessage: "Failed to add preview",
 	});
 }
 
 export async function removePreview(id: string, config: CoreConfig): Promise<void> {
-	const { repo, host } = config;
-	const url = new URL(`previews/delete/${encodeURIComponent(id)}`, getCoreServiceUrl(repo, host));
-	await coreServiceRequest(url, config, {
+	await coreRequest(`previews/delete/${encodeURIComponent(id)}`, config, {
 		method: "POST",
 		json: {},
 		notFoundMessage: `Preview not found: ${id}`,
@@ -71,68 +57,48 @@ const EnvironmentSchema = z.object({
 export type Environment = z.infer<typeof EnvironmentSchema>;
 
 export async function getEnvironments(config: CoreConfig): Promise<Environment[]> {
-	const { repo, host } = config;
-	const url = new URL("core/environments", getCoreServiceUrl(repo, host));
-	const response = await coreServiceRequest(url, config, {
+	const response = await coreRequest("core/environments", config, {
 		schema: z.object({ results: z.array(EnvironmentSchema) }),
 	});
 	return response.results;
 }
 
-const RepositoryResponseSchema = z.object({
-	simulator_url: z.optional(z.string()),
-});
-
 export async function getSimulatorUrl(config: CoreConfig): Promise<string | undefined> {
-	const { repo, host } = config;
-	const url = new URL("core/repository", getCoreServiceUrl(repo, host));
-	const response = await coreServiceRequest(url, config, {
-		schema: RepositoryResponseSchema,
+	const response = await coreRequest("core/repository", config, {
+		schema: z.object({ simulator_url: z.optional(z.string()) }),
 		unknownErrorMessage: "Failed to load simulator URL",
 	});
 	return response.simulator_url;
 }
 
 export async function setSimulatorUrl(simulatorUrl: string, config: CoreConfig): Promise<void> {
-	const { repo, host } = config;
-	const url = new URL("core/repository", getCoreServiceUrl(repo, host));
-	await coreServiceRequest(url, config, {
+	await coreRequest("core/repository", config, {
 		method: "PATCH",
 		json: { simulator_url: simulatorUrl },
 		unknownErrorMessage: "Failed to set simulator URL",
 	});
 }
 
-const DocumentSearchTotalSchema = z.object({
-	total: z.number(),
-});
-
 export async function getDocumentTotalByCustomTypes(
 	customTypeId: string,
 	config: CoreConfig,
 ): Promise<number> {
-	const { repo, host } = config;
-	const url = new URL("core/documents/search", getCoreServiceUrl(repo, host));
-	const response = await coreServiceRequest(url, config, {
+	const response = await coreRequest("core/documents/search", config, {
 		method: "POST",
 		json: { customTypes: [customTypeId], limit: 0 },
-		schema: DocumentSearchTotalSchema,
+		schema: z.object({ total: z.number() }),
 	});
 	return response.total;
 }
 
-function coreServiceRequest<T>(
-	url: URL,
+async function coreRequest<T>(
+	path: string,
 	config: CoreConfig,
-	options: RequestOptions<T> = {},
+	options: RequestOptions<T>,
 ): Promise<T> {
-	return request(url, {
+	return request(new URL(path, `https://${config.repo}.${config.host}/`), {
 		credentials: { "prismic-auth": config.token },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		...options,
 	});
-}
-
-function getCoreServiceUrl(repo: string, host: string): URL {
-	return new URL(`https://${repo}.${host}/`);
 }

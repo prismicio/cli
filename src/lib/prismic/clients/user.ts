@@ -1,11 +1,6 @@
 import * as z from "zod/mini";
 
-import { request, type RequestOptions } from "../../request";
-
-type UserConfig = {
-	token: string | undefined;
-	host: string;
-};
+import { request } from "../../request";
 
 const ProfileSchema = z.object({
 	email: z.string(),
@@ -24,25 +19,13 @@ const ProfileSchema = z.object({
 });
 export type Profile = z.infer<typeof ProfileSchema>;
 
-export async function getProfile(config: UserConfig): Promise<Profile> {
-	const url = new URL("profile", getUserServiceUrl(config.host));
-	return userServiceRequest(url, config, {
+export async function getProfile(config: {
+	token: string | undefined;
+	host: string;
+}): Promise<Profile> {
+	return request(new URL("profile", `https://user-service.${config.host}/`), {
+		credentials: { "prismic-auth": config.token },
 		schema: ProfileSchema,
 		unknownErrorMessage: "Failed to load your profile",
 	});
-}
-
-function userServiceRequest<T>(
-	url: URL,
-	config: UserConfig,
-	options: RequestOptions<T> = {},
-): Promise<T> {
-	return request(url, {
-		credentials: { "prismic-auth": config.token },
-		...options,
-	});
-}
-
-function getUserServiceUrl(host: string): URL {
-	return new URL(`https://user-service.${host}/`);
 }

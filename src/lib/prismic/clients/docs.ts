@@ -2,10 +2,6 @@ import * as z from "zod/mini";
 
 import { request } from "../../request";
 
-// Documentation is only published at prismic.io; the host option exists for
-// overrides only.
-const DEFAULT_DOCS_HOST = "prismic.io";
-
 type DocsConfig = { host?: string; headers?: Record<string, string> };
 
 const DocsIndexEntrySchema = z.object({
@@ -13,12 +9,8 @@ const DocsIndexEntrySchema = z.object({
 	title: z.string(),
 	description: z.optional(z.string()),
 });
-type DocsIndexEntry = z.infer<typeof DocsIndexEntrySchema>;
 
-const DocsPageSchema = z.object({
-	path: z.string(),
-	title: z.string(),
-	description: z.optional(z.string()),
+const DocsPageSchema = z.extend(DocsIndexEntrySchema, {
 	anchors: z.array(
 		z.object({
 			slug: z.string(),
@@ -26,19 +18,21 @@ const DocsPageSchema = z.object({
 		}),
 	),
 });
-type DocsPage = z.infer<typeof DocsPageSchema>;
 
-export async function getDocsIndex(config?: DocsConfig): Promise<DocsIndexEntry[]> {
-	const url = new URL("api/index/", getDocsServiceUrl(config?.host));
-	return request(url, {
+export async function getDocsIndex(
+	config?: DocsConfig,
+): Promise<z.infer<typeof DocsIndexEntrySchema>[]> {
+	return request(getDocsUrl("api/index/", config), {
 		schema: z.array(DocsIndexEntrySchema),
 		unknownErrorMessage: "Failed to fetch documentation index",
 	});
 }
 
-export async function getDocsPageIndex(path: string, config?: DocsConfig): Promise<DocsPage> {
-	const url = new URL(`api/index/${path}`, getDocsServiceUrl(config?.host));
-	return request(url, {
+export async function getDocsPageIndex(
+	path: string,
+	config?: DocsConfig,
+): Promise<z.infer<typeof DocsPageSchema>> {
+	return request(getDocsUrl(`api/index/${path}`, config), {
 		schema: DocsPageSchema,
 		notFoundMessage: `Documentation page not found: ${path}`,
 		unknownErrorMessage: "Failed to fetch documentation index",
@@ -46,8 +40,7 @@ export async function getDocsPageIndex(path: string, config?: DocsConfig): Promi
 }
 
 export async function getDocsPageContent(path: string, config?: DocsConfig): Promise<string> {
-	const url = new URL(path, getDocsServiceUrl(config?.host));
-	return request(url, {
+	return request(getDocsUrl(path, config), {
 		headers: { Accept: "text/markdown", ...config?.headers },
 		schema: z.string(),
 		notFoundMessage: `Page not found: ${path}`,
@@ -55,6 +48,8 @@ export async function getDocsPageContent(path: string, config?: DocsConfig): Pro
 	});
 }
 
-function getDocsServiceUrl(host = DEFAULT_DOCS_HOST): URL {
-	return new URL(`https://${host}/docs/`);
+// Documentation is only published at prismic.io; the host option exists for
+// overrides only.
+function getDocsUrl(path: string, config: DocsConfig = {}): URL {
+	return new URL(path, `https://${config.host ?? "prismic.io"}/docs/`);
 }

@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { request, type RequestOptions } from "../../request";
+import { request } from "../../request";
 
 type RepositoryConfig = {
 	repo: string;
@@ -8,37 +8,42 @@ type RepositoryConfig = {
 	host: string;
 };
 
-const RepositoryStarterSchema = z.object({
-	id: z.string(),
-	revision: z.string(),
-	framework: z.string(),
-	deploymentUrl: z.url(),
-});
-
 const RepositorySchema = z.object({
-	starter: z.nullish(RepositoryStarterSchema),
+	starter: z.nullish(
+		z.object({
+			id: z.string(),
+			revision: z.string(),
+			framework: z.string(),
+			deploymentUrl: z.url(),
+		}),
+	),
 	quotas: z.optional(
 		z.object({
 			sliceMachineEnabled: z.boolean(),
 		}),
 	),
 });
-
 export type Repository = z.infer<typeof RepositorySchema>;
 
-export function getRepository(config: RepositoryConfig): Promise<Repository> {
-	const url = getRepositoryServiceUrl(config.host);
-	return repositoryServiceRequest(url, config, { schema: RepositorySchema });
+export async function getRepository(config: RepositoryConfig): Promise<Repository> {
+	return request(getRepositoryUrl("", config), {
+		headers: {
+			Authorization: `Bearer ${config.token}`,
+			repository: config.repo,
+		},
+		notFoundMessage: `Repository not found: ${config.repo}`,
+		schema: RepositorySchema,
+	});
 }
 
 const OnboardingStateSchema = z.object({
 	completedSteps: z.array(z.string()),
 });
-export type OnboardingState = z.infer<typeof OnboardingStateSchema>;
+type OnboardingState = z.infer<typeof OnboardingStateSchema>;
 
 export async function getOnboardingState(config: RepositoryConfig): Promise<OnboardingState> {
-	const url = new URL("onboarding", getRepositoryServiceUrl(config.host));
-	return onboardingServiceRequest(url, config, {
+	return request(getRepositoryUrl("onboarding", config), {
+		credentials: { "prismic-auth": config.token },
 		schema: OnboardingStateSchema,
 	});
 }
@@ -47,46 +52,15 @@ export async function toggleOnboardingStep(
 	stepId: string,
 	config: RepositoryConfig,
 ): Promise<OnboardingState> {
-	const url = new URL(
-		`onboarding/${encodeURIComponent(stepId)}/toggle`,
-		getRepositoryServiceUrl(config.host),
-	);
-	return onboardingServiceRequest(url, config, {
+	return request(getRepositoryUrl(`onboarding/${encodeURIComponent(stepId)}/toggle`, config), {
 		method: "PATCH",
+		credentials: { "prismic-auth": config.token },
 		schema: OnboardingStateSchema,
 	});
 }
 
-function repositoryServiceRequest<T>(
-	url: URL,
-	config: RepositoryConfig,
-	options: RequestOptions<T> = {},
-): Promise<T> {
-	const scopedUrl = new URL(url);
-	scopedUrl.searchParams.set("repository", config.repo);
-	return request(scopedUrl, {
-		headers: {
-			Authorization: `Bearer ${config.token}`,
-			repository: config.repo,
-		},
-		notFoundMessage: `Repository not found: ${config.repo}`,
-		...options,
-	});
-}
-
-function onboardingServiceRequest<T>(
-	url: URL,
-	config: RepositoryConfig,
-	options: RequestOptions<T> = {},
-): Promise<T> {
-	const scopedUrl = new URL(url);
-	scopedUrl.searchParams.set("repository", config.repo);
-	return request(scopedUrl, {
-		credentials: { "prismic-auth": config.token },
-		...options,
-	});
-}
-
-function getRepositoryServiceUrl(host: string): URL {
-	return new URL(`https://api.internal.${host}/repository/`);
+function getRepositoryUrl(path: string, config: RepositoryConfig): URL {
+	const url = new URL(path, `https://api.internal.${config.host}/repository/`);
+	url.searchParams.set("repository", config.repo);
+	return url;
 }

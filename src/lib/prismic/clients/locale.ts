@@ -14,12 +14,10 @@ const LocaleSchema = z.object({
 	customName: z.nullable(z.string()),
 	isMaster: z.boolean(),
 });
-
 export type Locale = z.infer<typeof LocaleSchema>;
 
 export async function getLocales(config: LocaleConfig): Promise<Locale[]> {
-	const url = new URL("repository/locales", getLocaleServiceUrl(config.host));
-	const response = await localeServiceRequest(url, config, {
+	const response = await localeRequest("repository/locales", config, {
 		schema: z.object({ results: z.array(LocaleSchema) }),
 		unknownErrorMessage: "Failed to load locales",
 	});
@@ -30,8 +28,7 @@ export async function upsertLocale(
 	locale: { id: string; isMaster?: boolean; customName?: string },
 	config: LocaleConfig,
 ): Promise<Locale> {
-	const url = new URL("repository/locales", getLocaleServiceUrl(config.host));
-	return localeServiceRequest(url, config, {
+	return localeRequest("repository/locales", config, {
 		method: "POST",
 		json: {
 			id: locale.id,
@@ -44,31 +41,23 @@ export async function upsertLocale(
 }
 
 export async function removeLocale(code: string, config: LocaleConfig): Promise<void> {
-	const url = new URL(
-		`repository/locales/${encodeURIComponent(code)}`,
-		getLocaleServiceUrl(config.host),
-	);
-	await localeServiceRequest(url, config, {
+	await localeRequest(`repository/locales/${encodeURIComponent(code)}`, config, {
 		method: "DELETE",
 		notFoundMessage: `Locale not found: ${code}`,
 		unknownErrorMessage: "Failed to remove locale",
 	});
 }
 
-function localeServiceRequest<T>(
-	url: URL,
+async function localeRequest<T>(
+	path: string,
 	config: LocaleConfig,
-	options?: RequestOptions<T>,
+	options: RequestOptions<T>,
 ): Promise<T> {
-	const scopedUrl = new URL(url);
-	scopedUrl.searchParams.set("repository", config.repo);
-	return request(scopedUrl, {
+	const url = new URL(path, `https://api.internal.${config.host}/locale/`);
+	url.searchParams.set("repository", config.repo);
+	return request(url, {
 		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		...options,
 	});
-}
-
-function getLocaleServiceUrl(host: string): URL {
-	return new URL(`https://api.internal.${host}/locale/`);
 }
