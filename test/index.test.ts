@@ -53,7 +53,7 @@ it("accepts --user-intent and --task-id on every command", async ({ expect, pris
 	expect(router.stdout).toContain("prismic repo <command> [options]");
 });
 
-it("still accepts the names the options had before", async ({ expect, prismic }) => {
+it("still accepts --analytics-intent and --analytics-task-id", async ({ expect, prismic }) => {
 	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
 	const { stdout: id } = await prismic("task-id", [], agent);
 	const legacy = await prismic(

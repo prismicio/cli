@@ -100,10 +100,10 @@ async function main(): Promise<void> {
 			version,
 			help,
 			repo: repoValue = await safeGetRepositoryName(),
-			"user-intent": intentValue,
-			"task-id": taskIdValue,
 			"analytics-intent": legacyIntentValue,
 			"analytics-task-id": legacyTaskIdValue,
+			"user-intent": intentValue = legacyIntentValue,
+			"task-id": taskIdValue = legacyTaskIdValue,
 		},
 	} = parseArgs({
 		options: {
@@ -125,10 +125,8 @@ async function main(): Promise<void> {
 	}
 
 	const repo = typeof repoValue === "string" ? repoValue : undefined;
-	const intent = intentValue ?? legacyIntentValue;
-	const id = taskIdValue ?? legacyTaskIdValue;
-	const userIntent = typeof intent === "string" ? intent : undefined;
-	const taskId = typeof id === "string" ? id : undefined;
+	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
+	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
 
 	const agentNeedsTaskId =
 		!help && command !== "" && command !== "task-id" && detectAgent() !== undefined;
