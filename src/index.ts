@@ -10,7 +10,7 @@ import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
 import { getErrorMessage } from "./error";
 import { detectAgent } from "./lib/ai";
-import { AGENTS_HELP, CommandError } from "./lib/command";
+import { CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
 import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
@@ -38,7 +38,6 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { dedent } from "./lib/string";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import {
 	InvalidLegacySliceMachineConfigError,
