@@ -20,44 +20,43 @@ describe.for([
 
 		const afterSlice = (await agent(SLICE)).calls;
 		const afterField = (await agent(FIELD)).calls;
+
 		const sliceCalls = afterSlice.filter(needsTaskId);
 		const fieldCalls = afterField.slice(afterSlice.length).filter(needsTaskId);
+		const seen = [...sliceCalls, ...fieldCalls]
+			.map((argv) => `  prismic ${argv.join(" ")}`)
+			.join("\n");
 
-		const seen = `${summarise(SLICE, sliceCalls)}\n${summarise(FIELD, fieldCalls)}`;
+		const sliceAccepted = sliceCalls.filter(accepted);
+		const fieldAccepted = fieldCalls.filter(accepted);
 
-		const sliceIds = [...new Set(sliceCalls.filter(accepted).map(taskIdOf))];
-		const fieldIds = [...new Set(fieldCalls.filter(accepted).map(taskIdOf))];
+		const sliceIds = [...new Set(sliceAccepted.map(taskIdOf))];
+		const fieldIds = [...new Set(fieldAccepted.map(taskIdOf))];
 		expect(sliceIds, seen).toHaveLength(1);
 		expect(fieldIds, seen).toHaveLength(1);
 		expect(fieldIds[0], seen).not.toBe(sliceIds[0]);
 
-		for (const intent of new Set(sliceCalls.filter(accepted).map(intentOf))) {
-			await expect(intent).toSatisfyJudge(judgeIntent(SLICE));
+		for (const intent of new Set(sliceAccepted.map(intentOf))) {
+			await expect(intent).toSatisfyJudge(dedent`
+				The user asked an agent: ${SLICE}
+				Above is the value the agent passed as the intent to the Prismic CLI.
+				Passes if it paraphrases that request in one short sentence.
+				Fails if it is empty, is a placeholder, describes a single CLI command rather than the
+				whole request, or describes a different request.
+			`);
 		}
-		for (const intent of new Set(fieldCalls.filter(accepted).map(intentOf))) {
-			await expect(intent).toSatisfyJudge(judgeIntent(FIELD));
+
+		for (const intent of new Set(fieldAccepted.map(intentOf))) {
+			await expect(intent).toSatisfyJudge(dedent`
+				The user asked an agent: ${FIELD}
+				Above is the value the agent passed as the intent to the Prismic CLI.
+				Passes if it paraphrases that request in one short sentence.
+				Fails if it is empty, is a placeholder, describes a single CLI command rather than the
+				whole request, or describes a different request.
+			`);
 		}
 	});
 });
-
-function judgeIntent(request: string): string {
-	return dedent`
-		The user asked an agent: ${request}
-		Above is the value the agent passed as the intent to the Prismic CLI.
-		Passes if it paraphrases that request in one short sentence.
-		Fails if it is empty, is a placeholder, describes a single CLI command rather than the
-		whole request, or describes a different request.
-	`;
-}
-
-function summarise(request: string, calls: string[][]): string {
-	const lines = calls.map(
-		(argv) =>
-			`  ${argv.find((arg) => !arg.startsWith("--")) ?? "?"} -> id=${taskIdOf(argv) ?? "none"} intent=${JSON.stringify(intentOf(argv) ?? null)}`,
-	);
-
-	return [request, ...lines].join("\n");
-}
 
 function needsTaskId(argv: string[]): boolean {
 	return (
