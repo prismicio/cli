@@ -165,9 +165,7 @@ export async function isTelemetryEnabled(): Promise<boolean> {
 	}
 }
 
-/** A task ID the CLI issued: a prefix it recognises and enough randomness to be unique. */
-export function mintTaskId(): string {
-	// 32 characters, so the low five bits of a byte pick one without bias.
+export function genTaskId(): string {
 	const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
 	let out = "";
 	for (const byte of randomBytes(16)) out += alphabet[byte & 0b11111];

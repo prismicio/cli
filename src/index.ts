@@ -82,7 +82,6 @@ const KNOWN_ERRORS = [
 
 const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError, TypeBuilderRequiredError];
 
-// The CLI issues task ids, so it decides the format: a value it did not issue cannot match.
 const TASK_ID = /^pt_[0-9a-hjkmnp-tv-z]{16}$/;
 
 await main();
@@ -131,7 +130,6 @@ async function main(): Promise<void> {
 	const userIntent = typeof intent === "string" ? intent : undefined;
 	const taskId = typeof id === "string" ? id : undefined;
 
-	// A request groups only if the id is on its first command, so a command without one stops.
 	if (
 		!help &&
 		command &&

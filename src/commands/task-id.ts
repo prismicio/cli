@@ -1,5 +1,5 @@
 import { createCommand } from "../lib/command";
-import { mintTaskId } from "../tracking";
+import { genTaskId } from "../tracking";
 
 export default createCommand(
 	{
@@ -12,6 +12,6 @@ export default createCommand(
 		`,
 	},
 	async () => {
-		console.info(mintTaskId());
+		console.info(genTaskId());
 	},
 );

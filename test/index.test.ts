@@ -64,7 +64,7 @@ it("still accepts the names the options had before", async ({ expect, prismic })
 	expect(legacy.exitCode, legacy.stderr).toBe(0);
 });
 
-it("requires --user-intent and a minted --task-id when an agent is detected", async ({
+it("requires --user-intent and a generated --task-id when an agent is detected", async ({
 	expect,
 	prismic,
 }) => {
@@ -81,9 +81,13 @@ it("requires --user-intent and a minted --task-id when an agent is detected", as
 		expect(rejected.exitCode, value).toBe(1);
 	}
 
-	const minted = await prismic("task-id", [], agent);
-	expect(minted.exitCode, minted.stderr).toBe(0);
-	const ok = await prismic("docs", ["list", ...intent, "--task-id", minted.stdout.trim()], agent);
+	const generated = await prismic("task-id", [], agent);
+	expect(generated.exitCode, generated.stderr).toBe(0);
+	const ok = await prismic(
+		"docs",
+		["list", ...intent, "--task-id", generated.stdout.trim()],
+		agent,
+	);
 	expect(ok.exitCode, ok.stderr).toBe(0);
 
 	const help = await prismic("docs", ["list", "--help"], agent);

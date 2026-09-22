@@ -134,7 +134,6 @@ export default createCommandRouter({
 		"task-id": {
 			handler: taskId,
 			description: "Print a task ID for --task-id",
-			// Only agents pass --task-id, so only agents are shown where to get one.
 			hidden: detectAgent() === undefined,
 		},
 	},
