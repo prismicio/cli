@@ -6,9 +6,6 @@ import { it, trials } from "./it";
 
 const TASK_ID = /^pt_[0-9a-hjkmnp-tv-z]{16}$/;
 
-const SLICE = `Using the Prismic CLI, create a "call to action" slice with a heading, body text, and a button label, then add it to the "article" type.`;
-const FIELD = `Using the Prismic CLI, add a "published_at" date field to the "article" type.`;
-
 describe.for([
 	{ name: "with the skill", installSkill: true },
 	{ name: "without the skill", installSkill: false },
@@ -18,8 +15,11 @@ describe.for([
 	it.for(trials)("gives each request its own task id", async (_, { project, agent, expect }) => {
 		await writeLocalCustomType(project, buildCustomType({ id: "article", label: "Article" }));
 
-		const afterSlice = (await agent(SLICE)).calls;
-		const afterField = (await agent(FIELD)).calls;
+		const slice = `Using the Prismic CLI, create a "call to action" slice with a heading, body text, and a button label, then add it to the "article" type.`;
+		const field = `Using the Prismic CLI, add a "published_at" date field to the "article" type.`;
+
+		const afterSlice = (await agent(slice)).calls;
+		const afterField = (await agent(field)).calls;
 
 		const sliceCalls = afterSlice.filter(needsTaskId);
 		const fieldCalls = afterField.slice(afterSlice.length).filter(needsTaskId);
@@ -27,18 +27,19 @@ describe.for([
 			.map((argv) => `  prismic ${argv.join(" ")}`)
 			.join("\n");
 
-		const sliceAccepted = sliceCalls.filter(accepted);
-		const fieldAccepted = fieldCalls.filter(accepted);
+		const sliceRecorded = sliceCalls.filter(accepted);
+		const fieldRecorded = fieldCalls.filter(accepted);
 
-		const sliceIds = [...new Set(sliceAccepted.map(taskIdOf))];
-		const fieldIds = [...new Set(fieldAccepted.map(taskIdOf))];
+		const sliceIds = [...new Set(sliceRecorded.map(taskIdOf))];
+		const fieldIds = [...new Set(fieldRecorded.map(taskIdOf))];
+
 		expect(sliceIds, seen).toHaveLength(1);
 		expect(fieldIds, seen).toHaveLength(1);
 		expect(fieldIds[0], seen).not.toBe(sliceIds[0]);
 
-		for (const intent of new Set(sliceAccepted.map(intentOf))) {
+		for (const intent of new Set(sliceRecorded.map(intentOf))) {
 			await expect(intent).toSatisfyJudge(dedent`
-				The user asked an agent: ${SLICE}
+				The user asked an agent: ${slice}
 				Above is the value the agent passed as the intent to the Prismic CLI.
 				Passes if it paraphrases that request in one short sentence.
 				Fails if it is empty, is a placeholder, describes a single CLI command rather than the
@@ -46,9 +47,9 @@ describe.for([
 			`);
 		}
 
-		for (const intent of new Set(fieldAccepted.map(intentOf))) {
+		for (const intent of new Set(fieldRecorded.map(intentOf))) {
 			await expect(intent).toSatisfyJudge(dedent`
-				The user asked an agent: ${FIELD}
+				The user asked an agent: ${field}
 				Above is the value the agent passed as the intent to the Prismic CLI.
 				Passes if it paraphrases that request in one short sentence.
 				Fails if it is empty, is a placeholder, describes a single CLI command rather than the
