@@ -17,9 +17,7 @@ const PackageJsonSchema = z.object({
 type PackageJson = z.infer<typeof PackageJsonSchema>;
 
 export async function readPackageJson(): Promise<PackageJson> {
-	const packageJsonPath = await findPackageJson();
-	const packageJson = await readJsonFile(packageJsonPath, { schema: PackageJsonSchema });
-	return packageJson;
+	return readJsonFile(await findPackageJson(), { schema: PackageJsonSchema });
 }
 
 export async function findPackageJson(): Promise<URL> {
@@ -33,71 +31,51 @@ export class MissingPackageJson extends Error {
 	message = "Could not find a package.json file.";
 }
 
-export async function addDependencies(dependencies: Record<string, string>): Promise<void> {
+// Rewrites package.json in place, keeping its indentation.
+async function editPackageJson(edit: (packageJson: PackageJson) => void): Promise<void> {
 	const packageJsonPath = await findPackageJson();
 	const raw = await readFile(packageJsonPath, "utf8");
-	const indent = detectIndent(raw).indent || "\t";
 	const packageJson = JSON.parse(raw);
-	packageJson.dependencies = Object.fromEntries(
-		Object.entries({
-			...packageJson.dependencies,
-			...dependencies,
-		}).sort(([a], [b]) => a.localeCompare(b)),
-	);
-	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
-	await writeFile(packageJsonPath, newContents);
+	edit(packageJson);
+	const indent = detectIndent(raw).indent || "\t";
+	await writeFile(packageJsonPath, JSON.stringify(packageJson, null, indent) + "\n");
+}
+
+export async function addDependencies(dependencies: Record<string, string>): Promise<void> {
+	await editPackageJson((packageJson) => {
+		packageJson.dependencies = Object.fromEntries(
+			Object.entries({ ...packageJson.dependencies, ...dependencies }).sort(([a], [b]) =>
+				a.localeCompare(b),
+			),
+		);
+	});
 }
 
 export async function removeDependencies(names: string[]): Promise<void> {
-	const packageJsonPath = await findPackageJson();
-	const raw = await readFile(packageJsonPath, "utf8");
-	const indent = detectIndent(raw).indent || "\t";
-	const packageJson = JSON.parse(raw);
-	for (const section of ["dependencies", "devDependencies", "peerDependencies"]) {
-		if (!packageJson[section]) continue;
-		for (const name of names) delete packageJson[section][name];
-	}
-	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
-	await writeFile(packageJsonPath, newContents);
+	await editPackageJson((packageJson) => {
+		for (const section of ["dependencies", "devDependencies", "peerDependencies"] as const) {
+			const deps = packageJson[section];
+			if (!deps) continue;
+			for (const name of names) delete deps[name];
+		}
+	});
 }
 
 export async function updatePackageJsonName(name: string): Promise<void> {
-	const packageJsonPath = await findPackageJson();
-	const raw = await readFile(packageJsonPath, "utf8");
-	const indent = detectIndent(raw).indent || "\t";
-	const packageJson = JSON.parse(raw);
-	packageJson.name = name;
-	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
-	await writeFile(packageJsonPath, newContents);
+	await editPackageJson((packageJson) => {
+		packageJson.name = name;
+	});
 }
 
 export async function getNpmPackageVersion(name: string, tag = "latest"): Promise<string> {
 	const url = new URL(`${name}/${tag}`, "https://registry.npmjs.org/");
-	const { version } = await request(url, {
-		schema: z.object({ version: z.string() }),
-	});
+	const { version } = await request(url, { schema: z.object({ version: z.string() }) });
 	return version;
 }
 
-const INSTALL_COMMANDS = {
-	npm: ["npm", "install"],
-	yarn: ["yarn", "install"],
-	pnpm: ["pnpm", "install"],
-	bun: ["bun", "install"],
-};
+const PACKAGE_MANAGERS = ["npm", "yarn", "pnpm", "bun"];
 
-export async function installDependencies(): Promise<void> {
-	const packageJsonPath = await findPackageJson();
-	const cwd = new URL(".", packageJsonPath);
-	const packageManager = await detectPackageManager();
-	const [command, ...args] = INSTALL_COMMANDS[packageManager];
-	await x(command, args, {
-		nodeOptions: { cwd: fileURLToPath(cwd), stdio: "inherit" },
-		throwOnError: true,
-	});
-}
-
-const PACKAGE_MANAGER_LOCKFILES: Record<string, keyof typeof INSTALL_COMMANDS> = {
+const LOCKFILES: Record<string, string> = {
 	"bun.lock": "bun",
 	"bun.lockb": "bun",
 	"pnpm-lock.yaml": "pnpm",
@@ -105,28 +83,21 @@ const PACKAGE_MANAGER_LOCKFILES: Record<string, keyof typeof INSTALL_COMMANDS> =
 	"package-lock.json": "npm",
 };
 
-async function detectPackageManager(): Promise<keyof typeof INSTALL_COMMANDS> {
-	const packageManager = await readPackageManager();
-	if (packageManager) return packageManager;
-
+export async function installDependencies(): Promise<void> {
 	const packageJsonPath = await findPackageJson();
-	for (const file in PACKAGE_MANAGER_LOCKFILES) {
-		const packageManager = PACKAGE_MANAGER_LOCKFILES[file];
-		const hasLockfile = await exists(new URL(file, packageJsonPath));
-		if (hasLockfile) return packageManager;
-	}
-
-	return "npm";
+	await x(await detectPackageManager(packageJsonPath), ["install"], {
+		nodeOptions: { cwd: fileURLToPath(new URL(".", packageJsonPath)), stdio: "inherit" },
+		throwOnError: true,
+	});
 }
 
-async function readPackageManager(): Promise<keyof typeof INSTALL_COMMANDS | undefined> {
-	try {
-		const packageJson = await readPackageJson();
-		if (!packageJson.packageManager) return;
-		const packageManager = packageJson.packageManager.split("@")[0];
-		if (packageManager in INSTALL_COMMANDS) return packageManager as keyof typeof INSTALL_COMMANDS;
-		return undefined;
-	} catch {
-		return undefined;
+async function detectPackageManager(packageJsonPath: URL): Promise<string> {
+	const { packageManager } = await readPackageJson().catch(() => ({ packageManager: undefined }));
+	const name = packageManager?.split("@")[0];
+	if (name && PACKAGE_MANAGERS.includes(name)) return name;
+
+	for (const file in LOCKFILES) {
+		if (await exists(new URL(file, packageJsonPath))) return LOCKFILES[file];
 	}
+	return "npm";
 }

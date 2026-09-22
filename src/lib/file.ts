@@ -3,40 +3,22 @@ import { pathToFileURL } from "node:url";
 import { parseEnv } from "node:util";
 import * as z from "zod/mini";
 
-import { appendTrailingSlash, getExtension } from "./url";
+import { appendTrailingSlash } from "./url";
 
+// Searches the current directory and its ancestors. The search ends without a
+// result at a directory that contains `stop`.
 export async function findUpward(
 	name: string,
-	config: { start?: URL; stop?: URL | string } = {},
+	config: { stop?: string } = {},
 ): Promise<URL | undefined> {
-	const { start = pathToFileURL(process.cwd()), stop } = config;
-
-	let dir = appendTrailingSlash(start);
-
+	let dir = appendTrailingSlash(pathToFileURL(process.cwd()));
 	while (true) {
 		const path = new URL(name, dir);
-		try {
-			await access(path);
-			return path;
-		} catch {}
-
-		if (typeof stop === "string") {
-			const stopPath = new URL(stop, dir);
-			try {
-				await access(stopPath);
-				return;
-			} catch {}
-		} else if (stop instanceof URL) {
-			if (stop.href === dir.href) {
-				return;
-			}
-		}
+		if (await exists(path)) return path;
+		if (config.stop && (await exists(new URL(config.stop, dir)))) return;
 
 		const parent = new URL("..", dir);
-		if (parent.href === dir.href) {
-			return undefined;
-		}
-
+		if (parent.href === dir.href) return;
 		dir = parent;
 	}
 }
@@ -54,8 +36,7 @@ export async function writeFileRecursive(
 	path: URL,
 	data: Parameters<typeof writeFile>[1],
 ): Promise<void> {
-	const dirname = new URL(".", path);
-	await mkdir(dirname, { recursive: true });
+	await mkdir(new URL(".", path), { recursive: true });
 	await writeFile(path, data);
 }
 
@@ -63,11 +44,8 @@ export async function readJsonFile<T = unknown>(
 	path: URL,
 	options: { schema?: z.ZodMiniType<T> } = {},
 ): Promise<T> {
-	const { schema } = options;
-	const file = await readFile(path, "utf8");
-	const json = JSON.parse(file);
-	if (schema) return z.parse(schema, json);
-	return json;
+	const json = JSON.parse(await readFile(path, "utf8"));
+	return options.schema ? z.parse(options.schema, json) : json;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -90,38 +68,24 @@ export async function readURLFile(url: URL): Promise<Blob> {
 	}
 
 	if (url.protocol === "file:") {
-		const buffer = await readFile(url);
-		const extension = getExtension(url);
-		const type = extension
-			? MIME_TYPES[extension] || "application/octet-stream"
-			: "application/octet-stream";
-		return new Blob([buffer], { type });
+		const extension = url.pathname.slice(url.pathname.lastIndexOf(".") + 1).toLowerCase();
+		const type = MIME_TYPES[extension] || "application/octet-stream";
+		return new Blob([await readFile(url)], { type });
 	}
 
 	throw new Error(`Unsupported file protocol: ${url.protocol}`);
 }
 
-export async function readEnvFile<T = Partial<Record<string, string>>>(
-	path: URL,
-	options: { schema?: z.ZodMiniType<T> } = {},
-): Promise<T> {
-	const { schema } = options;
-	const contents = await readFile(path, "utf8");
-	const parsed = parseEnv(contents);
-	if (schema) return z.parse(schema, parsed);
-	return parsed as T;
+export async function readEnvFile(path: URL): Promise<Partial<Record<string, string>>> {
+	return parseEnv(await readFile(path, "utf8"));
 }
 
 export async function setEnvFileVar(path: URL, key: string, value: string): Promise<void> {
-	const hasFile = await exists(path);
-	let contents = "";
-	if (hasFile) contents = await readFile(path, "utf8");
-
+	let contents = (await exists(path)) ? await readFile(path, "utf8") : "";
 	const pattern = new RegExp(`^${key}=.*$`, "mg");
 	const line = `${key}=${value}`;
-	const hasEnvironmentVar = pattern.test(contents);
 
-	if (hasEnvironmentVar) {
+	if (pattern.test(contents)) {
 		contents = contents.replace(pattern, line);
 	} else {
 		if (contents && !contents.endsWith("\n")) contents += "\n";
@@ -132,13 +96,7 @@ export async function setEnvFileVar(path: URL, key: string, value: string): Prom
 }
 
 export async function unsetEnvFileVar(path: URL, key: string): Promise<void> {
-	const hasFile = await exists(path);
-	if (!hasFile) return;
-
-	let contents = await readFile(path, "utf8");
-
-	const pattern = new RegExp(`^${key}=.*$\n?`, "mg");
-	contents = contents.replace(pattern, "");
-
-	await writeFile(path, contents);
+	if (!(await exists(path))) return;
+	const contents = await readFile(path, "utf8");
+	await writeFile(path, contents.replace(new RegExp(`^${key}=.*$\n?`, "mg"), ""));
 }

@@ -11,16 +11,8 @@ export function relativePathname(a: URL, b: URL): string {
 	return relative(fileURLToPath(a), fileURLToPath(b));
 }
 
-export function getExtension(url: URL): string | undefined {
-	const dotIndex = url.pathname.lastIndexOf(".");
-	if (dotIndex === -1) return undefined;
-	return url.pathname.slice(dotIndex + 1).toLowerCase() || undefined;
-}
-
 export function isDescendant(a: URL, b: URL): boolean {
-	const rel = relative(fileURLToPath(a), fileURLToPath(b));
-	if (!rel) return false; // same path, not a descendant
-	if (rel.startsWith("..")) return false; // outside parent
-	if (isAbsolute(rel)) return false; // different drive (Windows)
-	return true;
+	const rel = relativePathname(a, b);
+	// An absolute result means a different drive on Windows.
+	return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }

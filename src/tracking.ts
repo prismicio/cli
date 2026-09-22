@@ -12,9 +12,6 @@ import { stringify } from "./lib/json";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
 
-const PROD_WRITE_KEY = "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P";
-const STAGING_WRITE_KEY = "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG";
-
 // Stored IDs tie every command, and every documentation page read through the
 // CLI, to one user.
 const AnalyticsIdsSchema = z.object({
@@ -43,19 +40,20 @@ export async function initTracking(config: {
 	userIntent?: string;
 	taskId?: string;
 }): Promise<void> {
-	const { host, repo } = config;
-	if (repo) repository = repo;
+	if (config.repo) repository = config.repo;
 	userIntent = config.userIntent;
 	taskId = config.taskId;
-	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
 	agent = detectAgent();
 
 	const storedIds = await readIds();
 	ids = storedIds ?? { anonymousId: crypto.randomUUID() };
 	if (!storedIds) await saveIds(ids);
 
-	await initSegment({
-		writeKey,
+	initSegment({
+		writeKey:
+			config.host === DEFAULT_PRISMIC_HOST
+				? "cGjidifKefYb6EPaGaqpt8rQXkv5TD6P"
+				: "Ng5oKJHCGpSWplZ9ymB7Pu7rm0sTDeiG",
 		anonymousId: ids.anonymousId,
 		userId: getTrackedUserId(),
 	});
@@ -76,9 +74,7 @@ export function getTrackedUserId(): string | undefined {
 
 export function getAnalyticsHeaders(): Record<string, string> {
 	if (!ids) return {};
-
 	const userId = getTrackedUserId();
-
 	return {
 		"Prismic-Anonymous-Id": ids.anonymousId,
 		...(userId ? { "Prismic-User-Id": userId } : {}),
@@ -87,7 +83,6 @@ export function getAnalyticsHeaders(): Record<string, string> {
 
 export async function forgetTrackedUser(): Promise<void> {
 	forgotUser = true;
-
 	const storedIds = await readIds();
 	if (storedIds?.userId) await saveIds({ anonymousId: storedIds.anonymousId });
 }
@@ -101,13 +96,12 @@ async function saveIds(nextIds: AnalyticsIds): Promise<void> {
 }
 
 export function trackCommandStart(command: string, config: { watch?: boolean } = {}): void {
-	const { watch } = config;
 	trackEvent("Prismic CLI Start", {
 		properties: {
 			commandType: command,
 			fullCommand: process.argv.join(" "),
 			repository,
-			watch,
+			watch: config.watch,
 			agent,
 			userIntent,
 			taskId,
@@ -121,7 +115,8 @@ export function trackCommandEnd(
 	config: { watch?: boolean; success?: boolean; error?: unknown } = {},
 ): void {
 	const { watch, success = !process.exitCode, error } = config;
-	const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : undefined;
+	let errorMessage: string | undefined;
+	if (error) errorMessage = error instanceof Error ? error.message : String(error);
 	trackEvent("Prismic CLI End", {
 		properties: {
 			commandType: command,
@@ -138,26 +133,16 @@ export function trackCommandEnd(
 	});
 }
 
-const PrismicRcSchema = z.object({
-	telemetry: z.boolean(),
-});
+const PrismicRcSchema = z.object({ telemetry: z.boolean() });
 
+// A .prismicrc in the home directory or the project can opt out.
 export async function isTelemetryEnabled(): Promise<boolean> {
 	try {
-		// Check user-level .prismicrc
-		const userRc = await readJsonFile(
-			new URL(".prismicrc", appendTrailingSlash(pathToFileURL(homedir()))),
-			{ schema: PrismicRcSchema },
-		).catch(() => ({ telemetry: true }));
-		if (userRc.telemetry === false) return false;
-
-		// Check project-level .prismicrc
-		const projectRc = await readJsonFile(
-			new URL(".prismicrc", appendTrailingSlash(pathToFileURL(process.cwd()))),
-			{ schema: PrismicRcSchema },
-		).catch(() => ({ telemetry: true }));
-		if (projectRc.telemetry === false) return false;
-
+		for (const dir of [homedir(), process.cwd()]) {
+			const path = new URL(".prismicrc", appendTrailingSlash(pathToFileURL(dir)));
+			const rc = await readJsonFile(path, { schema: PrismicRcSchema }).catch(() => undefined);
+			if (rc?.telemetry === false) return false;
+		}
 		return true;
 	} catch {
 		return true;

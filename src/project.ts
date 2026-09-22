@@ -1,11 +1,11 @@
 import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
-import { readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { realpath, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
 import { env } from "./env";
-import { exists, findUpward } from "./lib/file";
+import { exists, findUpward, readJsonFile } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
 import { getRepository } from "./lib/prismic/clients/repository";
@@ -13,38 +13,34 @@ import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
 
 const CONFIG_FILENAME = "prismic.config.json";
-
-const RouteSchema = z.object({
-	type: z.string(),
-	path: z.string(),
-	uid: z.optional(z.string()),
-	lang: z.optional(z.string()),
-	resolvers: z.optional(z.record(z.string(), z.string())),
-});
-type Route = z.infer<typeof RouteSchema>;
+const LEGACY_SLICE_MACHINE_CONFIG_FILENAME = "slicemachine.config.json";
 
 const ConfigSchema = z.object({
 	repositoryName: z.string(),
 	documentAPIEndpoint: z.optional(z.url()),
 	libraries: z.optional(z.array(z.string())),
-	routes: z.optional(z.array(RouteSchema)),
+	routes: z.optional(
+		z.array(
+			z.object({
+				type: z.string(),
+				path: z.string(),
+				uid: z.optional(z.string()),
+				lang: z.optional(z.string()),
+				resolvers: z.optional(z.record(z.string(), z.string())),
+			}),
+		),
+	),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 
-export async function createConfig(config: Config): Promise<URL> {
-	const suggestedConfigPath = await findSuggestedConfigPath();
-	await writeFile(suggestedConfigPath, stringify(config));
-	return suggestedConfigPath;
-}
+const LegacySliceMachineConfigSchema = z.object({
+	repositoryName: z.string(),
+	libraries: z.optional(z.array(z.string())),
+});
 
-export async function readConfig(): Promise<Config> {
-	const configPath = await findConfigPath();
-	try {
-		const raw = await readFile(configPath, "utf8");
-		return z.parse(ConfigSchema, JSON.parse(raw));
-	} catch {
-		throw new InvalidPrismicConfigError();
-	}
+export class MissingPrismicConfigError extends Error {
+	name = "MissingPrismicConfigError";
+	message = `Could not find a ${CONFIG_FILENAME} file. Run \`prismic init\` to create a config.`;
 }
 
 export class InvalidPrismicConfigError extends Error {
@@ -52,36 +48,14 @@ export class InvalidPrismicConfigError extends Error {
 	message = `${CONFIG_FILENAME} is invalid. Run \`prismic init\` to re-create a config.`;
 }
 
-export async function updateConfig(updates: Partial<Config>): Promise<Config> {
-	const configPath = await findConfigPath();
-	const config = await readConfig();
-	const updatedConfig = { ...config, ...updates };
-	await writeFile(configPath, stringify(updatedConfig));
-	return updatedConfig;
+class MissingLegacySliceMachineConfigError extends Error {
+	name = "MissingLegacySliceMachineConfigError";
+	message = `Could not find a ${LEGACY_SLICE_MACHINE_CONFIG_FILENAME} file.`;
 }
 
-async function findConfigPath(): Promise<URL> {
-	const configPath = await findUpward(CONFIG_FILENAME, { stop: "package.json" });
-	if (!configPath) throw new MissingPrismicConfigError();
-	return configPath;
-}
-
-export class MissingPrismicConfigError extends Error {
-	name = "MissingPrismicConfigError";
-	message = `Could not find a ${CONFIG_FILENAME} file. Run \`prismic init\` to create a config.`;
-}
-
-async function findSuggestedConfigPath(): Promise<URL> {
-	try {
-		const packageJsonPath = await findPackageJson();
-		const suggestedConfigPath = new URL(CONFIG_FILENAME, packageJsonPath);
-		return suggestedConfigPath;
-	} catch (error) {
-		if (error instanceof MissingPackageJson) {
-			throw new UnknownProjectRootError({ cause: error });
-		}
-		throw error;
-	}
+export class InvalidLegacySliceMachineConfigError extends Error {
+	name = "InvalidLegacySliceMachineConfigError";
+	message = `${LEGACY_SLICE_MACHINE_CONFIG_FILENAME} is invalid.`;
 }
 
 export class UnknownProjectRootError extends Error {
@@ -91,14 +65,58 @@ export class UnknownProjectRootError extends Error {
 	}
 }
 
+export class TypeBuilderRequiredError extends Error {
+	name = "TypeBuilderRequired";
+	constructor(repo: string) {
+		super(dedent`
+			This command requires the Type Builder, but repository "${repo}" uses the Legacy Builder.
+
+			Contact Prismic support to enable the Type Builder: https://prismic.io/docs/help-center
+
+			Learn more at https://prismic.io/docs/type-builder
+		`);
+	}
+}
+
+export async function createConfig(config: Config): Promise<URL> {
+	const configPath = await findSuggestedConfigPath();
+	await writeFile(configPath, stringify(config));
+	return configPath;
+}
+
+export async function readConfig(): Promise<Config> {
+	return readJsonFile(await findConfigPath(), { schema: ConfigSchema }).catch(() => {
+		throw new InvalidPrismicConfigError();
+	});
+}
+
+export async function updateConfig(updates: Partial<Config>): Promise<Config> {
+	const configPath = await findConfigPath();
+	const config = { ...(await readConfig()), ...updates };
+	await writeFile(configPath, stringify(config));
+	return config;
+}
+
+async function findConfigPath(): Promise<URL> {
+	const configPath = await findUpward(CONFIG_FILENAME, { stop: "package.json" });
+	if (!configPath) throw new MissingPrismicConfigError();
+	return configPath;
+}
+
+async function findSuggestedConfigPath(): Promise<URL> {
+	try {
+		return new URL(CONFIG_FILENAME, await findPackageJson());
+	} catch (error) {
+		if (error instanceof MissingPackageJson) throw new UnknownProjectRootError({ cause: error });
+		throw error;
+	}
+}
+
 export async function addRoute(pageType: CustomType): Promise<void> {
 	const { routes = [] } = await readConfig();
-	const hasRoute = routes.some((r) => r.type === pageType.id);
-	if (hasRoute) return;
-	const path = buildRoutePath(pageType);
-	const newRoute: Route = { type: pageType.id, path };
-	const newRoutes = [...routes, newRoute].sort((a, b) => a.type.localeCompare(b.type));
-	await updateConfig({ routes: newRoutes });
+	if (routes.some((r) => r.type === pageType.id)) return;
+	const newRoutes = [...routes, { type: pageType.id, path: buildRoutePath(pageType) }];
+	await updateConfig({ routes: newRoutes.sort((a, b) => a.type.localeCompare(b.type)) });
 }
 
 export async function updateRoute(pageType: CustomType): Promise<void> {
@@ -119,41 +137,21 @@ export async function removeRoute(id: string): Promise<void> {
 export function buildRoutePath(pageType: CustomType): string {
 	const { id, repeatable } = pageType;
 	const namespace = id.replaceAll("_", "-").toLowerCase();
-	if (repeatable) {
-		if (id === "page") return "/:uid";
-		return `/${namespace}/:uid`;
-	} else {
-		if (id === "homepage") return "/";
-		return `/${namespace}`;
-	}
+	if (repeatable) return id === "page" ? "/:uid" : `/${namespace}/:uid`;
+	return id === "homepage" ? "/" : `/${namespace}`;
 }
 
-const LEGACY_SLICE_MACHINE_CONFIG_FILENAME = "slicemachine.config.json";
-
-const LegacySliceMachineConfigSchema = z.object({
-	repositoryName: z.string(),
-	libraries: z.optional(z.array(z.string())),
-});
-export type LegacySliceMachineConfig = z.infer<typeof LegacySliceMachineConfigSchema>;
-
-export async function readLegacySliceMachineConfig(): Promise<LegacySliceMachineConfig> {
+export async function readLegacySliceMachineConfig(): Promise<
+	z.infer<typeof LegacySliceMachineConfigSchema>
+> {
 	const configPath = await findLegacySliceMachineConfigPath();
-	try {
-		const raw = await readFile(configPath, "utf8");
-		return z.parse(LegacySliceMachineConfigSchema, JSON.parse(raw));
-	} catch {
+	return readJsonFile(configPath, { schema: LegacySliceMachineConfigSchema }).catch(() => {
 		throw new InvalidLegacySliceMachineConfigError();
-	}
-}
-
-export class InvalidLegacySliceMachineConfigError extends Error {
-	name = "InvalidLegacySliceMachineConfigError";
-	message = `${LEGACY_SLICE_MACHINE_CONFIG_FILENAME} is invalid.`;
+	});
 }
 
 export async function deleteLegacySliceMachineConfig(): Promise<void> {
-	const configPath = await findLegacySliceMachineConfigPath();
-	await rm(configPath);
+	await rm(await findLegacySliceMachineConfigPath());
 }
 
 async function findLegacySliceMachineConfigPath(): Promise<URL> {
@@ -164,43 +162,29 @@ async function findLegacySliceMachineConfigPath(): Promise<URL> {
 	return configPath;
 }
 
-class MissingLegacySliceMachineConfigError extends Error {
-	name = "MissingLegacySliceMachineConfigError";
-	message = `Could not find a ${LEGACY_SLICE_MACHINE_CONFIG_FILENAME} file.`;
-}
-
 export async function findProjectRoot(): Promise<URL> {
 	let configPath;
 	try {
 		configPath = await findConfigPath();
 	} catch (error) {
-		if (error instanceof MissingPrismicConfigError) {
-			configPath = await findSuggestedConfigPath();
-		} else {
-			throw error;
-		}
+		if (!(error instanceof MissingPrismicConfigError)) throw error;
+		configPath = await findSuggestedConfigPath();
 	}
-	const projectRoot = new URL(".", configPath);
-	return appendTrailingSlash(pathToFileURL(await realpath(fileURLToPath(projectRoot))));
+	const projectRoot = await realpath(fileURLToPath(new URL(".", configPath)));
+	return appendTrailingSlash(pathToFileURL(projectRoot));
 }
 
 export async function safeGetRepositoryName(): Promise<string | undefined> {
-	try {
-		return await getRepositoryName();
-	} catch {
-		return undefined;
-	}
+	return getRepositoryName().catch(() => undefined);
 }
 
 export async function getRepositoryName(): Promise<string> {
 	try {
-		const config = await readConfig();
-		return config.repositoryName;
+		return (await readConfig()).repositoryName;
 	} catch (error) {
 		if (error instanceof MissingPrismicConfigError) {
 			try {
-				const legacySliceMachineConfig = await readLegacySliceMachineConfig();
-				return legacySliceMachineConfig.repositoryName;
+				return (await readLegacySliceMachineConfig()).repositoryName;
 			} catch {}
 		}
 		throw error;
@@ -208,19 +192,16 @@ export async function getRepositoryName(): Promise<string> {
 }
 
 export async function getLibraries(): Promise<URL[] | undefined> {
-	const config = await readConfig();
-	const rawLibraries = config.libraries;
-	if (!rawLibraries || rawLibraries.length < 1) return;
+	const { libraries } = await readConfig();
+	if (!libraries?.length) return;
 	const projectRoot = await findProjectRoot();
-	const libraries = rawLibraries.map((library) =>
+	return libraries.map((library) =>
 		appendTrailingSlash(new URL(library.replace(/^\//, ""), projectRoot)),
 	);
-	return libraries;
 }
 
 export async function checkIsTypeScriptProject(): Promise<boolean> {
-	const projectRoot = await findProjectRoot();
-	return exists(new URL("tsconfig.json", projectRoot));
+	return exists(new URL("tsconfig.json", await findProjectRoot()));
 }
 
 export async function checkIsTypeBuilderEnabled(
@@ -228,21 +209,7 @@ export async function checkIsTypeBuilderEnabled(
 	config: { token: string | undefined; host: string },
 ): Promise<boolean> {
 	if (env.PRISMIC_TYPE_BUILDER_ENABLED !== undefined) return env.PRISMIC_TYPE_BUILDER_ENABLED;
-
 	const { token, host } = config;
 	const repository = await getRepository({ repo, token, host });
 	return repository.quotas?.sliceMachineEnabled === true;
-}
-
-export class TypeBuilderRequiredError extends Error {
-	name = "TypeBuilderRequired";
-	constructor(repo: string) {
-		super(dedent`
-			This command requires the Type Builder, but repository "${repo}" uses the Legacy Builder.
-
-			Contact Prismic support to enable the Type Builder: https://prismic.io/docs/help-center
-
-			Learn more at https://prismic.io/docs/type-builder
-		`);
-	}
 }

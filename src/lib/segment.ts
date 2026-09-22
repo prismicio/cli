@@ -1,45 +1,22 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-import { name as packageName, version as packageVersion } from "../../package.json";
+import { name, version } from "../../package.json";
 
-const SEGMENT_TRACK_URL = "https://api.segment.io/v1/track";
-const SEGMENT_IDENTIFY_URL = "https://api.segment.io/v1/identify";
-
-const trackEvents: TrackedEvent[] = [];
-const identifyEvents: TrackedIdentity[] = [];
+const app = { name, version };
+const trackEvents: Record<string, unknown>[] = [];
+const identifyEvents: unknown[] = [];
 let anonymousId: string;
 let userId: string | undefined;
 
-type TrackedEvent = {
-	event: string;
-	properties: Record<string, unknown>;
-	context: {
-		app: { name: string; version: string };
-		groupId?: Record<string, string>;
-	};
-	userId?: string;
-	anonymousId: string;
-	timestamp: string;
-};
-
-type TrackedIdentity = {
-	userId: string;
-	anonymousId: string;
-	integrations: { Intercom: { user_hash: string } };
-	context: { app: { name: string; version: string } };
-	timestamp: string;
-};
-
-export async function initSegment(config: {
+export function initSegment(config: {
 	writeKey: string;
 	anonymousId: string;
 	userId?: string;
-}): Promise<void> {
-	const { writeKey } = config;
+}): void {
 	anonymousId = config.anonymousId;
 	userId = config.userId;
-	process.on("exit", () => flushEvents({ writeKey }));
+	process.on("exit", () => flushEvents(config.writeKey));
 }
 
 export function trackIdentity(identity: { userId: string; intercomHash: string }): void {
@@ -48,12 +25,7 @@ export function trackIdentity(identity: { userId: string; intercomHash: string }
 		userId: identity.userId,
 		anonymousId,
 		integrations: { Intercom: { user_hash: identity.intercomHash } },
-		context: {
-			app: {
-				name: packageName,
-				version: packageVersion,
-			},
-		},
+		context: { app },
 		timestamp: new Date().toISOString(),
 	});
 }
@@ -62,52 +34,31 @@ export function trackEvent(
 	event: string,
 	config: { properties?: Record<string, unknown>; groupId?: Record<string, string> } = {},
 ): void {
-	const { properties, groupId } = config;
 	trackEvents.push({
 		event,
-		properties: {
-			nodeVersion: process.versions.node,
-			...properties,
-		},
-		context: {
-			app: {
-				name: packageName,
-				version: packageVersion,
-			},
-			groupId,
-		},
+		properties: { nodeVersion: process.versions.node, ...config.properties },
+		context: { app, groupId: config.groupId },
 		userId,
 		anonymousId,
 		timestamp: new Date().toISOString(),
 	});
 }
 
-function flushEvents(config: { writeKey: string }): void {
-	const { writeKey } = config;
-
+function flushEvents(writeKey: string): void {
 	if (trackEvents.length === 0 && identifyEvents.length === 0) return;
 
 	try {
 		const payload = Buffer.from(
 			JSON.stringify({
-				trackEvents: trackEvents.map((event) => ({
-					...event,
-					userId: event.userId || userId,
-				})),
+				// Events tracked before an identify get the user identified later.
+				trackEvents: trackEvents.map((event) => ({ ...event, userId: event.userId || userId })),
 				identifyEvents,
 				writeKey,
 			}),
 		).toString("base64");
-
 		const script = fileURLToPath(new URL("./subprocesses/sendSegmentEvents.mjs", import.meta.url));
-		const child = spawn(process.execPath, [script, payload], {
-			detached: true,
-			stdio: "ignore",
-		});
-		child.unref();
-	} catch {
-		// Silent failure — never breaks the CLI
-	}
+		spawn(process.execPath, [script, payload], { detached: true, stdio: "ignore" }).unref();
+	} catch {}
 
 	trackEvents.length = 0;
 	identifyEvents.length = 0;
@@ -118,21 +69,18 @@ export async function sendSegmentEvents(
 	identifyEvents: unknown[],
 	writeKey: string,
 ): Promise<void> {
-	const headers = {
-		"Content-Type": "application/json",
-		Authorization: `Basic ${btoa(writeKey + ":")}`,
-	};
+	const send = (endpoint: string, body: unknown): Promise<unknown> =>
+		fetch(`https://api.segment.io/v1/${endpoint}`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Basic ${btoa(writeKey + ":")}`,
+			},
+			body: JSON.stringify(body),
+		}).catch(() => {});
 
-	await Promise.allSettled([
-		...trackEvents.map((e) =>
-			fetch(SEGMENT_TRACK_URL, { method: "POST", headers, body: JSON.stringify(e) }).catch(
-				() => {},
-			),
-		),
-		...identifyEvents.map((e) =>
-			fetch(SEGMENT_IDENTIFY_URL, { method: "POST", headers, body: JSON.stringify(e) }).catch(
-				() => {},
-			),
-		),
+	await Promise.all([
+		...trackEvents.map((e) => send("track", e)),
+		...identifyEvents.map((e) => send("identify", e)),
 	]);
 }

@@ -7,24 +7,23 @@ import * as z from "zod/mini";
 
 import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
-import { exists, writeFileRecursive } from "./lib/file";
+import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { refreshToken as baseRefreshToken } from "./lib/prismic/clients/auth";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 
-const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
-const PREFERRED_PORT = 5555;
-const LOGIN_SOURCE = "prismic-cli";
+const LOGIN_TIMEOUT_MS = 3 * 60 * 1000;
 
 const CredentialsSchema = z.looseObject({
 	token: z.optional(z.string().check(z.minLength(1))),
 	host: z.optional(z.string().check(z.minLength(1))),
 });
-type Credentials = z.infer<typeof CredentialsSchema>;
 
 export async function getCredentials(): Promise<{ token: string | undefined; host: string }> {
-	const credentials = await readCredentials();
+	const credentials = await readJsonFile(CREDENTIALS_PATH, { schema: CredentialsSchema }).catch(
+		() => undefined,
+	);
 	return {
 		token: env.PRISMIC_TOKEN || credentials?.token,
 		host: env.PRISMIC_HOST || credentials?.host || DEFAULT_PRISMIC_HOST,
@@ -36,14 +35,12 @@ export async function refreshToken(): Promise<string | undefined> {
 	const { token, host } = await getCredentials();
 	if (!token) return;
 	const newToken = await baseRefreshToken(token, { host });
-	await saveCredentials({ token: newToken, host });
+	await saveCredentials(newToken, host);
 	return newToken;
 }
 
 export async function logout(): Promise<boolean> {
-	const credentialsExist = await exists(CREDENTIALS_PATH);
-	if (!credentialsExist) return true;
-
+	if (!(await exists(CREDENTIALS_PATH))) return true;
 	try {
 		await rm(CREDENTIALS_PATH, { force: true });
 		await forgetTrackedUser();
@@ -53,18 +50,8 @@ export async function logout(): Promise<boolean> {
 	}
 }
 
-async function readCredentials(): Promise<Credentials | undefined> {
-	try {
-		const contents = await readFile(CREDENTIALS_PATH, "utf-8");
-		const json = JSON.parse(contents);
-		return z.parse(CredentialsSchema, json);
-	} catch {
-		return undefined;
-	}
-}
-
-async function saveCredentials(credentials: Credentials): Promise<void> {
-	await writeFileRecursive(CREDENTIALS_PATH, stringify(credentials));
+async function saveCredentials(token: string, host: string): Promise<void> {
+	await writeFileRecursive(CREDENTIALS_PATH, stringify({ token, host }));
 }
 
 export async function createLoginSession(options?: {
@@ -85,57 +72,47 @@ export async function createLoginSession(options?: {
 				return;
 			}
 
-			if (req.method === "POST") {
-				let body = "";
-
-				req.on("data", (chunk) => {
-					body += chunk.toString();
-				});
-
-				req.on("end", async () => {
-					try {
-						const { cookies, email } = JSON.parse(body);
-
-						const cookie: string | undefined = cookies.find((c: string) =>
-							c.startsWith("prismic-auth="),
-						);
-						const token = cookie?.split(";")[0]?.replace(/^prismic-auth=/, "");
-
-						if (!token) {
-							res.writeHead(400, {
-								"Access-Control-Allow-Origin": corsOrigin,
-								"Content-Type": "application/json",
-							});
-							res.end(JSON.stringify({ error: "Invalid request" }));
-							return;
-						}
-
-						await saveCredentials({ token, host });
-						await forgetTrackedUser();
-
-						res.writeHead(200, {
-							"Access-Control-Allow-Origin": corsOrigin,
-							"Content-Type": "application/json",
-						});
-						res.end(JSON.stringify({ success: true }));
-
-						clearTimeout(timeoutId);
-						server.close();
-						resolve({ email });
-					} catch {
-						res.writeHead(400, {
-							"Access-Control-Allow-Origin": corsOrigin,
-							"Content-Type": "application/json",
-						});
-						res.end(JSON.stringify({ error: "Invalid request" }));
-					}
-				});
-
+			if (req.method !== "POST") {
+				res.writeHead(404);
+				res.end();
 				return;
 			}
 
-			res.writeHead(404);
-			res.end();
+			const respond = (status: number, body: unknown): void => {
+				res.writeHead(status, {
+					"Access-Control-Allow-Origin": corsOrigin,
+					"Content-Type": "application/json",
+				});
+				res.end(JSON.stringify(body));
+			};
+
+			let body = "";
+			req.on("data", (chunk) => {
+				body += chunk.toString();
+			});
+			req.on("end", async () => {
+				try {
+					const { cookies, email } = JSON.parse(body);
+					const cookie: string | undefined = cookies.find((c: string) =>
+						c.startsWith("prismic-auth="),
+					);
+					const token = cookie?.split(";")[0]?.replace(/^prismic-auth=/, "");
+					if (!token) {
+						respond(400, { error: "Invalid request" });
+						return;
+					}
+
+					await saveCredentials(token, host);
+					await forgetTrackedUser();
+					respond(200, { success: true });
+
+					clearTimeout(timeoutId);
+					server.close();
+					resolve({ email });
+				} catch {
+					respond(400, { error: "Invalid request" });
+				}
+			});
 		});
 
 		const timeoutId = setTimeout(() => {
@@ -143,7 +120,7 @@ export async function createLoginSession(options?: {
 			reject(new Error("Login timed out. Please try again."));
 		}, LOGIN_TIMEOUT_MS);
 
-		const onListening = async (): Promise<void> => {
+		const onListening = (): void => {
 			const address = server.address();
 			if (!address || typeof address === "string") {
 				clearTimeout(timeoutId);
@@ -152,12 +129,14 @@ export async function createLoginSession(options?: {
 				return;
 			}
 
-			const url = await buildLoginUrl(host, address.port);
+			const url = new URL("dashboard/cli/login", `https://${host}/`);
+			url.searchParams.set("source", "prismic-cli");
+			url.searchParams.set("port", address.port.toString());
 			options?.onReady?.(url);
 		};
 
 		server.on("error", (error: NodeJS.ErrnoException) => {
-			if (error.code === "EADDRINUSE" && server.listening === false) {
+			if (error.code === "EADDRINUSE" && !server.listening) {
 				server.listen(0, "0.0.0.0", onListening);
 			} else {
 				clearTimeout(timeoutId);
@@ -165,47 +144,25 @@ export async function createLoginSession(options?: {
 			}
 		});
 
-		server.listen(PREFERRED_PORT, "0.0.0.0", onListening);
+		server.listen(5555, "0.0.0.0", onListening);
 	});
 }
 
-const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
-
+// Only remove ~/.prismic when it holds the legacy CLI's update-check state.
 export async function cleanupLegacyAuthFile(): Promise<void> {
-	let contents: string;
+	const path = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 	try {
-		contents = await readFile(LEGACY_AUTH_FILE_PATH, "utf-8");
-	} catch {
-		return;
-	}
-
-	try {
-		const json = JSON.parse(contents);
+		const json = JSON.parse(await readFile(path, "utf-8"));
 		if (!json || (json.latestKnownVersion === undefined && json.lastUpdateCheckAt === undefined)) {
 			return;
 		}
-	} catch {
-		return;
-	}
-
-	try {
-		await rm(LEGACY_AUTH_FILE_PATH, { force: true });
+		await rm(path, { force: true });
 	} catch {}
-}
-
-async function buildLoginUrl(host: string, port: number): Promise<URL> {
-	const url = new URL("dashboard/cli/login", `https://${host}/`);
-	url.searchParams.set("source", LOGIN_SOURCE);
-	url.searchParams.set("port", port.toString());
-	return url;
 }
 
 export function spawnTokenRefresh(): void {
 	try {
 		const script = fileURLToPath(new URL("./subprocesses/refreshToken.mjs", import.meta.url));
-		const child = spawn(process.execPath, [script], { detached: true, stdio: "ignore" });
-		child.unref();
-	} catch {
-		// Silent failure — never breaks the CLI.
-	}
+		spawn(process.execPath, [script], { detached: true, stdio: "ignore" }).unref();
+	} catch {}
 }
