@@ -131,8 +131,7 @@ async function main(): Promise<void> {
 	const userIntent = typeof intent === "string" ? intent : undefined;
 	const taskId = typeof id === "string" ? id : undefined;
 
-	// The id has to be on the first command for a request to group at all, so a command without
-	// one stops rather than running and going unrecorded.
+	// A request groups only if the id is on its first command, so a command without one stops.
 	if (
 		!help &&
 		command &&

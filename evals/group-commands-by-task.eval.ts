@@ -14,6 +14,9 @@ const TASK_ID = /^pt_[0-9a-hjkmnp-tv-z]{16}$/;
 const gated = (argv: string[]) =>
 	argv[0] !== "task-id" && !argv.some((arg) => ["--help", "-h", "--version", "-v"].includes(arg));
 
+// A call the CLI refuses records nothing, and it refuses one missing either option.
+const recorded = (argv: string[]) => Boolean(intentOf(argv)) && TASK_ID.test(taskIdOf(argv) ?? "");
+
 // Both spellings reach the CLI, so read whichever the agent used.
 const taskIdOf = (argv: string[]) =>
 	optionValue(argv, "task-id") ?? optionValue(argv, "analytics-task-id");
@@ -23,9 +26,8 @@ const intentOf = (argv: string[]) =>
 const CTA = `Using the Prismic CLI, create a "call to action" slice with a heading, body text, and a button label, then add it to the "article" type.`;
 const DATE_FIELD = `Using the Prismic CLI, add a "published_at" date field to the "article" type.`;
 
-// Analytics groups by task ID, so the intent is a label for the group rather than a key. An agent
-// may reword it between commands; what must not happen is an intent that describes one command
-// instead of the request, or a placeholder. So every distinct value is judged, not compared.
+// The intent labels the group, it does not key it, so rewording between commands is harmless.
+// An intent describing one command instead of the request is not, so judge rather than compare.
 const expectIntentsDescribe = async (
 	expect: ExpectStatic,
 	calls: string[][],
@@ -45,8 +47,7 @@ const expectIntentsDescribe = async (
 	}
 };
 
-// A command refused for having no id never ran, so it costs a call but loses no row, and is not
-// asserted here. One id spanning both requests is what would corrupt the analytics.
+// One id spanning both requests is what would corrupt the analytics.
 const eachRequestGetsItsOwnId = async (
 	_: unknown,
 	{ project, agent, expect }: { project: URL; agent: Agent; expect: ExpectStatic },
@@ -71,20 +72,19 @@ const eachRequestGetsItsOwnId = async (
 		...summarise("request 2:", secondCalls),
 	].join("\n");
 
-	const firstIds = [...new Set(firstCalls.map(taskIdOf).filter(Boolean))];
-	const secondIds = [...new Set(secondCalls.map(taskIdOf).filter(Boolean))];
+	// `seen` above lists every gated call, refusals included, so a failure still shows them.
+	const firstRecorded = firstCalls.filter(recorded);
+	const secondRecorded = secondCalls.filter(recorded);
+	const firstIds = [...new Set(firstRecorded.map(taskIdOf))];
+	const secondIds = [...new Set(secondRecorded.map(taskIdOf))];
 
-	// One id per request, reused across every command of that request.
 	expect(firstIds, seen).toHaveLength(1);
 	expect(secondIds, seen).toHaveLength(1);
-	expect(firstIds[0], seen).toMatch(TASK_ID);
-	expect(secondIds[0], seen).toMatch(TASK_ID);
 
-	// The second request gets its own id.
 	expect(secondIds[0], seen).not.toBe(firstIds[0]);
 
-	await expectIntentsDescribe(expect, firstCalls, CTA, seen);
-	await expectIntentsDescribe(expect, secondCalls, DATE_FIELD, seen);
+	await expectIntentsDescribe(expect, firstRecorded, CTA, seen);
+	await expectIntentsDescribe(expect, secondRecorded, DATE_FIELD, seen);
 };
 
 it.for(trials)("gives each request its own task id", eachRequestGetsItsOwnId);
