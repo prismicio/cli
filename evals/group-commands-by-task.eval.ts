@@ -9,11 +9,6 @@ type Request = { prompt: string; calls: string[][] };
 
 const TASK_ID = /^pt_[0-9a-hjkmnp-tv-z]{16}$/;
 
-const PROMPTS = [
-	`Using the Prismic CLI, create a "call to action" slice with a heading, body text, and a button label, then add it to the "article" type.`,
-	`Using the Prismic CLI, add a "published_at" date field to the "article" type.`,
-];
-
 describe.for([
 	{ name: "with the skill", installSkill: true },
 	{ name: "without the skill", installSkill: false },
@@ -23,7 +18,10 @@ describe.for([
 	it.for(trials)("gives each request its own task id", async (_, { project, agent, expect }) => {
 		await writeLocalCustomType(project, buildCustomType({ id: "article", label: "Article" }));
 
-		const requests = await runRequests(agent, PROMPTS);
+		const requests = await runRequests(agent, [
+			`Using the Prismic CLI, create a "call to action" slice with a heading, body text, and a button label, then add it to the "article" type.`,
+			`Using the Prismic CLI, add a "published_at" date field to the "article" type.`,
+		]);
 		const seen = report(requests);
 
 		const ids = requests.map(({ calls }) => {
