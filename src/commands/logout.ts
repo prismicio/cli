@@ -1,4 +1,4 @@
-import { logout as baseLogout } from "../auth";
+import { logout } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 
 const config = {
@@ -7,10 +7,8 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async () => {
-	const ok = await baseLogout();
-	if (ok) {
-		console.info("Logged out of Prismic");
-	} else {
+	if (!(await logout())) {
 		throw new CommandError("Logout failed. You can log out manually by deleting the file.");
 	}
+	console.info("Logged out of Prismic");
 });

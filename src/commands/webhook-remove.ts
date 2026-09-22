@@ -37,9 +37,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError(`Webhook not found: ${webhookUrl}`);
 	}
 
-	const id = webhook.config._id;
-
-	await deleteWebhook(id, { repo, token, host });
+	await deleteWebhook(webhook.config._id, { repo, token, host });
 
 	console.info(`Webhook removed: ${webhookUrl}`);
 });

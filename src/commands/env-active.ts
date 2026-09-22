@@ -10,6 +10,5 @@ const config = {
 export default createCommand(config, async () => {
 	const repo = await getRepositoryName();
 	const adapter = await getAdapter();
-	const environment = await adapter.getEnvironment();
-	console.info(environment ?? repo);
+	console.info((await adapter.getEnvironment()) ?? repo);
 });

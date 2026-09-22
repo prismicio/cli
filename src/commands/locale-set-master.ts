@@ -32,9 +32,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const { token, host } = await getCredentials();
 
 	const locales = await getLocales({ repo, token, host });
-
 	const locale = locales.find((l) => l.id === code);
-
 	if (!locale) {
 		throw new CommandError(
 			`Locale "${code}" not found. Available locales: ${locales.map((l) => l.id).join(", ")}`,

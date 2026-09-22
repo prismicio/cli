@@ -60,18 +60,13 @@ export default createCommand(config, async ({ values }) => {
 	let createdToken: string;
 	let scope: string | undefined;
 	if (write) {
-		const writeToken = await createWriteToken(name, { repo, token, host });
-		createdToken = writeToken.token;
+		createdToken = (await createWriteToken(name, { repo, token, host })).token;
 	} else {
 		scope = allowReleases ? "master+releases" : "master";
-
-		// Find or create the OAuth app.
 		const apps = await getOAuthApps({ repo, token, host });
-		let app = apps.find((a) => a.name === name);
-		if (!app) app = await createOAuthApp(name, { repo, token, host });
-
-		const accessToken = await createOAuthAuthorization(app.id, scope, { repo, token, host });
-		createdToken = accessToken.token;
+		const app =
+			apps.find((a) => a.name === name) ?? (await createOAuthApp(name, { repo, token, host }));
+		createdToken = (await createOAuthAuthorization(app.id, scope, { repo, token, host })).token;
 	}
 
 	if (json) {

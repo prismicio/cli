@@ -42,12 +42,11 @@ export default createCommand(config, async ({ positionals, values }) => {
 		return;
 	}
 
-	const id = webhook.config._id;
-
-	const updatedConfig = structuredClone(webhook.config);
-	updatedConfig.active = false;
-
-	await updateWebhook(id, updatedConfig, { repo, token, host });
+	await updateWebhook(
+		webhook.config._id,
+		{ ...webhook.config, active: false },
+		{ repo, token, host },
+	);
 
 	console.info(`Webhook disabled: ${webhookUrl}`);
 });

@@ -42,9 +42,9 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const rows = locales.map((locale) => {
-		const masterLabel = locale.isMaster ? " (master)" : "";
-		return [locale.id, `${locale.label}${masterLabel}`];
-	});
+	const rows = locales.map((locale) => [
+		locale.id,
+		`${locale.label}${locale.isMaster ? " (master)" : ""}`,
+	]);
 	console.info(formatTable(rows, { headers: ["ID", "LABEL"] }));
 });

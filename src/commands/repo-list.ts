@@ -16,10 +16,7 @@ export default createCommand(config, async ({ values }) => {
 	const { json } = values;
 
 	const { token, host } = await getCredentials();
-
-	const profile = await getProfile({ token, host });
-
-	const repos = profile.repositories;
+	const { repositories: repos } = await getProfile({ token, host });
 
 	if (json) {
 		console.info(
@@ -40,10 +37,7 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const rows = repos.map((repo) => {
-		const name = repo.name || "(no name)";
-		return [repo.domain, name, formatRole(repo.role)];
-	});
+	const rows = repos.map((repo) => [repo.domain, repo.name || "(no name)", formatRole(repo.role)]);
 	console.info(formatTable(rows, { headers: ["DOMAIN", "NAME", "ROLE"] }));
 });
 

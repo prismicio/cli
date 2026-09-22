@@ -26,6 +26,5 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const { token, host } = await getCredentials();
 
 	const confirmedName = await setRepositoryName(displayName, { repo, token, host });
-
 	console.info(`Repository name set to: ${confirmedName}`);
 });

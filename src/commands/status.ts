@@ -35,8 +35,7 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
 
 	const repositoryName = await getRepositoryName();
-	const activeEnvironment = await adapter.getEnvironment();
-	const { env, repo = env ?? activeEnvironment ?? repositoryName } = values;
+	const { env, repo = env ?? (await adapter.getEnvironment()) ?? repositoryName } = values;
 
 	const { token, host } = await getCredentials();
 	const projectRoot = await findProjectRoot();
@@ -82,8 +81,7 @@ export default createCommand(config, async ({ values }) => {
 
 	let dirtyModelFiles: string[] = [];
 	if (gitRoot) {
-		const dirtyPaths = await getDirtyPaths(gitRoot);
-		dirtyModelFiles = dirtyPaths
+		dirtyModelFiles = (await getDirtyPaths(gitRoot))
 			.filter(
 				(path) =>
 					(path.pathname.endsWith("/model.json") &&
@@ -107,12 +105,9 @@ export default createCommand(config, async ({ values }) => {
 	const inSync =
 		customTypeOps !== undefined &&
 		sliceOps !== undefined &&
-		customTypeOps.insert.length === 0 &&
-		customTypeOps.update.length === 0 &&
-		customTypeOps.delete.length === 0 &&
-		sliceOps.insert.length === 0 &&
-		sliceOps.update.length === 0 &&
-		sliceOps.delete.length === 0;
+		[customTypeOps, sliceOps].every(
+			(ops) => ops.insert.length + ops.update.length + ops.delete.length === 0,
+		);
 
 	if (inSync && dirtyModelFiles.length === 0) {
 		console.info("");
@@ -121,24 +116,19 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (customTypeOps && sliceOps) {
-		const sections: string[][] = [];
-		const onlyLocal = [
-			...customTypeOps.insert.map((m) => `  ${m.id} (custom type)`),
-			...sliceOps.insert.map((m) => `  ${m.id} (slice)`),
-		];
-		if (onlyLocal.length > 0) sections.push(["Local-only:", ...onlyLocal]);
-		const onlyRemote = [
-			...customTypeOps.delete.map((m) => `  ${m.id} (custom type)`),
-			...sliceOps.delete.map((m) => `  ${m.id} (slice)`),
-		];
-		if (onlyRemote.length > 0) sections.push(["Remote-only:", ...onlyRemote]);
-		const differ = [
-			...customTypeOps.update.map((m) => `  ${m.id} (custom type)`),
-			...sliceOps.update.map((m) => `  ${m.id} (slice)`),
-		];
-		if (differ.length > 0) sections.push(["Differ:", ...differ]);
-		for (const lines of sections) {
+		const sections = [
+			["Local-only:", "insert"],
+			["Remote-only:", "delete"],
+			["Differ:", "update"],
+		] as const;
+		for (const [heading, key] of sections) {
+			const lines = [
+				...customTypeOps[key].map((model) => `  ${model.id} (custom type)`),
+				...sliceOps[key].map((model) => `  ${model.id} (slice)`),
+			];
+			if (lines.length === 0) continue;
 			console.info("");
+			console.info(heading);
 			for (const line of lines) console.info(line);
 		}
 	}
@@ -153,11 +143,11 @@ export default createCommand(config, async ({ values }) => {
 		next.push(`git commit -m "Update Prismic models"`);
 	}
 	if (customTypeOps && sliceOps && !inSync) {
-		const pushI = customTypeOps.insert.length + sliceOps.insert.length;
-		const pushU = customTypeOps.update.length + sliceOps.update.length;
-		const pushD = customTypeOps.delete.length + sliceOps.delete.length;
-		next.push(`prismic push  # creates ${pushI}, updates ${pushU}, deletes ${pushD}`);
-		next.push(`prismic pull  # creates ${pushD}, updates ${pushU}, deletes ${pushI}`);
+		const inserts = customTypeOps.insert.length + sliceOps.insert.length;
+		const updates = customTypeOps.update.length + sliceOps.update.length;
+		const deletes = customTypeOps.delete.length + sliceOps.delete.length;
+		next.push(`prismic push  # creates ${inserts}, updates ${updates}, deletes ${deletes}`);
+		next.push(`prismic pull  # creates ${deletes}, updates ${updates}, deletes ${inserts}`);
 	}
 
 	if (next.length > 0) {

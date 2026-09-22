@@ -55,8 +55,7 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const name = repoData.name || "(no name)";
-	console.info(`Name: ${name}`);
+	console.info(`Name: ${repoData.name || "(no name)"}`);
 	console.info(`URL: ${url}`);
 	console.info(`Content API: ${access}`);
 });

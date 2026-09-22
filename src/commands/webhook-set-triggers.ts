@@ -46,7 +46,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()), trigger = [] } = values;
 
-	// Validate triggers
 	for (const t of trigger) {
 		if (!WEBHOOK_TRIGGERS.includes(t)) {
 			throw new CommandError(
@@ -63,10 +62,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError(`Webhook not found: ${webhookUrl}`);
 	}
 
-	const id = webhook.config._id;
-
 	await updateWebhook(
-		id,
+		webhook.config._id,
 		{
 			...webhook.config,
 			documentsPublished: trigger.includes("documentsPublished"),

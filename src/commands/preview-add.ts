@@ -38,13 +38,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError(`Invalid URL: ${previewUrl}`);
 	}
 
-	const displayName = name || parsed.hostname;
 	const websiteURL = `${parsed.protocol}//${parsed.host}`;
 	const resolverPath = parsed.pathname === "/" ? undefined : parsed.pathname;
 
 	const { token, host } = await getCredentials();
-
-	await addPreview({ name: displayName, websiteURL, resolverPath }, { repo, token, host });
+	await addPreview(
+		{ name: name || parsed.hostname, websiteURL, resolverPath },
+		{ repo, token, host },
+	);
 
 	console.info(`Preview added: ${previewUrl}`);
 	console.info("Run `prismic preview set-simulator <url>` to set the slice simulator URL.");

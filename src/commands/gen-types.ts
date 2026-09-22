@@ -11,9 +11,5 @@ const config = {
 export default createCommand(config, async () => {
 	const adapter = await getAdapter();
 	const typesPath = await adapter.generateTypes();
-
-	const projectRoot = await findProjectRoot();
-	const relativeOutput = relativePathname(projectRoot, typesPath);
-
-	console.info(`Generated types at ${relativeOutput}`);
+	console.info(`Generated types at ${relativePathname(await findProjectRoot(), typesPath)}`);
 });

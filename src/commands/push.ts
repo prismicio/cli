@@ -1,5 +1,3 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
 import { pascalCase } from "change-case";
 
 import { getAdapter } from "../adapters";
@@ -59,7 +57,7 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
 
 	const {
-		force = false,
+		force,
 		env,
 		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 	} = values;
@@ -76,8 +74,7 @@ export default createCommand(config, async ({ values }) => {
 	]);
 
 	if (!force && gitRoot) {
-		const dirtyPaths = await getDirtyPaths(gitRoot);
-		const dirtyFiles = dirtyPaths
+		const dirtyFiles = (await getDirtyPaths(gitRoot))
 			.filter(
 				(path) =>
 					(path.pathname.endsWith("/model.json") &&
@@ -147,22 +144,48 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	for (const model of customTypeOps.insert) {
-		await insertCustomType(model, { repo, token, host });
+	for (const model of customTypeOps.insert) await insertCustomType(model, { repo, token, host });
+	for (const model of customTypeOps.update) await updateCustomType(model, { repo, token, host });
+	for (const { id, format } of customTypeOps.delete) {
+		await removeCustomType(id, { repo, token, host }).catch(async (error) => {
+			const body = error instanceof BadRequestError ? await error.text() : "";
+			if (
+				!body.includes("associated documents") &&
+				!body.includes("Delete all documents belonging")
+			) {
+				const typesPath = format === "page" ? "page-types" : "custom-types";
+				const typesUrl = new URL(`builder/types/${typesPath}`, `https://${repo}.${host}/`);
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				throw new CommandError(
+					`Could not delete type "${id}": ${errorMessage}"` +
+						"\nPlease try again, or manually deleting the type at: " +
+						typesUrl.href,
+				);
+			}
+
+			const documentsUrl = new URL("builder/working", `https://${repo}.${host}/`);
+			documentsUrl.searchParams.set("customTypes", id);
+			const documentCount = await getDocumentTotalByCustomTypes(id, { repo, token, host }).catch(
+				() => {
+					throw new CommandError(
+						`Could not check whether type "${id}" has associated pages. ` +
+							"\nPlease try again, or manually delete any associated pages at: " +
+							documentsUrl.href,
+					);
+				},
+			);
+			const countLabel = documentCount > 0 ? ` ${documentCount}` : "";
+			const pluralPages = documentCount === 1 ? "page" : "pages";
+			throw new CommandError(
+				`Could not delete type "${id}" because it has${countLabel} associated ${pluralPages}. ` +
+					`\nDelete any associated pages manually before pushing at: ` +
+					documentsUrl.href,
+			);
+		});
 	}
-	for (const model of customTypeOps.update) {
-		await updateCustomType(model, { repo, token, host });
-	}
-	for (const model of customTypeOps.delete) {
-		await removeCustomTypeWithDocumentHandling(model, { repo, token, host });
-	}
-	for (const model of sliceOps.insert) {
-		await insertSlice(model, { repo, token, host });
-	}
-	for (const model of sliceOps.update) {
-		await updateSlice(model, { repo, token, host });
-	}
-	for (const id of sliceOps.delete.map((m) => m.id)) {
+	for (const model of sliceOps.insert) await insertSlice(model, { repo, token, host });
+	for (const model of sliceOps.update) await updateSlice(model, { repo, token, host });
+	for (const { id } of sliceOps.delete) {
 		await removeSlice(id, { repo, token, host });
 		await deleteScreenshots(id, { repo, token, host }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
@@ -197,74 +220,3 @@ export default createCommand(config, async ({ values }) => {
 		if (totalDeletes > 0) console.info(`Deleted ${totalDeletes} model(s).`);
 	}
 });
-
-async function removeCustomTypeWithDocumentHandling(
-	model: CustomType,
-	config: {
-		repo: string;
-		token: string | undefined;
-		host: string;
-	},
-): Promise<void> {
-	const { repo, token, host } = config;
-	const { id, format } = model;
-
-	try {
-		await removeCustomType(id, { repo, token, host });
-	} catch (error) {
-		if (!(await isDocumentsInUseError(error))) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			throw new CommandError(
-				`Could not delete type "${id}": ${errorMessage}"` +
-					"\nPlease try again, or manually deleting the type at: " +
-					getCustomTypeListUrl({ repo, host, format: format ?? "custom" }),
-			);
-		}
-
-		let documentCount: number;
-		try {
-			documentCount = await getDocumentTotalByCustomTypes(id, { repo, token, host });
-		} catch {
-			throw new CommandError(
-				`Could not check whether type "${id}" has associated pages. ` +
-					"\nPlease try again, or manually delete any associated pages at: " +
-					getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
-			);
-		}
-
-		const countLabel = documentCount > 0 ? ` ${documentCount}` : "";
-		const pluralPages = documentCount === 1 ? "page" : "pages";
-		throw new CommandError(
-			`Could not delete type "${id}" because it has${countLabel} associated ${pluralPages}. ` +
-				`\nDelete any associated pages manually before pushing at: ` +
-				getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
-		);
-	}
-}
-
-async function isDocumentsInUseError(error: unknown): Promise<boolean> {
-	if (!(error instanceof BadRequestError)) return false;
-	const body = await error.text();
-	return body.includes("associated documents") || body.includes("Delete all documents belonging");
-}
-
-function getCustomTypeListUrl(args: {
-	repo: string;
-	host: string;
-	format: "custom" | "page";
-}): string {
-	const { repo, host, format } = args;
-	const type = format === "custom" ? "custom-types" : "page-types";
-	return new URL(`builder/types/${type}`, `https://${repo}.${host}/`).href;
-}
-
-function getWorkingDocumentsUrlForCustomType(args: {
-	repo: string;
-	host: string;
-	customTypeId: string;
-}): string {
-	const { repo, host, customTypeId } = args;
-	const url = new URL("builder/working", `https://${repo}.${host}/`);
-	url.searchParams.set("customTypes", customTypeId);
-	return url.href;
-}

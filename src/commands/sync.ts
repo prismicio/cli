@@ -70,10 +70,14 @@ export default createCommand(config, async ({ values }) => {
 				getCustomTypes({ repo, token, host }),
 				getSlices({ repo, token, host }),
 			]);
-			const nextHash = hash({
-				remoteCustomTypes: remoteCustomTypes.map((model) => canonicalizeCustomType(model)),
-				remoteSlices: remoteSlices.map((model) => canonicalizeSlice(model)),
-			});
+			const nextHash = createHash("sha256")
+				.update(
+					JSON.stringify({
+						remoteCustomTypes: remoteCustomTypes.map((model) => canonicalizeCustomType(model)),
+						remoteSlices: remoteSlices.map((model) => canonicalizeSlice(model)),
+					}),
+				)
+				.digest("hex");
 
 			if (nextHash !== lastHash) {
 				const isInitial = lastHash === "";
@@ -82,47 +86,40 @@ export default createCommand(config, async ({ values }) => {
 					adapter.getCustomTypes(),
 					adapter.getSlices(),
 				]);
-				const localCustomTypeModels = localCustomTypes.map((c) => c.model);
-				const localSliceModels = localSlices.map((s) => s.model);
+				const sliceOps = diffArrays(
+					remoteSlices,
+					localSlices.map((slice) => slice.model),
+					{
+						getKey: (model) => model.id,
+						equals: (remote, local) =>
+							JSON.stringify(canonicalizeSlice(remote)) === JSON.stringify(local),
+					},
+				);
+				const customTypeOps = diffArrays(
+					remoteCustomTypes,
+					localCustomTypes.map((customType) => customType.model),
+					{
+						getKey: (model) => model.id,
+						equals: (remote, local) =>
+							JSON.stringify(canonicalizeCustomType(remote)) === JSON.stringify(local),
+					},
+				);
+
+				for (const model of sliceOps.update) await adapter.updateSlice(model);
+				for (const model of sliceOps.delete) await adapter.deleteSlice(model.id);
+				for (const model of sliceOps.insert) await adapter.createSlice(model);
+				for (const model of customTypeOps.update) await adapter.updateCustomType(model);
+				for (const model of customTypeOps.delete) await adapter.deleteCustomType(model.id);
+				for (const model of customTypeOps.insert) await adapter.createCustomType(model);
 
 				const changed: string[] = [];
-
-				const sliceOps = diffArrays(remoteSlices, localSliceModels, {
-					getKey: (m) => m.id,
-					equals: (remote, local) =>
-						JSON.stringify(canonicalizeSlice(remote)) === JSON.stringify(local),
-				});
 				if (sliceOps.insert.length + sliceOps.update.length + sliceOps.delete.length > 0) {
-					for (const slice of sliceOps.update) {
-						await adapter.updateSlice(slice);
-					}
-					for (const slice of sliceOps.delete) {
-						await adapter.deleteSlice(slice.id);
-					}
-					for (const slice of sliceOps.insert) {
-						await adapter.createSlice(slice);
-					}
 					changed.push("slices");
 				}
-
-				const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
-					getKey: (m) => m.id,
-					equals: (remote, local) =>
-						JSON.stringify(canonicalizeCustomType(remote)) === JSON.stringify(local),
-				});
 				if (
 					customTypeOps.insert.length + customTypeOps.update.length + customTypeOps.delete.length >
 					0
 				) {
-					for (const customType of customTypeOps.update) {
-						await adapter.updateCustomType(customType);
-					}
-					for (const customType of customTypeOps.delete) {
-						await adapter.deleteCustomType(customType.id);
-					}
-					for (const customType of customTypeOps.insert) {
-						await adapter.createCustomType(customType);
-					}
 					changed.push("custom types");
 				}
 
@@ -160,7 +157,3 @@ export default createCommand(config, async ({ values }) => {
 		await setTimeout(POLL_INTERVAL_MS);
 	}
 });
-
-function hash(data: unknown): string {
-	return createHash("sha256").update(JSON.stringify(data)).digest("hex");
-}

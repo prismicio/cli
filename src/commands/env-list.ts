@@ -38,12 +38,10 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const rows = environments.map((environment) => {
-		return [
-			environment.domain,
-			environment.kind,
-			environment.domain === activeEnvironment ? "*" : "",
-		];
-	});
+	const rows = environments.map((environment) => [
+		environment.domain,
+		environment.kind,
+		environment.domain === activeEnvironment ? "*" : "",
+	]);
 	console.info(formatTable(rows, { headers: ["DOMAIN", "KIND", "ACTIVE"] }));
 });

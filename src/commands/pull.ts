@@ -39,7 +39,7 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
 
 	const {
-		force = false,
+		force,
 		env,
 		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 	} = values;
@@ -56,8 +56,7 @@ export default createCommand(config, async ({ values }) => {
 	]);
 
 	if (!force && gitRoot) {
-		const dirtyPaths = await getDirtyPaths(gitRoot);
-		const dirtyFiles = dirtyPaths
+		const dirtyFiles = (await getDirtyPaths(gitRoot))
 			.filter(
 				(path) =>
 					(path.pathname.endsWith("/model.json") &&
@@ -131,24 +130,12 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	for (const model of customTypeOps.insert) {
-		await adapter.createCustomType(model);
-	}
-	for (const model of customTypeOps.update) {
-		await adapter.updateCustomType(model);
-	}
-	for (const model of customTypeOps.delete) {
-		await adapter.deleteCustomType(model.id);
-	}
-	for (const model of sliceOps.insert) {
-		await adapter.createSlice(model);
-	}
-	for (const model of sliceOps.update) {
-		await adapter.updateSlice(model);
-	}
-	for (const model of sliceOps.delete) {
-		await adapter.deleteSlice(model.id);
-	}
+	for (const model of customTypeOps.insert) await adapter.createCustomType(model);
+	for (const model of customTypeOps.update) await adapter.updateCustomType(model);
+	for (const model of customTypeOps.delete) await adapter.deleteCustomType(model.id);
+	for (const model of sliceOps.insert) await adapter.createSlice(model);
+	for (const model of sliceOps.update) await adapter.updateSlice(model);
+	for (const model of sliceOps.delete) await adapter.deleteSlice(model.id);
 
 	await adapter.generateTypes();
 
@@ -158,11 +145,10 @@ export default createCommand(config, async ({ values }) => {
 		host,
 	}).catch(() => {});
 
-	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
-	const totalSlices = sliceOps.insert.length + sliceOps.update.length;
-	const totalDeletes = customTypeOps.delete.length + sliceOps.delete.length;
-
-	if (totalTypes === 0 && totalSlices === 0 && totalDeletes === 0) {
+	const isUpToDate = [customTypeOps, sliceOps].every(
+		(ops) => ops.insert.length + ops.update.length + ops.delete.length === 0,
+	);
+	if (isUpToDate) {
 		console.info("Already up to date.");
 		return;
 	}

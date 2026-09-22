@@ -63,14 +63,23 @@ export async function createRepo(config: {
 }): Promise<string> {
 	const { name, lang = "en-us", framework, token, host } = config;
 
-	const domain = await findAvailableDomain({ token, host });
+	let domain;
+	for (let i = 0; i < MAX_DOMAIN_TRIES && !domain; i++) {
+		const candidate = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+		if (await checkIsDomainAvailable({ domain: candidate, token, host })) domain = candidate;
+	}
 	if (!domain) {
 		throw new CommandError("Failed to create a repository. Please try again.");
 	}
 
-	const agent = detectAgent();
-
-	await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
+	await createRepository({
+		domain,
+		name: name ?? domain,
+		framework,
+		agent: detectAgent(),
+		token,
+		host,
+	});
 
 	// A new repository has no locale, so set the master locale to make it usable.
 	await upsertLocale({ id: lang, isMaster: true }, { repo: domain, token, host });
@@ -83,22 +92,5 @@ export async function createRepo(config: {
 
 	await activateMCP({ repo: domain, token, host }).catch(() => {});
 
-	return domain;
-}
-
-async function findAvailableDomain(config: {
-	token: string | undefined;
-	host: string;
-}): Promise<string | undefined> {
-	const { token, host } = config;
-	let domain;
-	for (let i = 0; i < MAX_DOMAIN_TRIES; i++) {
-		const candidate = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
-		const available = await checkIsDomainAvailable({ domain: candidate, token, host });
-		if (available) {
-			domain = candidate;
-			break;
-		}
-	}
 	return domain;
 }

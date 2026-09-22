@@ -63,32 +63,25 @@ function extractSection(markdown: string, anchor: string): string | undefined {
 	let headingLevel: number | undefined;
 
 	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i];
-
-		const fenceMatch = line.match(/^(?<fence>`{3,}|~{3,})/);
-		const fence = fenceMatch?.groups?.fence;
+		const fence = lines[i].match(/^(`{3,}|~{3,})/)?.[1];
 		if (currentFence) {
 			if (fence?.startsWith(currentFence)) currentFence = undefined;
 			continue;
-		} else if (fence) {
+		}
+		if (fence) {
 			currentFence = fence;
 			continue;
 		}
 
-		const headingMatch = line.match(/^(?<level>#{1,6})\s+(?<text>.*)/);
-		if (headingMatch?.groups?.level && headingMatch?.groups?.text) {
-			if (startIndex !== undefined && headingLevel !== undefined) {
-				if (headingMatch.groups.level.length <= headingLevel) {
-					endIndex = i;
-					break;
-				}
-			}
-
-			const headingAnchor = slugger.slug(headingMatch.groups.text);
-			if (headingAnchor === anchor) {
-				startIndex = i;
-				headingLevel = headingMatch.groups.level.length;
-			}
+		const [, hashes, text] = lines[i].match(/^(#{1,6})\s+(.*)/) ?? [];
+		if (!hashes || !text) continue;
+		if (headingLevel !== undefined && hashes.length <= headingLevel) {
+			endIndex = i;
+			break;
+		}
+		if (slugger.slug(text) === anchor) {
+			startIndex = i;
+			headingLevel = hashes.length;
 		}
 	}
 

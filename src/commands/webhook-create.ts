@@ -65,7 +65,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 		trigger = [],
 	} = values;
 
-	// Validate triggers
 	for (const t of trigger) {
 		if (!WEBHOOK_TRIGGERS.includes(t)) {
 			throw new CommandError(
@@ -76,19 +75,20 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const defaultValue = trigger.length > 0 ? false : true;
+	// No triggers means all triggers.
+	const all = trigger.length === 0;
 
 	await createWebhook(
 		{
 			url: webhookUrl,
 			name: name ?? null,
 			secret: secret ?? null,
-			documentsPublished: trigger.includes("documentsPublished") || defaultValue,
-			documentsUnpublished: trigger.includes("documentsUnpublished") || defaultValue,
-			releasesCreated: trigger.includes("releasesCreated") || defaultValue,
-			releasesUpdated: trigger.includes("releasesUpdated") || defaultValue,
-			tagsCreated: trigger.includes("tagsCreated") || defaultValue,
-			tagsDeleted: trigger.includes("tagsDeleted") || defaultValue,
+			documentsPublished: trigger.includes("documentsPublished") || all,
+			documentsUnpublished: trigger.includes("documentsUnpublished") || all,
+			releasesCreated: trigger.includes("releasesCreated") || all,
+			releasesUpdated: trigger.includes("releasesUpdated") || all,
+			tagsCreated: trigger.includes("tagsCreated") || all,
+			tagsDeleted: trigger.includes("tagsDeleted") || all,
 		},
 		{ repo, token, host },
 	);

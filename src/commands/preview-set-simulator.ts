@@ -45,11 +45,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	if (!parsed.pathname.endsWith("/slice-simulator")) {
 		parsed.pathname = parsed.pathname.replace(/\/+$/, "") + "/slice-simulator";
 	}
-	const simulatorUrl = parsed.toString();
-
 	const { token, host } = await getCredentials();
+	await setSimulatorUrl(parsed.toString(), { repo, token, host });
 
-	await setSimulatorUrl(simulatorUrl, { repo, token, host });
-
-	console.info(`Simulator URL set: ${simulatorUrl}`);
+	console.info(`Simulator URL set: ${parsed}`);
 });

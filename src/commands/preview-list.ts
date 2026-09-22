@@ -36,12 +36,7 @@ export default createCommand(config, async ({ values }) => {
 	]);
 
 	if (json) {
-		console.info(
-			stringify({
-				previews,
-				simulatorUrl: simulatorUrl ?? null,
-			}),
-		);
+		console.info(stringify({ previews, simulatorUrl: simulatorUrl ?? null }));
 		return;
 	}
 
@@ -56,9 +51,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (simulatorUrl) {
-		if (previews.length > 0) {
-			console.info("");
-		}
+		if (previews.length > 0) console.info("");
 		console.info(`Simulator: ${simulatorUrl}`);
 	}
 });

@@ -9,7 +9,6 @@ const config = {
 
 export default createCommand(config, async () => {
 	const { token, host } = await getCredentials();
-	const profile = await getProfile({ token, host });
-
-	console.info(profile.email);
+	const { email } = await getProfile({ token, host });
+	console.info(email);
 });

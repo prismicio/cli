@@ -19,8 +19,8 @@ export default createCommand(config, async ({ positionals }) => {
 	const { token, host } = await getCredentials();
 	const environments = await getUserEnvironments({ repo, token, host });
 
-	const validEnvironment = environments.some((env) => env.domain === environment);
-	if (!validEnvironment) throw new InvalidEnvironmentError(environment, environments, repo);
+	if (!environments.some((env) => env.domain === environment))
+		throw new InvalidEnvironmentError(environment, environments, repo);
 
 	const adapter = await getAdapter();
 

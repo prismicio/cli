@@ -32,35 +32,26 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const { token, host } = await getCredentials();
 	const webhooks = await getWebhooks({ repo, token, host });
 
-	const webhook = webhooks.find((webhook) => webhook.config.url === webhookUrl);
-	if (!webhook) {
+	const webhookConfig = webhooks.find((webhook) => webhook.config.url === webhookUrl)?.config;
+	if (!webhookConfig) {
 		throw new CommandError(`Webhook not found: ${webhookUrl}`);
 	}
-
-	const { config: webhookConfig } = webhook;
 
 	console.info(`URL:     ${webhookConfig.url}`);
 	console.info(`Name:    ${webhookConfig.name || "(none)"}`);
 	console.info(`Status:  ${webhookConfig.active ? "enabled" : "disabled"}`);
 	console.info(`Secret:  ${webhookConfig.secret ? "(set)" : "(none)"}`);
 
-	// Show triggers
-	const enabledTriggers: string[] = [];
-	for (const trigger of WEBHOOK_TRIGGERS) {
-		if (webhookConfig[trigger as keyof typeof webhookConfig]) {
-			enabledTriggers.push(trigger);
-		}
-	}
+	const enabledTriggers = WEBHOOK_TRIGGERS.filter(
+		(trigger) => webhookConfig[trigger as keyof typeof webhookConfig],
+	);
 	console.info(`Triggers: ${enabledTriggers.length > 0 ? enabledTriggers.join(", ") : "(none)"}`);
 
-	// Show headers
-	const headerKeys = Object.keys(webhookConfig.headers);
-	if (headerKeys.length > 0) {
-		console.info("Headers:");
-		for (const [key, value] of Object.entries(webhookConfig.headers)) {
-			console.info(`  ${key}: ${value}`);
-		}
-	} else {
+	const headers = Object.entries(webhookConfig.headers);
+	if (headers.length === 0) {
 		console.info("Headers: (none)");
+		return;
 	}
+	console.info("Headers:");
+	for (const [key, value] of headers) console.info(`  ${key}: ${value}`);
 });
