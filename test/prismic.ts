@@ -27,7 +27,7 @@ export async function createRepository(domain: string, config: AuthConfig): Prom
 			"Content-Type": "application/json",
 			Cookie: `prismic-auth=${config.token}`,
 		},
-		body: JSON.stringify({ domain, framework: "nextjs", plan: "personal" }),
+		body: JSON.stringify({ domain, framework: "next", plan: "personal" }),
 	});
 	if (!res.ok)
 		throw new Error(`Failed to create repository ${domain}: ${res.status} ${await res.text()}`);
