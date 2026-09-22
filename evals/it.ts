@@ -23,7 +23,8 @@ if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
 const BIN = new URL("../dist/index.mjs", import.meta.url);
 const EVAL_TRIALS = Number(process.env.EVAL_TRIALS ?? 3);
 const JUDGE_MODEL = "claude-sonnet-5";
-const PRISMIC_SKILL_REF = "84ce7386ce40cfe853e7a67e71a09ca544e1f4a0";
+// prismicio/skills#12, which teaches `prismic task-id`. Bump to the merge commit once it lands.
+const PRISMIC_SKILL_REF = "412a7317df13e18fdab069be07a2fab53dc8f9e1";
 
 const SKILL = await fetchSkill();
 
@@ -359,14 +360,6 @@ async function readArgvLog(path: string): Promise<string[][]> {
 }
 
 async function fetchSkill() {
-	// A local skill lets a CLI change and the skill change it needs be tested together, before
-	// the skill is published.
-	if (process.env.EVAL_SKILL_FILE) {
-		return (await readFile(process.env.EVAL_SKILL_FILE, "utf8"))
-			.replace(/^---\n[\s\S]*?\n---\n/, "")
-			.trim();
-	}
-
 	const response = await fetch(
 		`https://raw.githubusercontent.com/prismicio/skills/${PRISMIC_SKILL_REF}/skills/prismic/SKILL.md`,
 	);

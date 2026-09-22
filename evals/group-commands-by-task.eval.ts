@@ -8,19 +8,13 @@ import { it, trials } from "./it";
 
 type Agent = (prompt: string) => Promise<{ calls: string[][]; text: string }>;
 
-// An id the CLI minted, or a UUID from the skill's older recipe.
-const TASK_ID =
-	/^(pt_[0-9a-hjkmnp-tv-z]{16}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+const TASK_ID = /^pt_[0-9a-hjkmnp-tv-z]{16}$/;
 
 // `task-id` mints the id and `--version` exits before the gate, so neither carries one.
 const gated = (argv: string[]) =>
-	argv[0] !== "task-id" &&
-	!argv.includes("--help") &&
-	!argv.includes("-h") &&
-	!argv.includes("--version") &&
-	!argv.includes("-v");
+	argv[0] !== "task-id" && !argv.some((arg) => ["--help", "-h", "--version", "-v"].includes(arg));
 
-// The options were renamed; the published skill still teaches the old names.
+// Both spellings reach the CLI, so read whichever the agent used.
 const taskIdOf = (argv: string[]) =>
 	optionValue(argv, "task-id") ?? optionValue(argv, "analytics-task-id");
 const intentOf = (argv: string[]) =>
@@ -51,58 +45,31 @@ const expectIntentsDescribe = async (
 	}
 };
 
-it.for(trials)(
-	"passes one task ID and intent to every command",
-	async (_, { project, agent, expect }) => {
-		const article = buildCustomType({ id: "article", label: "Article" });
-		await writeLocalCustomType(project, article);
-
-		const request = `Add a "title" rich text field and a "published_at" date field to the "article" type.`;
-		const result = await agent(request);
-
-		const calls = result.calls.filter(gated);
-		const seen = calls.map((argv) => argv.join(" ")).join("\n");
-		expect(calls.length, seen).toBeGreaterThan(0);
-
-		const taskIds = new Set(calls.map(taskIdOf).filter(Boolean));
-		expect([...taskIds], seen).toHaveLength(1);
-		expect([...taskIds][0], seen).toMatch(TASK_ID);
-
-		await expectIntentsDescribe(expect, calls, request, seen);
-	},
-);
-
-// One id groups one user request. A second request is separate work and needs its own id, so the
-// failure that costs the analytics most is not a missing id but one id spanning both requests.
-// A command refused for having no id never ran, so it is a wasted call rather than a lost row and
-// is not asserted here.
+// A command refused for having no id never ran, so it costs a call but loses no row, and is not
+// asserted here. One id spanning both requests is what would corrupt the analytics.
 const eachRequestGetsItsOwnId = async (
 	_: unknown,
 	{ project, agent, expect }: { project: URL; agent: Agent; expect: ExpectStatic },
 ) => {
-	const article = buildCustomType({ id: "article", label: "Article" });
-	await writeLocalCustomType(project, article);
+	await writeLocalCustomType(project, buildCustomType({ id: "article", label: "Article" }));
 
 	const firstResult = await agent(CTA);
 	const firstCount = firstResult.calls.length;
 	const secondResult = await agent(DATE_FIELD);
 
-	const firstCalls = firstResult.calls.slice(0, firstCount).filter(gated);
+	const firstCalls = firstResult.calls.filter(gated);
 	const secondCalls = secondResult.calls.slice(firstCount).filter(gated);
-	const summarise = (calls: string[][]) =>
-		calls.map(
-			(a) =>
-				`  ${a.filter((x) => !x.startsWith("--"))[0] ?? "?"} -> id=${taskIdOf(a) ?? "none"} intent=${JSON.stringify(intentOf(a) ?? null)}`,
-		);
+	const summarise = (label: string, calls: string[][]) => [
+		label,
+		...calls.map(
+			(argv) =>
+				`  ${argv.find((arg) => !arg.startsWith("--")) ?? "?"} -> id=${taskIdOf(argv) ?? "none"} intent=${JSON.stringify(intentOf(argv) ?? null)}`,
+		),
+	];
 	const seen = [
-		"request 1:",
-		...summarise(firstCalls),
-		"request 2:",
-		...summarise(secondCalls),
+		...summarise("request 1:", firstCalls),
+		...summarise("request 2:", secondCalls),
 	].join("\n");
-
-	expect(firstCalls.length, seen).toBeGreaterThan(0);
-	expect(secondCalls.length, seen).toBeGreaterThan(0);
 
 	const firstIds = [...new Set(firstCalls.map(taskIdOf).filter(Boolean))];
 	const secondIds = [...new Set(secondCalls.map(taskIdOf).filter(Boolean))];

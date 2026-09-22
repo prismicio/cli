@@ -131,9 +131,8 @@ async function main(): Promise<void> {
 	const userIntent = typeof intent === "string" ? intent : undefined;
 	const taskId = typeof id === "string" ? id : undefined;
 
-	// An agent that runs a command without the options gets an id it can use, not a recipe for
-	// making one. The command still stops, because the id has to be on the first command for the
-	// request to group at all.
+	// The id has to be on the first command for a request to group at all, so a command without
+	// one stops rather than running and going unrecorded.
 	if (
 		!help &&
 		command &&
