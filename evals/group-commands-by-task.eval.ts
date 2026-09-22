@@ -29,6 +29,28 @@ const intentOf = (argv: string[]) =>
 const CTA = `Using the Prismic CLI, create a "call to action" slice with a heading, body text, and a button label, then add it to the "article" type.`;
 const DATE_FIELD = `Using the Prismic CLI, add a "published_at" date field to the "article" type.`;
 
+// Analytics groups by task ID, so the intent is a label for the group rather than a key. An agent
+// may reword it between commands; what must not happen is an intent that describes one command
+// instead of the request, or a placeholder. So every distinct value is judged, not compared.
+const expectIntentsDescribe = async (
+	expect: ExpectStatic,
+	calls: string[][],
+	request: string,
+	seen: string,
+) => {
+	const intents = [...new Set(calls.map(intentOf).filter(Boolean))];
+	expect(intents.length, seen).toBeGreaterThan(0);
+	for (const intent of intents) {
+		await expect(intent).toSatisfyJudge(dedent`
+			The user asked an agent: ${request}
+			Above is the value the agent passed as the intent to the Prismic CLI.
+			Passes if it paraphrases that request in one short sentence.
+			Fails if it is empty, is a placeholder, describes a single CLI command rather than the
+			whole request, or describes a different request.
+		`);
+	}
+};
+
 it.for(trials)(
 	"passes one task ID and intent to every command",
 	async (_, { project, agent, expect }) => {
@@ -46,14 +68,7 @@ it.for(trials)(
 		expect([...taskIds], seen).toHaveLength(1);
 		expect([...taskIds][0], seen).toMatch(TASK_ID);
 
-		const intents = new Set(calls.map(intentOf).filter(Boolean));
-		expect([...intents], seen).toHaveLength(1);
-		await expect([...intents][0]).toSatisfyJudge(dedent`
-			The user asked an agent: ${request}
-			Above is the value the agent passed as the intent to the Prismic CLI.
-			Passes if it paraphrases the user's request in one short sentence.
-			Fails if it is empty, describes a single CLI command rather than the whole request, or is not a sentence.
-		`);
+		await expectIntentsDescribe(expect, calls, request, seen);
 	},
 );
 
@@ -76,7 +91,8 @@ const eachRequestGetsItsOwnId = async (
 	const secondCalls = secondResult.calls.slice(firstCount).filter(gated);
 	const summarise = (calls: string[][]) =>
 		calls.map(
-			(a) => `  ${a.filter((x) => !x.startsWith("--"))[0] ?? "?"} -> ${taskIdOf(a) ?? "none"}`,
+			(a) =>
+				`  ${a.filter((x) => !x.startsWith("--"))[0] ?? "?"} -> id=${taskIdOf(a) ?? "none"} intent=${JSON.stringify(intentOf(a) ?? null)}`,
 		);
 	const seen = [
 		"request 1:",
@@ -100,18 +116,8 @@ const eachRequestGetsItsOwnId = async (
 	// The second request gets its own id.
 	expect(secondIds[0], seen).not.toBe(firstIds[0]);
 
-	// The intent describes the request, so it does not change between its commands either.
-	const secondIntents = [...new Set(secondCalls.map(intentOf).filter(Boolean))];
-	expect([...new Set(firstCalls.map(intentOf).filter(Boolean))], seen).toHaveLength(1);
-	expect(secondIntents, seen).toHaveLength(1);
-
-	await expect(secondIntents[0]).toSatisfyJudge(dedent`
-		The user asked an agent: ${"${DATE_FIELD}"}
-		Above is the value the agent passed as the intent to the Prismic CLI.
-		Passes if it paraphrases that request in one short sentence.
-		Fails if it is empty, describes a single CLI command, or describes a different request such as
-		creating a call to action slice.
-	`);
+	await expectIntentsDescribe(expect, firstCalls, CTA, seen);
+	await expectIntentsDescribe(expect, secondCalls, DATE_FIELD, seen);
 };
 
 it.for(trials)("gives each request its own task id", eachRequestGetsItsOwnId);
