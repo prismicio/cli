@@ -34,75 +34,33 @@ export default createCommandRouter({
 		`,
 	},
 	commands: {
-		boolean: {
-			handler: fieldAddBoolean,
-			description: "Add a boolean field",
-		},
-		color: {
-			handler: fieldAddColor,
-			description: "Add a color field",
-		},
+		boolean: { handler: fieldAddBoolean, description: "Add a boolean field" },
+		color: { handler: fieldAddColor, description: "Add a color field" },
 		"content-relationship": {
 			handler: fieldAddContentRelationship,
 			description:
 				"Add a content relationship field for fetching data from related documents (not for navigation -- use link)",
 		},
-		date: {
-			handler: fieldAddDate,
-			description: "Add a date field",
-		},
-		embed: {
-			handler: fieldAddEmbed,
-			description: "Add an embed field",
-		},
-		geopoint: {
-			handler: fieldAddGeopoint,
-			description: "Add a geopoint field",
-		},
-		group: {
-			handler: fieldAddGroup,
-			description: "Add a group field",
-		},
-		image: {
-			handler: fieldAddImage,
-			description: "Add an image field",
-		},
-		integration: {
-			handler: fieldAddIntegration,
-			description: "Add an integration field",
-		},
+		date: { handler: fieldAddDate, description: "Add a date field" },
+		embed: { handler: fieldAddEmbed, description: "Add an embed field" },
+		geopoint: { handler: fieldAddGeopoint, description: "Add a geopoint field" },
+		group: { handler: fieldAddGroup, description: "Add a group field" },
+		image: { handler: fieldAddImage, description: "Add an image field" },
+		integration: { handler: fieldAddIntegration, description: "Add an integration field" },
 		link: {
 			handler: fieldAddLink,
 			description: "Add a link field for URLs, documents, or media (navigational)",
 		},
-		number: {
-			handler: fieldAddNumber,
-			description: "Add a number field",
-		},
-		"rich-text": {
-			handler: fieldAddRichText,
-			description: "Add a rich text field",
-		},
-		select: {
-			handler: fieldAddSelect,
-			description: "Add a select field",
-		},
-		table: {
-			handler: fieldAddTable,
-			description: "Add a table field",
-		},
+		number: { handler: fieldAddNumber, description: "Add a number field" },
+		"rich-text": { handler: fieldAddRichText, description: "Add a rich text field" },
+		select: { handler: fieldAddSelect, description: "Add a select field" },
+		table: { handler: fieldAddTable, description: "Add a table field" },
 		text: {
 			handler: fieldAddText,
 			description:
 				"Add a text field for short plain strings (not for titles or headings -- use rich-text --allow heading1 --single)",
 		},
-		timestamp: {
-			handler: fieldAddTimestamp,
-			description: "Add a timestamp field",
-		},
-		uid: {
-			handler: fieldAddUid,
-			description: "Add a UID field",
-		},
+		timestamp: { handler: fieldAddTimestamp, description: "Add a timestamp field" },
+		uid: { handler: fieldAddUid, description: "Add a UID field" },
 	},
 });

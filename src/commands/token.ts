@@ -11,17 +11,8 @@ export default createCommandRouter({
 		Run \`prismic docs view repository-settings#configuration\` for details.
 	`,
 	commands: {
-		list: {
-			handler: tokenList,
-			description: "List all tokens",
-		},
-		create: {
-			handler: tokenCreate,
-			description: "Create a new token",
-		},
-		delete: {
-			handler: tokenDelete,
-			description: "Delete a token",
-		},
+		list: { handler: tokenList, description: "List all tokens" },
+		create: { handler: tokenCreate, description: "Create a new token" },
+		delete: { handler: tokenDelete, description: "Delete a token" },
 	},
 });

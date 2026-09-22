@@ -53,81 +53,24 @@ export default createCommandRouter({
 		`,
 	},
 	commands: {
-		init: {
-			handler: init,
-			description: "Initialize a Prismic project",
-		},
-		docs: {
-			handler: docs,
-			description: "Browse Prismic documentation",
-		},
-		gen: {
-			handler: gen,
-			description: "Generate files from local models",
-		},
-		pull: {
-			handler: pull,
-			description: "Pull types and slices from Prismic",
-		},
-		push: {
-			handler: push,
-			description: "Push types and slices to Prismic",
-		},
-		sync: {
-			handler: sync,
-			description: "Sync types and slices from Prismic",
-		},
-		status: {
-			handler: status,
-			description: "Show local vs remote model differences",
-		},
-		env: {
-			handler: env,
-			description: "Manage the active environment",
-		},
-		locale: {
-			handler: locale,
-			description: "Manage locales",
-		},
-		repo: {
-			handler: repo,
-			description: "Manage repositories",
-		},
-		type: {
-			handler: type_,
-			description: "Manage content types",
-		},
-		field: {
-			handler: field,
-			description: "Manage fields",
-		},
-		slice: {
-			handler: slice,
-			description: "Manage slices",
-		},
-		preview: {
-			handler: preview,
-			description: "Manage preview and simulator URLs",
-		},
-		token: {
-			handler: token,
-			description: "Manage API tokens",
-		},
-		webhook: {
-			handler: webhook,
-			description: "Manage webhooks",
-		},
-		login: {
-			handler: login,
-			description: "Log in to Prismic",
-		},
-		logout: {
-			handler: logout,
-			description: "Log out of Prismic",
-		},
-		whoami: {
-			handler: whoami,
-			description: "Show the currently logged in user",
-		},
+		init: { handler: init, description: "Initialize a Prismic project" },
+		docs: { handler: docs, description: "Browse Prismic documentation" },
+		gen: { handler: gen, description: "Generate files from local models" },
+		pull: { handler: pull, description: "Pull types and slices from Prismic" },
+		push: { handler: push, description: "Push types and slices to Prismic" },
+		sync: { handler: sync, description: "Sync types and slices from Prismic" },
+		status: { handler: status, description: "Show local vs remote model differences" },
+		env: { handler: env, description: "Manage the active environment" },
+		locale: { handler: locale, description: "Manage locales" },
+		repo: { handler: repo, description: "Manage repositories" },
+		type: { handler: type_, description: "Manage content types" },
+		field: { handler: field, description: "Manage fields" },
+		slice: { handler: slice, description: "Manage slices" },
+		preview: { handler: preview, description: "Manage preview and simulator URLs" },
+		token: { handler: token, description: "Manage API tokens" },
+		webhook: { handler: webhook, description: "Manage webhooks" },
+		login: { handler: login, description: "Log in to Prismic" },
+		logout: { handler: logout, description: "Log out of Prismic" },
+		whoami: { handler: whoami, description: "Show the currently logged in user" },
 	},
 });

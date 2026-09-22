@@ -12,21 +12,9 @@ export default createCommandRouter({
 		Run \`prismic docs view environments\` for details.
 	`,
 	commands: {
-		set: {
-			handler: envSet,
-			description: "Set the active environment",
-		},
-		unset: {
-			handler: envUnset,
-			description: "Reset to the production environment",
-		},
-		active: {
-			handler: envActive,
-			description: "Print the active environment",
-		},
-		list: {
-			handler: envList,
-			description: "List environments",
-		},
+		set: { handler: envSet, description: "Set the active environment" },
+		unset: { handler: envUnset, description: "Reset to the production environment" },
+		active: { handler: envActive, description: "Print the active environment" },
+		list: { handler: envList, description: "List environments" },
 	},
 });

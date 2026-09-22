@@ -13,25 +13,10 @@ export default createCommandRouter({
 		Run \`prismic docs view fields\` for details.
 	`,
 	commands: {
-		add: {
-			handler: fieldAdd,
-			description: "Add a field",
-		},
-		edit: {
-			handler: fieldEdit,
-			description: "Edit a field",
-		},
-		remove: {
-			handler: fieldRemove,
-			description: "Remove a field",
-		},
-		reorder: {
-			handler: fieldReorder,
-			description: "Reorder a field",
-		},
-		view: {
-			handler: fieldView,
-			description: "View details of a field",
-		},
+		add: { handler: fieldAdd, description: "Add a field" },
+		edit: { handler: fieldEdit, description: "Edit a field" },
+		remove: { handler: fieldRemove, description: "Remove a field" },
+		reorder: { handler: fieldReorder, description: "Reorder a field" },
+		view: { handler: fieldView, description: "View details of a field" },
 	},
 });

@@ -140,7 +140,24 @@ async function main(): Promise<void> {
 		const sentryEnabled = env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD);
 
 		if (sentryEnabled) {
-			await initSentry({ host, repo, userIntent, taskId });
+			setupSentry({
+				dsn: env.PRISMIC_SENTRY_DSN,
+				appName: packageJson.name,
+				appVersion: packageJson.version,
+				environment: env.PRISMIC_SENTRY_ENVIRONMENT,
+			});
+			sentrySetTag("host", host);
+			if (repo) {
+				sentrySetTag("repository", repo);
+				sentrySetContext("Repository Data", { name: repo });
+			}
+			if (taskId) sentrySetTag("taskId", taskId);
+			if (userIntent) sentrySetContext("Agent Task", { userIntent, taskId });
+			try {
+				sentrySetTag("framework", (await getAdapter()).id);
+			} catch {
+				// It's okay if we can't detect the framework.
+			}
 		}
 		if (telemetryEnabled) {
 			await initTracking({ host, repo, userIntent, taskId });
@@ -196,37 +213,5 @@ async function main(): Promise<void> {
 			await sentryCaptureError(error);
 			throw error;
 		}
-	}
-}
-
-async function initSentry(options: {
-	host: string;
-	repo?: string;
-	userIntent?: string;
-	taskId?: string;
-}): Promise<void> {
-	const { host, repo, userIntent, taskId } = options;
-
-	setupSentry({
-		dsn: env.PRISMIC_SENTRY_DSN,
-		appName: packageJson.name,
-		appVersion: packageJson.version,
-		environment: env.PRISMIC_SENTRY_ENVIRONMENT,
-	});
-
-	sentrySetTag("host", host);
-
-	if (repo) {
-		sentrySetTag("repository", repo);
-		sentrySetContext("Repository Data", { name: repo });
-	}
-	if (taskId) sentrySetTag("taskId", taskId);
-	if (userIntent) sentrySetContext("Agent Task", { userIntent, taskId });
-
-	try {
-		const adapter = await getAdapter();
-		sentrySetTag("framework", adapter.id);
-	} catch {
-		// noop - it's okay if we can't set the framework
 	}
 }
