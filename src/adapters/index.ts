@@ -1,8 +1,8 @@
 import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
-import { rm } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { readFile, rm } from "node:fs/promises";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
@@ -52,6 +52,21 @@ export async function getAdapter(): Promise<Adapter> {
 	throw new NoSupportedFrameworkError();
 }
 
+export async function checkSourceContains(text: string): Promise<boolean> {
+	const paths = await glob("**/*.{js,jsx,mjs,ts,tsx,mts,svelte}", {
+		// A URL cwd silently disables `ignore`, so node_modules must be a path.
+		cwd: fileURLToPath(await findProjectRoot()),
+		absolute: true,
+		ignore: "**/{node_modules,build,dist,out}/**",
+	});
+	for (const path of paths) {
+		try {
+			if ((await readFile(path, "utf8")).includes(text)) return true;
+		} catch {}
+	}
+	return false;
+}
+
 export class NoSupportedFrameworkError extends Error {
 	name = "NoSupportedFrameworkError";
 	message =
@@ -87,6 +102,8 @@ export abstract class Adapter {
 	abstract onCustomTypeDeleted(id: string): Promise<void> | void;
 
 	abstract setupProject(): Promise<void>;
+
+	abstract getPreviewComponentInstructions(): Promise<string | undefined>;
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	abstract getDefaultSliceLibrary(): Promise<URL>;
 	abstract getDefaultCustomTypeLibrary(): Promise<URL>;

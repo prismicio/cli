@@ -46,6 +46,8 @@ export class NuxtAdapter extends Adapter {
 		await modifySliceLibraryPath(this);
 	}
 
+	async getPreviewComponentInstructions(): Promise<undefined> {}
+
 	async onProjectInitialized(): Promise<void> {
 		const repo = await getRepositoryName();
 		const { token, host } = await getCredentials();
