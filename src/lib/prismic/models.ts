@@ -188,27 +188,27 @@ export function resolveSliceFieldContainer(
 	return resolveNestedFieldContainer(path, variation.primary);
 }
 
-// The changes that make `target` match `source`. With `requireCanonicalTarget`,
-// a target model that is not in canonical form also counts as changed, so
-// writing the changes canonicalizes it.
+// The changes that make `target` match `source`. With
+// `treatNonCanonicalAsChanged`, a target model that is not in canonical form
+// also counts as changed, so writing the changes canonicalizes it.
 export function diffModels(
 	source: Models,
 	target: Models,
-	options: { requireCanonicalTarget?: boolean } = {},
+	options: { treatNonCanonicalAsChanged?: boolean } = {},
 ): ModelsDiff {
-	const { requireCanonicalTarget = false } = options;
+	const { treatNonCanonicalAsChanged = false } = options;
 	return {
 		customTypes: diffArrays(source.customTypes, target.customTypes, {
 			getKey: (model) => model.id,
 			equals: (a, b) =>
 				JSON.stringify(canonicalizeCustomType(a)) ===
-				JSON.stringify(requireCanonicalTarget ? b : canonicalizeCustomType(b)),
+				JSON.stringify(treatNonCanonicalAsChanged ? b : canonicalizeCustomType(b)),
 		}),
 		slices: diffArrays(source.slices, target.slices, {
 			getKey: (model) => model.id,
 			equals: (a, b) =>
 				JSON.stringify(canonicalizeSlice(a)) ===
-				JSON.stringify(requireCanonicalTarget ? b : canonicalizeSlice(b)),
+				JSON.stringify(treatNonCanonicalAsChanged ? b : canonicalizeSlice(b)),
 		}),
 	};
 }

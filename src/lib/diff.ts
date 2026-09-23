@@ -25,3 +25,7 @@ export function diffArrays<T>(
 	}
 	return diff;
 }
+
+export function hasChanges(diff: ArrayDiff<unknown>): boolean {
+	return diff.insert.length + diff.update.length + diff.delete.length > 0;
+}

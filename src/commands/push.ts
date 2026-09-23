@@ -100,19 +100,12 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices] = await Promise.all([
-		adapter.getCustomTypes(),
-		adapter.getSlices(),
+	const [local, remoteCustomTypes, remoteSlices] = await Promise.all([
+		adapter.getModels(),
 		getCustomTypes({ repo, token, host }),
 		getSlices({ repo, token, host }),
 	]);
-	const diff = diffModels(
-		{
-			customTypes: localCustomTypes.map((customType) => customType.model),
-			slices: localSlices.map((slice) => slice.model),
-		},
-		{ customTypes: remoteCustomTypes, slices: remoteSlices },
-	);
+	const diff = diffModels(local, { customTypes: remoteCustomTypes, slices: remoteSlices });
 
 	if (!force) {
 		const customTypeLibrary = appendTrailingSlash(customTypeLibraries[0]);
