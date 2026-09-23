@@ -1,12 +1,11 @@
 import { setTimeout } from "node:timers/promises";
 
-import type { ArrayDiff } from "../lib/diff";
-
 import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
+import { hasChanges } from "../lib/diff";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { diffModels, snapshotModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
@@ -119,7 +118,3 @@ export default createCommand(config, async ({ values }) => {
 		await setTimeout(POLL_INTERVAL_MS);
 	}
 });
-
-function hasChanges(diff: ArrayDiff<unknown>): boolean {
-	return diff.insert.length + diff.update.length + diff.delete.length > 0;
-}

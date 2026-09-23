@@ -1,6 +1,7 @@
 import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
+import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getProfile } from "../lib/prismic/clients/user";
@@ -81,14 +82,7 @@ export default createCommand(config, async ({ values }) => {
 		console.info("Not logged in — log in with `prismic login` to compare with remote.");
 	}
 
-	const inSync =
-		diff !== undefined &&
-		diff.customTypes.insert.length === 0 &&
-		diff.customTypes.update.length === 0 &&
-		diff.customTypes.delete.length === 0 &&
-		diff.slices.insert.length === 0 &&
-		diff.slices.update.length === 0 &&
-		diff.slices.delete.length === 0;
+	const inSync = diff !== undefined && !hasChanges(diff.customTypes) && !hasChanges(diff.slices);
 
 	if (inSync && dirtyModelFiles.length === 0) {
 		console.info("");
