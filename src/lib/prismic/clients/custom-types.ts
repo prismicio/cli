@@ -78,21 +78,6 @@ export async function bulkUpdate(changes: BulkChange[], config: CustomTypesConfi
 	});
 }
 
-export type BulkChange = {
-	type: `${"CUSTOM_TYPE" | "SLICE"}_${"INSERT" | "UPDATE" | "DELETE"}`;
-	id: string;
-	payload: CustomType | SharedSlice | { id: string };
-};
-
-export async function bulkUpdate(changes: BulkChange[], config: CustomTypesConfig): Promise<void> {
-	const url = new URL("bulk-update", getCustomTypesServiceUrl(config.host));
-	await customTypesServiceRequest(url, config, {
-		method: "POST",
-		json: { changes },
-		unknownErrorMessage: "Failed to update models",
-	});
-}
-
 const ScreenshotPresignedUrlResponseSchema = z.object({
 	values: z.object({
 		url: z.string(),
