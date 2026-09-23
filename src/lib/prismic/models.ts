@@ -7,6 +7,7 @@ import type {
 } from "@prismicio/types-internal/lib/customtypes";
 
 import { type ArrayDiff, diffArrays } from "../diff";
+import { type CustomTypesConfig, getCustomTypes, getSlices } from "./clients/custom-types";
 
 type Fields = Record<string, DynamicWidget>;
 
@@ -186,6 +187,11 @@ export function resolveSliceFieldContainer(
 	if (!variation) throw new SliceVariationNotFoundError(variationId, slice.id);
 	variation.primary ??= {};
 	return resolveNestedFieldContainer(path, variation.primary);
+}
+
+export async function getRemoteModels(config: CustomTypesConfig): Promise<Models> {
+	const [customTypes, slices] = await Promise.all([getCustomTypes(config), getSlices(config)]);
+	return { customTypes, slices };
 }
 
 export function diffModels(
