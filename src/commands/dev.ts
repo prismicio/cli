@@ -30,12 +30,10 @@ const POLL_INTERVAL_MS = env.PRISMIC_SYNC_POLL_MS ?? 5000;
 const config = {
 	name: "prismic dev",
 	description: `
-		Edit the project's content types and slices in the Type Builder without
-		changing them in Prismic.
+		Edit local content types and slices visually in the Type Builder.
 
-		Opens the Type Builder with the project's local models. Type Builder edits
-		are written to local files, and local file changes are sent to the Type
-		Builder. Local files are the source of truth.
+		Type Builder changes are saved to local files, and local file changes
+		appear in the Type Builder.
 
 		Local mode is in closed alpha.
 	`,
