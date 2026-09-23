@@ -188,9 +188,6 @@ export function resolveSliceFieldContainer(
 	return resolveNestedFieldContainer(path, variation.primary);
 }
 
-// The changes that make `target` match `source`. With
-// `treatNonCanonicalAsChanged`, a target model that is not in canonical form
-// also counts as changed, so writing the changes canonicalizes it.
 export function diffModels(
 	source: Models,
 	target: Models,
@@ -213,7 +210,6 @@ export function diffModels(
 	};
 }
 
-// A string that is equal for two sets of models exactly when they are equal.
 export function snapshotModels(models: Models): string {
 	const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id);
 	return JSON.stringify({
