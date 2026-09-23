@@ -1,3 +1,4 @@
+import { existsSync, watch } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { parseEnv } from "node:util";
@@ -47,6 +48,23 @@ export async function exists(path: URL): Promise<boolean> {
 		return true;
 	} catch {
 		return false;
+	}
+}
+
+export function watchFiles(
+	paths: URL[],
+	onChange: () => void,
+	options: { signal: AbortSignal; debounceMs?: number },
+): void {
+	const { signal, debounceMs = 100 } = options;
+	let timeout: NodeJS.Timeout | undefined;
+	const debouncedOnChange = (): void => {
+		clearTimeout(timeout);
+		timeout = setTimeout(onChange, debounceMs);
+	};
+	for (const path of paths) {
+		if (!existsSync(path)) continue;
+		watch(path, { recursive: true, signal }, debouncedOnChange).on("error", () => {});
 	}
 }
 

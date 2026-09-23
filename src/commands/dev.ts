@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { existsSync, watch as watchFiles } from "node:fs";
 import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
@@ -11,7 +10,7 @@ import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
-import { readJsonFile, writeFileRecursive } from "../lib/file";
+import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
 import { getCustomTypes } from "../lib/prismic/clients/custom-types";
@@ -43,7 +42,8 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-const SessionSchema = z.object({ repo: z.string(), releaseId: z.string(), pid: z.number() });
+type Release = { repo: string; token: string; host: string; releaseId: string };
+type Snapshot = { local: Models; remote: Models };
 
 export default createCommand(config, async ({ values }) => {
 	try {
@@ -60,10 +60,7 @@ async function startSession(repoFlag: string | undefined): Promise<never> {
 	const { token, host } = await getCredentials();
 	if (!token) throw new CommandError("Not logged in. Run `prismic login` first.");
 
-	const projectRoot = fileURLToPath(await findProjectRoot());
-	const projectHash = createHash("sha256").update(projectRoot).digest("hex");
-	const sessionPath = new URL(`dev/${projectHash}.json`, CONFIG_DIR);
-
+	const sessionPath = await getSessionPath();
 	const previous = await readJsonFile(sessionPath, { schema: SessionSchema }).catch(() => {});
 	if (previous && isRunning(previous.pid)) {
 		throw new CommandError(
@@ -110,81 +107,37 @@ async function startSession(repoFlag: string | undefined): Promise<never> {
 	}
 }
 
-async function watch(
-	adapter: Adapter,
-	release: { repo: string; token: string; host: string; releaseId: string },
-	signal: AbortSignal,
-): Promise<never> {
+async function watch(adapter: Adapter, release: Release, signal: AbortSignal): Promise<never> {
 	let changed = false;
 	let wake = (): void => {};
-	let debounce: NodeJS.Timeout | undefined;
-	const onChange = (): void => {
-		clearTimeout(debounce);
-		debounce = setTimeout(() => {
-			changed = true;
-			wake();
-		}, 100);
-	};
-
 	const libraries = [
 		...(await adapter.getCustomTypeLibraries()),
 		...(await adapter.getSliceLibraries()),
 	];
-	for (const library of libraries) {
-		if (!existsSync(library)) continue;
-		watchFiles(library, { recursive: true, signal }, onChange).on("error", () => {});
-	}
+	watchFiles(
+		libraries,
+		() => {
+			changed = true;
+			wake();
+		},
+		{ signal },
+	);
 
-	let lastLocal: Models | undefined;
-	let lastRemote: Models | undefined;
+	const [initial, initialRemote] = await Promise.all([
+		adapter.getModels(),
+		getRemoteModels(release),
+	]);
+	await writeRemoteModels(diffModels(initial, initialRemote), release);
+	let last: Snapshot = { local: initial, remote: initial };
+
+	const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
+	url.searchParams.set("r", release.releaseId);
+	console.info(`Type Builder: ${url}`);
+	openBrowser(url);
+	console.info("Syncing local models with the Type Builder (Ctrl+C to stop)");
+
 	let lastErrorMessage: string | undefined;
-
 	while (true) {
-		const isInitial = lastLocal === undefined;
-		changed = false;
-
-		try {
-			const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
-			const edited = lastLocal && getChangedIds(diffModels(local, lastLocal));
-
-			if (!edited || edited.length > 0) {
-				const changes = edited
-					? diffModels(pick(local, edited), pick(remote, edited))
-					: diffModels(local, remote);
-				await writeRemoteModels(changes, release);
-				const ids = getChangedIds(changes);
-				lastLocal = lastRemote = local;
-
-				if (isInitial) {
-					const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
-					url.searchParams.set("r", release.releaseId);
-					console.info(`Type Builder: ${url}`);
-					openBrowser(url);
-					console.info("Syncing local models with the Type Builder (Ctrl+C to stop)");
-				} else if (ids.length > 0) {
-					log(`Sent to the Type Builder: ${ids.join(", ")}`);
-				}
-			} else if (lastRemote && getChangedIds(diffModels(remote, lastRemote)).length > 0) {
-				const changes = diffModels(remote, local);
-				await adapter.writeModels(changes);
-				await adapter.generateTypes();
-				lastLocal = await adapter.getModels();
-				lastRemote = remote;
-
-				const ids = getChangedIds(changes);
-				if (ids.length > 0) log(`Written from the Type Builder: ${ids.join(", ")}`);
-			}
-
-			lastErrorMessage = undefined;
-		} catch (error) {
-			if (isInitial || getErrorCode(error) === "RELEASE_NOT_FOUND") {
-				throw error;
-			}
-			const message = (await getErrorMessage(toCommandError(error))) ?? "Unknown error";
-			if (message !== lastErrorMessage) console.error(`Sync failed: ${message}`);
-			lastErrorMessage = message;
-		}
-
 		if (!changed) {
 			await new Promise<void>((resolve) => {
 				const poll = setTimeout(resolve, POLL_INTERVAL_MS);
@@ -194,7 +147,50 @@ async function watch(
 				};
 			});
 		}
+		changed = false;
+
+		try {
+			const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
+			const edited = getChangedIds(diffModels(local, last.local));
+			if (edited.length > 0) {
+				last = await pushLocalEdits(edited, local, remote, release);
+			} else if (getChangedIds(diffModels(remote, last.remote)).length > 0) {
+				last = await pullTypeBuilderEdits(adapter, local, remote);
+			}
+			lastErrorMessage = undefined;
+		} catch (error) {
+			if (getErrorCode(error) === "RELEASE_NOT_FOUND") throw error;
+			const message = (await getErrorMessage(toCommandError(error))) ?? "Unknown error";
+			if (message !== lastErrorMessage) console.error(`Sync failed: ${message}`);
+			lastErrorMessage = message;
+		}
 	}
+}
+
+async function pushLocalEdits(
+	ids: string[],
+	local: Models,
+	remote: Models,
+	release: Release,
+): Promise<Snapshot> {
+	const changes = diffModels(pick(local, ids), pick(remote, ids));
+	await writeRemoteModels(changes, release);
+	const sent = getChangedIds(changes);
+	if (sent.length > 0) log(`Sent to the Type Builder: ${sent.join(", ")}`);
+	return { local, remote: local };
+}
+
+async function pullTypeBuilderEdits(
+	adapter: Adapter,
+	local: Models,
+	remote: Models,
+): Promise<Snapshot> {
+	const changes = diffModels(remote, local);
+	await adapter.writeModels(changes);
+	await adapter.generateTypes();
+	const written = getChangedIds(changes);
+	if (written.length > 0) log(`Written from the Type Builder: ${written.join(", ")}`);
+	return { local: await adapter.getModels(), remote };
 }
 
 function pick(models: Models, ids: string[]): Models {
@@ -202,6 +198,16 @@ function pick(models: Models, ids: string[]): Models {
 		customTypes: models.customTypes.filter((model) => ids.includes(model.id)),
 		slices: models.slices.filter((model) => ids.includes(model.id)),
 	};
+}
+
+function getChangedIds(changes: ModelsDiff): string[] {
+	return [...Object.values(changes.customTypes), ...Object.values(changes.slices)]
+		.flat()
+		.map((model) => model.id);
+}
+
+function log(message: string): void {
+	console.info(`[${new Date().toLocaleTimeString()}] ${message}`);
 }
 
 async function checkReleaseSupport(config: {
@@ -215,25 +221,6 @@ async function checkReleaseSupport(config: {
 	} catch (error) {
 		if (getErrorCode(error) === "RELEASE_NOT_FOUND") return true;
 		throw error;
-	}
-}
-
-function getChangedIds(changes: ModelsDiff): string[] {
-	return [...Object.values(changes.customTypes), ...Object.values(changes.slices)]
-		.flat()
-		.map((model) => model.id);
-}
-
-function log(message: string): void {
-	console.info(`[${new Date().toLocaleTimeString()}] ${message}`);
-}
-
-function isRunning(pid: number): boolean {
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch (error) {
-		return (error as NodeJS.ErrnoException).code === "EPERM";
 	}
 }
 
@@ -263,5 +250,22 @@ function toCommandError(error: unknown): unknown {
 			return new CommandError("The hidden release was deleted. Run `prismic dev` again.");
 		default:
 			return error;
+	}
+}
+
+const SessionSchema = z.object({ repo: z.string(), releaseId: z.string(), pid: z.number() });
+
+async function getSessionPath(): Promise<URL> {
+	const projectRoot = fileURLToPath(await findProjectRoot());
+	const projectHash = createHash("sha256").update(projectRoot).digest("hex");
+	return new URL(`dev/${projectHash}.json`, CONFIG_DIR);
+}
+
+function isRunning(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch (error) {
+		return (error as NodeJS.ErrnoException).code === "EPERM";
 	}
 }
