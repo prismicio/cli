@@ -14,16 +14,16 @@ import { createCommand, type CommandConfig, CommandError } from "../lib/command"
 import { readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import {
+	createHiddenRelease,
+	deleteRelease,
+	getReleaseErrorCode,
+} from "../lib/prismic/clients/core";
+import {
 	type BulkChange,
 	bulkUpdate,
 	getCustomTypes,
 	getSlices,
 } from "../lib/prismic/clients/custom-types";
-import {
-	createHiddenRelease,
-	deleteRelease,
-	getReleaseErrorCode,
-} from "../lib/prismic/clients/releases";
 import { diffModels, type Models, type ModelsDiff } from "../lib/prismic/models";
 import { findProjectRoot, getRepositoryName } from "../project";
 import { trackCommandEnd, trackCommandStart } from "../tracking";
@@ -201,25 +201,18 @@ async function checkReleaseSupport(config: {
 }
 
 function toBulkChanges({ customTypes, slices }: ModelsDiff): BulkChange[] {
+	const change = (type: BulkChange["type"], payload: BulkChange["payload"]) => ({
+		type,
+		id: payload.id,
+		payload,
+	});
 	return [
-		...customTypes.insert.map((m) => ({
-			type: "CUSTOM_TYPE_INSERT" as const,
-			id: m.id,
-			payload: m,
-		})),
-		...customTypes.update.map((m) => ({
-			type: "CUSTOM_TYPE_UPDATE" as const,
-			id: m.id,
-			payload: m,
-		})),
-		...customTypes.delete.map(({ id }) => ({
-			type: "CUSTOM_TYPE_DELETE" as const,
-			id,
-			payload: { id },
-		})),
-		...slices.insert.map((m) => ({ type: "SLICE_INSERT" as const, id: m.id, payload: m })),
-		...slices.update.map((m) => ({ type: "SLICE_UPDATE" as const, id: m.id, payload: m })),
-		...slices.delete.map(({ id }) => ({ type: "SLICE_DELETE" as const, id, payload: { id } })),
+		...customTypes.insert.map((model) => change("CUSTOM_TYPE_INSERT", model)),
+		...customTypes.update.map((model) => change("CUSTOM_TYPE_UPDATE", model)),
+		...customTypes.delete.map(({ id }) => change("CUSTOM_TYPE_DELETE", { id })),
+		...slices.insert.map((model) => change("SLICE_INSERT", model)),
+		...slices.update.map((model) => change("SLICE_UPDATE", model)),
+		...slices.delete.map(({ id }) => change("SLICE_DELETE", { id })),
 	];
 }
 

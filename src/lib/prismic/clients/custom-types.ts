@@ -106,10 +106,11 @@ export async function removeSlice(id: string, config: CustomTypesConfig): Promis
 	});
 }
 
-export type BulkChange =
-	| { type: "CUSTOM_TYPE_INSERT" | "CUSTOM_TYPE_UPDATE"; id: string; payload: CustomType }
-	| { type: "SLICE_INSERT" | "SLICE_UPDATE"; id: string; payload: SharedSlice }
-	| { type: "CUSTOM_TYPE_DELETE" | "SLICE_DELETE"; id: string; payload: { id: string } };
+export type BulkChange = {
+	type: `${"CUSTOM_TYPE" | "SLICE"}_${"INSERT" | "UPDATE" | "DELETE"}`;
+	id: string;
+	payload: CustomType | SharedSlice | { id: string };
+};
 
 export async function bulkUpdate(changes: BulkChange[], config: CustomTypesConfig): Promise<void> {
 	const url = new URL("bulk-update", getCustomTypesServiceUrl(config.host));
