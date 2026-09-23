@@ -2,8 +2,7 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { diffModels } from "../lib/prismic/models";
+import { diffModels, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -83,14 +82,13 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices] = await Promise.all([
+	const [localCustomTypes, localSlices, remote] = await Promise.all([
 		adapter.getCustomTypes(),
 		adapter.getSlices(),
-		getCustomTypes({ repo, token, host }),
-		getSlices({ repo, token, host }),
+		getRemoteModels({ repo, token, host }),
 	]);
 	const diff = diffModels(
-		{ customTypes: remoteCustomTypes, slices: remoteSlices },
+		remote,
 		{
 			customTypes: localCustomTypes.map((customType) => customType.model),
 			slices: localSlices.map((slice) => slice.model),

@@ -6,8 +6,7 @@ import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
 import { hasChanges } from "../lib/diff";
-import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { diffModels, type Models } from "../lib/prismic/models";
+import { diffModels, getRemoteModels, type Models } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
@@ -65,11 +64,7 @@ export default createCommand(config, async ({ values }) => {
 
 	while (true) {
 		try {
-			const [customTypes, slices] = await Promise.all([
-				getCustomTypes({ repo, token, host }),
-				getSlices({ repo, token, host }),
-			]);
-			const remote = { customTypes, slices };
+			const remote = await getRemoteModels({ repo, token, host });
 			const sinceLastPoll = lastRemote && diffModels(remote, lastRemote);
 
 			if (

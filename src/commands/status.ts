@@ -3,9 +3,8 @@ import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getProfile } from "../lib/prismic/clients/user";
-import { diffModels, type ModelsDiff } from "../lib/prismic/models";
+import { diffModels, getRemoteModels, type ModelsDiff } from "../lib/prismic/models";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
 
@@ -49,13 +48,12 @@ export default createCommand(config, async ({ values }) => {
 	let userEmail: string | undefined;
 	let diff: ModelsDiff | undefined;
 	if (token) {
-		const [profile, remoteCustomTypes, remoteSlices] = await Promise.all([
+		const [profile, remote] = await Promise.all([
 			getProfile({ token, host }),
-			getCustomTypes({ repo, token, host }),
-			getSlices({ repo, token, host }),
+			getRemoteModels({ repo, token, host }),
 		]);
 		userEmail = profile.email;
-		diff = diffModels(local, { customTypes: remoteCustomTypes, slices: remoteSlices });
+		diff = diffModels(local, remote);
 	}
 
 	let dirtyModelFiles: string[] = [];
