@@ -18,18 +18,42 @@ export default createCommandRouter({
 		Run \`prismic docs view slices\` for details.
 	`,
 	commands: {
-		create: { handler: sliceCreate, description: "Create a new slice" },
-		edit: { handler: sliceEdit, description: "Edit a slice" },
-		remove: { handler: sliceRemove, description: "Remove a slice" },
-		list: { handler: sliceList, description: "List slices" },
-		view: { handler: sliceView, description: "View a slice" },
-		connect: { handler: sliceConnect, description: "Connect a slice to a type's slice zone" },
+		create: {
+			handler: sliceCreate,
+			description: "Create a new slice",
+		},
+		edit: {
+			handler: sliceEdit,
+			description: "Edit a slice",
+		},
+		remove: {
+			handler: sliceRemove,
+			description: "Remove a slice",
+		},
+		list: {
+			handler: sliceList,
+			description: "List slices",
+		},
+		view: {
+			handler: sliceView,
+			description: "View a slice",
+		},
+		connect: {
+			handler: sliceConnect,
+			description: "Connect a slice to a type's slice zone",
+		},
 		disconnect: {
 			handler: sliceDisconnect,
 			description: "Disconnect a slice from a type's slice zone",
 		},
-		"add-variation": { handler: sliceAddVariation, description: "Add a variation to a slice" },
-		"edit-variation": { handler: sliceEditVariation, description: "Edit a variation of a slice" },
+		"add-variation": {
+			handler: sliceAddVariation,
+			description: "Add a variation to a slice",
+		},
+		"edit-variation": {
+			handler: sliceEditVariation,
+			description: "Edit a variation of a slice",
+		},
 		"remove-variation": {
 			handler: sliceRemoveVariation,
 			description: "Remove a variation from a slice",

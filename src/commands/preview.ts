@@ -19,9 +19,21 @@ export default createCommandRouter({
 		`,
 	},
 	commands: {
-		add: { handler: previewAdd, description: "Add a preview URL" },
-		list: { handler: previewList, description: "List preview URLs and the simulator URL" },
-		remove: { handler: previewRemove, description: "Remove a preview URL" },
-		"set-simulator": { handler: previewSetSimulator, description: "Set the slice simulator URL" },
+		add: {
+			handler: previewAdd,
+			description: "Add a preview URL",
+		},
+		list: {
+			handler: previewList,
+			description: "List preview URLs and the simulator URL",
+		},
+		remove: {
+			handler: previewRemove,
+			description: "Remove a preview URL",
+		},
+		"set-simulator": {
+			handler: previewSetSimulator,
+			description: "Set the slice simulator URL",
+		},
 	},
 });
