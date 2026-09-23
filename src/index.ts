@@ -38,6 +38,7 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
+import { isTaskId } from "./lib/task-id";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import {
 	InvalidLegacySliceMachineConfigError,
@@ -81,8 +82,6 @@ const KNOWN_ERRORS = [
 ];
 
 const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError, TypeBuilderRequiredError];
-
-const TASK_ID = /^pt_[0-9a-hjkmnp-tv-z]{16}$/;
 
 await main();
 
@@ -130,12 +129,12 @@ async function main(): Promise<void> {
 
 	const agentNeedsTaskId =
 		!help && command !== "" && command !== "task-id" && detectAgent() !== undefined;
-	const hasTaskIdAndIntent = Boolean(userIntent) && TASK_ID.test(taskId ?? "");
+	const agentOptionsError = agentNeedsTaskId ? getAgentOptionsError(taskId, userIntent) : undefined;
 
-	if (agentNeedsTaskId && !hasTaskIdAndIntent) {
+	if (agentOptionsError) {
 		console.error(
-			`error: missing --task-id\n` +
-				"run `prismic task-id` for an id, then pass --task-id <id> --user-intent " +
+			`error: ${agentOptionsError}\n` +
+				"run `prismic task-id` once per user request, then pass --task-id <id> --user-intent " +
 				'"<what the user asked for>" on every command until the user asks for something else',
 		);
 		process.exitCode = 1;
@@ -238,4 +237,10 @@ async function initSentry(options: {
 	} catch {
 		// noop - it's okay if we can't set the framework
 	}
+}
+
+function getAgentOptionsError(taskId: string | undefined, userIntent: string | undefined) {
+	if (!taskId) return "missing --task-id";
+	if (!isTaskId(taskId)) return "--task-id must come from `prismic task-id`";
+	if (!userIntent) return "missing --user-intent";
 }

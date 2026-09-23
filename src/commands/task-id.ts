@@ -1,5 +1,5 @@
 import { createCommand } from "../lib/command";
-import { genTaskId } from "../tracking";
+import { genTaskId } from "../lib/task-id";
 
 export default createCommand(
 	{

@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
@@ -163,12 +162,4 @@ export async function isTelemetryEnabled(): Promise<boolean> {
 	} catch {
 		return true;
 	}
-}
-
-export function genTaskId(): string {
-	const alphabet = "0123456789abcdefghjkmnpqrstvwxyz";
-	let out = "";
-	for (const byte of randomBytes(16)) out += alphabet[byte & 0b11111];
-
-	return `pt_${out}`;
 }

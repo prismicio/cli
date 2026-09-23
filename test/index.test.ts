@@ -69,23 +69,27 @@ it("requires --user-intent and a generated --task-id when an agent is detected",
 	prismic,
 }) => {
 	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
-	const intent = ["--user-intent", "Add a blog"];
+	const taskId = (await prismic("task-id", [], agent)).stdout.trim();
 
-	const missing = await prismic("docs", ["list"], agent);
-	expect(missing.exitCode).toBe(1);
-	expect(missing.stderr).toContain("prismic task-id");
+	const missingTaskId = await prismic("docs", ["list", "--user-intent", "Add a blog"], agent);
+	expect(missingTaskId.exitCode).toBe(1);
+	expect(missingTaskId.stderr).toContain("missing --task-id");
 
-	// Every id comes from `prismic task-id`, so a value the agent made up cannot pass.
-	for (const value of ["temp", crypto.randomUUID()]) {
-		const rejected = await prismic("docs", ["list", ...intent, "--task-id", value], agent);
-		expect(rejected.exitCode, value).toBe(1);
-	}
+	const madeUpTaskId = await prismic(
+		"docs",
+		["list", "--user-intent", "Add a blog", "--task-id", crypto.randomUUID()],
+		agent,
+	);
+	expect(madeUpTaskId.exitCode).toBe(1);
+	expect(madeUpTaskId.stderr).toContain("--task-id must come from `prismic task-id`");
 
-	const generated = await prismic("task-id", [], agent);
-	expect(generated.exitCode, generated.stderr).toBe(0);
+	const missingIntent = await prismic("docs", ["list", "--task-id", taskId], agent);
+	expect(missingIntent.exitCode).toBe(1);
+	expect(missingIntent.stderr).toContain("missing --user-intent");
+
 	const ok = await prismic(
 		"docs",
-		["list", ...intent, "--task-id", generated.stdout.trim()],
+		["list", "--user-intent", "Add a blog", "--task-id", taskId],
 		agent,
 	);
 	expect(ok.exitCode, ok.stderr).toBe(0);
@@ -111,6 +115,5 @@ it("shows the agent options and `task-id` in help only when an agent is detected
 	const humanHelp = (await prismic("", ["--help"], human)).stdout;
 	expect(agentHelp).toContain("AGENTS");
 	expect(humanHelp).not.toContain("AGENTS");
-	// The old names stay accepted but are no longer advertised to anyone.
 	expect(agentHelp).not.toContain("--analytics-task-id");
 });
