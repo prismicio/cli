@@ -24,7 +24,7 @@ import {
 	deleteRelease,
 	getReleaseErrorCode,
 } from "../lib/prismic/clients/releases";
-import { diffModels, type Models, type ModelsDiff, snapshotModels } from "../lib/prismic/models";
+import { diffModels, type Models, type ModelsDiff } from "../lib/prismic/models";
 import { findProjectRoot, getRepositoryName } from "../project";
 import { trackCommandEnd, trackCommandStart } from "../tracking";
 
@@ -115,7 +115,7 @@ async function watch(
 	release: { repo: string; token: string; host: string; release: string },
 ): Promise<never> {
 	let lastLocal: Models | undefined;
-	let lastRemoteSnapshot = "";
+	let lastRemote: Models | undefined;
 	let lastErrorMessage: string | undefined;
 
 	while (true) {
@@ -128,19 +128,17 @@ async function watch(
 				getSlices(release),
 			]);
 			const remote = { customTypes, slices };
-			const localSnapshot = snapshotModels(local);
+			// Only models edited on disk go up, so Type Builder edits to other
+			// models, or ones a failed write left behind, are pulled instead.
+			const edited = lastLocal && getChangedIds(diffModels(local, lastLocal));
 
-			if (!lastLocal || localSnapshot !== snapshotModels(lastLocal)) {
-				// Only models edited on disk go up, so Type Builder edits to other
-				// models, or ones a failed write left behind, are pulled instead.
-				const edited = lastLocal && getChangedIds(diffModels(local, lastLocal));
+			if (!edited || edited.length > 0) {
 				const changes = edited
 					? diffModels(pick(local, edited), pick(remote, edited))
 					: diffModels(local, remote);
 				const ids = getChangedIds(changes);
 				if (ids.length > 0) await bulkUpdate(toBulkChanges(changes), release);
-				lastLocal = local;
-				lastRemoteSnapshot = localSnapshot;
+				lastLocal = lastRemote = local;
 
 				if (isInitial) {
 					const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
@@ -153,12 +151,12 @@ async function watch(
 				} else if (ids.length > 0) {
 					log(`Sent to the Type Builder: ${ids.join(", ")}`);
 				}
-			} else if (snapshotModels(remote) !== lastRemoteSnapshot) {
+			} else if (lastRemote && getChangedIds(diffModels(remote, lastRemote)).length > 0) {
 				const changes = diffModels(remote, local);
 				await adapter.writeModels(changes);
 				await adapter.generateTypes();
 				lastLocal = await adapter.getModels();
-				lastRemoteSnapshot = snapshotModels(remote);
+				lastRemote = remote;
 
 				const ids = getChangedIds(changes);
 				if (ids.length > 0) log(`Written from the Type Builder: ${ids.join(", ")}`);
