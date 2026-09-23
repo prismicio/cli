@@ -13,10 +13,25 @@ export default createCommandRouter({
 		Run \`prismic docs view repository-settings\` for details.
 	`,
 	commands: {
-		create: { handler: repoCreate, description: "Create a new repository" },
-		list: { handler: repoList, description: "List repositories" },
-		view: { handler: repoView, description: "View repository details" },
-		"set-name": { handler: repoSetName, description: "Set repository display name" },
-		"set-api-access": { handler: repoSetApiAccess, description: "Set Content API access level" },
+		create: {
+			handler: repoCreate,
+			description: "Create a new repository",
+		},
+		list: {
+			handler: repoList,
+			description: "List repositories",
+		},
+		view: {
+			handler: repoView,
+			description: "View repository details",
+		},
+		"set-name": {
+			handler: repoSetName,
+			description: "Set repository display name",
+		},
+		"set-api-access": {
+			handler: repoSetApiAccess,
+			description: "Set Content API access level",
+		},
 	},
 });
