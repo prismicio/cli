@@ -1,10 +1,9 @@
 import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import { diffModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -90,30 +89,20 @@ export default createCommand(config, async ({ values }) => {
 		getCustomTypes({ repo, token, host }),
 		getSlices({ repo, token, host }),
 	]);
-	const customTypeOps = diffArrays(
-		remoteCustomTypes,
-		localCustomTypes.map((customType) => customType.model),
+	const diff = diffModels(
+		{ customTypes: remoteCustomTypes, slices: remoteSlices },
 		{
-			getKey: (model) => model.id,
-			equals: (remote, local) =>
-				JSON.stringify(canonicalizeCustomType(remote)) === JSON.stringify(local),
+			customTypes: localCustomTypes.map((customType) => customType.model),
+			slices: localSlices.map((slice) => slice.model),
 		},
-	);
-	const sliceOps = diffArrays(
-		remoteSlices,
-		localSlices.map((slice) => slice.model),
-		{
-			getKey: (model) => model.id,
-			equals: (remote, local) =>
-				JSON.stringify(canonicalizeSlice(remote)) === JSON.stringify(local),
-		},
+		{ treatNonCanonicalAsChanged: true },
 	);
 
 	if (!force && !gitRoot) {
 		const customTypeIds = new Set(
-			[...customTypeOps.update, ...customTypeOps.delete].map((op) => op.id),
+			[...diff.customTypes.update, ...diff.customTypes.delete].map((op) => op.id),
 		);
-		const sliceIds = new Set([...sliceOps.update, ...sliceOps.delete].map((op) => op.id));
+		const sliceIds = new Set([...diff.slices.update, ...diff.slices.delete].map((op) => op.id));
 		const affectedFiles = [
 			...localCustomTypes.filter((c) => customTypeIds.has(c.model.id)),
 			...localSlices.filter((s) => sliceIds.has(s.model.id)),
@@ -131,25 +120,7 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	for (const model of customTypeOps.insert) {
-		await adapter.createCustomType(model);
-	}
-	for (const model of customTypeOps.update) {
-		await adapter.updateCustomType(model);
-	}
-	for (const model of customTypeOps.delete) {
-		await adapter.deleteCustomType(model.id);
-	}
-	for (const model of sliceOps.insert) {
-		await adapter.createSlice(model);
-	}
-	for (const model of sliceOps.update) {
-		await adapter.updateSlice(model);
-	}
-	for (const model of sliceOps.delete) {
-		await adapter.deleteSlice(model.id);
-	}
-
+	await adapter.writeModels(diff);
 	await adapter.generateTypes();
 
 	await completeOnboardingSteps(["connectPrismic"], {
@@ -158,9 +129,9 @@ export default createCommand(config, async ({ values }) => {
 		host,
 	}).catch(() => {});
 
-	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
-	const totalSlices = sliceOps.insert.length + sliceOps.update.length;
-	const totalDeletes = customTypeOps.delete.length + sliceOps.delete.length;
+	const totalTypes = diff.customTypes.insert.length + diff.customTypes.update.length;
+	const totalSlices = diff.slices.insert.length + diff.slices.update.length;
+	const totalDeletes = diff.customTypes.delete.length + diff.slices.delete.length;
 
 	if (totalTypes === 0 && totalSlices === 0 && totalDeletes === 0) {
 		console.info("Already up to date.");
@@ -168,9 +139,9 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	console.info(
-		`Inserted ${customTypeOps.insert.length}, updated ${customTypeOps.update.length}, deleted ${customTypeOps.delete.length} types`,
+		`Inserted ${diff.customTypes.insert.length}, updated ${diff.customTypes.update.length}, deleted ${diff.customTypes.delete.length} types`,
 	);
 	console.info(
-		`Inserted ${sliceOps.insert.length}, updated ${sliceOps.update.length}, deleted ${sliceOps.delete.length} slices`,
+		`Inserted ${diff.slices.insert.length}, updated ${diff.slices.update.length}, deleted ${diff.slices.delete.length} slices`,
 	);
 });

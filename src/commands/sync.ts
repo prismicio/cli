@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 
 import { getAdapter } from "../adapters";
@@ -6,9 +5,9 @@ import { getCredentials } from "../auth";
 import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
-import { diffArrays } from "../lib/diff";
+import { hasChanges } from "../lib/diff";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import { diffModels, type Models } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
@@ -61,76 +60,39 @@ export default createCommand(config, async ({ values }) => {
 		`Watching repository: ${repo} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
 	);
 
-	let lastHash = "";
+	let lastRemote: Models | undefined;
 	let consecutiveErrors = 0;
 
 	while (true) {
 		try {
-			const [remoteCustomTypes, remoteSlices] = await Promise.all([
+			const [customTypes, slices] = await Promise.all([
 				getCustomTypes({ repo, token, host }),
 				getSlices({ repo, token, host }),
 			]);
-			const nextHash = hash({
-				remoteCustomTypes: remoteCustomTypes.map((model) => canonicalizeCustomType(model)),
-				remoteSlices: remoteSlices.map((model) => canonicalizeSlice(model)),
-			});
+			const remote = { customTypes, slices };
+			const sinceLastPoll = lastRemote && diffModels(remote, lastRemote);
 
-			if (nextHash !== lastHash) {
-				const isInitial = lastHash === "";
+			if (
+				!sinceLastPoll ||
+				hasChanges(sinceLastPoll.customTypes) ||
+				hasChanges(sinceLastPoll.slices)
+			) {
+				const isInitial = !sinceLastPoll;
 
-				const [localCustomTypes, localSlices] = await Promise.all([
-					adapter.getCustomTypes(),
-					adapter.getSlices(),
-				]);
-				const localCustomTypeModels = localCustomTypes.map((c) => c.model);
-				const localSliceModels = localSlices.map((s) => s.model);
-
-				const changed: string[] = [];
-
-				const sliceOps = diffArrays(remoteSlices, localSliceModels, {
-					getKey: (m) => m.id,
-					equals: (remote, local) =>
-						JSON.stringify(canonicalizeSlice(remote)) === JSON.stringify(local),
+				const diff = diffModels(remote, await adapter.getModels(), {
+					treatNonCanonicalAsChanged: true,
 				});
-				if (sliceOps.insert.length + sliceOps.update.length + sliceOps.delete.length > 0) {
-					for (const slice of sliceOps.update) {
-						await adapter.updateSlice(slice);
-					}
-					for (const slice of sliceOps.delete) {
-						await adapter.deleteSlice(slice.id);
-					}
-					for (const slice of sliceOps.insert) {
-						await adapter.createSlice(slice);
-					}
-					changed.push("slices");
-				}
-
-				const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
-					getKey: (m) => m.id,
-					equals: (remote, local) =>
-						JSON.stringify(canonicalizeCustomType(remote)) === JSON.stringify(local),
-				});
-				if (
-					customTypeOps.insert.length + customTypeOps.update.length + customTypeOps.delete.length >
-					0
-				) {
-					for (const customType of customTypeOps.update) {
-						await adapter.updateCustomType(customType);
-					}
-					for (const customType of customTypeOps.delete) {
-						await adapter.deleteCustomType(customType.id);
-					}
-					for (const customType of customTypeOps.insert) {
-						await adapter.createCustomType(customType);
-					}
-					changed.push("custom types");
-				}
+				await adapter.writeModels(diff);
+				const changed = [
+					...(hasChanges(diff.slices) ? ["slices"] : []),
+					...(hasChanges(diff.customTypes) ? ["custom types"] : []),
+				];
 
 				if (isInitial || changed.length > 0) {
 					await adapter.generateTypes();
 				}
 
-				lastHash = nextHash;
+				lastRemote = remote;
 
 				if (isInitial) {
 					await completeOnboardingSteps(["connectPrismic"], {
@@ -160,7 +122,3 @@ export default createCommand(config, async ({ values }) => {
 		await setTimeout(POLL_INTERVAL_MS);
 	}
 });
-
-function hash(data: unknown): string {
-	return createHash("sha256").update(JSON.stringify(data)).digest("hex");
-}
