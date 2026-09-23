@@ -6,7 +6,12 @@ import type {
 	SharedSlice,
 } from "@prismicio/types-internal/lib/customtypes";
 
+import { type ArrayDiff, diffArrays } from "../diff";
+
 type Fields = Record<string, DynamicWidget>;
+
+export type Models = { customTypes: CustomType[]; slices: SharedSlice[] };
+export type ModelsDiff = { customTypes: ArrayDiff<CustomType>; slices: ArrayDiff<SharedSlice> };
 
 export type ContentRelationshipFieldSelection =
 	| string
@@ -181,6 +186,40 @@ export function resolveSliceFieldContainer(
 	if (!variation) throw new SliceVariationNotFoundError(variationId, slice.id);
 	variation.primary ??= {};
 	return resolveNestedFieldContainer(path, variation.primary);
+}
+
+// The changes that make `target` match `source`. With `requireCanonicalTarget`,
+// a target model that is not in canonical form also counts as changed, so
+// writing the changes canonicalizes it.
+export function diffModels(
+	source: Models,
+	target: Models,
+	options: { requireCanonicalTarget?: boolean } = {},
+): ModelsDiff {
+	const { requireCanonicalTarget = false } = options;
+	return {
+		customTypes: diffArrays(source.customTypes, target.customTypes, {
+			getKey: (model) => model.id,
+			equals: (a, b) =>
+				JSON.stringify(canonicalizeCustomType(a)) ===
+				JSON.stringify(requireCanonicalTarget ? b : canonicalizeCustomType(b)),
+		}),
+		slices: diffArrays(source.slices, target.slices, {
+			getKey: (model) => model.id,
+			equals: (a, b) =>
+				JSON.stringify(canonicalizeSlice(a)) ===
+				JSON.stringify(requireCanonicalTarget ? b : canonicalizeSlice(b)),
+		}),
+	};
+}
+
+// A string that is equal for two sets of models exactly when they are equal.
+export function snapshotModels(models: Models): string {
+	const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id);
+	return JSON.stringify({
+		customTypes: models.customTypes.map(canonicalizeCustomType).sort(byId),
+		slices: models.slices.map(canonicalizeSlice).sort(byId),
+	});
 }
 
 export function canonicalizeCustomType(model: CustomType): CustomType {

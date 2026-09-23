@@ -5,7 +5,6 @@ import { pascalCase } from "change-case";
 import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getDocumentTotalByCustomTypes } from "../lib/prismic/clients/core";
 import {
@@ -19,7 +18,7 @@ import {
 	updateCustomType,
 	updateSlice,
 } from "../lib/prismic/clients/custom-types";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import { diffModels } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
 import { BadRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
@@ -107,33 +106,22 @@ export default createCommand(config, async ({ values }) => {
 		getCustomTypes({ repo, token, host }),
 		getSlices({ repo, token, host }),
 	]);
-	const customTypeOps = diffArrays(
-		localCustomTypes.map((customType) => customType.model),
-		remoteCustomTypes,
+	const diff = diffModels(
 		{
-			getKey: (model) => model.id,
-			equals: (a, b) =>
-				JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
+			customTypes: localCustomTypes.map((customType) => customType.model),
+			slices: localSlices.map((slice) => slice.model),
 		},
-	);
-	const sliceOps = diffArrays(
-		localSlices.map((slice) => slice.model),
-		remoteSlices,
-		{
-			getKey: (model) => model.id,
-			equals: (a, b) =>
-				JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
-		},
+		{ customTypes: remoteCustomTypes, slices: remoteSlices },
 	);
 
 	if (!force) {
 		const customTypeLibrary = appendTrailingSlash(customTypeLibraries[0]);
 		const sliceLibrary = appendTrailingSlash(sliceLibraries[0]);
 		const deletedFiles = [
-			...customTypeOps.delete.map((m) =>
+			...diff.customTypes.delete.map((m) =>
 				relativePathname(projectRoot, new URL(`${m.id}/index.json`, customTypeLibrary)),
 			),
-			...sliceOps.delete.map((m) =>
+			...diff.slices.delete.map((m) =>
 				relativePathname(projectRoot, new URL(`${pascalCase(m.name)}/model.json`, sliceLibrary)),
 			),
 		];
@@ -147,22 +135,22 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	for (const model of customTypeOps.insert) {
+	for (const model of diff.customTypes.insert) {
 		await insertCustomType(model, { repo, token, host });
 	}
-	for (const model of customTypeOps.update) {
+	for (const model of diff.customTypes.update) {
 		await updateCustomType(model, { repo, token, host });
 	}
-	for (const model of customTypeOps.delete) {
+	for (const model of diff.customTypes.delete) {
 		await removeCustomTypeWithDocumentHandling(model, { repo, token, host });
 	}
-	for (const model of sliceOps.insert) {
+	for (const model of diff.slices.insert) {
 		await insertSlice(model, { repo, token, host });
 	}
-	for (const model of sliceOps.update) {
+	for (const model of diff.slices.update) {
 		await updateSlice(model, { repo, token, host });
 	}
-	for (const id of sliceOps.delete.map((m) => m.id)) {
+	for (const id of diff.slices.delete.map((m) => m.id)) {
 		await removeSlice(id, { repo, token, host });
 		await deleteScreenshots(id, { repo, token, host }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
@@ -173,10 +161,10 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const onboardingSteps: OnboardingStep[] = [];
-	if (sliceOps.insert.length > 0) {
+	if (diff.slices.insert.length > 0) {
 		onboardingSteps.push("createSlice");
 	}
-	if (customTypeOps.insert.some((model) => model.format === "page")) {
+	if (diff.customTypes.insert.some((model) => model.format === "page")) {
 		onboardingSteps.push("createPageType");
 	}
 	if (onboardingSteps.length > 0) {
@@ -187,9 +175,9 @@ export default createCommand(config, async ({ values }) => {
 		}).catch(() => {});
 	}
 
-	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
-	const totalSlices = sliceOps.insert.length + sliceOps.update.length;
-	const totalDeletes = customTypeOps.delete.length + sliceOps.delete.length;
+	const totalTypes = diff.customTypes.insert.length + diff.customTypes.update.length;
+	const totalSlices = diff.slices.insert.length + diff.slices.update.length;
+	const totalDeletes = diff.customTypes.delete.length + diff.slices.delete.length;
 	if (totalTypes === 0 && totalSlices === 0 && totalDeletes === 0) {
 		console.info("Already up to date.");
 	} else {
