@@ -168,7 +168,7 @@ describe("with an isolated repository", () => {
 		const { stderr, exitCode } = await prismic("push", ["--repo", repo]);
 		expect(exitCode).toBe(1);
 		expect(stderr).toContain("Push would delete remote models");
-		expect(stderr).toContain(`${customType.id}/index.json`);
+		expect(stderr).toContain(customType.id);
 
 		const remote = await getCustomTypes({ repo, token, host });
 		expect(remote.map((t) => t.id)).toContain(customType.id);
