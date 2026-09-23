@@ -16,37 +16,13 @@ export default createCommandRouter({
 		Run \`prismic docs view content-modeling\` for details.
 	`,
 	commands: {
-		create: {
-			handler: typeCreate,
-			description: "Create a new content type",
-		},
-		edit: {
-			handler: typeEdit,
-			description: "Edit a content type",
-		},
-		remove: {
-			handler: typeRemove,
-			description: "Remove a content type",
-		},
-		list: {
-			handler: typeList,
-			description: "List content types",
-		},
-		view: {
-			handler: typeView,
-			description: "View a content type",
-		},
-		"add-tab": {
-			handler: typeAddTab,
-			description: "Add a tab to a content type",
-		},
-		"edit-tab": {
-			handler: typeEditTab,
-			description: "Edit a tab of a content type",
-		},
-		"remove-tab": {
-			handler: typeRemoveTab,
-			description: "Remove a tab from a content type",
-		},
+		create: { handler: typeCreate, description: "Create a new content type" },
+		edit: { handler: typeEdit, description: "Edit a content type" },
+		remove: { handler: typeRemove, description: "Remove a content type" },
+		list: { handler: typeList, description: "List content types" },
+		view: { handler: typeView, description: "View a content type" },
+		"add-tab": { handler: typeAddTab, description: "Add a tab to a content type" },
+		"edit-tab": { handler: typeEditTab, description: "Edit a tab of a content type" },
+		"remove-tab": { handler: typeRemoveTab, description: "Remove a tab from a content type" },
 	},
 });

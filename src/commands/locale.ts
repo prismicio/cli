@@ -12,21 +12,9 @@ export default createCommandRouter({
 		Run \`prismic docs view locales\` for details.
 	`,
 	commands: {
-		add: {
-			handler: localeAdd,
-			description: "Add a locale",
-		},
-		list: {
-			handler: localeList,
-			description: "List locales",
-		},
-		remove: {
-			handler: localeRemove,
-			description: "Remove a locale",
-		},
-		"set-master": {
-			handler: localeSetMaster,
-			description: "Set the master locale",
-		},
+		add: { handler: localeAdd, description: "Add a locale" },
+		list: { handler: localeList, description: "List locales" },
+		remove: { handler: localeRemove, description: "Remove a locale" },
+		"set-master": { handler: localeSetMaster, description: "Set the master locale" },
 	},
 });

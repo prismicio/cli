@@ -15,33 +15,12 @@ export default createCommandRouter({
 		Run \`prismic docs view webhooks\` for details.
 	`,
 	commands: {
-		list: {
-			handler: webhookList,
-			description: "List all webhooks",
-		},
-		create: {
-			handler: webhookCreate,
-			description: "Create a new webhook",
-		},
-		view: {
-			handler: webhookView,
-			description: "View webhook details",
-		},
-		remove: {
-			handler: webhookRemove,
-			description: "Delete a webhook",
-		},
-		enable: {
-			handler: webhookEnable,
-			description: "Enable a webhook",
-		},
-		disable: {
-			handler: webhookDisable,
-			description: "Disable a webhook",
-		},
-		"set-triggers": {
-			handler: webhookSetTriggers,
-			description: "Update webhook triggers",
-		},
+		list: { handler: webhookList, description: "List all webhooks" },
+		create: { handler: webhookCreate, description: "Create a new webhook" },
+		view: { handler: webhookView, description: "View webhook details" },
+		remove: { handler: webhookRemove, description: "Delete a webhook" },
+		enable: { handler: webhookEnable, description: "Enable a webhook" },
+		disable: { handler: webhookDisable, description: "Disable a webhook" },
+		"set-triggers": { handler: webhookSetTriggers, description: "Update webhook triggers" },
 	},
 });
