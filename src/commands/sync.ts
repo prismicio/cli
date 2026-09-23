@@ -7,7 +7,7 @@ import { getErrorMessage } from "../error";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { diffModels, snapshotModels } from "../lib/prismic/models";
+import { diffModels, type Models } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
@@ -60,7 +60,7 @@ export default createCommand(config, async ({ values }) => {
 		`Watching repository: ${repo} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
 	);
 
-	let lastSnapshot = "";
+	let lastRemote: Models | undefined;
 	let consecutiveErrors = 0;
 
 	while (true) {
@@ -70,10 +70,14 @@ export default createCommand(config, async ({ values }) => {
 				getSlices({ repo, token, host }),
 			]);
 			const remote = { customTypes, slices };
-			const nextSnapshot = snapshotModels(remote);
+			const sinceLastPoll = lastRemote && diffModels(remote, lastRemote);
 
-			if (nextSnapshot !== lastSnapshot) {
-				const isInitial = lastSnapshot === "";
+			if (
+				!sinceLastPoll ||
+				hasChanges(sinceLastPoll.customTypes) ||
+				hasChanges(sinceLastPoll.slices)
+			) {
+				const isInitial = !sinceLastPoll;
 
 				const diff = diffModels(remote, await adapter.getModels(), {
 					treatNonCanonicalAsChanged: true,
@@ -88,7 +92,7 @@ export default createCommand(config, async ({ values }) => {
 					await adapter.generateTypes();
 				}
 
-				lastSnapshot = nextSnapshot;
+				lastRemote = remote;
 
 				if (isInitial) {
 					await completeOnboardingSteps(["connectPrismic"], {
