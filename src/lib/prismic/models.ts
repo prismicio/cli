@@ -7,13 +7,7 @@ import type {
 } from "@prismicio/types-internal/lib/customtypes";
 
 import { type ArrayDiff, diffArrays } from "../diff";
-import {
-	type BulkChange,
-	bulkUpdate,
-	type CustomTypesConfig,
-	getCustomTypes,
-	getSlices,
-} from "./clients/custom-types";
+import { type CustomTypesConfig, getCustomTypes, getSlices } from "./clients/custom-types";
 
 type Fields = Record<string, DynamicWidget>;
 
@@ -198,26 +192,6 @@ export function resolveSliceFieldContainer(
 export async function getRemoteModels(config: CustomTypesConfig): Promise<Models> {
 	const [customTypes, slices] = await Promise.all([getCustomTypes(config), getSlices(config)]);
 	return { customTypes, slices };
-}
-
-export async function writeRemoteModels(
-	{ customTypes, slices }: ModelsDiff,
-	config: CustomTypesConfig,
-): Promise<void> {
-	const change = (type: BulkChange["type"], payload: BulkChange["payload"]) => ({
-		type,
-		id: payload.id,
-		payload,
-	});
-	const changes = [
-		...customTypes.insert.map((model) => change("CUSTOM_TYPE_INSERT", model)),
-		...customTypes.update.map((model) => change("CUSTOM_TYPE_UPDATE", model)),
-		...customTypes.delete.map(({ id }) => change("CUSTOM_TYPE_DELETE", { id })),
-		...slices.insert.map((model) => change("SLICE_INSERT", model)),
-		...slices.update.map((model) => change("SLICE_UPDATE", model)),
-		...slices.delete.map(({ id }) => change("SLICE_DELETE", { id })),
-	];
-	if (changes.length > 0) await bulkUpdate(changes, config);
 }
 
 export function diffModels(
