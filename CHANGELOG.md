@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.20.0](https://github.com/prismicio/cli/compare/v1.19.0...v1.20.0) (2026-09-23)
+
+
+### Features
+
+* **analytics:** issue task IDs from the CLI ([#316](https://github.com/prismicio/cli/issues/316)) ([1213a3e](https://github.com/prismicio/cli/commit/1213a3ebabaac3058269ca1b40ec27998490c14c))
+* **previews:** tell users to add the preview component ([#311](https://github.com/prismicio/cli/issues/311)) ([3f72bdd](https://github.com/prismicio/cli/commit/3f72bdd5d50919145fa84e7ff23e6856a480f0ed))
+
 ## [1.19.0](https://github.com/prismicio/cli/compare/v1.18.0...v1.19.0) (2026-09-18)
 
 
