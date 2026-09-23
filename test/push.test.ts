@@ -3,6 +3,7 @@ import { describe } from "vitest";
 
 import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
 import {
+	createDocument,
 	getCustomTypes,
 	getScreenshotPrefix,
 	getSlices,
@@ -125,5 +126,75 @@ describe("with an isolated repository", () => {
 				return keys.some((key) => key.startsWith(screenshotPrefix));
 			})
 			.toBe(false);
+	});
+
+	it("deletes a remote custom type when removed locally", async ({
+		expect,
+		prismic,
+		repo,
+		token,
+		host,
+	}) => {
+		const customType = buildCustomType();
+		await insertCustomType(customType, { repo, token, host });
+
+		const pull = await prismic("pull", ["--repo", repo, "--force"]);
+		expect(pull.exitCode, pull.stderr).toBe(0);
+		const remove = await prismic("type", ["remove", customType.id]);
+		expect(remove.exitCode, remove.stderr).toBe(0);
+
+		const { stderr, exitCode } = await prismic("push", ["--repo", repo, "--force"]);
+		expect(exitCode, stderr).toBe(0);
+
+		const remote = await getCustomTypes({ repo, token, host });
+		expect(remote.map((t) => t.id)).not.toContain(customType.id);
+	});
+
+	it("refuses to delete remote models without --force", async ({
+		expect,
+		prismic,
+		repo,
+		token,
+		host,
+	}) => {
+		const customType = buildCustomType();
+		await insertCustomType(customType, { repo, token, host });
+
+		const pull = await prismic("pull", ["--repo", repo, "--force"]);
+		expect(pull.exitCode, pull.stderr).toBe(0);
+		const remove = await prismic("type", ["remove", customType.id]);
+		expect(remove.exitCode, remove.stderr).toBe(0);
+
+		const { stderr, exitCode } = await prismic("push", ["--repo", repo]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("Push would delete remote models");
+		expect(stderr).toContain(`${customType.id}/index.json`);
+
+		const remote = await getCustomTypes({ repo, token, host });
+		expect(remote.map((t) => t.id)).toContain(customType.id);
+	});
+
+	it("explains that a custom type with documents cannot be deleted", async ({
+		expect,
+		prismic,
+		repo,
+		token,
+		host,
+	}) => {
+		const customType = buildCustomType();
+		await insertCustomType(customType, { repo, token, host });
+		await createDocument({ type: customType.id, lang: "en-us", data: {} }, { repo, token, host });
+
+		const pull = await prismic("pull", ["--repo", repo, "--force"]);
+		expect(pull.exitCode, pull.stderr).toBe(0);
+		const remove = await prismic("type", ["remove", customType.id]);
+		expect(remove.exitCode, remove.stderr).toBe(0);
+
+		const { stderr, exitCode } = await prismic("push", ["--repo", repo, "--force"]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain(`Could not delete type "${customType.id}" because it has`);
+
+		const remote = await getCustomTypes({ repo, token, host });
+		expect(remote.map((t) => t.id)).toContain(customType.id);
 	});
 });
