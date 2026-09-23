@@ -6,7 +6,7 @@ import * as z from "zod/mini";
 import { request, type RequestOptions } from "../../request";
 import { appendTrailingSlash } from "../../url";
 
-type CustomTypesConfig = {
+export type CustomTypesConfig = {
 	repo: string;
 	token: string | undefined;
 	host: string;
@@ -28,18 +28,6 @@ export async function getCustomType(id: string, config: CustomTypesConfig): Prom
 	});
 }
 
-export async function insertCustomType(
-	model: CustomType,
-	config: CustomTypesConfig,
-): Promise<void> {
-	const url = new URL("customtypes/insert", getCustomTypesServiceUrl(config.host));
-	await customTypesServiceRequest(url, config, {
-		method: "POST",
-		json: model,
-		unknownErrorMessage: `Failed to create type "${model.id}"`,
-	});
-}
-
 export async function updateCustomType(
 	model: CustomType,
 	config: CustomTypesConfig,
@@ -50,18 +38,6 @@ export async function updateCustomType(
 		json: model,
 		notFoundMessage: `Type not found: ${model.id}`,
 		unknownErrorMessage: `Failed to update type "${model.id}"`,
-	});
-}
-
-export async function removeCustomType(id: string, config: CustomTypesConfig): Promise<void> {
-	const url = new URL(
-		`customtypes/${encodeURIComponent(id)}`,
-		getCustomTypesServiceUrl(config.host),
-	);
-	await customTypesServiceRequest(url, config, {
-		method: "DELETE",
-		notFoundMessage: `Type not found: ${id}`,
-		unknownErrorMessage: `Failed to delete type "${id}"`,
 	});
 }
 
@@ -77,15 +53,6 @@ export async function getSlice(id: string, config: CustomTypesConfig): Promise<S
 	});
 }
 
-export async function insertSlice(model: SharedSlice, config: CustomTypesConfig): Promise<void> {
-	const url = new URL("slices/insert", getCustomTypesServiceUrl(config.host));
-	await customTypesServiceRequest(url, config, {
-		method: "POST",
-		json: model,
-		unknownErrorMessage: `Failed to create slice "${model.id}"`,
-	});
-}
-
 export async function updateSlice(model: SharedSlice, config: CustomTypesConfig): Promise<void> {
 	const url = new URL("slices/update", getCustomTypesServiceUrl(config.host));
 	await customTypesServiceRequest(url, config, {
@@ -96,12 +63,18 @@ export async function updateSlice(model: SharedSlice, config: CustomTypesConfig)
 	});
 }
 
-export async function removeSlice(id: string, config: CustomTypesConfig): Promise<void> {
-	const url = new URL(`slices/${encodeURIComponent(id)}`, getCustomTypesServiceUrl(config.host));
+export type BulkChange = {
+	type: `${"CUSTOM_TYPE" | "SLICE"}_${"INSERT" | "UPDATE" | "DELETE"}`;
+	id: string;
+	payload: CustomType | SharedSlice | { id: string };
+};
+
+export async function bulkUpdate(changes: BulkChange[], config: CustomTypesConfig): Promise<void> {
+	const url = new URL("bulk-update", getCustomTypesServiceUrl(config.host));
 	await customTypesServiceRequest(url, config, {
-		method: "DELETE",
-		notFoundMessage: `Slice not found: ${id}`,
-		unknownErrorMessage: `Failed to delete slice "${id}"`,
+		method: "POST",
+		json: { changes },
+		unknownErrorMessage: "Failed to update models",
 	});
 }
 

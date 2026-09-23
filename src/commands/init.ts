@@ -20,10 +20,9 @@ import {
 	removePreview,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
-import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getRepository, type Repository } from "../lib/prismic/clients/repository";
 import { getProfile } from "../lib/prismic/clients/user";
-import { diffModels } from "../lib/prismic/models";
+import { diffModels, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
@@ -240,15 +239,14 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Sync models from remote and generate types
-	const [remoteCustomTypes, remoteSlices, local] = await Promise.all([
-		getCustomTypes({ repo, token, host }),
-		getSlices({ repo, token, host }),
+	const [remote, local] = await Promise.all([
+		getRemoteModels({ repo, token, host }),
 		adapter.getModels(),
 	]);
-	const diff = diffModels({ customTypes: remoteCustomTypes, slices: remoteSlices }, local);
+	const diff = diffModels(remote, local);
 
 	if (isExistingProjectHandoff && connectedRepository?.starter) {
-		if (remoteCustomTypes.length === 0 && remoteSlices.length === 0) {
+		if (remote.customTypes.length === 0 && remote.slices.length === 0) {
 			throw new CommandError(
 				`Repository "${repo}" has no starter models. Use a repository created from the starter in the Prismic dashboard.`,
 			);
