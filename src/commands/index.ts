@@ -1,4 +1,5 @@
 import { createCommandRouter } from "../lib/command";
+import dev from "./dev";
 import docs from "./docs";
 import env from "./env";
 import field from "./field";
@@ -76,6 +77,10 @@ export default createCommandRouter({
 		sync: {
 			handler: sync,
 			description: "Sync types and slices from Prismic",
+		},
+		dev: {
+			handler: dev,
+			description: "Edit local models in the Type Builder",
 		},
 		status: {
 			handler: status,

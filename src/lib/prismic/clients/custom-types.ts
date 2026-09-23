@@ -10,6 +10,8 @@ type CustomTypesConfig = {
 	repo: string;
 	token: string | undefined;
 	host: string;
+	/** Reads and writes the models visible in this release instead of the live ones. */
+	release?: string;
 };
 
 export function getCustomTypes(config: CustomTypesConfig): Promise<CustomType[]> {
@@ -104,6 +106,20 @@ export async function removeSlice(id: string, config: CustomTypesConfig): Promis
 	});
 }
 
+export type BulkChange =
+	| { type: "CUSTOM_TYPE_INSERT" | "CUSTOM_TYPE_UPDATE"; id: string; payload: CustomType }
+	| { type: "SLICE_INSERT" | "SLICE_UPDATE"; id: string; payload: SharedSlice }
+	| { type: "CUSTOM_TYPE_DELETE" | "SLICE_DELETE"; id: string; payload: { id: string } };
+
+export async function bulkUpdate(changes: BulkChange[], config: CustomTypesConfig): Promise<void> {
+	const url = new URL("bulk-update", getCustomTypesServiceUrl(config.host));
+	await customTypesServiceRequest(url, config, {
+		method: "POST",
+		json: { changes },
+		unknownErrorMessage: "Failed to update models",
+	});
+}
+
 const ScreenshotPresignedUrlResponseSchema = z.object({
 	values: z.object({
 		url: z.string(),
@@ -187,7 +203,9 @@ function customTypesServiceRequest<T>(
 	config: CustomTypesConfig,
 	options: RequestOptions<T> = {},
 ): Promise<T> {
-	return request(url, {
+	const scopedUrl = new URL(url);
+	if (config.release) scopedUrl.searchParams.set("release", config.release);
+	return request(scopedUrl, {
 		headers: {
 			repository: config.repo,
 			Authorization: `Bearer ${config.token}`,
