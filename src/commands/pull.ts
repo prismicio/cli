@@ -95,7 +95,7 @@ export default createCommand(config, async ({ values }) => {
 			customTypes: localCustomTypes.map((customType) => customType.model),
 			slices: localSlices.map((slice) => slice.model),
 		},
-		{ requireCanonicalTarget: true },
+		{ treatNonCanonicalAsChanged: true },
 	);
 
 	if (!force && !gitRoot) {

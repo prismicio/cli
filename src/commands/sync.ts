@@ -77,7 +77,7 @@ export default createCommand(config, async ({ values }) => {
 				const isInitial = lastSnapshot === "";
 
 				const diff = diffModels(remote, await adapter.getModels(), {
-					requireCanonicalTarget: true,
+					treatNonCanonicalAsChanged: true,
 				});
 				await adapter.writeModels(diff);
 				const changed = [
