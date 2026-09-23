@@ -53,6 +53,28 @@ it("deletes the release of a crashed session", async ({ expect, prismic, repo, t
 	await expect(getCustomTypes({ repo, token, host, releaseId: firstRelease })).rejects.toThrow();
 }, 60_000);
 
+it("sends local changes as soon as they are saved", async ({
+	expect,
+	prismic,
+	project,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType();
+	await writeLocalCustomType(project, customType);
+
+	const proc = prismic("dev", [], { nodeOptions: { env: { PRISMIC_SYNC_POLL_MS: "60000" } } });
+	const output = captureOutput(proc);
+	await expect.poll(output, { timeout: 30_000 }).toContain("Type Builder:");
+	const releaseId = getReleaseId(output());
+
+	await writeLocalCustomType(project, { ...customType, label: "Edited" });
+	await expect.poll(output, { timeout: 10_000 }).toContain("Sent to the Type Builder");
+	const releaseTypes = await getCustomTypes({ repo, token, host, releaseId });
+	expect(releaseTypes.find((m) => m.id === customType.id)?.label).toBe("Edited");
+}, 60_000);
+
 describe("with an isolated repository", () => {
 	it.scoped({ isolateRepo: true });
 

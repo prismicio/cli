@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
+import { existsSync, watch as watchFiles } from "node:fs";
 import { rm } from "node:fs/promises";
-import { setTimeout } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
 
@@ -87,7 +87,9 @@ async function startSession(repoFlag: string | undefined): Promise<never> {
 	);
 	await writeFileRecursive(sessionPath, stringify({ repo, releaseId, pid: process.pid }));
 
+	const watching = new AbortController();
 	const stop = async (): Promise<void> => {
+		watching.abort();
 		await deleteRelease(releaseId, { repo, token, host }).catch(() => {});
 		await rm(sessionPath, { force: true });
 	};
@@ -103,7 +105,7 @@ async function startSession(repoFlag: string | undefined): Promise<never> {
 	}
 
 	try {
-		return await watch(adapter, { repo, token, host, releaseId });
+		return await watch(adapter, { repo, token, host, releaseId }, watching.signal);
 	} catch (error) {
 		await stop();
 		throw error;
@@ -113,13 +115,35 @@ async function startSession(repoFlag: string | undefined): Promise<never> {
 async function watch(
 	adapter: Adapter,
 	release: { repo: string; token: string; host: string; releaseId: string },
+	signal: AbortSignal,
 ): Promise<never> {
+	let changed = false;
+	let wake = (): void => {};
+	let debounce: NodeJS.Timeout | undefined;
+	const onChange = (): void => {
+		clearTimeout(debounce);
+		debounce = setTimeout(() => {
+			changed = true;
+			wake();
+		}, 100);
+	};
+
+	const libraries = [
+		...(await adapter.getCustomTypeLibraries()),
+		...(await adapter.getSliceLibraries()),
+	];
+	for (const library of libraries) {
+		if (!existsSync(library)) continue;
+		watchFiles(library, { recursive: true, signal }, onChange).on("error", () => {});
+	}
+
 	let lastLocal: Models | undefined;
 	let lastRemote: Models | undefined;
 	let lastErrorMessage: string | undefined;
 
 	while (true) {
 		const isInitial = lastLocal === undefined;
+		changed = false;
 
 		try {
 			const [local, customTypes, slices] = await Promise.all([
@@ -128,8 +152,6 @@ async function watch(
 				getSlices(release),
 			]);
 			const remote = { customTypes, slices };
-			// Only models edited on disk go up, so Type Builder edits to other
-			// models, or ones a failed write left behind, are pulled instead.
 			const edited = lastLocal && getChangedIds(diffModels(local, lastLocal));
 
 			if (!edited || edited.length > 0) {
@@ -145,9 +167,7 @@ async function watch(
 					url.searchParams.set("r", release.releaseId);
 					console.info(`Type Builder: ${url}`);
 					openBrowser(url);
-					console.info(
-						`Syncing local models with the Type Builder (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
-					);
+					console.info("Syncing local models with the Type Builder (Ctrl+C to stop)");
 				} else if (ids.length > 0) {
 					log(`Sent to the Type Builder: ${ids.join(", ")}`);
 				}
@@ -172,7 +192,15 @@ async function watch(
 			lastErrorMessage = message;
 		}
 
-		await setTimeout(POLL_INTERVAL_MS);
+		if (!changed) {
+			await new Promise<void>((resolve) => {
+				const poll = setTimeout(resolve, POLL_INTERVAL_MS);
+				wake = () => {
+					clearTimeout(poll);
+					resolve();
+				};
+			});
+		}
 	}
 }
 
@@ -183,9 +211,6 @@ function pick(models: Models, ids: string[]): Models {
 	};
 }
 
-// An API that predates releases ignores `release` and serves live models, so a
-// release write would change them. Only a release-aware API rejects an unknown
-// release.
 async function checkReleaseSupport(config: {
 	repo: string;
 	token: string;
@@ -237,7 +262,6 @@ function isRunning(pid: number): boolean {
 
 const ErrorBodySchema = z.object({ error: z.string() });
 
-// Wroom and the Custom Types API both name a failure in `{ error: "CODE" }`.
 function getErrorCode(error: unknown): string | undefined {
 	if (!(error instanceof RequestError)) return;
 	return z.safeParse(ErrorBodySchema, error.body).data?.error;
