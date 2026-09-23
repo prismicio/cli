@@ -5,7 +5,7 @@ const DEFAULT_HOST = "prismic.io";
 type HostConfig = { host?: string };
 type AuthConfig = { token: string; host?: string };
 type RepoConfig = { repo: string; token: string; host?: string };
-type ReleaseConfig = RepoConfig & { release?: string };
+type ReleaseConfig = RepoConfig & { releaseId?: string };
 
 export async function login(email: string, password: string, config?: HostConfig): Promise<string> {
 	const host = config?.host ?? DEFAULT_HOST;
@@ -78,7 +78,7 @@ export async function deleteRepository(
 export async function getCustomTypes(config: ReleaseConfig): Promise<CustomType[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("customtypes", `https://customtypes.${host}/`);
-	if (config.release) url.searchParams.set("release", config.release);
+	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	const res = await fetch(url, {
 		headers: {
 			Authorization: `Bearer ${config.token}`,
@@ -92,7 +92,7 @@ export async function getCustomTypes(config: ReleaseConfig): Promise<CustomType[
 export async function insertCustomType(customType: object, config: ReleaseConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("customtypes/insert", `https://customtypes.${host}/`);
-	if (config.release) url.searchParams.set("release", config.release);
+	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	const res = await fetch(url, {
 		method: "POST",
 		headers: {
@@ -138,7 +138,7 @@ export async function deleteDocumentsByCustomType(
 export async function getSlices(config: ReleaseConfig): Promise<SharedSlice[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("slices", `https://customtypes.${host}/`);
-	if (config.release) url.searchParams.set("release", config.release);
+	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	const res = await fetch(url, {
 		headers: {
 			Authorization: `Bearer ${config.token}`,

@@ -10,8 +10,7 @@ type CustomTypesConfig = {
 	repo: string;
 	token: string | undefined;
 	host: string;
-	/** Reads and writes the models visible in this release instead of the live ones. */
-	release?: string;
+	releaseId?: string;
 };
 
 export function getCustomTypes(config: CustomTypesConfig): Promise<CustomType[]> {
@@ -205,7 +204,7 @@ function customTypesServiceRequest<T>(
 	options: RequestOptions<T> = {},
 ): Promise<T> {
 	const scopedUrl = new URL(url);
-	if (config.release) scopedUrl.searchParams.set("release", config.release);
+	if (config.releaseId) scopedUrl.searchParams.set("release", config.releaseId);
 	return request(scopedUrl, {
 		headers: {
 			repository: config.repo,

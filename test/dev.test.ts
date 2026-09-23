@@ -50,7 +50,7 @@ it("deletes the release of a crashed session", async ({ expect, prismic, repo, t
 	const secondOutput = captureOutput(second);
 	await expect.poll(secondOutput, { timeout: 30_000 }).toContain("Type Builder:");
 	expect(getReleaseId(secondOutput())).not.toBe(firstRelease);
-	await expect(getCustomTypes({ repo, token, host, release: firstRelease })).rejects.toThrow();
+	await expect(getCustomTypes({ repo, token, host, releaseId: firstRelease })).rejects.toThrow();
 }, 60_000);
 
 describe("with an isolated repository", () => {
@@ -76,19 +76,21 @@ describe("with an isolated repository", () => {
 		const output = captureOutput(proc);
 		await expect.poll(output, { timeout: 30_000 }).toContain("Type Builder:");
 		expect(output()).toContain(`https://${repo}.${host}/builder/types?r=`);
-		const release = getReleaseId(output());
+		const releaseId = getReleaseId(output());
 
 		// The release matches the project, and master is unchanged.
-		const releaseTypeIds = (await getCustomTypes({ repo, token, host, release })).map((m) => m.id);
+		const releaseTypeIds = (await getCustomTypes({ repo, token, host, releaseId })).map(
+			(m) => m.id,
+		);
 		expect(releaseTypeIds).toEqual([localType.id]);
-		const releaseSliceIds = (await getSlices({ repo, token, host, release })).map((m) => m.id);
+		const releaseSliceIds = (await getSlices({ repo, token, host, releaseId })).map((m) => m.id);
 		expect(releaseSliceIds).toEqual([localSlice.id]);
 		const masterTypeIds = (await getCustomTypes({ repo, token, host })).map((m) => m.id);
 		expect(masterTypeIds).toEqual([masterType.id]);
 
 		// A Type Builder save is written to the project.
 		const builderType = buildCustomType();
-		await insertCustomType(builderType, { repo, token, host, release });
+		await insertCustomType(builderType, { repo, token, host, releaseId });
 		await expect.poll(output, { timeout: 30_000 }).toContain("Written from the Type Builder");
 		expect(await readLocalCustomType(project, builderType.id)).toMatchObject(builderType);
 
@@ -96,7 +98,7 @@ describe("with an isolated repository", () => {
 		const editedType = { ...localType, label: "Edited" };
 		await writeLocalCustomType(project, editedType);
 		await expect.poll(output, { timeout: 30_000 }).toContain("Sent to the Type Builder");
-		const releaseTypes = await getCustomTypes({ repo, token, host, release });
+		const releaseTypes = await getCustomTypes({ repo, token, host, releaseId });
 		expect(releaseTypes.find((m) => m.id === localType.id)?.label).toBe("Edited");
 
 		// Stopping deletes the release and the session record. Windows has no
@@ -105,7 +107,7 @@ describe("with an isolated repository", () => {
 		proc.kill("SIGINT");
 		await proc;
 		expect(proc.exitCode).toBe(0);
-		await expect(getCustomTypes({ repo, token, host, release })).rejects.toThrow();
+		await expect(getCustomTypes({ repo, token, host, releaseId })).rejects.toThrow();
 		expect(await readdir(new URL(".config/prismic/dev/", home))).toEqual([]);
 	}, 120_000);
 

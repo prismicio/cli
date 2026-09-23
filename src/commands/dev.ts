@@ -13,11 +13,7 @@ import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
 import { readJsonFile, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
-import {
-	createHiddenRelease,
-	deleteRelease,
-	getReleaseErrorCode,
-} from "../lib/prismic/clients/core";
+import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
 import {
 	type BulkChange,
 	bulkUpdate,
@@ -25,6 +21,7 @@ import {
 	getSlices,
 } from "../lib/prismic/clients/custom-types";
 import { diffModels, type Models, type ModelsDiff } from "../lib/prismic/models";
+import { RequestError } from "../lib/request";
 import { findProjectRoot, getRepositoryName } from "../project";
 import { trackCommandEnd, trackCommandStart } from "../tracking";
 
@@ -84,7 +81,10 @@ async function startSession(repoFlag: string | undefined): Promise<never> {
 		await deleteRelease(previous.releaseId, { repo: previous.repo, token, host }).catch(() => {});
 	}
 
-	const releaseId = await createHiddenRelease("prismic dev", { repo, token, host });
+	const releaseId = await createRelease(
+		{ label: "prismic dev", hidden: true },
+		{ repo, token, host },
+	);
 	await writeFileRecursive(sessionPath, stringify({ repo, releaseId, pid: process.pid }));
 
 	const stop = async (): Promise<void> => {
@@ -103,7 +103,7 @@ async function startSession(repoFlag: string | undefined): Promise<never> {
 	}
 
 	try {
-		return await watch(adapter, { repo, token, host, release: releaseId });
+		return await watch(adapter, { repo, token, host, releaseId });
 	} catch (error) {
 		await stop();
 		throw error;
@@ -112,7 +112,7 @@ async function startSession(repoFlag: string | undefined): Promise<never> {
 
 async function watch(
 	adapter: Adapter,
-	release: { repo: string; token: string; host: string; release: string },
+	release: { repo: string; token: string; host: string; releaseId: string },
 ): Promise<never> {
 	let lastLocal: Models | undefined;
 	let lastRemote: Models | undefined;
@@ -142,7 +142,7 @@ async function watch(
 
 				if (isInitial) {
 					const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
-					url.searchParams.set("r", release.release);
+					url.searchParams.set("r", release.releaseId);
 					console.info(`Type Builder: ${url}`);
 					openBrowser(url);
 					console.info(
@@ -164,7 +164,7 @@ async function watch(
 
 			lastErrorMessage = undefined;
 		} catch (error) {
-			if (isInitial || getReleaseErrorCode(error) === "RELEASE_NOT_FOUND") {
+			if (isInitial || getErrorCode(error) === "RELEASE_NOT_FOUND") {
 				throw error;
 			}
 			const message = (await getErrorMessage(toCommandError(error))) ?? "Unknown error";
@@ -192,10 +192,10 @@ async function checkReleaseSupport(config: {
 	host: string;
 }): Promise<boolean> {
 	try {
-		await getCustomTypes({ ...config, release: "prismic-cli-release-check" });
+		await getCustomTypes({ ...config, releaseId: "prismic-cli-release-check" });
 		return false;
 	} catch (error) {
-		if (getReleaseErrorCode(error) === "RELEASE_NOT_FOUND") return true;
+		if (getErrorCode(error) === "RELEASE_NOT_FOUND") return true;
 		throw error;
 	}
 }
@@ -235,9 +235,18 @@ function isRunning(pid: number): boolean {
 	}
 }
 
+const ErrorBodySchema = z.object({ error: z.string() });
+
+// Wroom and the Custom Types API both name a failure in `{ error: "CODE" }`.
+function getErrorCode(error: unknown): string | undefined {
+	if (!(error instanceof RequestError)) return;
+	return z.safeParse(ErrorBodySchema, error.body).data?.error;
+}
+
 function toCommandError(error: unknown): unknown {
-	switch (getReleaseErrorCode(error)) {
+	switch (getErrorCode(error)) {
 		case "NOT_ADMIN":
+		case "missing_right":
 			return new CommandError(
 				"Local mode needs an Administrator, Owner, or Super User role on this repository.",
 			);

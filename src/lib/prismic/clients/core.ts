@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { request, RequestError, type RequestOptions } from "../../request";
+import { request, type RequestOptions } from "../../request";
 
 type CoreConfig = {
 	repo: string;
@@ -121,12 +121,15 @@ export async function getDocumentTotalByCustomTypes(
 	return response.total;
 }
 
-export async function createHiddenRelease(label: string, config: CoreConfig): Promise<string> {
+export async function createRelease(
+	release: { label: string; hidden?: boolean },
+	config: CoreConfig,
+): Promise<string> {
 	const { repo, host } = config;
 	const url = new URL("core/releases", getCoreServiceUrl(repo, host));
 	const response = await coreServiceRequest(url, config, {
 		method: "POST",
-		json: { label, hidden: true },
+		json: release,
 		schema: z.looseObject({ id: z.string() }),
 		unknownErrorMessage: "Failed to create a release",
 	});
@@ -140,24 +143,6 @@ export async function deleteRelease(id: string, config: CoreConfig): Promise<voi
 		method: "DELETE",
 		unknownErrorMessage: "Failed to delete the release",
 	});
-}
-
-const RELEASE_ERROR_CODES = [
-	"NOT_ADMIN",
-	"FEATURE_DISABLED",
-	"LEGACY_REPOSITORY",
-	"RELEASE_NOT_FOUND",
-	"REPEATABLE_MISMATCH",
-] as const;
-
-// Release requests, here and in the Custom Types API, name the failure with an
-// error code somewhere in the response body.
-export function getReleaseErrorCode(
-	error: unknown,
-): (typeof RELEASE_ERROR_CODES)[number] | undefined {
-	if (!(error instanceof RequestError)) return;
-	const body = JSON.stringify(error.body) ?? "";
-	return RELEASE_ERROR_CODES.find((code) => body.includes(code));
 }
 
 function coreServiceRequest<T>(
