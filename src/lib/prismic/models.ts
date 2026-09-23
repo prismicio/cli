@@ -210,14 +210,6 @@ export function diffModels(
 	};
 }
 
-export function snapshotModels(models: Models): string {
-	const byId = (a: { id: string }, b: { id: string }) => a.id.localeCompare(b.id);
-	return JSON.stringify({
-		customTypes: models.customTypes.map(canonicalizeCustomType).sort(byId),
-		slices: models.slices.map(canonicalizeSlice).sort(byId),
-	});
-}
-
 export function canonicalizeCustomType(model: CustomType): CustomType {
 	return {
 		...sortKeys(model),
