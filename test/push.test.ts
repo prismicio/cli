@@ -183,7 +183,7 @@ describe("with an isolated repository", () => {
 	}) => {
 		const customType = buildCustomType();
 		await insertCustomType(customType, { repo, token, host });
-		await createDocument({ type: customType.id, lang: "en-us", data: {} }, { repo, token, host });
+		await createDocument(customType.id, { repo, token, host });
 
 		const pull = await prismic("pull", ["--repo", repo, "--force"]);
 		expect(pull.exitCode, pull.stderr).toBe(0);

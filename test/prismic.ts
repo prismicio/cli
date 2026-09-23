@@ -132,21 +132,19 @@ export async function deleteDocumentsByCustomType(
 	if (!res.ok) throw new Error(`Failed to delete documents: ${res.status} ${await res.text()}`);
 }
 
-export async function createDocument(
-	document: { type: string; uid?: string; lang: string; data: object },
-	config: RepoConfig,
-): Promise<void> {
+export async function createDocument(customTypeId: string, config: RepoConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
-	const { token: writeToken } = await createWriteToken(config);
-	const url = new URL("documents", `https://migration.${host}/`);
+	const url = new URL("documents", `https://${config.repo}.${host}/core/`);
 	const res = await fetch(url, {
 		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${writeToken}`,
-			repository: config.repo,
-		},
-		body: JSON.stringify({ title: "Test document", ...document }),
+		headers: { "Content-Type": "application/json", Cookie: `prismic-auth=${config.token}` },
+		body: JSON.stringify({
+			custom_type_id: customTypeId,
+			title: "Test document",
+			data: {},
+			integration_field_ids: [],
+			tags: [],
+		}),
 	});
 	if (!res.ok) throw new Error(`Failed to create document: ${res.status} ${await res.text()}`);
 }
