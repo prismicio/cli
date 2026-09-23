@@ -33,10 +33,9 @@ const config = {
 		Edit the project's content types and slices in the Type Builder without
 		changing them in Prismic.
 
-		Creates a hidden release that holds the local models and opens the Type
-		Builder on it. Type Builder edits are written to local files, and local
-		file changes are sent to the Type Builder. Local files are the source of
-		truth. Stopping the command deletes the release.
+		Opens the Type Builder with the project's local models. Type Builder edits
+		are written to local files, and local file changes are sent to the Type
+		Builder. Local files are the source of truth.
 
 		Local mode is in closed alpha.
 	`,
