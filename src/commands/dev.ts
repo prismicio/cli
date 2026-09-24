@@ -46,16 +46,8 @@ type Release = { repo: string; token: string; host: string; releaseId: string };
 type Snapshot = { local: Models; remote: Models };
 
 export default createCommand(config, async ({ values }) => {
-	try {
-		await startSession(values.repo);
-	} catch (error) {
-		throw toCommandError(error);
-	}
-});
-
-async function startSession(repoFlag: string | undefined): Promise<never> {
 	const adapter = await getAdapter();
-	const repo = repoFlag ?? (await adapter.getEnvironment()) ?? (await getRepositoryName());
+	const repo = values.repo ?? (await adapter.getEnvironment()) ?? (await getRepositoryName());
 
 	const { token, host } = await getCredentials();
 	if (!token) throw new CommandError("Not logged in. Run `prismic login` first.");
@@ -79,7 +71,7 @@ async function startSession(repoFlag: string | undefined): Promise<never> {
 	const releaseId = await createRelease(
 		{ label: "prismic dev", hidden: true },
 		{ repo, token, host },
-	);
+	).catch(throwCommandError);
 	await writeFileRecursive(sessionPath, stringify({ repo, releaseId, pid: process.pid }));
 
 	const watching = new AbortController();
@@ -100,12 +92,12 @@ async function startSession(repoFlag: string | undefined): Promise<never> {
 	}
 
 	try {
-		return await watch(adapter, { repo, token, host, releaseId }, watching.signal);
+		await watch(adapter, { repo, token, host, releaseId }, watching.signal);
 	} catch (error) {
 		await stop();
 		throw error;
 	}
-}
+});
 
 async function watch(adapter: Adapter, release: Release, signal: AbortSignal): Promise<never> {
 	let changed = false;
@@ -126,8 +118,8 @@ async function watch(adapter: Adapter, release: Release, signal: AbortSignal): P
 	const [initial, initialRemote] = await Promise.all([
 		adapter.getModels(),
 		getRemoteModels(release),
-	]);
-	await writeRemoteModels(diffModels(initial, initialRemote), release);
+	]).catch(throwCommandError);
+	await writeRemoteModels(diffModels(initial, initialRemote), release).catch(throwCommandError);
 	let last: Snapshot = { local: initial, remote: initial };
 
 	const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
@@ -159,7 +151,7 @@ async function watch(adapter: Adapter, release: Release, signal: AbortSignal): P
 			}
 			lastErrorMessage = undefined;
 		} catch (error) {
-			if (getErrorCode(error) === "RELEASE_NOT_FOUND") throw error;
+			if (getErrorCode(error) === "RELEASE_NOT_FOUND") throw toCommandError(error);
 			const message = (await getErrorMessage(toCommandError(error))) ?? "Unknown error";
 			if (message !== lastErrorMessage) console.error(`Sync failed: ${message}`);
 			lastErrorMessage = message;
@@ -220,7 +212,7 @@ async function checkReleaseSupport(config: {
 		return false;
 	} catch (error) {
 		if (getErrorCode(error) === "RELEASE_NOT_FOUND") return true;
-		throw error;
+		throw toCommandError(error);
 	}
 }
 
@@ -229,6 +221,10 @@ const ErrorBodySchema = z.object({ error: z.string() });
 function getErrorCode(error: unknown): string | undefined {
 	if (!(error instanceof RequestError)) return;
 	return z.safeParse(ErrorBodySchema, error.body).data?.error;
+}
+
+function throwCommandError(error: unknown): never {
+	throw toCommandError(error);
 }
 
 function toCommandError(error: unknown): unknown {
