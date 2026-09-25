@@ -61,12 +61,21 @@ it("rejects an unsupported --framework", async ({ expect, prismic }) => {
 	expect(stderr).toContain('Unsupported framework "invalid"');
 });
 
-it("activates the MCP server", async ({ expect, prismic, token, host }) => {
+it("activates the MCP server", async ({
+	expect,
+	prismic,
+	token,
+	host,
+	password,
+	onTestFinished,
+}) => {
 	const { stdout, stderr, exitCode } = await prismic("repo", ["create"]);
 	expect(exitCode, stderr).toBe(0);
 
 	const domain = stdout.match(/Repository created: (\S+)/)?.[1];
 	expect(domain).toBeDefined();
+
+	onTestFinished(() => deleteRepository(domain!, { token, password, host }));
 
 	// New repositories are activated for the Prismic MCP server. Once they are
 	// MCP-enabled server-side by default, this will pass regardless of the CLI.
