@@ -3,7 +3,7 @@ import type { BooleanField } from "@prismicio/types-internal/lib/customtypes";
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
-import { createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 import { addField } from "../lib/prismic/models";
 
 const config = {
@@ -19,7 +19,8 @@ const config = {
 	options: {
 		...TARGET_OPTIONS,
 		label: { type: "string", description: "Field label" },
-		"default-value": { type: "boolean", description: "Default value" },
+		"default-true": { type: "boolean", description: "Default the field to true" },
+		"default-false": { type: "boolean", description: "Default the field to false" },
 		"true-label": { type: "string", description: "Label for true value" },
 		"false-label": { type: "string", description: "Label for false value" },
 	},
@@ -27,12 +28,8 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const {
-		label,
-		"default-value": default_value,
-		"true-label": placeholder_true,
-		"false-label": placeholder_false,
-	} = values;
+	exclusiveOptions(values, ["default-true", "default-false"]);
+	const { label, "true-label": placeholder_true, "false-label": placeholder_false } = values;
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
@@ -40,7 +37,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		type: "Boolean",
 		config: {
 			label: label ?? capitalCase(fieldId),
-			default_value,
+			default_value: values["default-false"] ? false : values["default-true"],
 			placeholder_true,
 			placeholder_false,
 		},

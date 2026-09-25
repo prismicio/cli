@@ -1,5 +1,5 @@
 import { getContentRelationshipFieldSelection, getExistingField, SOURCE_OPTIONS } from "../fields";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 
 const config = {
 	name: "prismic field edit",
@@ -30,10 +30,8 @@ const config = {
 		label: { type: "string", description: "Field label" },
 		placeholder: { type: "string", description: "Placeholder text" },
 		// Boolean
-		"default-value": {
-			type: "string",
-			description: "Default value (boolean: true/false, select: option value)",
-		},
+		"default-true": { type: "boolean", description: "Default the field to true (boolean)" },
+		"default-false": { type: "boolean", description: "Default the field to false (boolean)" },
 		"true-label": { type: "string", description: "Label for true value (boolean)" },
 		"false-label": { type: "string", description: "Label for false value (boolean)" },
 		// Date / Timestamp
@@ -43,6 +41,7 @@ const config = {
 		max: { type: "string", description: "Maximum value (number)" },
 		step: { type: "string", description: "Step increment (number)" },
 		// Select
+		"default-value": { type: "string", description: "Default selected value (select)" },
 		option: {
 			type: "string",
 			multiple: true,
@@ -108,13 +107,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	switch (field.type) {
 		case "Boolean": {
-			if ("default-value" in values) {
-				const raw = values["default-value"];
-				if (raw !== "true" && raw !== "false") {
-					throw new CommandError('--default-value for boolean fields must be "true" or "false"');
-				}
-				field.config.default_value = raw === "true";
-			}
+			exclusiveOptions(values, ["default-true", "default-false"]);
+			if ("default-true" in values) field.config.default_value = true;
+			if ("default-false" in values) field.config.default_value = false;
 			if ("true-label" in values) field.config.placeholder_true = values["true-label"];
 			if ("false-label" in values) field.config.placeholder_false = values["false-label"];
 			break;
