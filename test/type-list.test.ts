@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { buildCustomType, it, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -28,4 +30,16 @@ it("lists types as JSON", async ({ expect, prismic, project }) => {
 	expect(parsed).toEqual(
 		expect.arrayContaining([expect.objectContaining({ id: customType.id, format: "custom" })]),
 	);
+});
+
+it("rejects an invalid type model", async ({ expect, prismic, project }) => {
+	const customType = buildCustomType({ repeatable: "yes" as unknown as boolean });
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("type", ["list"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(
+		`${join("customtypes", customType.id, "index.json")} is not a valid model:`,
+	);
+	expect(stderr).toContain("\n  → at repeatable");
 });

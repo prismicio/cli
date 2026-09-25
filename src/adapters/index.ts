@@ -2,9 +2,14 @@ import { readFile, rm } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import {
+	DynamicCustomTypeModelSchema,
+	SharedSliceModelSchema,
+} from "@prismicio/types-internal/zod4";
 import { pascalCase } from "change-case";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
+import * as z from "zod/mini";
 
 import {
 	exists,
@@ -22,7 +27,7 @@ import {
 	type Models,
 	type ModelsDiff,
 } from "../lib/prismic/models";
-import { appendTrailingSlash } from "../lib/url";
+import { appendTrailingSlash, relativePathname } from "../lib/url";
 import { addRoute, getRepositoryName, removeRoute, updateRoute } from "../project";
 import { findProjectRoot, getLibraries } from "../project";
 
@@ -81,6 +86,24 @@ export class NoSupportedFrameworkError extends Error {
 	name = "NoSupportedFrameworkError";
 	message =
 		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
+}
+
+export class InvalidModelError extends Error {
+	name = "InvalidModelError";
+	constructor(path: string, error: z.core.$ZodError) {
+		// Indented because the CLI dedents error messages, which would flatten prettifyError's layout.
+		super(`${path} is not a valid model:\n${z.prettifyError(error).replaceAll(/^/gm, "  ")}`);
+	}
+}
+
+// Returns the file's JSON as is, not the parsed output, so pull can detect non-canonical files.
+async function readModelFile<T>(path: URL, schema: z.ZodMiniType<T>): Promise<T> {
+	const model = await readJsonFile<T>(path);
+	const result = z.safeParse(schema, model);
+	if (!result.success) {
+		throw new InvalidModelError(relativePathname(await findProjectRoot(), path), result.error);
+	}
+	return model;
 }
 
 export async function getActiveRepositoryName(): Promise<string> {
@@ -146,7 +169,7 @@ export abstract class Adapter {
 			const slices = await Promise.all(
 				sliceModelPaths.map(async (sliceModelPath) => {
 					const directory = new URL(".", sliceModelPath);
-					const model = await readJsonFile<SharedSliceModel>(sliceModelPath);
+					const model = await readModelFile(sliceModelPath, SharedSliceModelSchema);
 					return { library, directory, modelPath: sliceModelPath, model };
 				}),
 			);
@@ -206,7 +229,7 @@ export abstract class Adapter {
 			const customTypes = await Promise.all(
 				customTypeModelPaths.map(async (customTypeModelPath) => {
 					const directory = new URL(".", customTypeModelPath);
-					const model = await readJsonFile<DynamicCustomTypeModel>(customTypeModelPath);
+					const model = await readModelFile(customTypeModelPath, DynamicCustomTypeModelSchema);
 					return { library, directory, modelPath: customTypeModelPath, model };
 				}),
 			);

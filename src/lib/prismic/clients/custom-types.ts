@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import {
+	DynamicCustomTypeModelSchema,
+	SharedSliceModelSchema,
+} from "@prismicio/types-internal/zod4";
 import * as z from "zod/mini";
 
 import { request, type RequestOptions } from "../../request";
@@ -14,7 +18,7 @@ export type CustomTypesConfig = {
 
 export function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
 	const url = new URL("customtypes", getCustomTypesServiceUrl(config.host));
-	return customTypesServiceRequest<DynamicCustomTypeModel[]>(url, config);
+	return customTypesServiceRequest(url, config, { schema: z.array(DynamicCustomTypeModelSchema) });
 }
 
 export async function getCustomType(
@@ -25,7 +29,8 @@ export async function getCustomType(
 		`customtypes/${encodeURIComponent(id)}`,
 		getCustomTypesServiceUrl(config.host),
 	);
-	return customTypesServiceRequest<DynamicCustomTypeModel>(url, config, {
+	return customTypesServiceRequest(url, config, {
+		schema: DynamicCustomTypeModelSchema,
 		notFoundMessage: `Type not found: ${id}`,
 	});
 }
@@ -45,12 +50,13 @@ export async function updateCustomType(
 
 export function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]> {
 	const url = new URL("slices", getCustomTypesServiceUrl(config.host));
-	return customTypesServiceRequest<SharedSliceModel[]>(url, config);
+	return customTypesServiceRequest(url, config, { schema: z.array(SharedSliceModelSchema) });
 }
 
 export async function getSlice(id: string, config: CustomTypesConfig): Promise<SharedSliceModel> {
 	const url = new URL(`slices/${encodeURIComponent(id)}`, getCustomTypesServiceUrl(config.host));
-	return customTypesServiceRequest<SharedSliceModel>(url, config, {
+	return customTypesServiceRequest(url, config, {
+		schema: SharedSliceModelSchema,
 		notFoundMessage: `Slice not found: ${id}`,
 	});
 }
