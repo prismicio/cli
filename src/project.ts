@@ -4,11 +4,9 @@ import { readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
-import { env } from "./env";
 import { exists, findUpward } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
-import { getRepository } from "./lib/prismic/clients/repository";
 import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
 
@@ -221,17 +219,6 @@ export async function getLibraries(): Promise<URL[] | undefined> {
 export async function checkIsTypeScriptProject(): Promise<boolean> {
 	const projectRoot = await findProjectRoot();
 	return exists(new URL("tsconfig.json", projectRoot));
-}
-
-export async function checkIsTypeBuilderEnabled(
-	repo: string,
-	config: { token: string | undefined; host: string },
-): Promise<boolean> {
-	if (env.PRISMIC_TYPE_BUILDER_ENABLED !== undefined) return env.PRISMIC_TYPE_BUILDER_ENABLED;
-
-	const { token, host } = config;
-	const repository = await getRepository({ repo, token, host });
-	return repository.quotas?.sliceMachineEnabled === true;
 }
 
 export class TypeBuilderRequiredError extends Error {
