@@ -1,18 +1,21 @@
 import type {
-	CustomType,
-	DynamicSlices,
-	DynamicWidget,
-	Link,
-	SharedSlice,
-} from "@prismicio/types-internal/lib/customtypes";
+	DynamicCustomTypeModel,
+	DynamicSlicesModel,
+	DynamicWidgetModel,
+	LinkModel,
+	SharedSliceModel,
+} from "@prismicio/types-internal";
 
 import { type ArrayDiff, diffArrays } from "../diff";
 import { type CustomTypesConfig, getCustomTypes, getSlices } from "./clients/custom-types";
 
-type Fields = Record<string, DynamicWidget>;
+type Fields = Record<string, DynamicWidgetModel>;
 
-export type Models = { customTypes: CustomType[]; slices: SharedSlice[] };
-export type ModelsDiff = { customTypes: ArrayDiff<CustomType>; slices: ArrayDiff<SharedSlice> };
+export type Models = { customTypes: DynamicCustomTypeModel[]; slices: SharedSliceModel[] };
+export type ModelsDiff = {
+	customTypes: ArrayDiff<DynamicCustomTypeModel>;
+	slices: ArrayDiff<SharedSliceModel>;
+};
 
 export type ContentRelationshipFieldSelection =
 	| string
@@ -27,12 +30,12 @@ export type ContentRelationshipFieldSelection =
 
 const UNFETCHABLE_FIELD_TYPES = ["Slices", "UID", "Choice"];
 
-export function addField(container: Fields, fieldId: string, field: DynamicWidget): void {
+export function addField(container: Fields, fieldId: string, field: DynamicWidgetModel): void {
 	if (fieldId in container) throw new FieldExistsError(fieldId);
 	container[fieldId] = field;
 }
 
-export function getField(container: Fields, fieldId: string): DynamicWidget {
+export function getField(container: Fields, fieldId: string): DynamicWidgetModel {
 	const field = container[fieldId];
 	if (!field) throw new FieldNotFoundError(fieldId);
 	return field;
@@ -65,7 +68,7 @@ export function reorderField(
 export function resolveContentRelationshipFieldSelection(
 	paths: string[],
 	targetTypeId: string,
-	customTypes: CustomType[],
+	customTypes: DynamicCustomTypeModel[],
 ): ContentRelationshipFieldSelection[] {
 	const customTypesById = new Map(customTypes.map((customType) => [customType.id, customType]));
 	const targetType = customTypesById.get(targetTypeId);
@@ -127,7 +130,7 @@ export function resolveContentRelationshipFieldSelection(
 					throw new FieldSelectionError("Content relationships cannot be nested more than once.");
 				}
 
-				const configuredTypes = (field as Link).config?.customtypes;
+				const configuredTypes = (field as LinkModel).config?.customtypes;
 				if (!configuredTypes || configuredTypes.length !== 1) {
 					throw new FieldSelectionError(
 						`Field "${id}" must target exactly one custom type to select its fields.`,
@@ -163,7 +166,7 @@ export function resolveContentRelationshipFieldSelection(
 
 export function resolveCustomTypeFieldContainer(
 	path: string,
-	customType: CustomType,
+	customType: DynamicCustomTypeModel,
 	tabName?: string,
 ): { fields: Fields; fieldId: string } {
 	let tab;
@@ -180,7 +183,7 @@ export function resolveCustomTypeFieldContainer(
 
 export function resolveSliceFieldContainer(
 	path: string,
-	slice: SharedSlice,
+	slice: SharedSliceModel,
 	variationId: string,
 ): { fields: Fields; fieldId: string } {
 	const variation = slice.variations.find((variation) => variation.id === variationId);
@@ -216,7 +219,7 @@ export function diffModels(
 	};
 }
 
-export function canonicalizeCustomType(model: CustomType): CustomType {
+export function canonicalizeCustomType(model: DynamicCustomTypeModel): DynamicCustomTypeModel {
 	return {
 		...sortKeys(model),
 		json: Object.fromEntries(
@@ -225,7 +228,7 @@ export function canonicalizeCustomType(model: CustomType): CustomType {
 	};
 }
 
-export function canonicalizeSlice(model: SharedSlice): SharedSlice {
+export function canonicalizeSlice(model: SharedSliceModel): SharedSliceModel {
 	return {
 		...sortKeys(model),
 		variations: model.variations.map((variation) => {
@@ -237,7 +240,9 @@ export function canonicalizeSlice(model: SharedSlice): SharedSlice {
 	};
 }
 
-function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>): Record<string, F> {
+function canonicalizeFields<F extends DynamicWidgetModel>(
+	fields: Record<string, F>,
+): Record<string, F> {
 	return Object.fromEntries(
 		Object.entries(fields).map(([id, field]) => {
 			const sorted = sortKeys(field);
@@ -262,7 +267,7 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 	);
 }
 
-type Choices = NonNullable<NonNullable<DynamicSlices["config"]>["choices"]>;
+type Choices = NonNullable<NonNullable<DynamicSlicesModel["config"]>["choices"]>;
 
 // Entry order of a slice zone's choices is its slice order, and legacy slices
 // hold field maps of their own.

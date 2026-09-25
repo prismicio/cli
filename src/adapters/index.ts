@@ -1,8 +1,8 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
-import { pascalCase } from "change-case";
 import { readFile, rm } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import { pascalCase } from "change-case";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
@@ -28,8 +28,13 @@ import { findProjectRoot, getLibraries } from "../project";
 
 const TYPES_FILENAME = "prismicio-types.d.ts";
 
-type CustomTypeMeta = { model: CustomType; modelPath: URL; directory: URL; library: URL };
-type SharedSliceMeta = { model: SharedSlice; modelPath: URL; directory: URL; library: URL };
+type CustomTypeMeta = {
+	model: DynamicCustomTypeModel;
+	modelPath: URL;
+	directory: URL;
+	library: URL;
+};
+type SharedSliceMeta = { model: SharedSliceModel; modelPath: URL; directory: URL; library: URL };
 
 export type LocalDevelopmentPreview = {
 	name: string;
@@ -99,11 +104,11 @@ export abstract class Adapter {
 	}
 
 	abstract onProjectInitialized(): Promise<void> | void;
-	abstract onSliceCreated(model: SharedSlice, library: URL): Promise<void> | void;
-	abstract onSliceUpdated(model: SharedSlice): Promise<void> | void;
+	abstract onSliceCreated(model: SharedSliceModel, library: URL): Promise<void> | void;
+	abstract onSliceUpdated(model: SharedSliceModel): Promise<void> | void;
 	abstract onSliceDeleted(id: string): Promise<void> | void;
-	abstract onCustomTypeCreated(model: CustomType): Promise<void> | void;
-	abstract onCustomTypeUpdated(model: CustomType): Promise<void> | void;
+	abstract onCustomTypeCreated(model: DynamicCustomTypeModel): Promise<void> | void;
+	abstract onCustomTypeUpdated(model: DynamicCustomTypeModel): Promise<void> | void;
 	abstract onCustomTypeDeleted(id: string): Promise<void> | void;
 
 	abstract setupProject(): Promise<void>;
@@ -141,7 +146,7 @@ export abstract class Adapter {
 			const slices = await Promise.all(
 				sliceModelPaths.map(async (sliceModelPath) => {
 					const directory = new URL(".", sliceModelPath);
-					const model = await readJsonFile<SharedSlice>(sliceModelPath);
+					const model = await readJsonFile<SharedSliceModel>(sliceModelPath);
 					return { library, directory, modelPath: sliceModelPath, model };
 				}),
 			);
@@ -160,7 +165,7 @@ export abstract class Adapter {
 		return slice;
 	}
 
-	async createSlice(model: SharedSlice, library?: URL): Promise<void> {
+	async createSlice(model: SharedSliceModel, library?: URL): Promise<void> {
 		library ??= (await this.getSliceLibraries())[0];
 		const sliceDirectoryName = pascalCase(model.name);
 		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
@@ -170,7 +175,7 @@ export abstract class Adapter {
 		await this.onSliceCreated(model, library);
 	}
 
-	async updateSlice(model: SharedSlice): Promise<void> {
+	async updateSlice(model: SharedSliceModel): Promise<void> {
 		const slice = await this.getSlice(model.id);
 		await writeFileRecursive(slice.modelPath, stringify(canonicalizeSlice(model)));
 		await this.createSliceIndexFile(slice.library);
@@ -201,7 +206,7 @@ export abstract class Adapter {
 			const customTypes = await Promise.all(
 				customTypeModelPaths.map(async (customTypeModelPath) => {
 					const directory = new URL(".", customTypeModelPath);
-					const model = await readJsonFile<CustomType>(customTypeModelPath);
+					const model = await readJsonFile<DynamicCustomTypeModel>(customTypeModelPath);
 					return { library, directory, modelPath: customTypeModelPath, model };
 				}),
 			);
@@ -220,7 +225,7 @@ export abstract class Adapter {
 		return customType;
 	}
 
-	async createCustomType(model: CustomType, library?: URL): Promise<void> {
+	async createCustomType(model: DynamicCustomTypeModel, library?: URL): Promise<void> {
 		library ??= await this.getDefaultCustomTypeLibrary();
 		const customTypeDirectory = new URL(model.id, appendTrailingSlash(library));
 		const modelPath = new URL("index.json", appendTrailingSlash(customTypeDirectory));
@@ -229,7 +234,7 @@ export abstract class Adapter {
 		await this.onCustomTypeCreated(model);
 	}
 
-	async updateCustomType(model: CustomType): Promise<void> {
+	async updateCustomType(model: DynamicCustomTypeModel): Promise<void> {
 		const customType = await this.getCustomType(model.id);
 		await writeFileRecursive(customType.modelPath, stringify(canonicalizeCustomType(model)));
 		await updateRoute(model);
@@ -266,7 +271,7 @@ export abstract class Adapter {
 		const slices = await this.getSlices();
 		const customTypes = await this.getCustomTypes();
 		const types = generateTypes({
-			customTypeModels: customTypes.map((customType) => customType.model),
+			customTypeModels: customTypes.map(({ model }) => ({ ...model, label: model.label ?? null })),
 			sharedSliceModels: slices.map((slice) => slice.model),
 			clientIntegration: {
 				includeContentNamespace: true,

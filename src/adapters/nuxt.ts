@@ -1,10 +1,10 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
-import { pascalCase } from "change-case";
-import { loadFile, writeFile as magicastWriteFile } from "magicast";
 import { readFile, rm } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import { pascalCase } from "change-case";
+import { loadFile, writeFile as magicastWriteFile } from "magicast";
 
 import { Adapter } from ".";
 import { getCredentials } from "../auth";
@@ -63,7 +63,7 @@ export class NuxtAdapter extends Adapter {
 		}
 	}
 
-	async onSliceCreated(model: SharedSlice, library: URL): Promise<void> {
+	async onSliceCreated(model: SharedSliceModel, library: URL): Promise<void> {
 		const sliceDirectoryName = pascalCase(model.name);
 		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
 
@@ -79,7 +79,7 @@ export class NuxtAdapter extends Adapter {
 
 	onSliceDeleted(): void {}
 
-	async onCustomTypeCreated(model: CustomType): Promise<void> {
+	async onCustomTypeCreated(model: DynamicCustomTypeModel): Promise<void> {
 		if (model.format === "page") await createPageFile(model);
 	}
 
@@ -250,7 +250,7 @@ async function modifySliceLibraryPath(adapter: NuxtAdapter): Promise<void> {
 	await updateConfig({ libraries: [newLibrary] });
 }
 
-async function createPageFile(model: CustomType): Promise<void> {
+async function createPageFile(model: DynamicCustomTypeModel): Promise<void> {
 	const routePath = buildRoutePath(model)
 		.split("/")
 		.filter(Boolean)

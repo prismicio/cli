@@ -1,5 +1,4 @@
-import type { Date as DateField } from "@prismicio/types-internal/lib/customtypes";
-
+import type { DateModel } from "@prismicio/types-internal";
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
@@ -30,7 +29,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
-	const field: DateField = {
+	const field: DateModel = {
 		type: "Date",
 		config: {
 			label: label ?? capitalCase(fieldId),
