@@ -1,5 +1,4 @@
 import type { ParseArgsOptionDescriptor } from "node:util";
-
 import { parseArgs } from "node:util";
 
 import { detectAgent } from "./ai";
@@ -58,9 +57,11 @@ type ParseArgsReturnType<T extends CommandConfig> = ReturnType<
 >;
 
 type ParseArgsRequiredValues<T extends CommandConfig> = {
-	[P in keyof T["options"] as NonNullable<NonNullable<T["options"]>[P]>["required"] extends true
-		? P
-		: never]: P extends keyof ParseArgsReturnType<T>["values"]
+	[
+		P in keyof T["options"] as NonNullable<NonNullable<T["options"]>[P]>["required"] extends true
+			? P
+			: never
+	]: P extends keyof ParseArgsReturnType<T>["values"]
 		? NonNullable<ParseArgsReturnType<T>["values"][P]>
 		: never;
 };

@@ -1,5 +1,4 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import { pascalCase } from "change-case";
 
 import { dedent } from "../lib/string";
@@ -54,7 +53,7 @@ export function sliceTemplate(args: { name: string; typescript: boolean }): stri
 	`;
 }
 
-export function pageTemplate(args: { model: CustomType; typescript: boolean }): string {
+export function pageTemplate(args: { model: DynamicCustomTypeModel; typescript: boolean }): string {
 	const { model, typescript } = args;
 
 	const scriptAttributes = ["setup"];

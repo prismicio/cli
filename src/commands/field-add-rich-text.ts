@@ -1,5 +1,4 @@
-import type { RichText } from "@prismicio/types-internal/lib/customtypes";
-
+import type { RichTextModel } from "@prismicio/types-internal";
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
@@ -63,7 +62,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
-	const field: RichText = {
+	const field: RichTextModel = {
 		type: "StructuredText",
 		config: {
 			label: label ?? capitalCase(fieldId),

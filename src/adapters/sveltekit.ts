@@ -1,11 +1,11 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
-import { pascalCase } from "change-case";
-import { loadFile } from "magicast";
 import { writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import { pascalCase } from "change-case";
+import { loadFile } from "magicast";
 
 import { Adapter, checkSourceContains } from ".";
 import { getCredentials } from "../auth";
@@ -97,7 +97,7 @@ export class SvelteKitAdapter extends Adapter {
 		}
 	}
 
-	async onSliceCreated(model: SharedSlice, library: URL): Promise<void> {
+	async onSliceCreated(model: SharedSliceModel, library: URL): Promise<void> {
 		const sliceDirectoryName = pascalCase(model.name);
 		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
 
@@ -114,7 +114,7 @@ export class SvelteKitAdapter extends Adapter {
 
 	onSliceDeleted(): void {}
 
-	async onCustomTypeCreated(model: CustomType): Promise<void> {
+	async onCustomTypeCreated(model: DynamicCustomTypeModel): Promise<void> {
 		if (model.format === "page") await createPageFile(model);
 	}
 
@@ -249,7 +249,7 @@ async function createRootLayoutFile(): Promise<void> {
 	await writeFileRecursive(filePath, contents);
 }
 
-async function createPageFile(model: CustomType): Promise<void> {
+async function createPageFile(model: DynamicCustomTypeModel): Promise<void> {
 	const routePath = buildRoutePath(model)
 		.split("/")
 		.filter(Boolean)

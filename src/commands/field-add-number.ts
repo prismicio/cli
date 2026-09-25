@@ -1,5 +1,4 @@
-import type { Number as NumberField } from "@prismicio/types-internal/lib/customtypes";
-
+import type { NumberModel } from "@prismicio/types-internal";
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
@@ -36,7 +35,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
-	const field: NumberField = {
+	const field: NumberModel = {
 		type: "Number",
 		config: {
 			label: label ?? capitalCase(fieldId),

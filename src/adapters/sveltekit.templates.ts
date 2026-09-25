@@ -1,5 +1,4 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import { pascalCase } from "change-case";
 
 import { dedent } from "../lib/string";
@@ -212,7 +211,10 @@ export function pageTemplate(args: { typescript: boolean }): string {
 	`;
 }
 
-export function pageServerTemplate(args: { model: CustomType; typescript: boolean }): string {
+export function pageServerTemplate(args: {
+	model: DynamicCustomTypeModel;
+	typescript: boolean;
+}): string {
 	const { model, typescript } = args;
 
 	if (model.repeatable) {
