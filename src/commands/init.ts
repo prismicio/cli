@@ -1,7 +1,5 @@
 import { rm } from "node:fs/promises";
 
-import type { Profile } from "../lib/prismic/clients/user";
-
 import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from "../adapters";
 import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
@@ -107,9 +105,8 @@ export default createCommand(config, async ({ values }) => {
 
 	const { host, token: initialToken } = await getCredentials();
 	let token = initialToken;
-	let profile: Profile;
 	try {
-		profile = await getProfile({ token, host });
+		await getProfile({ token, host });
 	} catch (error) {
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			if (env.PRISMIC_TOKEN) {
@@ -132,7 +129,6 @@ export default createCommand(config, async ({ values }) => {
 			console.info(`Logged in as ${email}`);
 			const loggedIn = await getCredentials();
 			token = loggedIn.token;
-			profile = await getProfile({ token, host });
 		} else {
 			throw error;
 		}
@@ -141,12 +137,12 @@ export default createCommand(config, async ({ values }) => {
 	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
 	let connectedRepository: Repository | undefined;
 	if (repo) {
-		const hasRepoAccess = profile.repositories.some((repository) => repository.domain === repo);
-		if (!hasRepoAccess) {
+		connectedRepository = await getRepository({ repo, token, host }).catch((error) => {
+			if (!(error instanceof ForbiddenRequestError)) throw error;
 			throw new CommandError(
 				`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
 			);
-		}
+		});
 
 		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, {
 			token,
@@ -155,8 +151,6 @@ export default createCommand(config, async ({ values }) => {
 		if (!isTypeBuilderEnabled) {
 			throw new TypeBuilderRequiredError(repo);
 		}
-
-		connectedRepository = await getRepository({ repo, token, host });
 	}
 
 	let adapter: Adapter;

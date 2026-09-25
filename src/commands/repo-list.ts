@@ -1,7 +1,7 @@
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getProfile } from "../lib/prismic/clients/user";
+import { getRepositories } from "../lib/prismic/clients/user-service";
 import { formatTable } from "../lib/string";
 
 const config = {
@@ -17,9 +17,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const profile = await getProfile({ token, host });
-
-	const repos = profile.repositories;
+	const repos = await getRepositories({ token, host });
 
 	if (json) {
 		console.info(
