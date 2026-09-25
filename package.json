@@ -38,7 +38,7 @@
 	"devDependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.3.280",
 		"@openai/codex-sdk": "^0.152.1",
-		"@prismicio/types-internal": "3.16.1",
+		"@prismicio/types-internal": "4.7.0",
 		"@types/node": "25.0.9",
 		"change-case": "5.4.4",
 		"dedent": "^1.7.2",
@@ -52,7 +52,7 @@
 		"tinyglobby": "^0.2.15",
 		"tsdown": "0.19.0",
 		"typescript": "5.9.3",
-		"vitest": "4.0.17",
+		"vitest": "4.1.0",
 		"zod": "^4.3.6"
 	},
 	"devEngines": {
