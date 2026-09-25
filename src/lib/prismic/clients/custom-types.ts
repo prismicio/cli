@@ -1,40 +1,32 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
 import { createHash } from "node:crypto";
+
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
 import { request, type RequestOptions } from "../../request";
 import { appendTrailingSlash } from "../../url";
 
-type CustomTypesConfig = {
+export type CustomTypesConfig = {
 	repo: string;
 	token: string | undefined;
 	host: string;
 };
 
-export async function getCustomTypes(config: CustomTypesConfig): Promise<CustomType[]> {
+export async function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
 	return customTypesRequest("customtypes", config);
 }
 
-export async function getCustomType(id: string, config: CustomTypesConfig): Promise<CustomType> {
+export async function getCustomType(
+	id: string,
+	config: CustomTypesConfig,
+): Promise<DynamicCustomTypeModel> {
 	return customTypesRequest(`customtypes/${encodeURIComponent(id)}`, config, {
 		notFoundMessage: `Type not found: ${id}`,
 	});
 }
 
-export async function insertCustomType(
-	model: CustomType,
-	config: CustomTypesConfig,
-): Promise<void> {
-	await customTypesRequest("customtypes/insert", config, {
-		method: "POST",
-		json: model,
-		unknownErrorMessage: `Failed to create type "${model.id}"`,
-	});
-}
-
 export async function updateCustomType(
-	model: CustomType,
+	model: DynamicCustomTypeModel,
 	config: CustomTypesConfig,
 ): Promise<void> {
 	await customTypesRequest("customtypes/update", config, {
@@ -45,33 +37,20 @@ export async function updateCustomType(
 	});
 }
 
-export async function removeCustomType(id: string, config: CustomTypesConfig): Promise<void> {
-	await customTypesRequest(`customtypes/${encodeURIComponent(id)}`, config, {
-		method: "DELETE",
-		notFoundMessage: `Type not found: ${id}`,
-		unknownErrorMessage: `Failed to delete type "${id}"`,
-	});
-}
-
-export async function getSlices(config: CustomTypesConfig): Promise<SharedSlice[]> {
+export async function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]> {
 	return customTypesRequest("slices", config);
 }
 
-export async function getSlice(id: string, config: CustomTypesConfig): Promise<SharedSlice> {
+export async function getSlice(id: string, config: CustomTypesConfig): Promise<SharedSliceModel> {
 	return customTypesRequest(`slices/${encodeURIComponent(id)}`, config, {
 		notFoundMessage: `Slice not found: ${id}`,
 	});
 }
 
-export async function insertSlice(model: SharedSlice, config: CustomTypesConfig): Promise<void> {
-	await customTypesRequest("slices/insert", config, {
-		method: "POST",
-		json: model,
-		unknownErrorMessage: `Failed to create slice "${model.id}"`,
-	});
-}
-
-export async function updateSlice(model: SharedSlice, config: CustomTypesConfig): Promise<void> {
+export async function updateSlice(
+	model: SharedSliceModel,
+	config: CustomTypesConfig,
+): Promise<void> {
 	await customTypesRequest("slices/update", config, {
 		method: "POST",
 		json: model,
@@ -80,11 +59,17 @@ export async function updateSlice(model: SharedSlice, config: CustomTypesConfig)
 	});
 }
 
-export async function removeSlice(id: string, config: CustomTypesConfig): Promise<void> {
-	await customTypesRequest(`slices/${encodeURIComponent(id)}`, config, {
-		method: "DELETE",
-		notFoundMessage: `Slice not found: ${id}`,
-		unknownErrorMessage: `Failed to delete slice "${id}"`,
+export type BulkChange = {
+	type: `${"CUSTOM_TYPE" | "SLICE"}_${"INSERT" | "UPDATE" | "DELETE"}`;
+	id: string;
+	payload: DynamicCustomTypeModel | SharedSliceModel | { id: string };
+};
+
+export async function bulkUpdate(changes: BulkChange[], config: CustomTypesConfig): Promise<void> {
+	await customTypesRequest("bulk-update", config, {
+		method: "POST",
+		json: { changes },
+		unknownErrorMessage: "Failed to update models",
 	});
 }
 

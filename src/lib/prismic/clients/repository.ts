@@ -9,6 +9,7 @@ type RepositoryConfig = {
 };
 
 const RepositorySchema = z.object({
+	name: z.optional(z.string()),
 	starter: z.nullish(
 		z.object({
 			id: z.string(),

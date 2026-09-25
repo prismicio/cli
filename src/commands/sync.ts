@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 
 import { getAdapter } from "../adapters";
@@ -6,9 +5,8 @@ import { getCredentials } from "../auth";
 import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
-import { diffArrays } from "../lib/diff";
-import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import { hasChanges } from "../lib/diff";
+import { diffModels, getRemoteModels, type Models } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { getRepositoryName } from "../project";
 import { trackCommandStart, trackCommandEnd } from "../tracking";
@@ -61,62 +59,35 @@ export default createCommand(config, async ({ values }) => {
 		`Watching repository: ${repo} (polling every ${POLL_INTERVAL_MS / 1000}s, Ctrl+C to stop)`,
 	);
 
-	let lastHash = "";
+	let lastRemote: Models | undefined;
 	let consecutiveErrors = 0;
 
 	while (true) {
 		try {
-			const [remoteCustomTypes, remoteSlices] = await Promise.all([
-				getCustomTypes({ repo, token, host }),
-				getSlices({ repo, token, host }),
-			]);
-			const nextHash = createHash("sha256")
-				.update(
-					JSON.stringify({
-						remoteCustomTypes: remoteCustomTypes.map((model) => canonicalizeCustomType(model)),
-						remoteSlices: remoteSlices.map((model) => canonicalizeSlice(model)),
-					}),
-				)
-				.digest("hex");
+			const remote = await getRemoteModels({ repo, token, host });
+			const sinceLastPoll = lastRemote && diffModels(remote, lastRemote);
 
-			if (nextHash !== lastHash) {
-				const isInitial = lastHash === "";
+			if (
+				!sinceLastPoll ||
+				hasChanges(sinceLastPoll.customTypes) ||
+				hasChanges(sinceLastPoll.slices)
+			) {
+				const isInitial = !sinceLastPoll;
 
-				const [localCustomTypes, localSlices] = await Promise.all([
-					adapter.getCustomTypes(),
-					adapter.getSlices(),
-				]);
-				const sliceOps = diffArrays(
-					remoteSlices,
-					localSlices.map((slice) => slice.model),
-					canonicalizeSlice,
-					(local) => local,
-				);
-				const customTypeOps = diffArrays(
-					remoteCustomTypes,
-					localCustomTypes.map((customType) => customType.model),
-					canonicalizeCustomType,
-					(local) => local,
-				);
-
-				await adapter.writeModels(customTypeOps, sliceOps);
-
-				const changed: string[] = [];
-				if (sliceOps.insert.length + sliceOps.update.length + sliceOps.delete.length > 0) {
-					changed.push("slices");
-				}
-				if (
-					customTypeOps.insert.length + customTypeOps.update.length + customTypeOps.delete.length >
-					0
-				) {
-					changed.push("custom types");
-				}
+				const diff = diffModels(remote, await adapter.getModels(), {
+					treatNonCanonicalAsChanged: true,
+				});
+				await adapter.writeModels(diff);
+				const changed = [
+					...(hasChanges(diff.slices) ? ["slices"] : []),
+					...(hasChanges(diff.customTypes) ? ["custom types"] : []),
+				];
 
 				if (isInitial || changed.length > 0) {
 					await adapter.generateTypes();
 				}
 
-				lastHash = nextHash;
+				lastRemote = remote;
 
 				if (isInitial) {
 					await completeOnboardingSteps(["connectPrismic"], {

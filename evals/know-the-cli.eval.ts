@@ -1,5 +1,6 @@
-import dedent from "dedent";
 import { rm } from "node:fs/promises";
+
+import dedent from "dedent";
 import { describe } from "vitest";
 
 import { it, trials } from "./it";
@@ -7,6 +8,7 @@ import { it, trials } from "./it";
 describe.for([
 	"claude-fable-5-1",
 	"claude-opus-5",
+	"claude-opus-5-5",
 	"claude-sonnet-5",
 	"claude-opus-4-8",
 	"gpt-5.6-sol",
@@ -36,6 +38,7 @@ describe.for([
 describe.for([
 	"claude-fable-5-1",
 	"claude-opus-5",
+	"claude-opus-5-5",
 	"claude-sonnet-5",
 	"gpt-5.6-sol",
 	"gpt-5.6-terra",

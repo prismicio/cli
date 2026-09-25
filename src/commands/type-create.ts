@@ -1,5 +1,4 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import { snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
@@ -48,7 +47,7 @@ export default createCommand(config, async ({ positionals: [name], values }) => 
 		throw new CommandError(`Invalid format: "${format}". Use "custom" or "page".`);
 	}
 
-	const json: CustomType["json"] =
+	const json: DynamicCustomTypeModel["json"] =
 		format === "page"
 			? {
 					Main: {

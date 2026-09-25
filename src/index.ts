@@ -10,7 +10,7 @@ import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
 import { getErrorMessage } from "./error";
 import { detectAgent } from "./lib/ai";
-import { AGENTS_HELP, CommandError } from "./lib/command";
+import { CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
 import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
@@ -38,7 +38,7 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { dedent } from "./lib/string";
+import { isTaskId } from "./lib/task-id";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import {
 	InvalidLegacySliceMachineConfigError,
@@ -83,8 +83,6 @@ const KNOWN_ERRORS = [
 
 const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError, TypeBuilderRequiredError];
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 await main();
 
 async function main(): Promise<void> {
@@ -101,14 +99,18 @@ async function main(): Promise<void> {
 			version,
 			help,
 			repo: repoValue = await getRepositoryName().catch(() => undefined),
-			"analytics-intent": intentValue,
-			"analytics-task-id": taskIdValue,
+			"analytics-intent": legacyIntentValue,
+			"analytics-task-id": legacyTaskIdValue,
+			"user-intent": intentValue = legacyIntentValue,
+			"task-id": taskIdValue = legacyTaskIdValue,
 		},
 	} = parseArgs({
 		options: {
 			version: { type: "boolean", short: "v" },
 			help: { type: "boolean", short: "h" },
 			repo: { type: "string", short: "r" },
+			"user-intent": { type: "string" },
+			"task-id": { type: "string" },
 			"analytics-intent": { type: "string" },
 			"analytics-task-id": { type: "string" },
 		},
@@ -125,9 +127,15 @@ async function main(): Promise<void> {
 	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
 	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
 
-	if (!help && command && detectAgent() && !(userIntent && taskId && UUID.test(taskId))) {
+	const agentNeedsTaskId =
+		!help && command !== "" && command !== "task-id" && detectAgent() !== undefined;
+	const agentOptionsError = agentNeedsTaskId ? getAgentOptionsError(taskId, userIntent) : undefined;
+
+	if (agentOptionsError) {
 		console.error(
-			`Missing --analytics-task-id <uuid> or --analytics-intent "<request>".\n${dedent(AGENTS_HELP)}`,
+			`error: ${agentOptionsError}\n` +
+				"run `prismic task-id` once per user request, then pass --task-id <id> --user-intent " +
+				'"<what the user asked for>" on every command until the user asks for something else',
 		);
 		process.exitCode = 1;
 		return;
@@ -214,4 +222,10 @@ async function main(): Promise<void> {
 			throw error;
 		}
 	}
+}
+
+function getAgentOptionsError(taskId: string | undefined, userIntent: string | undefined) {
+	if (!taskId) return "missing --task-id";
+	if (!isTaskId(taskId)) return "--task-id must come from `prismic task-id`";
+	if (!userIntent) return "missing --user-intent";
 }

@@ -1,4 +1,4 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 
 const DEFAULT_HOST = "prismic.io";
 
@@ -74,7 +74,7 @@ export async function deleteRepository(
 	}
 }
 
-export async function getCustomTypes(config: RepoConfig): Promise<CustomType[]> {
+export async function getCustomTypes(config: RepoConfig): Promise<DynamicCustomTypeModel[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("customtypes", `https://customtypes.${host}/`);
 	const res = await fetch(url, {
@@ -132,7 +132,24 @@ export async function deleteDocumentsByCustomType(
 	if (!res.ok) throw new Error(`Failed to delete documents: ${res.status} ${await res.text()}`);
 }
 
-export async function getSlices(config: RepoConfig): Promise<SharedSlice[]> {
+export async function createDocument(customTypeId: string, config: RepoConfig): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("documents", `https://${config.repo}.${host}/core/`);
+	const res = await fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json", Cookie: `prismic-auth=${config.token}` },
+		body: JSON.stringify({
+			custom_type_id: customTypeId,
+			title: "Test document",
+			data: {},
+			integration_field_ids: [],
+			tags: [],
+		}),
+	});
+	if (!res.ok) throw new Error(`Failed to create document: ${res.status} ${await res.text()}`);
+}
+
+export async function getSlices(config: RepoConfig): Promise<SharedSliceModel[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("slices", `https://customtypes.${host}/`);
 	const res = await fetch(url, {

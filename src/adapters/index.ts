@@ -1,13 +1,11 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
-import { pascalCase } from "change-case";
 import { readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import { pascalCase } from "change-case";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
-
-import type { ArrayDiff } from "../lib/diff";
 
 import { getCredentials } from "../auth";
 import {
@@ -26,7 +24,12 @@ import {
 	getSimulatorUrl,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import {
+	canonicalizeCustomType,
+	canonicalizeSlice,
+	type Models,
+	type ModelsDiff,
+} from "../lib/prismic/models";
 import { appendTrailingSlash } from "../lib/url";
 import {
 	addRoute,
@@ -125,8 +128,11 @@ export abstract class Adapter {
 	abstract getPreviewComponentInstructions(): Promise<string | undefined>;
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	protected abstract getDefaultSliceLibrary(): Promise<URL>;
-	protected abstract createSliceComponent(model: SharedSlice, directory: URL): Promise<void>;
-	protected abstract createPageFile(model: CustomType, routePath: string): Promise<void>;
+	protected abstract createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void>;
+	protected abstract createPageFile(
+		model: DynamicCustomTypeModel,
+		routePath: string,
+	): Promise<void>;
 
 	async initProject({ setup }: { setup: boolean }): Promise<void> {
 		for (const library of await this.getSliceLibraries()) {
@@ -147,17 +153,17 @@ export abstract class Adapter {
 		return (await getLibraries()) ?? [await this.getDefaultSliceLibrary()];
 	}
 
-	async getSlices(): Promise<ModelMeta<SharedSlice>[]> {
+	async getSlices(): Promise<ModelMeta<SharedSliceModel>[]> {
 		return readModels(await this.getSliceLibraries(), "*/model.json");
 	}
 
-	async getSlice(id: string): Promise<ModelMeta<SharedSlice>> {
+	async getSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
 		const slice = (await this.getSlices()).find((s) => s.model.id === id);
 		if (!slice) throw new Error(`No slice found with ID: ${id}`);
 		return slice;
 	}
 
-	async createSlice(model: SharedSlice): Promise<void> {
+	async createSlice(model: SharedSliceModel): Promise<void> {
 		const [library] = await this.getSliceLibraries();
 		const directory = appendTrailingSlash(
 			new URL(pascalCase(model.name), appendTrailingSlash(library)),
@@ -167,7 +173,7 @@ export abstract class Adapter {
 		await this.createSliceComponent(model, directory);
 	}
 
-	async updateSlice(model: SharedSlice): Promise<void> {
+	async updateSlice(model: SharedSliceModel): Promise<void> {
 		const slice = await this.getSlice(model.id);
 		await writeFileRecursive(slice.modelPath, stringify(canonicalizeSlice(model)));
 		await this.createSliceIndexFile(slice.library);
@@ -183,17 +189,17 @@ export abstract class Adapter {
 		return [new URL("customtypes/", await findProjectRoot())];
 	}
 
-	async getCustomTypes(): Promise<ModelMeta<CustomType>[]> {
+	async getCustomTypes(): Promise<ModelMeta<DynamicCustomTypeModel>[]> {
 		return readModels(await this.getCustomTypeLibraries(), "*/index.json");
 	}
 
-	async getCustomType(id: string): Promise<ModelMeta<CustomType>> {
+	async getCustomType(id: string): Promise<ModelMeta<DynamicCustomTypeModel>> {
 		const customType = (await this.getCustomTypes()).find((s) => s.model.id === id);
 		if (!customType) throw new Error(`No custom type found with ID: ${id}`);
 		return customType;
 	}
 
-	async createCustomType(model: CustomType): Promise<void> {
+	async createCustomType(model: DynamicCustomTypeModel): Promise<void> {
 		const [library] = await this.getCustomTypeLibraries();
 		const directory = appendTrailingSlash(new URL(model.id, appendTrailingSlash(library)));
 		await writeFileRecursive(
@@ -210,7 +216,7 @@ export abstract class Adapter {
 		await this.createPageFile(model, routePath);
 	}
 
-	async updateCustomType(model: CustomType): Promise<void> {
+	async updateCustomType(model: DynamicCustomTypeModel): Promise<void> {
 		const customType = await this.getCustomType(model.id);
 		await writeFileRecursive(customType.modelPath, stringify(canonicalizeCustomType(model)));
 		await updateRoute(model);
@@ -222,22 +228,30 @@ export abstract class Adapter {
 		await removeRoute(id);
 	}
 
-	async writeModels(
-		customTypeOps: ArrayDiff<CustomType>,
-		sliceOps: ArrayDiff<SharedSlice>,
-	): Promise<void> {
-		for (const model of sliceOps.update) await this.updateSlice(model);
-		for (const model of sliceOps.delete) await this.deleteSlice(model.id);
-		for (const model of sliceOps.insert) await this.createSlice(model);
-		for (const model of customTypeOps.update) await this.updateCustomType(model);
-		for (const model of customTypeOps.delete) await this.deleteCustomType(model.id);
-		for (const model of customTypeOps.insert) await this.createCustomType(model);
+	async getModels(): Promise<Models> {
+		const [customTypes, slices] = await Promise.all([this.getCustomTypes(), this.getSlices()]);
+		return {
+			customTypes: customTypes.map((customType) => customType.model),
+			slices: slices.map((slice) => slice.model),
+		};
+	}
+
+	async writeModels(diff: ModelsDiff): Promise<void> {
+		for (const model of diff.slices.update) await this.updateSlice(model);
+		for (const model of diff.slices.delete) await this.deleteSlice(model.id);
+		for (const model of diff.slices.insert) await this.createSlice(model);
+		for (const model of diff.customTypes.update) await this.updateCustomType(model);
+		for (const model of diff.customTypes.delete) await this.deleteCustomType(model.id);
+		for (const model of diff.customTypes.insert) await this.createCustomType(model);
 	}
 
 	async generateTypes(): Promise<URL> {
 		const output = new URL("prismicio-types.d.ts", await findProjectRoot());
 		const types = generateTypes({
-			customTypeModels: (await this.getCustomTypes()).map((customType) => customType.model),
+			customTypeModels: (await this.getCustomTypes()).map(({ model }) => ({
+				...model,
+				label: model.label ?? null,
+			})),
 			sharedSliceModels: (await this.getSlices()).map((slice) => slice.model),
 			clientIntegration: {
 				includeContentNamespace: true,

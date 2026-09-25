@@ -1,14 +1,12 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
 import { realpath, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
-import { env } from "./env";
 import { exists, findUpward, readJsonFile } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
-import { getRepository } from "./lib/prismic/clients/repository";
 import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
 
@@ -112,14 +110,14 @@ async function findSuggestedConfigPath(): Promise<URL> {
 	}
 }
 
-export async function addRoute(pageType: CustomType): Promise<void> {
+export async function addRoute(pageType: DynamicCustomTypeModel): Promise<void> {
 	const { routes = [] } = await readConfig();
 	if (routes.some((r) => r.type === pageType.id)) return;
 	const newRoutes = [...routes, { type: pageType.id, path: buildRoutePath(pageType) }];
 	await updateConfig({ routes: newRoutes.sort((a, b) => a.type.localeCompare(b.type)) });
 }
 
-export async function updateRoute(pageType: CustomType): Promise<void> {
+export async function updateRoute(pageType: DynamicCustomTypeModel): Promise<void> {
 	if (pageType.format === "page") {
 		await addRoute(pageType);
 	} else {
@@ -134,7 +132,7 @@ export async function removeRoute(id: string): Promise<void> {
 	await updateConfig({ routes: newRoutes });
 }
 
-export function buildRoutePath(pageType: CustomType): string {
+export function buildRoutePath(pageType: DynamicCustomTypeModel): string {
 	const { id, repeatable } = pageType;
 	const namespace = id.replaceAll("_", "-").toLowerCase();
 	if (repeatable) return id === "page" ? "/:uid" : `/${namespace}/:uid`;
@@ -198,13 +196,4 @@ export async function getLibraries(): Promise<URL[] | undefined> {
 
 export async function checkIsTypeScriptProject(): Promise<boolean> {
 	return exists(new URL("tsconfig.json", await findProjectRoot()));
-}
-
-export async function checkIsTypeBuilderEnabled(
-	repo: string,
-	config: { token: string | undefined; host: string },
-): Promise<boolean> {
-	if (env.PRISMIC_TYPE_BUILDER_ENABLED !== undefined) return env.PRISMIC_TYPE_BUILDER_ENABLED;
-	const repository = await getRepository({ repo, ...config });
-	return repository.quotas?.sliceMachineEnabled === true;
 }

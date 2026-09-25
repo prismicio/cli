@@ -1,7 +1,7 @@
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getProfile } from "../lib/prismic/clients/user";
+import { getRepositories } from "../lib/prismic/clients/legacy-user";
 import { formatTable } from "../lib/string";
 
 const config = {
@@ -16,7 +16,8 @@ export default createCommand(config, async ({ values }) => {
 	const { json } = values;
 
 	const { token, host } = await getCredentials();
-	const { repositories: repos } = await getProfile({ token, host });
+
+	const repos = await getRepositories({ token, host });
 
 	if (json) {
 		console.info(
@@ -37,7 +38,10 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const rows = repos.map((repo) => [repo.domain, repo.name || "(no name)", formatRole(repo.role)]);
+	const rows = repos.map((repo) => {
+		const name = repo.name || "(no name)";
+		return [repo.domain, name, formatRole(repo.role)];
+	});
 	console.info(formatTable(rows, { headers: ["DOMAIN", "NAME", "ROLE"] }));
 });
 

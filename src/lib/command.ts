@@ -1,5 +1,4 @@
 import type { ParseArgsOptionDescriptor } from "node:util";
-
 import { parseArgs } from "node:util";
 
 import { detectAgent } from "./ai";
@@ -17,6 +16,7 @@ export type CommandConfig = {
 			required?: boolean;
 			dependsOn?: string;
 			deprecated?: string;
+			hidden?: boolean;
 		}
 	>;
 };
@@ -24,26 +24,26 @@ export type CommandConfig = {
 const isAgent = detectAgent() !== undefined;
 
 const AGENT_OPTIONS = {
-	"analytics-intent": {
+	"user-intent": {
 		type: "string",
 		description:
-			"The user's overall task in one short US English sentence. Paraphrase their original request, not what this command does. Pass the same value to every command for the same task, including read-only and exploratory commands. Required when an agent runs the CLI.",
+			"The user's overall task in one short US English sentence. Paraphrase their original request, not what this command does. Pass the same value on every command for the same task. Analytics only — no effect on behavior.",
 	},
-	"analytics-task-id": {
+	"task-id": {
 		type: "string",
 		description:
-			"A globally unique ID (UUID) for the user's task. Generate one before the first command and pass the same value to every command for that task, including read-only and exploratory commands. Required when an agent runs the CLI.",
+			"Groups the commands of one user request. One id covers the whole request, not one per command: a slice's create, field and push commands share it. Run `prismic task-id` when the user asks for something new. Analytics only — no effect on behavior.",
 	},
+	"analytics-intent": { type: "string", hidden: true, description: "Renamed to --user-intent." },
+	"analytics-task-id": { type: "string", hidden: true, description: "Renamed to --task-id." },
 } satisfies CommandConfig["options"];
 
 export const AGENTS_HELP = `
-	Before the first command for a user request, generate one UUID, for example
-	with \`node -e "console.log(crypto.randomUUID())"\`. Pass that exact value as
-	--analytics-task-id on every command for the request, including read-only and
-	exploratory commands such as list, view, status, and whoami. Never use a
-	placeholder and never generate a second UUID for the same request. Pass the
-	request in one US English sentence as --analytics-intent on the same commands.
-	The CLI refuses a command from an agent without both options.
+	--task-id and --user-intent group the commands of one user request together.
+	Run \`prismic task-id\` when the user asks for something, then pass that id on
+	every command until they ask for something else — creating a slice, adding its
+	fields and pushing them are one request, and the next slice is another. Pass
+	what the user asked for as --user-intent. Analytics only — no effect on behavior.
 `;
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
@@ -55,9 +55,11 @@ type ParseArgsReturnType<T extends CommandConfig> = ReturnType<
 >;
 
 type ParseArgsRequiredValues<T extends CommandConfig> = {
-	[P in keyof T["options"] as NonNullable<NonNullable<T["options"]>[P]>["required"] extends true
-		? P
-		: never]: P extends keyof ParseArgsReturnType<T>["values"]
+	[
+		P in keyof T["options"] as NonNullable<NonNullable<T["options"]>[P]>["required"] extends true
+			? P
+			: never
+	]: P extends keyof ParseArgsReturnType<T>["values"]
 		? NonNullable<ParseArgsReturnType<T>["values"][P]>
 		: never;
 };
@@ -136,7 +138,7 @@ export function createCommandRouter(config: {
 	name: string;
 	description: string;
 	sections?: Record<string, string>;
-	commands: Record<string, { handler: () => Promise<void>; description: string }>;
+	commands: Record<string, { handler: () => Promise<void>; description: string; hidden?: boolean }>;
 }): () => Promise<void> {
 	return async function () {
 		const {
@@ -158,10 +160,9 @@ export function createCommandRouter(config: {
 		const blocks = {
 			USAGE: `  ${config.name} <command> [options]`,
 			COMMANDS: formatTable(
-				Object.entries(config.commands).map(([name, command]) => [
-					`  ${name}`,
-					command.description,
-				]),
+				Object.entries(config.commands)
+					.filter(([, command]) => !command.hidden)
+					.map(([name, command]) => [`  ${name}`, command.description]),
 			),
 			OPTIONS: formatTable(optionRows({})),
 		};
@@ -174,7 +175,7 @@ function optionRows(options: NonNullable<CommandConfig["options"]>): string[][] 
 	const all: typeof options = isAgent ? { ...options, ...AGENT_OPTIONS } : options;
 	const rows: string[][] = [];
 	for (const [name, option] of Object.entries(all)) {
-		if (option.deprecated) continue;
+		if (option.deprecated || option.hidden) continue;
 		const shortPart = option.short ? `-${option.short}, ` : "    ";
 		const typeSuffix = option.type === "string" ? " string" : "";
 		const description = option.description + (option.required ? " (required)" : "");

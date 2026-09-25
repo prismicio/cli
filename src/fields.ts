@@ -1,9 +1,8 @@
-import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
-
-import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
+import type { DynamicWidgetModel } from "@prismicio/types-internal";
 
 import { getAdapter } from "./adapters";
 import { CommandError, exactlyOneOption, type CommandConfig } from "./lib/command";
+import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
 import {
 	FieldExistsError,
 	FieldNotFoundError,
@@ -51,7 +50,7 @@ export const SOURCE_OPTIONS = {
 } satisfies CommandConfig["options"];
 
 type SourceValues = { "from-slice"?: string; "from-type"?: string; variation?: string };
-type FieldContainer = { fields: Record<string, DynamicWidget>; fieldId: string };
+type FieldContainer = { fields: Record<string, DynamicWidgetModel>; fieldId: string };
 type FieldTarget = FieldContainer & { save: () => Promise<void> };
 
 async function loadModel(
@@ -109,7 +108,7 @@ export async function getNewFieldTarget(
 export async function getExistingField(
 	path: string,
 	values: SourceValues,
-): Promise<FieldTarget & { field: DynamicWidget }> {
+): Promise<FieldTarget & { field: DynamicWidgetModel }> {
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const { resolve, save } = await loadModel(key === "from-slice", value, values);
 	const target = resolve(path);
@@ -140,7 +139,7 @@ export function parseNumber(value: string | undefined, optionName: string): numb
 	return number;
 }
 
-export function formatFieldTable(fields: Record<string, DynamicWidget>): string {
+export function formatFieldTable(fields: Record<string, DynamicWidgetModel>): string {
 	const entries = Object.entries(fields);
 	if (entries.length === 0) return "  (no fields)";
 	const rows = entries.map(([id, field]) => {

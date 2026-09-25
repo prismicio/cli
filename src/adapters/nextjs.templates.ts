@@ -1,5 +1,4 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import { pascalCase } from "change-case";
 
 import { dedent } from "../lib/string";
@@ -71,7 +70,7 @@ export function pageTemplate({
 	typescript,
 	appRouter,
 }: {
-	model: CustomType;
+	model: DynamicCustomTypeModel;
 	routePath: string;
 	typescript: boolean;
 	appRouter: boolean;

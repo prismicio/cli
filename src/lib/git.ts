@@ -1,5 +1,6 @@
 import { realpath } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
 import { x } from "tinyexec";
 
 import { appendTrailingSlash } from "./url";

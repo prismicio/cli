@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+
 import * as z from "zod/mini";
 
 import packageJson from "../../package.json" with { type: "json" };

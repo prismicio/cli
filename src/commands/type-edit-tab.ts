@@ -1,4 +1,4 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -69,7 +69,7 @@ export default createCommand(config, async ({ positionals: [currentName], values
 			throw new CommandError(`Tab "${values.name}" already exists in "${typeId}".`);
 		}
 
-		const newJson: CustomType["json"] = {};
+		const newJson: DynamicCustomTypeModel["json"] = {};
 		for (const [key, value] of Object.entries(customType.json)) {
 			newJson[key === currentName ? values.name! : key] = value;
 		}

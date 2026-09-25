@@ -1,5 +1,6 @@
-import { snakeCase } from "change-case";
 import { writeFile } from "node:fs/promises";
+
+import { snakeCase } from "change-case";
 
 import { buildSlice, it, readLocalSlice } from "./it";
 

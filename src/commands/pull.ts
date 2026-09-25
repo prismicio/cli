@@ -1,16 +1,10 @@
 import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { diffArrays } from "../lib/diff";
-import { getGitRoot } from "../lib/git";
-import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
-import {
-	canonicalizeCustomType,
-	canonicalizeSlice,
-	getDirtyModelFiles,
-} from "../lib/prismic/models";
+import { getDirtyPaths, getGitRoot } from "../lib/git";
+import { diffModels, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
-import { relativePathname } from "../lib/url";
+import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
@@ -43,7 +37,7 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
 
 	const {
-		force,
+		force = false,
 		env,
 		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 	} = values;
@@ -60,12 +54,16 @@ export default createCommand(config, async ({ values }) => {
 	]);
 
 	if (!force && gitRoot) {
-		const dirtyFiles = await getDirtyModelFiles({
-			gitRoot,
-			projectRoot,
-			customTypeLibraries,
-			sliceLibraries,
-		});
+		const dirtyPaths = await getDirtyPaths(gitRoot);
+		const dirtyFiles = dirtyPaths
+			.filter(
+				(path) =>
+					(path.pathname.endsWith("/model.json") &&
+						sliceLibraries.some((lib) => isDescendant(lib, path))) ||
+					(path.pathname.endsWith("/index.json") &&
+						customTypeLibraries.some((lib) => isDescendant(lib, path))),
+			)
+			.map((path) => relativePathname(projectRoot, path));
 
 		if (dirtyFiles.length > 0) {
 			throw new CommandError(`
@@ -84,31 +82,25 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices] = await Promise.all([
+	const [localCustomTypes, localSlices, remote] = await Promise.all([
 		adapter.getCustomTypes(),
 		adapter.getSlices(),
-		getCustomTypes({ repo, token, host }),
-		getSlices({ repo, token, host }),
+		getRemoteModels({ repo, token, host }),
 	]);
-	// Local models are compared as written, so non-canonical files get rewritten.
-	const customTypeOps = diffArrays(
-		remoteCustomTypes,
-		localCustomTypes.map((customType) => customType.model),
-		canonicalizeCustomType,
-		(local) => local,
-	);
-	const sliceOps = diffArrays(
-		remoteSlices,
-		localSlices.map((slice) => slice.model),
-		canonicalizeSlice,
-		(local) => local,
+	const diff = diffModels(
+		remote,
+		{
+			customTypes: localCustomTypes.map((customType) => customType.model),
+			slices: localSlices.map((slice) => slice.model),
+		},
+		{ treatNonCanonicalAsChanged: true },
 	);
 
 	if (!force && !gitRoot) {
 		const customTypeIds = new Set(
-			[...customTypeOps.update, ...customTypeOps.delete].map((op) => op.id),
+			[...diff.customTypes.update, ...diff.customTypes.delete].map((op) => op.id),
 		);
-		const sliceIds = new Set([...sliceOps.update, ...sliceOps.delete].map((op) => op.id));
+		const sliceIds = new Set([...diff.slices.update, ...diff.slices.delete].map((op) => op.id));
 		const affectedFiles = [
 			...localCustomTypes.filter((c) => customTypeIds.has(c.model.id)),
 			...localSlices.filter((s) => sliceIds.has(s.model.id)),
@@ -126,13 +118,7 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	for (const model of customTypeOps.insert) await adapter.createCustomType(model);
-	for (const model of customTypeOps.update) await adapter.updateCustomType(model);
-	for (const model of customTypeOps.delete) await adapter.deleteCustomType(model.id);
-	for (const model of sliceOps.insert) await adapter.createSlice(model);
-	for (const model of sliceOps.update) await adapter.updateSlice(model);
-	for (const model of sliceOps.delete) await adapter.deleteSlice(model.id);
-
+	await adapter.writeModels(diff);
 	await adapter.generateTypes();
 
 	await completeOnboardingSteps(["connectPrismic"], {
@@ -141,18 +127,19 @@ export default createCommand(config, async ({ values }) => {
 		host,
 	}).catch(() => {});
 
-	const isUpToDate = [customTypeOps, sliceOps].every(
-		(ops) => ops.insert.length + ops.update.length + ops.delete.length === 0,
-	);
-	if (isUpToDate) {
+	const totalTypes = diff.customTypes.insert.length + diff.customTypes.update.length;
+	const totalSlices = diff.slices.insert.length + diff.slices.update.length;
+	const totalDeletes = diff.customTypes.delete.length + diff.slices.delete.length;
+
+	if (totalTypes === 0 && totalSlices === 0 && totalDeletes === 0) {
 		console.info("Already up to date.");
 		return;
 	}
 
 	console.info(
-		`Inserted ${customTypeOps.insert.length}, updated ${customTypeOps.update.length}, deleted ${customTypeOps.delete.length} types`,
+		`Inserted ${diff.customTypes.insert.length}, updated ${diff.customTypes.update.length}, deleted ${diff.customTypes.delete.length} types`,
 	);
 	console.info(
-		`Inserted ${sliceOps.insert.length}, updated ${sliceOps.update.length}, deleted ${sliceOps.delete.length} slices`,
+		`Inserted ${diff.slices.insert.length}, updated ${diff.slices.update.length}, deleted ${diff.slices.delete.length} slices`,
 	);
 });

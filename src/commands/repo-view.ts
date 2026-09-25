@@ -1,8 +1,8 @@
 import { getCredentials } from "../auth";
 import { openBrowser } from "../lib/browser";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getProfile } from "../lib/prismic/clients/user";
+import { getRepository } from "../lib/prismic/clients/repository";
 import { getRepositoryAccess } from "../lib/prismic/clients/wroom";
 import { getRepositoryName } from "../project";
 
@@ -33,21 +33,16 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const [profile, access] = await Promise.all([
-		getProfile({ token, host }),
+	const [repository, access] = await Promise.all([
+		getRepository({ repo, token, host }),
 		getRepositoryAccess({ repo, token, host }),
 	]);
-
-	const repoData = profile.repositories.find((r) => r.domain === repo);
-	if (!repoData) {
-		throw new CommandError(`Repository not found: ${repo}`);
-	}
 
 	if (json) {
 		console.info(
 			stringify({
-				domain: repoData.domain,
-				name: repoData.name ?? null,
+				domain: repo,
+				name: repository.name ?? null,
 				url,
 				apiAccess: access,
 			}),
@@ -55,7 +50,8 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	console.info(`Name: ${repoData.name || "(no name)"}`);
+	const name = repository.name || "(no name)";
+	console.info(`Name: ${name}`);
 	console.info(`URL: ${url}`);
 	console.info(`Content API: ${access}`);
 });

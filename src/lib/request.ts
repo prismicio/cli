@@ -42,30 +42,33 @@ export async function request<T = unknown>(
 
 	switch (response.status) {
 		case 400:
-			throw new BadRequestError(response, rawBody);
+			throw new BadRequestError(response, value, rawBody);
 		case 401:
-			throw new UnauthorizedRequestError(response, rawBody);
+			throw new UnauthorizedRequestError(response, value, rawBody);
 		case 403:
-			throw new ForbiddenRequestError(response, rawBody);
+			throw new ForbiddenRequestError(response, value, rawBody);
 		case 404:
 			throw new NotFoundRequestError(
 				response,
+				value,
 				rawBody,
 				notFoundMessage ?? "The requested resource was not found.",
 			);
 		default:
-			throw new UnknownRequestError(response, rawBody, unknownErrorMessage);
+			throw new UnknownRequestError(response, value, rawBody, unknownErrorMessage);
 	}
 }
 
 class RequestError extends Error {
 	name = "RequestError";
 	response: Response;
+	body: unknown;
 	#rawBody: string;
 
-	constructor(response: Response, rawBody: string, message?: string) {
+	constructor(response: Response, body: unknown, rawBody: string, message?: string) {
 		super(message);
 		this.response = response;
+		this.body = body;
 		this.#rawBody = rawBody;
 	}
 

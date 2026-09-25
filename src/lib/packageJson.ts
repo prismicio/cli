@@ -1,6 +1,7 @@
-import detectIndent from "detect-indent";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+
+import detectIndent from "detect-indent";
 import { x } from "tinyexec";
 import { z } from "zod/mini";
 

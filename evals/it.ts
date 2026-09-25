@@ -1,16 +1,16 @@
-import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-import { Codex } from "@openai/codex-sdk";
-import dedent from "dedent";
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect } from "vitest";
 
-import type { Trial } from "./reporter";
+import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { Codex } from "@openai/codex-sdk";
+import dedent from "dedent";
+import { expect } from "vitest";
 
 import { it as base } from "../test/it";
 import { deleteRepository } from "../test/prismic";
+import type { Trial } from "./reporter";
 
 if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
 	throw new Error(
@@ -23,7 +23,7 @@ if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
 const BIN = new URL("../dist/index.mjs", import.meta.url);
 const EVAL_TRIALS = Number(process.env.EVAL_TRIALS ?? 3);
 const JUDGE_MODEL = "claude-sonnet-5";
-const PRISMIC_SKILL_REF = "84ce7386ce40cfe853e7a67e71a09ca544e1f4a0";
+const PRISMIC_SKILL_REF = "c5ea41f4623d506fcb9b4caaef2e5bee5c274b0c";
 
 const SKILL = await fetchSkill();
 
@@ -33,10 +33,9 @@ declare module "vitest" {
 	interface TaskMeta {
 		agent?: Trial;
 	}
-	// oxlint-disable-next-line no-explicit-any
-	interface Matchers<T = any> {
-		toHaveRun(positionals?: string[]): T;
-		toSatisfyJudge(criterion: string): Promise<T>;
+	interface Matchers<R extends void | Promise<void> = void | Promise<void>, T = unknown> {
+		toHaveRun(positionals?: string[]): R;
+		toSatisfyJudge(criterion: string): Promise<void>;
 	}
 }
 
@@ -117,14 +116,16 @@ export const it = base.extend<{
 		const run = model.startsWith("claude-") ? runClaudeCode : runCodex;
 
 		const outputs: string[] = [];
-		await use(async (prompt: string) => {
+		const send = async (prompt: string, session?: string): Promise<AgentResult> => {
 			const start = performance.now();
+			const callsBefore = trial.calls.length;
 			const commands: string[] = [];
-			const { text, tokens } = await run(prompt, {
+			const result = await run(prompt, {
 				model,
 				skill: installSkill ? SKILL : undefined,
 				cwd: project,
 				env,
+				session,
 				onCommand: (command) => commands.push(command),
 				onOutput: (output) => outputs.push(output),
 			}).finally(async () => {
@@ -134,11 +135,17 @@ export const it = base.extend<{
 				trial.calls = await readArgvLog(argvLog);
 			});
 
-			trial.text = text;
-			trial.tokens += tokens;
+			trial.text = result.text;
+			trial.tokens += result.tokens;
 
-			return { text, commands, calls: trial.calls };
-		});
+			return {
+				text: result.text,
+				commands,
+				calls: trial.calls.slice(callsBefore),
+				continue: (next) => send(next, result.session),
+			};
+		};
+		await use((prompt) => send(prompt));
 
 		await rm(argvLog, { force: true });
 
@@ -187,10 +194,11 @@ expect.extend({
 
 type AgentResult = {
 	text: string;
-	/** Every shell command the agent ran, as typed. */
+	/** Every shell command the agent ran in this turn, as typed. */
 	commands: string[];
-	/** Every prismic CLI call, as the argv the CLI received. */
+	/** Every prismic CLI call in this turn, as the argv the CLI received. */
 	calls: string[][];
+	continue: (prompt: string) => Promise<AgentResult>;
 };
 
 type RunOptions = {
@@ -198,13 +206,14 @@ type RunOptions = {
 	skill?: string;
 	cwd: URL;
 	env: NodeJS.ProcessEnv;
+	session?: string;
 	onCommand: (command: string) => void;
 	onOutput: (output: string) => void;
 };
 
 async function runClaudeCode(
 	prompt: string,
-	{ model, skill, cwd, env, onCommand, onOutput }: RunOptions,
+	{ model, skill, cwd, env, session, onCommand, onOutput }: RunOptions,
 ) {
 	let result: SDKResultMessage | undefined;
 
@@ -216,7 +225,7 @@ async function runClaudeCode(
 			permissionMode: "bypassPermissions",
 			allowDangerouslySkipPermissions: true,
 			settingSources: [],
-			persistSession: false,
+			resume: session,
 			cwd: fileURLToPath(cwd),
 			env,
 		},
@@ -256,12 +265,12 @@ async function runClaudeCode(
 		usage.cache_creation_input_tokens +
 		usage.output_tokens;
 
-	return { text: result.result, tokens };
+	return { text: result.result, tokens, session: result.session_id };
 }
 
 async function runCodex(
 	prompt: string,
-	{ model, skill, cwd, env, onCommand, onOutput }: RunOptions,
+	{ model, skill, cwd, env, session, onCommand, onOutput }: RunOptions,
 ) {
 	if (skill) await writeFile(new URL("AGENTS.md", cwd), skill);
 
@@ -269,13 +278,16 @@ async function runCodex(
 		apiKey: process.env.OPENAI_API_KEY,
 		env: env as Record<string, string>,
 	});
-	const thread = codex.startThread({
+	const threadOptions = {
 		model,
 		workingDirectory: fileURLToPath(cwd),
 		sandboxMode: "danger-full-access",
 		approvalPolicy: "never",
 		skipGitRepoCheck: true,
-	});
+	} as const;
+	const thread = session
+		? codex.resumeThread(session, threadOptions)
+		: codex.startThread(threadOptions);
 
 	let text = "";
 	let tokens = 0;
@@ -299,7 +311,7 @@ async function runCodex(
 		}
 	}
 
-	return { text, tokens };
+	return { text, tokens, session: thread.id ?? undefined };
 }
 
 async function judge(

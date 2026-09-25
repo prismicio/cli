@@ -1,26 +1,31 @@
 export type ArrayDiff<T> = { insert: T[]; update: T[]; delete: T[] };
 
-export function diffArrays<T extends { id: string }>(
+export function diffArrays<T>(
 	source: T[],
 	target: T[],
-	normalizeSource: (item: T) => T,
-	normalizeTarget = normalizeSource,
+	options: {
+		getKey: (item: T) => string;
+		equals?: (a: T, b: T) => boolean;
+	},
 ): ArrayDiff<T> {
+	const { getKey, equals = (a, b) => JSON.stringify(a) === JSON.stringify(b) } = options;
 	const diff: ArrayDiff<T> = { insert: [], update: [], delete: [] };
 	for (const sourceItem of source) {
-		const targetItem = target.find((item) => item.id === sourceItem.id);
+		const targetItem = target.find((item) => getKey(item) === getKey(sourceItem));
 		if (!targetItem) {
 			diff.insert.push(sourceItem);
-		} else if (
-			JSON.stringify(normalizeSource(sourceItem)) !== JSON.stringify(normalizeTarget(targetItem))
-		) {
+		} else if (!equals(sourceItem, targetItem)) {
 			diff.update.push(sourceItem);
 		}
 	}
 	for (const targetItem of target) {
-		if (!source.some((item) => item.id === targetItem.id)) {
+		if (!source.some((item) => getKey(item) === getKey(targetItem))) {
 			diff.delete.push(targetItem);
 		}
 	}
 	return diff;
+}
+
+export function hasChanges(diff: ArrayDiff<unknown>): boolean {
+	return diff.insert.length + diff.update.length + diff.delete.length > 0;
 }

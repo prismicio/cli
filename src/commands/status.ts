@@ -1,17 +1,11 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
 import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { diffArrays, type ArrayDiff } from "../lib/diff";
-import { getGitRoot } from "../lib/git";
-import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
+import { hasChanges } from "../lib/diff";
+import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getProfile } from "../lib/prismic/clients/user";
-import {
-	canonicalizeCustomType,
-	canonicalizeSlice,
-	getDirtyModelFiles,
-} from "../lib/prismic/models";
+import { diffModels, getRemoteModels, type ModelsDiff } from "../lib/prismic/models";
+import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const config = {
@@ -38,50 +32,42 @@ export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
 
 	const repositoryName = await getRepositoryName();
-	const { env, repo = env ?? (await adapter.getEnvironment()) ?? repositoryName } = values;
+	const activeEnvironment = await adapter.getEnvironment();
+	const { env, repo = env ?? activeEnvironment ?? repositoryName } = values;
 
 	const { token, host } = await getCredentials();
 	const projectRoot = await findProjectRoot();
 
-	const [gitRoot, customTypeLibraries, sliceLibraries, localCustomTypesMeta, localSlicesMeta] =
-		await Promise.all([
-			getGitRoot(projectRoot),
-			adapter.getCustomTypeLibraries(),
-			adapter.getSliceLibraries(),
-			adapter.getCustomTypes(),
-			adapter.getSlices(),
-		]);
+	const [gitRoot, customTypeLibraries, sliceLibraries, local] = await Promise.all([
+		getGitRoot(projectRoot),
+		adapter.getCustomTypeLibraries(),
+		adapter.getSliceLibraries(),
+		adapter.getModels(),
+	]);
 
 	let userEmail: string | undefined;
-	let customTypeOps: ArrayDiff<CustomType> | undefined;
-	let sliceOps: ArrayDiff<SharedSlice> | undefined;
+	let diff: ModelsDiff | undefined;
 	if (token) {
-		const [profile, remoteCustomTypes, remoteSlices] = await Promise.all([
+		const [profile, remote] = await Promise.all([
 			getProfile({ token, host }),
-			getCustomTypes({ repo, token, host }),
-			getSlices({ repo, token, host }),
+			getRemoteModels({ repo, token, host }),
 		]);
 		userEmail = profile.email;
-		customTypeOps = diffArrays(
-			localCustomTypesMeta.map((ct) => ct.model),
-			remoteCustomTypes,
-			canonicalizeCustomType,
-		);
-		sliceOps = diffArrays(
-			localSlicesMeta.map((s) => s.model),
-			remoteSlices,
-			canonicalizeSlice,
-		);
+		diff = diffModels(local, remote);
 	}
 
 	let dirtyModelFiles: string[] = [];
 	if (gitRoot) {
-		dirtyModelFiles = await getDirtyModelFiles({
-			gitRoot,
-			projectRoot,
-			customTypeLibraries,
-			sliceLibraries,
-		});
+		const dirtyPaths = await getDirtyPaths(gitRoot);
+		dirtyModelFiles = dirtyPaths
+			.filter(
+				(path) =>
+					(path.pathname.endsWith("/model.json") &&
+						sliceLibraries.some((lib) => isDescendant(lib, path))) ||
+					(path.pathname.endsWith("/index.json") &&
+						customTypeLibraries.some((lib) => isDescendant(lib, path))),
+			)
+			.map((path) => relativePathname(projectRoot, path));
 	}
 
 	console.info(`Repository: ${repositoryName}`);
@@ -94,12 +80,7 @@ export default createCommand(config, async ({ values }) => {
 		console.info("Not logged in — log in with `prismic login` to compare with remote.");
 	}
 
-	const inSync =
-		customTypeOps !== undefined &&
-		sliceOps !== undefined &&
-		[customTypeOps, sliceOps].every(
-			(ops) => ops.insert.length + ops.update.length + ops.delete.length === 0,
-		);
+	const inSync = diff !== undefined && !hasChanges(diff.customTypes) && !hasChanges(diff.slices);
 
 	if (inSync && dirtyModelFiles.length === 0) {
 		console.info("");
@@ -107,20 +88,25 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	if (customTypeOps && sliceOps) {
-		const sections = [
-			["Local-only:", "insert"],
-			["Remote-only:", "delete"],
-			["Differ:", "update"],
-		] as const;
-		for (const [heading, key] of sections) {
-			const lines = [
-				...customTypeOps[key].map((model) => `  ${model.id} (custom type)`),
-				...sliceOps[key].map((model) => `  ${model.id} (slice)`),
-			];
-			if (lines.length === 0) continue;
+	if (diff) {
+		const sections: string[][] = [];
+		const onlyLocal = [
+			...diff.customTypes.insert.map((m) => `  ${m.id} (custom type)`),
+			...diff.slices.insert.map((m) => `  ${m.id} (slice)`),
+		];
+		if (onlyLocal.length > 0) sections.push(["Local-only:", ...onlyLocal]);
+		const onlyRemote = [
+			...diff.customTypes.delete.map((m) => `  ${m.id} (custom type)`),
+			...diff.slices.delete.map((m) => `  ${m.id} (slice)`),
+		];
+		if (onlyRemote.length > 0) sections.push(["Remote-only:", ...onlyRemote]);
+		const differ = [
+			...diff.customTypes.update.map((m) => `  ${m.id} (custom type)`),
+			...diff.slices.update.map((m) => `  ${m.id} (slice)`),
+		];
+		if (differ.length > 0) sections.push(["Differ:", ...differ]);
+		for (const lines of sections) {
 			console.info("");
-			console.info(heading);
 			for (const line of lines) console.info(line);
 		}
 	}
@@ -134,12 +120,12 @@ export default createCommand(config, async ({ values }) => {
 		next.push(`git add ${dirtyModelFiles.join(" ")}`);
 		next.push(`git commit -m "Update Prismic models"`);
 	}
-	if (customTypeOps && sliceOps && !inSync) {
-		const inserts = customTypeOps.insert.length + sliceOps.insert.length;
-		const updates = customTypeOps.update.length + sliceOps.update.length;
-		const deletes = customTypeOps.delete.length + sliceOps.delete.length;
-		next.push(`prismic push  # creates ${inserts}, updates ${updates}, deletes ${deletes}`);
-		next.push(`prismic pull  # creates ${deletes}, updates ${updates}, deletes ${inserts}`);
+	if (diff && !inSync) {
+		const pushI = diff.customTypes.insert.length + diff.slices.insert.length;
+		const pushU = diff.customTypes.update.length + diff.slices.update.length;
+		const pushD = diff.customTypes.delete.length + diff.slices.delete.length;
+		next.push(`prismic push  # creates ${pushI}, updates ${pushU}, deletes ${pushD}`);
+		next.push(`prismic pull  # creates ${pushD}, updates ${pushU}, deletes ${pushI}`);
 	}
 
 	if (next.length > 0) {
