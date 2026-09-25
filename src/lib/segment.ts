@@ -31,11 +31,11 @@ type TrackedIdentity = {
 	timestamp: string;
 };
 
-export async function initSegment(config: {
+export function initSegment(config: {
 	writeKey: string;
 	anonymousId: string;
 	userId?: string;
-}): Promise<void> {
+}): void {
 	const { writeKey } = config;
 	anonymousId = config.anonymousId;
 	userId = config.userId;
