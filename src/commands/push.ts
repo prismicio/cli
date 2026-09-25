@@ -1,27 +1,22 @@
 import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
 
 import { pascalCase } from "change-case";
+import * as z from "zod/mini";
 
 import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { diffArrays } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getDocumentTotalByCustomTypes } from "../lib/prismic/clients/core";
 import {
+	type BulkChange,
+	bulkUpdate,
+	type CustomTypesConfig,
 	deleteScreenshots,
-	getCustomTypes,
-	getSlices,
-	insertCustomType,
-	insertSlice,
-	removeCustomType,
-	removeSlice,
-	updateCustomType,
-	updateSlice,
 } from "../lib/prismic/clients/custom-types";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import { diffModels, getRemoteModels, type ModelsDiff } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
-import { BadRequestError } from "../lib/request";
+import { ForbiddenRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
 
@@ -101,39 +96,20 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const [localCustomTypes, localSlices, remoteCustomTypes, remoteSlices] = await Promise.all([
-		adapter.getCustomTypes(),
-		adapter.getSlices(),
-		getCustomTypes({ repo, token, host }),
-		getSlices({ repo, token, host }),
+	const [local, remote] = await Promise.all([
+		adapter.getModels(),
+		getRemoteModels({ repo, token, host }),
 	]);
-	const customTypeOps = diffArrays(
-		localCustomTypes.map((customType) => customType.model),
-		remoteCustomTypes,
-		{
-			getKey: (model) => model.id,
-			equals: (a, b) =>
-				JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
-		},
-	);
-	const sliceOps = diffArrays(
-		localSlices.map((slice) => slice.model),
-		remoteSlices,
-		{
-			getKey: (model) => model.id,
-			equals: (a, b) =>
-				JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
-		},
-	);
+	const diff = diffModels(local, remote);
 
 	if (!force) {
 		const customTypeLibrary = appendTrailingSlash(customTypeLibraries[0]);
 		const sliceLibrary = appendTrailingSlash(sliceLibraries[0]);
 		const deletedFiles = [
-			...customTypeOps.delete.map((m) =>
+			...diff.customTypes.delete.map((m) =>
 				relativePathname(projectRoot, new URL(`${m.id}/index.json`, customTypeLibrary)),
 			),
-			...sliceOps.delete.map((m) =>
+			...diff.slices.delete.map((m) =>
 				relativePathname(projectRoot, new URL(`${pascalCase(m.name)}/model.json`, sliceLibrary)),
 			),
 		];
@@ -147,23 +123,12 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	for (const model of customTypeOps.insert) {
-		await insertCustomType(model, { repo, token, host });
+	try {
+		await writeRemoteModels(diff, { repo, token, host });
+	} catch (error) {
+		throw await explainExistingDocuments(error, diff.customTypes.delete, { repo, token, host });
 	}
-	for (const model of customTypeOps.update) {
-		await updateCustomType(model, { repo, token, host });
-	}
-	for (const model of customTypeOps.delete) {
-		await removeCustomTypeWithDocumentHandling(model, { repo, token, host });
-	}
-	for (const model of sliceOps.insert) {
-		await insertSlice(model, { repo, token, host });
-	}
-	for (const model of sliceOps.update) {
-		await updateSlice(model, { repo, token, host });
-	}
-	for (const id of sliceOps.delete.map((m) => m.id)) {
-		await removeSlice(id, { repo, token, host });
+	for (const { id } of diff.slices.delete) {
 		await deleteScreenshots(id, { repo, token, host }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
 			console.warn(
@@ -173,10 +138,10 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const onboardingSteps: OnboardingStep[] = [];
-	if (sliceOps.insert.length > 0) {
+	if (diff.slices.insert.length > 0) {
 		onboardingSteps.push("createSlice");
 	}
-	if (customTypeOps.insert.some((model) => model.format === "page")) {
+	if (diff.customTypes.insert.some((model) => model.format === "page")) {
 		onboardingSteps.push("createPageType");
 	}
 	if (onboardingSteps.length > 0) {
@@ -187,9 +152,9 @@ export default createCommand(config, async ({ values }) => {
 		}).catch(() => {});
 	}
 
-	const totalTypes = customTypeOps.insert.length + customTypeOps.update.length;
-	const totalSlices = sliceOps.insert.length + sliceOps.update.length;
-	const totalDeletes = customTypeOps.delete.length + sliceOps.delete.length;
+	const totalTypes = diff.customTypes.insert.length + diff.customTypes.update.length;
+	const totalSlices = diff.slices.insert.length + diff.slices.update.length;
+	const totalDeletes = diff.customTypes.delete.length + diff.slices.delete.length;
 	if (totalTypes === 0 && totalSlices === 0 && totalDeletes === 0) {
 		console.info("Already up to date.");
 	} else {
@@ -198,64 +163,60 @@ export default createCommand(config, async ({ values }) => {
 	}
 });
 
-async function removeCustomTypeWithDocumentHandling(
-	model: CustomType,
-	config: {
-		repo: string;
-		token: string | undefined;
-		host: string;
-	},
+async function writeRemoteModels(
+	{ customTypes, slices }: ModelsDiff,
+	config: CustomTypesConfig,
 ): Promise<void> {
-	const { repo, token, host } = config;
-	const { id, format } = model;
+	const change = (type: BulkChange["type"], payload: BulkChange["payload"]) => ({
+		type,
+		id: payload.id,
+		payload,
+	});
+	const changes = [
+		...customTypes.insert.map((model) => change("CUSTOM_TYPE_INSERT", model)),
+		...customTypes.update.map((model) => change("CUSTOM_TYPE_UPDATE", model)),
+		...customTypes.delete.map(({ id }) => change("CUSTOM_TYPE_DELETE", { id })),
+		...slices.insert.map((model) => change("SLICE_INSERT", model)),
+		...slices.update.map((model) => change("SLICE_UPDATE", model)),
+		...slices.delete.map(({ id }) => change("SLICE_DELETE", { id })),
+	];
+	if (changes.length > 0) await bulkUpdate(changes, config);
+}
 
-	try {
-		await removeCustomType(id, { repo, token, host });
-	} catch (error) {
-		if (!(await isDocumentsInUseError(error))) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			throw new CommandError(
-				`Could not delete type "${id}": ${errorMessage}"` +
-					"\nPlease try again, or manually deleting the type at: " +
-					getCustomTypeListUrl({ repo, host, format: format ?? "custom" }),
-			);
-		}
+const ExistingDocumentsErrorSchema = z.object({ hasExistingDocuments: z.literal(true) });
+
+async function explainExistingDocuments(
+	error: unknown,
+	deletedCustomTypes: CustomType[],
+	config: { repo: string; token: string | undefined; host: string },
+): Promise<unknown> {
+	if (!(error instanceof ForbiddenRequestError)) return error;
+	if (!z.safeParse(ExistingDocumentsErrorSchema, error.body).success) return error;
+
+	const { repo, host } = config;
+	for (const { id } of deletedCustomTypes) {
+		const documentsUrl = getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id });
 
 		let documentCount: number;
 		try {
-			documentCount = await getDocumentTotalByCustomTypes(id, { repo, token, host });
+			documentCount = await getDocumentTotalByCustomTypes(id, config);
 		} catch {
-			throw new CommandError(
+			return new CommandError(
 				`Could not check whether type "${id}" has associated pages. ` +
 					"\nPlease try again, or manually delete any associated pages at: " +
-					getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
+					documentsUrl,
 			);
 		}
+		if (documentCount === 0) continue;
 
-		const countLabel = documentCount > 0 ? ` ${documentCount}` : "";
 		const pluralPages = documentCount === 1 ? "page" : "pages";
-		throw new CommandError(
-			`Could not delete type "${id}" because it has${countLabel} associated ${pluralPages}. ` +
+		return new CommandError(
+			`Could not delete type "${id}" because it has ${documentCount} associated ${pluralPages}. ` +
 				`\nDelete any associated pages manually before pushing at: ` +
-				getWorkingDocumentsUrlForCustomType({ repo, host, customTypeId: id }),
+				documentsUrl,
 		);
 	}
-}
-
-async function isDocumentsInUseError(error: unknown): Promise<boolean> {
-	if (!(error instanceof BadRequestError)) return false;
-	const body = await error.text();
-	return body.includes("associated documents") || body.includes("Delete all documents belonging");
-}
-
-function getCustomTypeListUrl(args: {
-	repo: string;
-	host: string;
-	format: "custom" | "page";
-}): string {
-	const { repo, host, format } = args;
-	const type = format === "custom" ? "custom-types" : "page-types";
-	return new URL(`builder/types/${type}`, `https://${repo}.${host}/`).href;
+	return error;
 }
 
 function getWorkingDocumentsUrlForCustomType(args: {

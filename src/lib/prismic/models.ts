@@ -6,7 +6,13 @@ import type {
 	SharedSlice,
 } from "@prismicio/types-internal/lib/customtypes";
 
+import { type ArrayDiff, diffArrays } from "../diff";
+import { type CustomTypesConfig, getCustomTypes, getSlices } from "./clients/custom-types";
+
 type Fields = Record<string, DynamicWidget>;
+
+export type Models = { customTypes: CustomType[]; slices: SharedSlice[] };
+export type ModelsDiff = { customTypes: ArrayDiff<CustomType>; slices: ArrayDiff<SharedSlice> };
 
 export type ContentRelationshipFieldSelection =
 	| string
@@ -181,6 +187,33 @@ export function resolveSliceFieldContainer(
 	if (!variation) throw new SliceVariationNotFoundError(variationId, slice.id);
 	variation.primary ??= {};
 	return resolveNestedFieldContainer(path, variation.primary);
+}
+
+export async function getRemoteModels(config: CustomTypesConfig): Promise<Models> {
+	const [customTypes, slices] = await Promise.all([getCustomTypes(config), getSlices(config)]);
+	return { customTypes, slices };
+}
+
+export function diffModels(
+	source: Models,
+	target: Models,
+	options: { treatNonCanonicalAsChanged?: boolean } = {},
+): ModelsDiff {
+	const { treatNonCanonicalAsChanged = false } = options;
+	return {
+		customTypes: diffArrays(source.customTypes, target.customTypes, {
+			getKey: (model) => model.id,
+			equals: (a, b) =>
+				JSON.stringify(canonicalizeCustomType(a)) ===
+				JSON.stringify(treatNonCanonicalAsChanged ? b : canonicalizeCustomType(b)),
+		}),
+		slices: diffArrays(source.slices, target.slices, {
+			getKey: (model) => model.id,
+			equals: (a, b) =>
+				JSON.stringify(canonicalizeSlice(a)) ===
+				JSON.stringify(treatNonCanonicalAsChanged ? b : canonicalizeSlice(b)),
+		}),
+	};
 }
 
 export function canonicalizeCustomType(model: CustomType): CustomType {

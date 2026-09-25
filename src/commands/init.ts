@@ -7,7 +7,6 @@ import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { diffArrays } from "../lib/diff";
 import {
 	installDependencies,
 	MissingPackageJson,
@@ -21,10 +20,9 @@ import {
 	removePreview,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
-import { getCustomTypes, getSlices } from "../lib/prismic/clients/custom-types";
 import { getRepository, type Repository } from "../lib/prismic/clients/repository";
 import { getProfile } from "../lib/prismic/clients/user";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import { diffModels, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
@@ -241,28 +239,14 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Sync models from remote and generate types
-	const [remoteCustomTypes, remoteSlices, localCustomTypes, localSlices] = await Promise.all([
-		getCustomTypes({ repo, token, host }),
-		getSlices({ repo, token, host }),
-		adapter.getCustomTypes(),
-		adapter.getSlices(),
+	const [remote, local] = await Promise.all([
+		getRemoteModels({ repo, token, host }),
+		adapter.getModels(),
 	]);
-	const localCustomTypeModels = localCustomTypes.map((c) => c.model);
-	const localSliceModels = localSlices.map((s) => s.model);
-
-	const sliceOps = diffArrays(remoteSlices, localSliceModels, {
-		getKey: (model) => model.id,
-		equals: (a, b) => JSON.stringify(canonicalizeSlice(a)) === JSON.stringify(canonicalizeSlice(b)),
-	});
-
-	const customTypeOps = diffArrays(remoteCustomTypes, localCustomTypeModels, {
-		getKey: (model) => model.id,
-		equals: (a, b) =>
-			JSON.stringify(canonicalizeCustomType(a)) === JSON.stringify(canonicalizeCustomType(b)),
-	});
+	const diff = diffModels(remote, local);
 
 	if (isExistingProjectHandoff && connectedRepository?.starter) {
-		if (remoteCustomTypes.length === 0 && remoteSlices.length === 0) {
+		if (remote.customTypes.length === 0 && remote.slices.length === 0) {
 			throw new CommandError(
 				`Repository "${repo}" has no starter models. Use a repository created from the starter in the Prismic dashboard.`,
 			);
@@ -272,29 +256,9 @@ export default createCommand(config, async ({ values }) => {
 
 	const hasStarterModelChanges =
 		isExistingProjectHandoff &&
-		[customTypeOps, sliceOps].some((ops) => ops.update.length > 0 || ops.delete.length > 0);
+		[diff.customTypes, diff.slices].some((ops) => ops.update.length > 0 || ops.delete.length > 0);
 
-	if (!hasStarterModelChanges) {
-		for (const slice of sliceOps.update) {
-			await adapter.updateSlice(slice);
-		}
-		for (const slice of sliceOps.delete) {
-			await adapter.deleteSlice(slice.id);
-		}
-		for (const slice of sliceOps.insert) {
-			await adapter.createSlice(slice);
-		}
-
-		for (const customType of customTypeOps.update) {
-			await adapter.updateCustomType(customType);
-		}
-		for (const customType of customTypeOps.delete) {
-			await adapter.deleteCustomType(customType.id);
-		}
-		for (const customType of customTypeOps.insert) {
-			await adapter.createCustomType(customType);
-		}
-	}
+	if (!hasStarterModelChanges) await adapter.writeModels(diff);
 
 	await adapter.generateTypes();
 
