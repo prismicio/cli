@@ -3,7 +3,7 @@ import * as z from "zod/mini";
 const JWTPayloadSchema = z.looseObject({
 	exp: z.optional(z.number()),
 });
-export type JWTPayload = z.infer<typeof JWTPayloadSchema>;
+type JWTPayload = z.infer<typeof JWTPayloadSchema>;
 
 export function decodePayload(token: string): JWTPayload | undefined {
 	try {
