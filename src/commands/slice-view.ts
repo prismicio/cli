@@ -14,11 +14,14 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals: [id], values }) => {
+export default createCommand(config, async ({ positionals, values }) => {
+	const [id] = positionals;
+	const { json } = values;
+
 	const adapter = await getAdapter();
 	const { model: slice } = await adapter.getSlice(id);
 
-	if (values.json) {
+	if (json) {
 		console.info(stringify(slice));
 		return;
 	}

@@ -31,23 +31,29 @@ const config = {
 	},
 	options: {
 		...SOURCE_OPTIONS,
+		// Universal
 		label: { type: "string", description: "Field label" },
 		placeholder: { type: "string", description: "Placeholder text" },
+		// Boolean
 		"default-value": {
 			type: "string",
 			description: "Default value (boolean: true/false, select: option value)",
 		},
 		"true-label": { type: "string", description: "Label for true value (boolean)" },
 		"false-label": { type: "string", description: "Label for false value (boolean)" },
+		// Date / Timestamp
 		default: { type: "string", description: "Default value (date/timestamp)" },
+		// Number
 		min: { type: "string", description: "Minimum value (number)" },
 		max: { type: "string", description: "Maximum value (number)" },
 		step: { type: "string", description: "Step increment (number)" },
+		// Select
 		option: {
 			type: "string",
 			multiple: true,
 			description: "Select option value (can be repeated)",
 		},
+		// Link
 		"allow-target-blank": {
 			type: "boolean",
 			description: "Allow opening in new tab (link/rich-text)",
@@ -62,6 +68,7 @@ const config = {
 			multiple: true,
 			description: "Allowed variant (link/link-to-media, can be repeated)",
 		},
+		// Content Relationship
 		tag: {
 			type: "string",
 			multiple: true,
@@ -78,6 +85,7 @@ const config = {
 			description:
 				"Fetch this field from the related document (content-relationship, can be repeated)",
 		},
+		// Rich Text / Link
 		allow: {
 			type: "string",
 			description:
@@ -88,11 +96,14 @@ const config = {
 			type: "string",
 			description: 'Comma-separated custom labels for styling text spans; "" clears (rich-text)',
 		},
+		// Integration
 		catalog: { type: "string", description: "Integration catalog ID (integration)" },
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals: [id], values }) => {
+export default createCommand(config, async ({ positionals, values }) => {
+	const [id] = positionals;
+
 	const { field, save } = await getExistingField(id, values);
 	field.config ??= {};
 
@@ -145,11 +156,13 @@ export default createCommand(config, async ({ positionals: [id], values }) => {
 				}
 			}
 			if ("single" in values) {
+				// Switch from multi to single mode
 				const allowList =
 					"allow" in values ? values.allow : (field.config.multi ?? field.config.single);
 				delete field.config.multi;
 				field.config.single = allowList;
 			} else if ("allow" in values) {
+				// Update whichever mode is currently set
 				if ("single" in field.config) {
 					field.config.single = values.allow;
 				} else {
