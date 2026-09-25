@@ -17,6 +17,7 @@ export type CommandConfig = {
 			required?: boolean;
 			dependsOn?: string;
 			deprecated?: string;
+			hidden?: boolean;
 		}
 	>;
 };
@@ -136,7 +137,7 @@ export function createCommandRouter(config: {
 	name: string;
 	description: string;
 	sections?: Record<string, string>;
-	commands: Record<string, { handler: () => Promise<void>; description: string }>;
+	commands: Record<string, { handler: () => Promise<void>; description: string; hidden?: boolean }>;
 }): () => Promise<void> {
 	return async function () {
 		const {
@@ -158,10 +159,9 @@ export function createCommandRouter(config: {
 		const blocks = {
 			USAGE: `  ${config.name} <command> [options]`,
 			COMMANDS: formatTable(
-				Object.entries(config.commands).map(([name, command]) => [
-					`  ${name}`,
-					command.description,
-				]),
+				Object.entries(config.commands)
+					.filter(([, command]) => !command.hidden)
+					.map(([name, command]) => [`  ${name}`, command.description]),
 			),
 			OPTIONS: formatTable(optionRows({})),
 		};
@@ -174,7 +174,7 @@ function optionRows(options: NonNullable<CommandConfig["options"]>): string[][] 
 	const all: typeof options = isAgent ? { ...options, ...AGENT_OPTIONS } : options;
 	const rows: string[][] = [];
 	for (const [name, option] of Object.entries(all)) {
-		if (option.deprecated) continue;
+		if (option.deprecated || option.hidden) continue;
 		const shortPart = option.short ? `-${option.short}, ` : "    ";
 		const typeSuffix = option.type === "string" ? " string" : "";
 		const description = option.description + (option.required ? " (required)" : "");
