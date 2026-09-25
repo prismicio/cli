@@ -1,5 +1,4 @@
-import type { Link } from "@prismicio/types-internal/lib/customtypes";
-
+import type { LinkModel } from "@prismicio/types-internal";
 import { capitalCase } from "change-case";
 
 import { getContentRelationshipFieldSelection, getNewFieldTarget, TARGET_OPTIONS } from "../fields";
@@ -79,7 +78,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
-	let resolvedCustomTypes: NonNullable<Link["config"]>["customtypes"] = customtypes;
+	let resolvedCustomTypes: NonNullable<LinkModel["config"]>["customtypes"] = customtypes;
 	if (fieldSelection && customtypes) {
 		const resolvedFields = await getContentRelationshipFieldSelection(
 			fieldSelection,
@@ -90,7 +89,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		] as typeof resolvedCustomTypes;
 	}
 
-	const field: Link = {
+	const field: LinkModel = {
 		type: "Link",
 		config: {
 			label: label ?? capitalCase(fieldId),

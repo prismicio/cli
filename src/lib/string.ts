@@ -19,11 +19,7 @@ export function formatObjectKey(key: string): string {
 	return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : JSON.stringify(key);
 }
 
-export function formatTable(
-	rows: string[][],
-	config?: { headers?: string[]; separator?: string },
-): string {
-	const separator = config?.separator ?? "   ";
+export function formatTable(rows: string[][], config?: { headers?: string[] }): string {
 	const allRows = config?.headers ? [config.headers, ...rows] : rows;
 	const columnWidths: number[] = [];
 	for (const row of allRows) {
@@ -31,13 +27,13 @@ export function formatTable(
 			columnWidths[i] = Math.max(columnWidths[i] ?? 0, row[i].length);
 		}
 	}
+
 	return allRows
-		.map((row) => {
-			const line = row
+		.map((row) =>
+			row
 				.map((cell, i) => (i < row.length - 1 ? cell.padEnd(columnWidths[i]) : cell))
-				.join(separator)
-				.trimEnd();
-			return line;
-		})
+				.join("   ")
+				.trimEnd(),
+		)
 		.join("\n");
 }

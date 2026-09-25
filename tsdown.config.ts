@@ -12,6 +12,7 @@ export default defineConfig({
 	format: "esm",
 	platform: "node",
 	minify: true,
+	dts: false,
 	envPrefix: "PRISMIC_",
 	define: {
 		"process.env.PROD": JSON.stringify(String(PROD)),

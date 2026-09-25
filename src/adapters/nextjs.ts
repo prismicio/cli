@@ -1,8 +1,8 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
-import { pascalCase } from "change-case";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import { pascalCase } from "change-case";
 
 import {
 	Adapter,
@@ -165,7 +165,7 @@ export class NextJsAdapter extends Adapter {
 		return new URL((await checkHasSrc()) ? "src/slices/" : "slices/", await findProjectRoot());
 	}
 
-	protected async createSliceComponent(model: SharedSlice, directory: URL): Promise<void> {
+	protected async createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void> {
 		const contents = sliceTemplate({
 			name: model.name,
 			id: model.id,
@@ -174,7 +174,7 @@ export class NextJsAdapter extends Adapter {
 		await writeFileRecursive(new URL(`index.${await getJsFileExtension()}x`, directory), contents);
 	}
 
-	protected async createPageFile(model: CustomType, routePath: string): Promise<void> {
+	protected async createPageFile(model: DynamicCustomTypeModel, routePath: string): Promise<void> {
 		const sourceRoot = await getSourceRoot();
 		const extension = `${await getJsFileExtension()}x`;
 		const appRouter = await checkUsesAppRouter();

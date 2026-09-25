@@ -1,5 +1,6 @@
-import dedent from "dedent";
 import { rm } from "node:fs/promises";
+
+import dedent from "dedent";
 import { describe } from "vitest";
 
 import { it, trials } from "./it";

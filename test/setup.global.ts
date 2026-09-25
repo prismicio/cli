@@ -1,6 +1,5 @@
-import type { TestProject } from "vitest/node";
-
 import { build, type InlineConfig } from "tsdown";
+import type { TestProject } from "vitest/node";
 
 import { upsertLocale, createRepository, deleteRepository, login } from "./prismic";
 

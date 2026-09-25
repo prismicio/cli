@@ -1,10 +1,10 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
-import { pascalCase } from "change-case";
-import { loadFile } from "magicast";
 import { writeFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import { pascalCase } from "change-case";
+import { loadFile } from "magicast";
 
 import {
 	Adapter,
@@ -143,7 +143,7 @@ export class SvelteKitAdapter extends Adapter {
 		return new URL("src/lib/slices/", await findProjectRoot());
 	}
 
-	protected async createSliceComponent(model: SharedSlice, directory: URL): Promise<void> {
+	protected async createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void> {
 		const contents = sliceTemplate({
 			name: model.name,
 			typescript: await checkIsTypeScriptProject(),
@@ -152,7 +152,7 @@ export class SvelteKitAdapter extends Adapter {
 		await writeFileRecursive(new URL("index.svelte", directory), contents);
 	}
 
-	protected async createPageFile(model: CustomType, routePath: string): Promise<void> {
+	protected async createPageFile(model: DynamicCustomTypeModel, routePath: string): Promise<void> {
 		const routeDirectory = new URL(
 			`src/routes/[[preview=preview]]/${routePath}/`,
 			await findProjectRoot(),

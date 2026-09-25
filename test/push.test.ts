@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+
 import { describe } from "vitest";
 
 import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";

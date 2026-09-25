@@ -1,19 +1,18 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
 import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
+
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import { glob } from "tinyglobby";
 import { expect } from "vitest";
 
 import { getSliceLibraries } from "./it";
 
 declare module "vitest" {
-	// oxlint-disable-next-line no-explicit-any
-	interface Matchers<T = any> {
-		toContainCustomType(customType: CustomType): Promise<T>;
-		toContainSlice(slice: SharedSlice): Promise<T>;
-		toHaveRoute(route: { type: string; path?: string }): Promise<T>;
-		toHaveFile(path: string | URL, args?: { contains?: string }): Promise<T>;
+	interface Matchers<R extends void | Promise<void> = void | Promise<void>, T = unknown> {
+		toContainCustomType(customType: DynamicCustomTypeModel): Promise<void>;
+		toContainSlice(slice: SharedSliceModel): Promise<void>;
+		toHaveRoute(route: { type: string; path?: string }): Promise<void>;
+		toHaveFile(path: string | URL, args?: { contains?: string }): Promise<void>;
 	}
 }
 
@@ -23,7 +22,7 @@ expect.extend({
 
 		const modelPath = new URL(`customtypes/${customType.id}/index.json`, project);
 		try {
-			const model: CustomType = JSON.parse(await readFile(modelPath, "utf8"));
+			const model: DynamicCustomTypeModel = JSON.parse(await readFile(modelPath, "utf8"));
 			if (model.id !== customType.id) {
 				problems.push(`custom type model file (${modelPath.href}) has wrong ID`);
 			}
@@ -51,7 +50,7 @@ expect.extend({
 				(path) => pathToFileURL(path),
 			);
 			for (const sliceModelPath of sliceModelPaths) {
-				const model: SharedSlice = JSON.parse(await readFile(sliceModelPath, "utf8"));
+				const model: SharedSliceModel = JSON.parse(await readFile(sliceModelPath, "utf8"));
 				if (model.id === slice.id) {
 					sliceDirectory = new URL(".", sliceModelPath);
 				}

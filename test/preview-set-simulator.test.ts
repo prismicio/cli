@@ -8,7 +8,7 @@ it("supports --help", async ({ expect, prismic }) => {
 });
 
 // Must be sequential because the repo only has one simulator URL.
-it.sequential("sets simulator URL", async ({ expect, prismic, repo, token, host }) => {
+it("sets simulator URL", { concurrent: false }, async ({ expect, prismic, repo, token, host }) => {
 	const simulatorUrl = `https://test-${crypto.randomUUID()}.example.com/slice-simulator`;
 
 	const { stdout, stderr, exitCode } = await prismic("preview", ["set-simulator", simulatorUrl]);
@@ -20,7 +20,7 @@ it.sequential("sets simulator URL", async ({ expect, prismic, repo, token, host 
 });
 
 // Must be sequential because the repo only has one simulator URL.
-it.sequential("appends /slice-simulator to URL", async ({ expect, prismic }) => {
+it("appends /slice-simulator to URL", { concurrent: false }, async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("preview", [
 		"set-simulator",
 		"https://example.com",

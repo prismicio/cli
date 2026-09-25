@@ -1,5 +1,4 @@
-import type { SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
+import type { SharedSliceModel } from "@prismicio/types-internal";
 import { snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
@@ -20,7 +19,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [name] = positionals;
 	const { id = snakeCase(name) } = values;
 
-	const model: SharedSlice = {
+	const model: SharedSliceModel = {
 		id,
 		name,
 		type: "SharedSlice",
