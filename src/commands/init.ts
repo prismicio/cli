@@ -37,7 +37,7 @@ import {
 	UnknownProjectRootError,
 	updateConfig,
 } from "../project";
-import { checkIsTypeBuilderEnabled, TypeBuilderRequiredError } from "../project";
+import { TypeBuilderRequiredError } from "../project";
 import { createRepo } from "./repo-create";
 
 const config = {
@@ -144,10 +144,8 @@ export default createCommand(config, async ({ values }) => {
 			);
 		});
 
-		const isTypeBuilderEnabled = await checkIsTypeBuilderEnabled(repo, {
-			token,
-			host,
-		});
+		const isTypeBuilderEnabled =
+			env.PRISMIC_TYPE_BUILDER_ENABLED ?? connectedRepository.quotas?.sliceMachineEnabled === true;
 		if (!isTypeBuilderEnabled) {
 			throw new TypeBuilderRequiredError(repo);
 		}
