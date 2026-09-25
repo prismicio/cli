@@ -1,6 +1,6 @@
 import { getFieldReorderTargets, SOURCE_OPTIONS } from "../fields";
 import { CommandError, createCommand, exactlyOneOption, type CommandConfig } from "../lib/command";
-import { reorderField } from "../lib/prismic/models";
+import { FieldExistsError } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field reorder",
@@ -15,33 +15,37 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const { key: position, value: anchor } = exactlyOneOption(values, ["before", "after"]);
+export default createCommand(config, async ({ positionals: [id], values }) => {
+	const { key: position, value: anchorPath } = exactlyOneOption(values, ["before", "after"]);
 
-	if (id === anchor) {
+	if (id === anchorPath) {
 		throw new CommandError(`Cannot reorder "${id}" relative to itself.`);
 	}
 
-	const idParent = id.lastIndexOf(".");
-	const anchorParent = anchor.lastIndexOf(".");
-	if (
-		(idParent === -1 ? "" : id.slice(0, idParent)) !==
-		(anchorParent === -1 ? "" : anchor.slice(0, anchorParent))
-	) {
+	if (id.split(".").slice(0, -1).join(".") !== anchorPath.split(".").slice(0, -1).join(".")) {
 		throw new CommandError(
-			`Cannot reorder "${id}" relative to "${anchor}": fields must be in the same container.`,
+			`Cannot reorder "${id}" relative to "${anchorPath}": fields must be in the same container.`,
 		);
 	}
 
-	const { source, anchor: resolvedAnchor, save } = await getFieldReorderTargets(id, anchor, values);
-	reorderField(
-		source.fields,
-		source.fieldId,
-		resolvedAnchor.fields,
-		resolvedAnchor.fieldId,
-		position,
-	);
+	const { source, anchor, save } = await getFieldReorderTargets(id, anchorPath, values);
+
+	// Top-level fields of a custom type can live in different tabs.
+	if (source.fields !== anchor.fields && source.fieldId in anchor.fields) {
+		throw new FieldExistsError(source.fieldId);
+	}
+
+	const field = source.fields[source.fieldId];
+	delete source.fields[source.fieldId];
+
+	// Rebuild the container in place to reorder its keys.
+	const entries = Object.entries(anchor.fields);
+	for (const [fieldId] of entries) delete anchor.fields[fieldId];
+	for (const [fieldId, value] of entries) {
+		if (position === "before" && fieldId === anchor.fieldId) anchor.fields[source.fieldId] = field;
+		anchor.fields[fieldId] = value;
+		if (position === "after" && fieldId === anchor.fieldId) anchor.fields[source.fieldId] = field;
+	}
 	await save();
 
 	console.info(`Field reordered: ${id}`);
