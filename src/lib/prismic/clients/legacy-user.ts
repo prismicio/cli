@@ -12,7 +12,7 @@ const RepositoriesSchema = z.array(
 		role: z.optional(z.union([z.string(), z.record(z.string(), z.string())])),
 	}),
 );
-export type Repositories = z.infer<typeof RepositoriesSchema>;
+type Repositories = z.infer<typeof RepositoriesSchema>;
 
 export async function getRepositories(config: {
 	token: string | undefined;
