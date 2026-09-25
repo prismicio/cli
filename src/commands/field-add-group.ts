@@ -1,5 +1,4 @@
-import type { Group } from "@prismicio/types-internal/lib/customtypes";
-
+import type { GroupModel } from "@prismicio/types-internal";
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
@@ -28,7 +27,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
-	const field: Group = {
+	const field: GroupModel = {
 		type: "Group",
 		config: {
 			label: label ?? capitalCase(fieldId),

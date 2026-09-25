@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+
 import * as z from "zod/mini";
 
 import packageJson from "../../package.json" with { type: "json" };

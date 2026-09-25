@@ -1,7 +1,7 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
 import { readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
 import { exists, findUpward } from "./lib/file";
@@ -89,7 +89,7 @@ export class UnknownProjectRootError extends Error {
 	}
 }
 
-export async function addRoute(pageType: CustomType): Promise<void> {
+export async function addRoute(pageType: DynamicCustomTypeModel): Promise<void> {
 	const { routes = [] } = await readConfig();
 	const hasRoute = routes.some((r) => r.type === pageType.id);
 	if (hasRoute) return;
@@ -99,7 +99,7 @@ export async function addRoute(pageType: CustomType): Promise<void> {
 	await updateConfig({ routes: newRoutes });
 }
 
-export async function updateRoute(pageType: CustomType): Promise<void> {
+export async function updateRoute(pageType: DynamicCustomTypeModel): Promise<void> {
 	if (pageType.format === "page") {
 		await addRoute(pageType);
 	} else {
@@ -114,7 +114,7 @@ export async function removeRoute(id: string): Promise<void> {
 	await updateConfig({ routes: newRoutes });
 }
 
-export function buildRoutePath(pageType: CustomType): string {
+export function buildRoutePath(pageType: DynamicCustomTypeModel): string {
 	const { id, repeatable } = pageType;
 	const namespace = id.replaceAll("_", "-").toLowerCase();
 	if (repeatable) {

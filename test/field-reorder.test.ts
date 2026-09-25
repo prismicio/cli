@@ -1,4 +1,4 @@
-import type { Group } from "@prismicio/types-internal/lib/customtypes";
+import type { GroupModel } from "@prismicio/types-internal";
 
 import {
 	buildCustomType,
@@ -113,7 +113,7 @@ it("reorders a nested field in a group", async ({ expect, prismic, project }) =>
 	expect(stdout).toContain("Field reordered: my_group.sub_c");
 
 	const updated = await readLocalSlice(project, slice.id);
-	const group = updated!.variations[0].primary!.my_group as Group;
+	const group = updated!.variations[0].primary!.my_group as GroupModel;
 	expect(Object.keys(group.config!.fields!)).toEqual(["sub_c", "sub_a", "sub_b"]);
 });
 

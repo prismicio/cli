@@ -1,5 +1,6 @@
-import dedent from "dedent";
 import { readdir, readFile } from "node:fs/promises";
+
+import dedent from "dedent";
 
 import { buildSlice, readLocalCustomTypes, readLocalSlices, writeLocalSlice } from "../test/it";
 import { it, trials } from "./it";
