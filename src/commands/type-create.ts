@@ -49,6 +49,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError(`Invalid format: "${format}". Use "custom" or "page".`);
 	}
 
+	const adapter = await getAdapter();
+	const customTypes = await adapter.getCustomTypes();
+	if (customTypes.some(({ model }) => model.id === id)) {
+		throw new CommandError(
+			`Type "${id}" already exists. Run \`prismic type edit ${id}\` to change it.`,
+		);
+	}
+
 	const json: CustomType["json"] =
 		format === "page"
 			? {
@@ -102,7 +110,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 		json,
 	};
 
-	const adapter = await getAdapter();
 	await adapter.createCustomType(model);
 	await adapter.generateTypes();
 
