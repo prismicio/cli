@@ -48,7 +48,7 @@ jobs:
     runs-on: blacksmith-4vcpu-ubuntu-2404
     strategy:
       matrix:
-        node: [20, 22, 24]
+        node: [22, 24]
       fail-fast: false
       max-parallel: 1
     steps:
