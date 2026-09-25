@@ -34,10 +34,10 @@ import {
 	MissingPrismicConfigError,
 	readConfig,
 	readLegacySliceMachineConfig,
+	TypeBuilderRequiredError,
 	UnknownProjectRootError,
 	updateConfig,
 } from "../project";
-import { TypeBuilderRequiredError } from "../project";
 import { createRepo } from "./repo-create";
 
 const config = {
