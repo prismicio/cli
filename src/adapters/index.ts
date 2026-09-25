@@ -24,7 +24,12 @@ import {
 	getSimulatorUrl,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
-import { canonicalizeCustomType, canonicalizeSlice } from "../lib/prismic/models";
+import {
+	canonicalizeCustomType,
+	canonicalizeSlice,
+	type Models,
+	type ModelsDiff,
+} from "../lib/prismic/models";
 import { appendTrailingSlash } from "../lib/url";
 import {
 	addRoute,
@@ -218,6 +223,23 @@ export abstract class Adapter {
 		const customType = await this.getCustomType(id);
 		await rm(customType.directory, { recursive: true });
 		await removeRoute(id);
+	}
+
+	async getModels(): Promise<Models> {
+		const [customTypes, slices] = await Promise.all([this.getCustomTypes(), this.getSlices()]);
+		return {
+			customTypes: customTypes.map((customType) => customType.model),
+			slices: slices.map((slice) => slice.model),
+		};
+	}
+
+	async writeModels(diff: ModelsDiff): Promise<void> {
+		for (const model of diff.slices.update) await this.updateSlice(model);
+		for (const model of diff.slices.delete) await this.deleteSlice(model.id);
+		for (const model of diff.slices.insert) await this.createSlice(model);
+		for (const model of diff.customTypes.update) await this.updateCustomType(model);
+		for (const model of diff.customTypes.delete) await this.deleteCustomType(model.id);
+		for (const model of diff.customTypes.insert) await this.createCustomType(model);
 	}
 
 	async generateTypes(): Promise<URL> {
