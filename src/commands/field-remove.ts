@@ -10,9 +10,7 @@ const config = {
 	options: SOURCE_OPTIONS,
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const { fields, fieldId, save } = await getExistingField(id, values);
 	delete fields[fieldId];
 	await save();

@@ -1,7 +1,7 @@
 import { getAdapter } from "../adapters";
+import { formatFieldTable } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { formatTable } from "../lib/string";
 import { readConfig } from "../project";
 
 const config = {
@@ -15,14 +15,11 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const { json } = values;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const adapter = await getAdapter();
 	const { model: type } = await adapter.getCustomType(id);
 
-	if (json) {
+	if (values.json) {
 		console.info(stringify(type));
 		return;
 	}
@@ -38,17 +35,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	for (const [tabName, fields] of Object.entries(type.json)) {
 		console.info("");
 		console.info(`${tabName}:`);
-		const entries = Object.entries(fields);
-		if (entries.length === 0) {
-			console.info("  (no fields)");
-		} else {
-			const rows = entries.map(([id, field]) => {
-				const config = field.config as Record<string, unknown> | undefined;
-				const label = (config?.label as string) || "";
-				const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
-				return [`  ${id}`, field.type, label, placeholder];
-			});
-			console.info(formatTable(rows));
-		}
+		console.info(formatFieldTable(fields));
 	}
 });

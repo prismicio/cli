@@ -16,11 +16,8 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const { field, fieldId } = await getExistingField(id, values);
-
 	if (values.json) {
 		console.info(stringify({ id: fieldId, ...field }));
 		return;
@@ -28,18 +25,15 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	console.info(`Type: ${field.type}`);
 
-	if (field.config) {
-		for (const [key, value] of Object.entries(field.config)) {
-			if (value === undefined) continue;
+	for (const [key, value] of Object.entries(field.config ?? {})) {
+		if (value === undefined) continue;
 
-			if (key === "fields" && typeof value === "object" && value !== null) {
-				const ids = Object.keys(value).join(", ") || "(none)";
-				console.info(`Fields: ${ids}`);
-			} else if (Array.isArray(value)) {
-				console.info(`${capitalCase(key)}: ${value.join(", ")}`);
-			} else {
-				console.info(`${capitalCase(key)}: ${value}`);
-			}
+		if (key === "fields" && typeof value === "object" && value !== null) {
+			console.info(`Fields: ${Object.keys(value).join(", ") || "(none)"}`);
+		} else if (Array.isArray(value)) {
+			console.info(`${capitalCase(key)}: ${value.join(", ")}`);
+		} else {
+			console.info(`${capitalCase(key)}: ${value}`);
 		}
 	}
 });

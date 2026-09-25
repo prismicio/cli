@@ -1,7 +1,7 @@
 import type { DynamicWidgetModel } from "@prismicio/types-internal";
 
 import { getAdapter } from "./adapters";
-import { exactlyOneOption, type CommandConfig } from "./lib/command";
+import { CommandError, exactlyOneOption, type CommandConfig } from "./lib/command";
 import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
 import {
 	FieldExistsError,
@@ -10,6 +10,7 @@ import {
 	resolveContentRelationshipFieldSelection,
 	resolveSliceFieldContainer,
 } from "./lib/prismic/models";
+import { formatTable } from "./lib/string";
 
 export const TARGET_OPTIONS = {
 	"to-slice": {
@@ -48,95 +49,72 @@ export const SOURCE_OPTIONS = {
 	},
 } satisfies CommandConfig["options"];
 
-type ResolvedFieldTarget = {
-	fields: Record<string, DynamicWidgetModel>;
-	fieldId: string;
-	save: () => Promise<void>;
-};
+type SourceValues = { "from-slice"?: string; "from-type"?: string; variation?: string };
+type FieldContainer = { fields: Record<string, DynamicWidgetModel>; fieldId: string };
+type FieldTarget = FieldContainer & { save: () => Promise<void> };
 
-type ResolvedFieldContainer = Omit<ResolvedFieldTarget, "save">;
+async function loadModel(
+	isSlice: boolean,
+	id: string,
+	options: { variation?: string; tab?: string },
+): Promise<{ resolve: (path: string) => FieldContainer; save: () => Promise<void> }> {
+	const adapter = await getAdapter();
+	if (isSlice) {
+		const { model } = await adapter.getSlice(id);
+		return {
+			resolve: (path) => resolveSliceFieldContainer(path, model, options.variation ?? "default"),
+			save: async () => {
+				await adapter.updateSlice(model);
+				await adapter.generateTypes();
+			},
+		};
+	}
+	const { model } = await adapter.getCustomType(id);
+	return {
+		resolve: (path) => resolveCustomTypeFieldContainer(path, model, options.tab),
+		save: async () => {
+			await adapter.updateCustomType(model);
+			await adapter.generateTypes();
+		},
+	};
+}
 
 export async function getFieldReorderTargets(
 	sourcePath: string,
 	anchorPath: string,
-	values: {
-		"from-slice"?: string;
-		"from-type"?: string;
-		variation?: string;
-	},
-): Promise<{
-	source: ResolvedFieldContainer;
-	anchor: ResolvedFieldContainer;
-	save: () => Promise<void>;
-}> {
-	const { variation = "default" } = values;
+	values: SourceValues,
+): Promise<{ source: FieldContainer; anchor: FieldContainer; save: () => Promise<void> }> {
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
-	const adapter = await getAdapter();
-
-	let source: ResolvedFieldContainer;
-	let anchor: ResolvedFieldContainer;
-	let save: () => Promise<void>;
-	if (key === "from-slice") {
-		const { model } = await adapter.getSlice(value);
-		source = resolveSliceFieldContainer(sourcePath, model, variation);
-		anchor = resolveSliceFieldContainer(anchorPath, model, variation);
-		save = async () => {
-			await adapter.updateSlice(model);
-			await adapter.generateTypes();
-		};
-	} else {
-		const { model } = await adapter.getCustomType(value);
-		source = resolveCustomTypeFieldContainer(sourcePath, model);
-		anchor = resolveCustomTypeFieldContainer(anchorPath, model);
-		save = async () => {
-			await adapter.updateCustomType(model);
-			await adapter.generateTypes();
-		};
-	}
-
+	const { resolve, save } = await loadModel(key === "from-slice", value, values);
+	const source = resolve(sourcePath);
+	const anchor = resolve(anchorPath);
 	if (!(source.fieldId in source.fields)) throw new FieldNotFoundError(sourcePath);
 	if (!(anchor.fieldId in anchor.fields)) throw new FieldNotFoundError(anchorPath);
-
 	return { source, anchor, save };
 }
 
 export async function getNewFieldTarget(
 	path: string,
-	values: {
-		"to-slice"?: string;
-		"to-type"?: string;
-		variation?: string;
-		tab?: string;
-	},
-): Promise<ResolvedFieldTarget> {
-	const { tab = "Main", variation = "default" } = values;
+	values: { "to-slice"?: string; "to-type"?: string; variation?: string; tab?: string },
+): Promise<FieldTarget> {
+	const { variation, tab = "Main" } = values;
 	const { key, value } = exactlyOneOption(values, ["to-slice", "to-type"]);
-	const target =
-		key === "to-slice"
-			? await getSliceFieldTarget(path, value, variation)
-			: await getCustomTypeFieldTarget(path, value, tab);
+	const { resolve, save } = await loadModel(key === "to-slice", value, { variation, tab });
+	const target = { ...resolve(path), save };
 	if (target.fieldId in target.fields) throw new FieldExistsError(path);
 	return target;
 }
 
 export async function getExistingField(
 	path: string,
-	values: {
-		"from-slice"?: string;
-		"from-type"?: string;
-		variation?: string;
-	},
-): Promise<ResolvedFieldTarget & { field: DynamicWidgetModel }> {
-	const { variation = "default" } = values;
+	values: SourceValues,
+): Promise<FieldTarget & { field: DynamicWidgetModel }> {
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
-	const target =
-		key === "from-slice"
-			? await getSliceFieldTarget(path, value, variation)
-			: await getCustomTypeFieldTarget(path, value);
+	const { resolve, save } = await loadModel(key === "from-slice", value, values);
+	const target = resolve(path);
 	const field = target.fields[target.fieldId];
 	if (!field) throw new FieldNotFoundError(path);
-
-	return { ...target, field };
+	return { ...target, save, field };
 }
 
 export async function getContentRelationshipFieldSelection(
@@ -152,38 +130,22 @@ export async function getContentRelationshipFieldSelection(
 	);
 }
 
-async function getSliceFieldTarget(
-	path: string,
-	sliceId: string,
-	variationId: string,
-): Promise<ResolvedFieldTarget> {
-	const adapter = await getAdapter();
-	const { model } = await adapter.getSlice(sliceId);
-	const fieldContainer = resolveSliceFieldContainer(path, model, variationId);
-
-	return {
-		...fieldContainer,
-		save: async () => {
-			await adapter.updateSlice(model);
-			await adapter.generateTypes();
-		},
-	};
+export function parseNumber(value: string | undefined, optionName: string): number | undefined {
+	if (value === undefined) return undefined;
+	const number = Number(value);
+	if (Number.isNaN(number)) {
+		throw new CommandError(`--${optionName} must be a valid number, got "${value}"`);
+	}
+	return number;
 }
 
-async function getCustomTypeFieldTarget(
-	path: string,
-	customTypeId: string,
-	tabName?: string,
-): Promise<ResolvedFieldTarget> {
-	const adapter = await getAdapter();
-	const { model } = await adapter.getCustomType(customTypeId);
-	const fieldContainer = resolveCustomTypeFieldContainer(path, model, tabName);
-
-	return {
-		...fieldContainer,
-		save: async () => {
-			await adapter.updateCustomType(model);
-			await adapter.generateTypes();
-		},
-	};
+export function formatFieldTable(fields: Record<string, DynamicWidgetModel>): string {
+	const entries = Object.entries(fields);
+	if (entries.length === 0) return "  (no fields)";
+	const rows = entries.map(([id, field]) => {
+		const config = field.config as Record<string, unknown> | undefined;
+		const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
+		return [`  ${id}`, field.type, (config?.label as string) || "", placeholder];
+	});
+	return formatTable(rows);
 }

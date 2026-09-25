@@ -1,7 +1,7 @@
 import { getAdapter } from "../adapters";
+import { formatFieldTable } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { formatTable } from "../lib/string";
 
 const config = {
 	name: "prismic slice view",
@@ -14,14 +14,11 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
-	const { json } = values;
-
+export default createCommand(config, async ({ positionals: [id], values }) => {
 	const adapter = await getAdapter();
 	const { model: slice } = await adapter.getSlice(id);
 
-	if (json) {
+	if (values.json) {
 		console.info(stringify(slice));
 		return;
 	}
@@ -32,17 +29,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	for (const variation of slice.variations ?? []) {
 		console.info("");
 		console.info(`${variation.id}:`);
-		const entries = Object.entries(variation.primary ?? {});
-		if (entries.length === 0) {
-			console.info("  (no fields)");
-		} else {
-			const rows = entries.map(([id, field]) => {
-				const config = field.config as Record<string, unknown> | undefined;
-				const label = (config?.label as string) || "";
-				const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
-				return [`  ${id}`, field.type, label, placeholder];
-			});
-			console.info(formatTable(rows));
-		}
+		console.info(formatFieldTable(variation.primary ?? {}));
 	}
 });
