@@ -1,14 +1,14 @@
 import { homedir } from "node:os";
 import { pathToFileURL } from "node:url";
-import * as z from "zod/mini";
 
-import type { Profile } from "./lib/prismic/clients/user";
+import * as z from "zod/mini";
 
 import { ANALYTICS_IDS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { detectAgent } from "./lib/ai";
 import { readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
+import type { Profile } from "./lib/prismic/clients/user";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
 

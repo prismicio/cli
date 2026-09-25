@@ -1,9 +1,8 @@
-import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
-
-import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
+import type { DynamicWidgetModel } from "@prismicio/types-internal";
 
 import { getAdapter } from "./adapters";
 import { exactlyOneOption, type CommandConfig } from "./lib/command";
+import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
 import {
 	FieldExistsError,
 	FieldNotFoundError,
@@ -50,7 +49,7 @@ export const SOURCE_OPTIONS = {
 } satisfies CommandConfig["options"];
 
 type ResolvedFieldTarget = {
-	fields: Record<string, DynamicWidget>;
+	fields: Record<string, DynamicWidgetModel>;
 	fieldId: string;
 	save: () => Promise<void>;
 };
@@ -127,7 +126,7 @@ export async function getExistingField(
 		"from-type"?: string;
 		variation?: string;
 	},
-): Promise<ResolvedFieldTarget & { field: DynamicWidget }> {
+): Promise<ResolvedFieldTarget & { field: DynamicWidgetModel }> {
 	const { variation = "default" } = values;
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const target =

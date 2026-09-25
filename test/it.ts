@@ -1,11 +1,11 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-import type { Result } from "tinyexec";
-
-import { pascalCase } from "change-case";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import { pascalCase } from "change-case";
+import type { Result } from "tinyexec";
 import { x } from "tinyexec";
 import { inject, test } from "vitest";
 
@@ -72,8 +72,8 @@ export const it = test.extend<Fixtures>({
 		const projectPath = new URL("project/", home);
 		await mkdir(projectPath, { recursive: true });
 
-		// Stub npm
-		const binDir = new URL("bin/", home);
+		// Stub npm in node_modules/.bin, which tinyexec searches before PATH and Node's own npm.
+		const binDir = new URL("node_modules/.bin/", projectPath);
 		await mkdir(binDir, { recursive: true });
 		const lockfilePath = fileURLToPath(new URL("package-lock.json", projectPath));
 		await writeFile(
@@ -191,19 +191,22 @@ export function captureOutput(proc: Result): () => string {
 	return () => output;
 }
 
-export function buildCustomType(overrides?: Partial<CustomType>): CustomType {
+export function buildCustomType(
+	overrides?: Partial<DynamicCustomTypeModel>,
+): DynamicCustomTypeModel {
 	const id = crypto.randomUUID().split("-")[0];
 	return {
 		id: `type-T${id}`,
 		label: `TypeT${id}`,
 		repeatable: true,
 		status: true,
+		format: "custom",
 		json: { Main: {} },
 		...overrides,
 	};
 }
 
-export function buildSlice(overrides?: Partial<SharedSlice>): SharedSlice {
+export function buildSlice(overrides?: Partial<SharedSliceModel>): SharedSliceModel {
 	const id = crypto.randomUUID().split("-")[0];
 	return {
 		id: `slice-S${id}`,
@@ -224,21 +227,27 @@ export function buildSlice(overrides?: Partial<SharedSlice>): SharedSlice {
 	};
 }
 
-export async function writeLocalCustomType(project: URL, model: CustomType): Promise<void> {
+export async function writeLocalCustomType(
+	project: URL,
+	model: DynamicCustomTypeModel,
+): Promise<void> {
 	const path = new URL(`customtypes/${model.id}/index.json`, project);
 	await mkdir(new URL(".", path), { recursive: true });
 	await writeFile(path, JSON.stringify(model, null, 2));
 }
 
-export async function readLocalCustomType(project: URL, id: string): Promise<CustomType> {
+export async function readLocalCustomType(
+	project: URL,
+	id: string,
+): Promise<DynamicCustomTypeModel> {
 	const path = new URL(`customtypes/${id}/index.json`, project);
 	return JSON.parse(await readFile(path, "utf8"));
 }
 
-export async function readLocalCustomTypes(project: URL): Promise<CustomType[]> {
+export async function readLocalCustomTypes(project: URL): Promise<DynamicCustomTypeModel[]> {
 	const dir = new URL("customtypes/", project);
 	const entries = await readdir(dir).catch(() => [] as string[]);
-	const result: CustomType[] = [];
+	const result: DynamicCustomTypeModel[] = [];
 	for (const id of entries) {
 		try {
 			result.push(JSON.parse(await readFile(new URL(`${id}/index.json`, dir), "utf8")));
@@ -253,21 +262,24 @@ export async function getSliceLibraries(project: URL): Promise<URL[]> {
 	return libraries.map((library) => new URL(library.replace(/^\//, "") + "/", project));
 }
 
-export async function writeLocalSlice(project: URL, model: SharedSlice): Promise<void> {
+export async function writeLocalSlice(project: URL, model: SharedSliceModel): Promise<void> {
 	const [library] = await getSliceLibraries(project);
 	const path = new URL(`${pascalCase(model.name)}/model.json`, library);
 	await mkdir(new URL(".", path), { recursive: true });
 	await writeFile(path, JSON.stringify(model, null, 2));
 }
 
-export async function readLocalSlice(project: URL, id: string): Promise<SharedSlice | undefined> {
+export async function readLocalSlice(
+	project: URL,
+	id: string,
+): Promise<SharedSliceModel | undefined> {
 	const slices = await readLocalSlices(project);
 	return slices.find((s) => s.id === id);
 }
 
-export async function readLocalSlices(project: URL): Promise<SharedSlice[]> {
+export async function readLocalSlices(project: URL): Promise<SharedSliceModel[]> {
 	const libraries = await getSliceLibraries(project);
-	const result: SharedSlice[] = [];
+	const result: SharedSliceModel[] = [];
 	for (const library of libraries) {
 		const entries = await readdir(library).catch(() => []);
 		for (const name of entries) {

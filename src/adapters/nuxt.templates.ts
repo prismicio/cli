@@ -1,14 +1,22 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import { pascalCase } from "change-case";
 
 import { dedent } from "../lib/string";
 
-export function sliceTemplate(args: { name: string; typescript: boolean }): string {
-	const { name, typescript } = args;
+const SLICE_MARKUP = dedent`
+	<template>
+		<section
+			:data-slice-type="slice.slice_type"
+			:data-slice-variation="slice.variation"
+		>
+			Placeholder component for {{ slice.slice_type }} (variation: {{ slice.variation }}) slices.
+			<br />
+			<strong>You can edit this slice directly in your code editor.</strong>
+		</section>
+	</template>
+`;
 
-	const pascalName = pascalCase(name);
-
+export function sliceTemplate({ name, typescript }: { name: string; typescript: boolean }): string {
 	if (typescript) {
 		return dedent`
 			<script setup lang="ts">
@@ -16,21 +24,12 @@ export function sliceTemplate(args: { name: string; typescript: boolean }): stri
 
 			// The array passed to \`getSliceComponentProps\` is purely optional.
 			// Consider it as a visual hint for you when templating your slice.
-			defineProps(getSliceComponentProps<Content.${pascalName}Slice>(
+			defineProps(getSliceComponentProps<Content.${pascalCase(name)}Slice>(
 				["slice", "index", "slices", "context"]
 			));
 			</script>
 
-			<template>
-				<section
-					:data-slice-type="slice.slice_type"
-					:data-slice-variation="slice.variation"
-				>
-					Placeholder component for {{ slice.slice_type }} (variation: {{ slice.variation }}) slices.
-					<br />
-					<strong>You can edit this slice directly in your code editor.</strong>
-				</section>
-			</template>
+			${SLICE_MARKUP}
 		`;
 	}
 
@@ -41,30 +40,24 @@ export function sliceTemplate(args: { name: string; typescript: boolean }): stri
 		defineProps(getSliceComponentProps(["slice", "index", "slices", "context"]));
 		</script>
 
-		<template>
-			<section
-				:data-slice-type="slice.slice_type"
-				:data-slice-variation="slice.variation"
-			>
-				Placeholder component for {{ slice.slice_type }} (variation: {{ slice.variation }}) slices.
-				<br />
-				<strong>You can edit this slice directly in your code editor.</strong>
-			</section>
-		</template>
+		${SLICE_MARKUP}
 	`;
 }
 
-export function pageTemplate(args: { model: CustomType; typescript: boolean }): string {
-	const { model, typescript } = args;
-
-	const scriptAttributes = ["setup"];
-	if (typescript) scriptAttributes.push('lang="ts"');
+export function pageTemplate({
+	model,
+	typescript,
+}: {
+	model: DynamicCustomTypeModel;
+	typescript: boolean;
+}): string {
+	const scriptAttributes = typescript ? 'setup lang="ts"' : "setup";
 
 	if (model.repeatable) {
 		const uidExpression = typescript ? "route.params.uid as string" : "route.params.uid";
 
 		return dedent`
-			<script ${scriptAttributes.join(" ")}>
+			<script ${scriptAttributes}>
 			import { components } from "~/slices";
 
 			const prismic = usePrismic();
@@ -83,7 +76,7 @@ export function pageTemplate(args: { model: CustomType; typescript: boolean }): 
 	}
 
 	return dedent`
-		<script ${scriptAttributes.join(" ")}>
+		<script ${scriptAttributes}>
 		import { components } from "~/slices";
 
 		const prismic = usePrismic();
@@ -100,16 +93,11 @@ export function pageTemplate(args: { model: CustomType; typescript: boolean }): 
 	`;
 }
 
-export function sliceSimulatorPageTemplate(args: { typescript: boolean }): string {
-	const { typescript } = args;
-
-	const scriptAttributes = ["setup"];
-	if (typescript) {
-		scriptAttributes.push('lang="ts"');
-	}
+export function sliceSimulatorPageTemplate({ typescript }: { typescript: boolean }): string {
+	const scriptAttributes = typescript ? 'setup lang="ts"' : "setup";
 
 	return dedent`
-		<script ${scriptAttributes.join(" ")}>
+		<script ${scriptAttributes}>
 		import { components } from "~/slices";
 		</script>
 

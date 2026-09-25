@@ -1,8 +1,8 @@
-import type { Reporter, TestModule } from "vitest/node";
-
 import { readdirSync, writeFileSync } from "node:fs";
 import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import type { Reporter, TestModule } from "vitest/node";
 
 /** Per-trial stats recorded by the agent fixture; the reporter adds `pass`. */
 export type Trial = {

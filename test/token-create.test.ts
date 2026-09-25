@@ -45,65 +45,65 @@ it("creates an access token with --allow-releases", async ({
 });
 
 // Wroom 500s under concurrent same-user write-token creates; keep this sequential.
-it.sequential("creates a write token", async ({ expect, prismic, repo, token, host }) => {
-	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--write"]);
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("Token created:");
+it(
+	"creates a write token",
+	{ concurrent: false },
+	async ({ expect, prismic, repo, token, host }) => {
+		const { stdout, stderr, exitCode } = await prismic("token", ["create", "--write"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("Token created:");
 
-	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
-	expect(createdToken).toBeDefined();
+		const createdToken = stdout.match(/Token created: (.+)/)?.[1];
+		expect(createdToken).toBeDefined();
 
-	const writeTokensInfo = await getWriteTokens({ repo, token, host });
-	const found = writeTokensInfo.tokens.find((t) => t.token === createdToken);
-	expect(found).toBeDefined();
-});
-
-// Wroom 500s under concurrent same-user write-token creates; keep this sequential.
-it.sequential("creates a write token with a custom --name", async ({
-	expect,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const { stdout, stderr, exitCode } = await prismic("token", [
-		"create",
-		"--write",
-		"--name",
-		"My Seed Token",
-	]);
-	expect(exitCode, stderr).toBe(0);
-
-	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
-	expect(createdToken).toBeDefined();
-
-	const writeTokensInfo = await getWriteTokens({ repo, token, host });
-	const found = writeTokensInfo.tokens.find((t) => t.token === createdToken);
-	expect(found).toBeDefined();
-	expect(found!.app_name).toBe("My Seed Token");
-});
+		const writeTokensInfo = await getWriteTokens({ repo, token, host });
+		const found = writeTokensInfo.tokens.find((t) => t.token === createdToken);
+		expect(found).toBeDefined();
+	},
+);
 
 // Wroom 500s under concurrent same-user write-token creates; keep this sequential.
-it.sequential("outputs a write token as JSON with --json", async ({
-	expect,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--write", "--json"]);
-	expect(exitCode, stderr).toBe(0);
+it(
+	"creates a write token with a custom --name",
+	{ concurrent: false },
+	async ({ expect, prismic, repo, token, host }) => {
+		const { stdout, stderr, exitCode } = await prismic("token", [
+			"create",
+			"--write",
+			"--name",
+			"My Seed Token",
+		]);
+		expect(exitCode, stderr).toBe(0);
 
-	const result = JSON.parse(stdout);
-	expect(result.type).toBe("write");
-	expect(result.name).toBe("Prismic CLI");
-	expect(result.repository).toBe(repo);
-	expect(result.token).toBeDefined();
+		const createdToken = stdout.match(/Token created: (.+)/)?.[1];
+		expect(createdToken).toBeDefined();
 
-	const writeTokensInfo = await getWriteTokens({ repo, token, host });
-	const found = writeTokensInfo.tokens.find((t) => t.token === result.token);
-	expect(found).toBeDefined();
-});
+		const writeTokensInfo = await getWriteTokens({ repo, token, host });
+		const found = writeTokensInfo.tokens.find((t) => t.token === createdToken);
+		expect(found).toBeDefined();
+		expect(found!.app_name).toBe("My Seed Token");
+	},
+);
+
+// Wroom 500s under concurrent same-user write-token creates; keep this sequential.
+it(
+	"outputs a write token as JSON with --json",
+	{ concurrent: false },
+	async ({ expect, prismic, repo, token, host }) => {
+		const { stdout, stderr, exitCode } = await prismic("token", ["create", "--write", "--json"]);
+		expect(exitCode, stderr).toBe(0);
+
+		const result = JSON.parse(stdout);
+		expect(result.type).toBe("write");
+		expect(result.name).toBe("Prismic CLI");
+		expect(result.repository).toBe(repo);
+		expect(result.token).toBeDefined();
+
+		const writeTokensInfo = await getWriteTokens({ repo, token, host });
+		const found = writeTokensInfo.tokens.find((t) => t.token === result.token);
+		expect(found).toBeDefined();
+	},
+);
 
 it("outputs an access token as JSON with --json", async ({ expect, prismic, repo }) => {
 	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--json"]);

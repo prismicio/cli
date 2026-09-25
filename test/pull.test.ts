@@ -1,7 +1,8 @@
-import { pascalCase } from "change-case";
 import { writeFile, mkdir } from "node:fs/promises";
 import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { pascalCase } from "change-case";
 import { x } from "tinyexec";
 import { describe } from "vitest";
 
@@ -23,242 +24,219 @@ import {
 	insertSlice,
 } from "./prismic";
 
-it.sequential("supports --help", async ({ expect, prismic }) => {
+it("supports --help", { concurrent: false }, async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("pull", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic pull [options]");
 	expect(stdout).toContain("prismic docs view cli#pull-models-from-prismic");
 });
 
-it.sequential("pulls slices and custom types from remote", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const customType = buildCustomType();
-	const slice = buildSlice();
+it(
+	"pulls slices and custom types from remote",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const customType = buildCustomType();
+		const slice = buildSlice();
 
-	await Promise.all([
-		insertCustomType(customType, { repo, token, host }),
-		insertSlice(slice, { repo, token, host }),
-	]);
+		await Promise.all([
+			insertCustomType(customType, { repo, token, host }),
+			insertSlice(slice, { repo, token, host }),
+		]);
 
-	const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
-	expect(exitCode, stderr).toBe(0);
+		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 
-	await expect(project).toContainCustomType(customType);
-	await expect(project).toContainSlice(slice);
-});
+		await expect(project).toContainCustomType(customType);
+		await expect(project).toContainSlice(slice);
+	},
+);
 
-it.sequential("pulls multiple slices with correct structure", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const sliceA = buildSlice();
-	const sliceB = buildSlice();
+it(
+	"pulls multiple slices with correct structure",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const sliceA = buildSlice();
+		const sliceB = buildSlice();
 
-	await Promise.all([
-		insertSlice(sliceA, { repo, token, host }),
-		insertSlice(sliceB, { repo, token, host }),
-	]);
+		await Promise.all([
+			insertSlice(sliceA, { repo, token, host }),
+			insertSlice(sliceB, { repo, token, host }),
+		]);
 
-	const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
-	expect(exitCode, stderr).toBe(0);
+		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 
-	await expect(project).toContainSlice(sliceA);
-	await expect(project).toContainSlice(sliceB);
-});
+		await expect(project).toContainSlice(sliceA);
+		await expect(project).toContainSlice(sliceB);
+	},
+);
 
-it.sequential("adds new slice to existing library on re-pull", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const sliceA = buildSlice();
-	await insertSlice(sliceA, { repo, token, host });
+it(
+	"adds new slice to existing library on re-pull",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const sliceA = buildSlice();
+		await insertSlice(sliceA, { repo, token, host });
 
-	// First pull — creates slice A
-	const first = await prismic("pull", ["--repo", repo]);
-	expect(first.exitCode, first.stderr).toBe(0);
-	await expect(project).toContainSlice(sliceA);
+		// First pull — creates slice A
+		const first = await prismic("pull", ["--repo", repo]);
+		expect(first.exitCode, first.stderr).toBe(0);
+		await expect(project).toContainSlice(sliceA);
 
-	// Insert a second slice remotely
-	const sliceB = buildSlice();
-	await insertSlice(sliceB, { repo, token, host });
-	await expect
-		.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), { timeout: 5_000 })
-		.toContain(sliceB.id);
+		// Insert a second slice remotely
+		const sliceB = buildSlice();
+		await insertSlice(sliceB, { repo, token, host });
+		await expect
+			.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), {
+				timeout: 5_000,
+			})
+			.toContain(sliceB.id);
 
-	// Second pull — should add slice B without breaking slice A
-	const second = await prismic("pull", ["--repo", repo]);
-	expect(second.exitCode, second.stderr).toBe(0);
-	await expect(project).toContainSlice(sliceA);
-	await expect(project).toContainSlice(sliceB);
-});
+		// Second pull — should add slice B without breaking slice A
+		const second = await prismic("pull", ["--repo", repo]);
+		expect(second.exitCode, second.stderr).toBe(0);
+		await expect(project).toContainSlice(sliceA);
+		await expect(project).toContainSlice(sliceB);
+	},
+);
 
-it.sequential("pulls new slices into the first configured library", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const slice = buildSlice();
+it(
+	"pulls new slices into the first configured library",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const slice = buildSlice();
 
-	await writeFile(
-		new URL("prismic.config.json", project),
-		JSON.stringify({
-			repositoryName: repo,
-			libraries: ["./slices/blog", "./slices/features"],
-		}),
-	);
+		await writeFile(
+			new URL("prismic.config.json", project),
+			JSON.stringify({
+				repositoryName: repo,
+				libraries: ["./slices/blog", "./slices/features"],
+			}),
+		);
 
-	await insertSlice(slice, { repo, token, host });
+		await insertSlice(slice, { repo, token, host });
 
-	const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
-	expect(exitCode, stderr).toBe(0);
+		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 
-	const sliceDirectoryName = pascalCase(slice.name);
-	await expect(project).toContainSlice(slice);
-	await expect(project).toHaveFile(`slices/blog/${sliceDirectoryName}/model.json`);
-	await expect(project).not.toHaveFile(`slices/${sliceDirectoryName}/model.json`);
-});
+		const sliceDirectoryName = pascalCase(slice.name);
+		await expect(project).toContainSlice(slice);
+		await expect(project).toHaveFile(`slices/blog/${sliceDirectoryName}/model.json`);
+		await expect(project).not.toHaveFile(`slices/${sliceDirectoryName}/model.json`);
+	},
+);
 
-it.sequential("removes deleted slice and updates index on re-pull", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const sliceA = buildSlice();
-	const sliceB = buildSlice();
+it(
+	"removes deleted slice and updates index on re-pull",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const sliceA = buildSlice();
+		const sliceB = buildSlice();
 
-	await Promise.all([
-		insertSlice(sliceA, { repo, token, host }),
-		insertSlice(sliceB, { repo, token, host }),
-	]);
+		await Promise.all([
+			insertSlice(sliceA, { repo, token, host }),
+			insertSlice(sliceB, { repo, token, host }),
+		]);
 
-	// First pull — creates both slices
-	const first = await prismic("pull", ["--repo", repo]);
-	expect(first.exitCode, first.stderr).toBe(0);
-	await expect(project).toContainSlice(sliceA);
-	await expect(project).toContainSlice(sliceB);
+		// First pull — creates both slices
+		const first = await prismic("pull", ["--repo", repo]);
+		expect(first.exitCode, first.stderr).toBe(0);
+		await expect(project).toContainSlice(sliceA);
+		await expect(project).toContainSlice(sliceB);
 
-	// Delete slice B from remote
-	await deleteSlice(sliceB.id, { repo, token, host });
-	await expect
-		.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), { timeout: 5_000 })
-		.not.toContain(sliceB.id);
+		// Delete slice B from remote
+		await deleteSlice(sliceB.id, { repo, token, host });
+		await expect
+			.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), {
+				timeout: 5_000,
+			})
+			.not.toContain(sliceB.id);
 
-	// Second pull — deletes local slice B to match remote
-	const second = await prismic("pull", ["--repo", repo, "--force"]);
-	expect(second.exitCode, second.stderr).toBe(0);
-	await expect(project).toContainSlice(sliceA);
-	await expect(project).not.toContainSlice(sliceB);
-});
+		// Second pull — deletes local slice B to match remote
+		const second = await prismic("pull", ["--repo", repo, "--force"]);
+		expect(second.exitCode, second.stderr).toBe(0);
+		await expect(project).toContainSlice(sliceA);
+		await expect(project).not.toContainSlice(sliceB);
+	},
+);
 
-it.sequential("pulls repeatable page type", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const customType = buildCustomType({ format: "page", repeatable: true });
-	await insertCustomType(customType, { repo, token, host });
+it(
+	"pulls repeatable page type",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const customType = buildCustomType({ format: "page", repeatable: true });
+		await insertCustomType(customType, { repo, token, host });
 
-	const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
-	expect(exitCode, stderr).toBe(0);
+		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 
-	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
-	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}/:uid` });
-	await expect(project).toHaveFile(`app/${expectedSegment}/[uid]/page.jsx`, {
-		contains: `getByUID("${customType.id}"`,
-	});
-});
+		const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+		await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}/:uid` });
+		await expect(project).toHaveFile(`app/${expectedSegment}/[uid]/page.jsx`, {
+			contains: `getByUID("${customType.id}"`,
+		});
+	},
+);
 
-it.sequential("pulls non-repeatable page type", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const customType = buildCustomType({ format: "page", repeatable: false });
-	await insertCustomType(customType, { repo, token, host });
+it(
+	"pulls non-repeatable page type",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const customType = buildCustomType({ format: "page", repeatable: false });
+		await insertCustomType(customType, { repo, token, host });
 
-	const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
-	expect(exitCode, stderr).toBe(0);
+		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 
-	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
-	await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}` });
-	await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
-		contains: `getSingle("${customType.id}"`,
-	});
-});
+		const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+		await expect(project).toHaveRoute({ type: customType.id, path: `/${expectedSegment}` });
+		await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
+			contains: `getSingle("${customType.id}"`,
+		});
+	},
+);
 
-it.sequential("pulls non-page custom type", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const customType = buildCustomType();
-	await insertCustomType(customType, { repo, token, host });
+it(
+	"pulls non-page custom type",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const customType = buildCustomType();
+		await insertCustomType(customType, { repo, token, host });
 
-	const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
-	expect(exitCode, stderr).toBe(0);
+		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 
-	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
-	await expect(project).not.toHaveRoute({ type: customType.id });
-	await expect(project).not.toHaveFile(`app/${expectedSegment}/page.jsx`);
-});
+		const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+		await expect(project).not.toHaveRoute({ type: customType.id });
+		await expect(project).not.toHaveFile(`app/${expectedSegment}/page.jsx`);
+	},
+);
 
-it.sequential("removes route when page type is deleted", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const customType = buildCustomType({ format: "page", repeatable: true });
-	await insertCustomType(customType, { repo, token, host });
+it(
+	"removes route when page type is deleted",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const customType = buildCustomType({ format: "page", repeatable: true });
+		await insertCustomType(customType, { repo, token, host });
 
-	// First pull — adds the route
-	const first = await prismic("pull", ["--repo", repo]);
-	expect(first.exitCode, first.stderr).toBe(0);
-	await expect(project).toHaveRoute({ type: customType.id });
+		// First pull — adds the route
+		const first = await prismic("pull", ["--repo", repo]);
+		expect(first.exitCode, first.stderr).toBe(0);
+		await expect(project).toHaveRoute({ type: customType.id });
 
-	await deleteCustomType(customType.id, { repo, token, host });
-	await expect
-		.poll(async () => (await getCustomTypes({ repo, token, host })).map((ct) => ct.id), {
-			timeout: 5_000,
-		})
-		.not.toContain(customType.id);
+		await deleteCustomType(customType.id, { repo, token, host });
+		await expect
+			.poll(async () => (await getCustomTypes({ repo, token, host })).map((ct) => ct.id), {
+				timeout: 5_000,
+			})
+			.not.toContain(customType.id);
 
-	// Second pull — deletes local type to match remote
-	const second = await prismic("pull", ["--repo", repo, "--force"]);
-	expect(second.exitCode, second.stderr).toBe(0);
-	await expect(project).not.toHaveRoute({ type: customType.id });
-});
+		// Second pull — deletes local type to match remote
+		const second = await prismic("pull", ["--repo", repo, "--force"]);
+		expect(second.exitCode, second.stderr).toBe(0);
+		await expect(project).not.toHaveRoute({ type: customType.id });
+	},
+);
 
 describe("with an isolated repository", () => {
 	it.scoped({ isolateRepo: true });
@@ -423,89 +401,82 @@ describe("with an isolated repository", () => {
 	});
 });
 
-it.sequential("blocks pull when local model files have uncommitted changes", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const customType = buildCustomType();
-	await insertCustomType(customType, { repo, token, host });
+it(
+	"blocks pull when local model files have uncommitted changes",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const customType = buildCustomType();
+		await insertCustomType(customType, { repo, token, host });
 
-	const first = await prismic("pull", ["--repo", repo]);
-	expect(first.exitCode, first.stderr).toBe(0);
+		const first = await prismic("pull", ["--repo", repo]);
+		expect(first.exitCode, first.stderr).toBe(0);
 
-	const cwd = fileURLToPath(project);
-	await x("git", ["init", "-q", "-b", "main"], { nodeOptions: { cwd } });
-	await x("git", ["config", "user.email", "test@example.com"], { nodeOptions: { cwd } });
-	await x("git", ["config", "user.name", "Test"], { nodeOptions: { cwd } });
-	await x("git", ["add", "."], { nodeOptions: { cwd } });
-	await x("git", ["commit", "-q", "-m", "init"], { nodeOptions: { cwd } });
+		const cwd = fileURLToPath(project);
+		await x("git", ["init", "-q", "-b", "main"], { nodeOptions: { cwd } });
+		await x("git", ["config", "user.email", "test@example.com"], { nodeOptions: { cwd } });
+		await x("git", ["config", "user.name", "Test"], { nodeOptions: { cwd } });
+		await x("git", ["add", "."], { nodeOptions: { cwd } });
+		await x("git", ["commit", "-q", "-m", "init"], { nodeOptions: { cwd } });
 
-	const modelPath = new URL(`customtypes/${customType.id}/index.json`, project);
-	await writeFile(modelPath, JSON.stringify({ ...customType, label: "Edited locally" }, null, 2));
+		const modelPath = new URL(`customtypes/${customType.id}/index.json`, project);
+		await writeFile(modelPath, JSON.stringify({ ...customType, label: "Edited locally" }, null, 2));
 
-	const second = await prismic("pull", ["--repo", repo]);
-	expect(second.exitCode).toBe(1);
-	expect(second.stderr).toContain("uncommitted");
-	expect(second.stderr).toContain(`customtypes/${customType.id}/index.json`.replaceAll("/", sep));
-});
+		const second = await prismic("pull", ["--repo", repo]);
+		expect(second.exitCode).toBe(1);
+		expect(second.stderr).toContain("uncommitted");
+		expect(second.stderr).toContain(`customtypes/${customType.id}/index.json`.replaceAll("/", sep));
+	},
+);
 
-it.sequential("refuses to delete local models without --force when not tracked by git", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const sliceA = buildSlice();
-	const sliceB = buildSlice();
+it(
+	"refuses to delete local models without --force when not tracked by git",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const sliceA = buildSlice();
+		const sliceB = buildSlice();
 
-	await Promise.all([
-		insertSlice(sliceA, { repo, token, host }),
-		insertSlice(sliceB, { repo, token, host }),
-	]);
+		await Promise.all([
+			insertSlice(sliceA, { repo, token, host }),
+			insertSlice(sliceB, { repo, token, host }),
+		]);
 
-	const first = await prismic("pull", ["--repo", repo]);
-	expect(first.exitCode, first.stderr).toBe(0);
-	await expect(project).toContainSlice(sliceB);
+		const first = await prismic("pull", ["--repo", repo]);
+		expect(first.exitCode, first.stderr).toBe(0);
+		await expect(project).toContainSlice(sliceB);
 
-	await deleteSlice(sliceB.id, { repo, token, host });
-	await expect
-		.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), { timeout: 5_000 })
-		.not.toContain(sliceB.id);
+		await deleteSlice(sliceB.id, { repo, token, host });
+		await expect
+			.poll(async () => (await getSlices({ repo, token, host })).map((s) => s.id), {
+				timeout: 5_000,
+			})
+			.not.toContain(sliceB.id);
 
-	const second = await prismic("pull", ["--repo", repo]);
-	expect(second.exitCode).toBe(1);
-	expect(second.stderr).toContain("--force");
-	await expect(project).toContainSlice(sliceB);
-});
+		const second = await prismic("pull", ["--repo", repo]);
+		expect(second.exitCode).toBe(1);
+		expect(second.stderr).toContain("--force");
+		await expect(project).toContainSlice(sliceB);
+	},
+);
 
-it.sequential("does not overwrite existing page file", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const customType = buildCustomType({ format: "page", repeatable: false });
-	await insertCustomType(customType, { repo, token, host });
+it(
+	"does not overwrite existing page file",
+	{ concurrent: false },
+	async ({ expect, project, prismic, repo, token, host }) => {
+		const customType = buildCustomType({ format: "page", repeatable: false });
+		await insertCustomType(customType, { repo, token, host });
 
-	// Create the page file manually before pulling
-	const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
-	const pagePath = new URL(`app/${expectedSegment}/page.jsx`, project);
-	const originalContent = "// existing page content";
-	await mkdir(new URL(".", pagePath), { recursive: true });
-	await writeFile(pagePath, originalContent);
+		// Create the page file manually before pulling
+		const expectedSegment = customType.id.replaceAll("_", "-").toLowerCase();
+		const pagePath = new URL(`app/${expectedSegment}/page.jsx`, project);
+		const originalContent = "// existing page content";
+		await mkdir(new URL(".", pagePath), { recursive: true });
+		await writeFile(pagePath, originalContent);
 
-	const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
-	expect(exitCode, stderr).toBe(0);
+		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
 
-	await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
-		contains: originalContent,
-	});
-});
+		await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
+			contains: originalContent,
+		});
+	},
+);

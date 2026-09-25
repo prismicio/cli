@@ -1,4 +1,4 @@
-import type { UID } from "@prismicio/types-internal/lib/customtypes";
+import type { UIDModel } from "@prismicio/types-internal";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
@@ -24,7 +24,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const { fields, fieldId, save } = await getNewFieldTarget("uid", values);
 
-	const field: UID = {
+	const field: UIDModel = {
 		type: "UID",
 		config: {
 			label,

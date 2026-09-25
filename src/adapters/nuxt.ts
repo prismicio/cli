@@ -1,25 +1,15 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
-import { pascalCase } from "change-case";
-import { loadFile, writeFile as magicastWriteFile } from "magicast";
 import { readFile, rm } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter } from ".";
-import { getCredentials } from "../auth";
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import { loadFile, writeFile } from "magicast";
+
+import { Adapter, getJsFileExtension, writeFileIfMissing } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
-import {
-	addPreview,
-	getPreviews,
-	getSimulatorUrl,
-	setSimulatorUrl,
-} from "../lib/prismic/clients/core";
 import { dedent, formatObjectKey } from "../lib/string";
-import { appendTrailingSlash } from "../lib/url";
-import { buildRoutePath, getRepositoryName, readConfig, updateConfig } from "../project";
-import { checkIsTypeScriptProject, findProjectRoot } from "../project";
+import { checkIsTypeScriptProject, findProjectRoot, readConfig, updateConfig } from "../project";
 import { pageTemplate, sliceSimulatorPageTemplate, sliceTemplate } from "./nuxt.templates";
 
 const NUXT_PRISMIC = "@nuxtjs/prismic";
@@ -41,55 +31,18 @@ export class NuxtAdapter extends Adapter {
 			[NUXT_PRISMIC]: `^${await getNpmPackageVersion(NUXT_PRISMIC)}`,
 		});
 		await configureNuxtModule();
-		await createSliceSimulatorPage();
+		await writeFileIfMissing(
+			new URL("slice-simulator.vue", await getPagesDir()),
+			sliceSimulatorPageTemplate({ typescript: await checkIsTypeScriptProject() }),
+		);
 		await moveOrDeleteAppVue();
-		await modifySliceLibraryPath(this);
+		await this.modifySliceLibraryPath();
 	}
 
 	async getPreviewComponentInstructions(): Promise<undefined> {}
 
-	async onProjectInitialized(): Promise<void> {
-		const repo = await getRepositoryName();
-		const { token, host } = await getCredentials();
-
-		const simulatorUrl = await getSimulatorUrl({ repo, token, host });
-		if (!simulatorUrl) {
-			await setSimulatorUrl(this.localSimulatorUrl, { repo, token, host });
-		}
-
-		const previews = await getPreviews({ repo, token, host });
-		if (previews.length === 0) {
-			await addPreview(this.localPreviewConfig, { repo, token, host });
-		}
-	}
-
-	async onSliceCreated(model: SharedSlice, library: URL): Promise<void> {
-		const sliceDirectoryName = pascalCase(model.name);
-		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
-
-		const componentPath = new URL("index.vue", appendTrailingSlash(sliceDirectory));
-		const contents = sliceTemplate({
-			name: model.name,
-			typescript: await checkIsTypeScriptProject(),
-		});
-		await writeFileRecursive(componentPath, contents);
-	}
-
-	onSliceUpdated(): void {}
-
-	onSliceDeleted(): void {}
-
-	async onCustomTypeCreated(model: CustomType): Promise<void> {
-		if (model.format === "page") await createPageFile(model);
-	}
-
-	onCustomTypeUpdated(): void {}
-
-	onCustomTypeDeleted(): void {}
-
 	async createSliceIndexFile(library: URL): Promise<void> {
-		const allSlices = await this.getSlices();
-		const slices = allSlices.filter((slice) => slice.library.href === library.href);
+		const slices = (await this.getSlices()).filter((slice) => slice.library.href === library.href);
 		const componentLines = slices.map((slice) => {
 			const relativeDirectory = relative(fileURLToPath(library), fileURLToPath(slice.directory));
 			return `${formatObjectKey(slice.model.id)}: defineAsyncComponent(() => import("./${relativeDirectory}/index.vue"))`;
@@ -104,21 +57,46 @@ export class NuxtAdapter extends Adapter {
 				${componentLines.join(",\n")}
 			});
 		`;
-		const extension = await getJsFileExtension();
-		const filename = `index.${extension}`;
-		const indexPath = new URL(filename, library);
-		await writeFileRecursive(indexPath, contents);
+		await writeFileRecursive(new URL(`index.${await getJsFileExtension()}`, library), contents);
 	}
 
-	async getDefaultSliceLibrary(): Promise<URL> {
-		const srcDir = await getSrcDir();
-		return new URL("slices/", srcDir);
+	protected async getDefaultSliceLibrary(): Promise<URL> {
+		return new URL("slices/", await getSrcDir());
 	}
 
-	async getDefaultCustomTypeLibrary(): Promise<URL> {
+	protected async createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void> {
+		const contents = sliceTemplate({
+			name: model.name,
+			typescript: await checkIsTypeScriptProject(),
+		});
+		await writeFileRecursive(new URL("index.vue", directory), contents);
+	}
+
+	protected async createPageFile(model: DynamicCustomTypeModel, routePath: string): Promise<void> {
+		await writeFileIfMissing(
+			new URL(`${routePath || "index"}.vue`, await getPagesDir()),
+			pageTemplate({ model, typescript: await checkIsTypeScriptProject() }),
+		);
+	}
+
+	private async modifySliceLibraryPath(): Promise<void> {
 		const projectRoot = await findProjectRoot();
-		const defaultCustomTypeLibrary = new URL("customtypes/", projectRoot);
-		return defaultCustomTypeLibrary;
+		const hasAppDir = await exists(new URL("app/", projectRoot));
+		const hasSrcDir = await exists(new URL("src/", projectRoot));
+		if (!hasAppDir && !hasSrcDir) return;
+
+		let config;
+		try {
+			config = await readConfig();
+		} catch {
+			return;
+		}
+		if (JSON.stringify(config.libraries) !== JSON.stringify(["./slices"])) return;
+
+		// Only modify if the default library has no slices yet
+		if ((await this.getSlices()).length > 0) return;
+
+		await updateConfig({ libraries: [hasAppDir ? "./app/slices" : "./src/slices"] });
 	}
 }
 
@@ -131,16 +109,20 @@ async function getSrcDir(): Promise<URL> {
 	return projectRoot;
 }
 
+async function getPagesDir(): Promise<URL> {
+	const projectRoot = await findProjectRoot();
+	for (const path of ["app/pages/", "src/pages/", "pages/"]) {
+		const pagesDir = new URL(path, projectRoot);
+		if (await exists(pagesDir)) return pagesDir;
+	}
+	return new URL("pages/", await getSrcDir());
+}
+
 async function configureNuxtModule(): Promise<void> {
 	const projectRoot = await findProjectRoot();
-
 	let configUrl = new URL("nuxt.config.js", projectRoot);
-	if (!(await exists(configUrl))) {
-		configUrl = new URL("nuxt.config.ts", projectRoot);
-	}
-	if (!(await exists(configUrl))) {
-		return;
-	}
+	if (!(await exists(configUrl))) configUrl = new URL("nuxt.config.ts", projectRoot);
+	if (!(await exists(configUrl))) return;
 
 	const filepath = fileURLToPath(configUrl);
 	const mod = await loadFile(filepath);
@@ -149,126 +131,26 @@ async function configureNuxtModule(): Promise<void> {
 			? mod.exports.default.$args[0]
 			: mod.exports.default;
 
-	// Check if @nuxtjs/prismic is already registered
-	const hasPrismicModuleRegistered = (config.modules || []).find(
-		(registration: string | [string, unknown]) => {
-			if (typeof registration === "string") {
-				return registration === NUXT_PRISMIC;
-			} else if (Array.isArray(registration)) {
-				return registration[0] === NUXT_PRISMIC;
-			}
-			return false;
-		},
+	// `find`, not `some`: magicast's array proxy returns the wrong result for `some`.
+	const isRegistered = (config.modules || []).find((registration: string | [string, unknown]) =>
+		Array.isArray(registration) ? registration[0] === NUXT_PRISMIC : registration === NUXT_PRISMIC,
 	);
-
-	if (!hasPrismicModuleRegistered) {
+	if (!isRegistered) {
 		config.modules ||= [];
 		config.modules.push(NUXT_PRISMIC);
 	}
 
-	await magicastWriteFile(mod, filepath);
-}
-
-async function getPagesDir(): Promise<URL> {
-	const projectRoot = await findProjectRoot();
-
-	const appPagesDir = new URL("app/pages/", projectRoot);
-	const srcPagesDir = new URL("src/pages/", projectRoot);
-	const pagesDir = new URL("pages/", projectRoot);
-
-	if (await exists(appPagesDir)) return appPagesDir;
-	if (await exists(srcPagesDir)) return srcPagesDir;
-	if (await exists(pagesDir)) return pagesDir;
-	return new URL("pages/", await getSrcDir());
-}
-
-async function createSliceSimulatorPage(): Promise<void> {
-	const typescript = await checkIsTypeScriptProject();
-	const targetDir = await getPagesDir();
-
-	const filePath = new URL("slice-simulator.vue", targetDir);
-
-	if (await exists(filePath)) {
-		return;
-	}
-
-	const contents = sliceSimulatorPageTemplate({ typescript });
-	await writeFileRecursive(filePath, contents);
+	await writeFile(mod, filepath);
 }
 
 async function moveOrDeleteAppVue(): Promise<void> {
 	const srcDir = await getSrcDir();
 	const appVuePath = new URL("app.vue", srcDir);
-
-	if (!(await exists(appVuePath))) {
-		return;
-	}
+	if (!(await exists(appVuePath))) return;
 
 	const contents = await readFile(appVuePath, "utf8");
+	if (!contents.includes("<NuxtWelcome")) return;
 
-	if (!contents.includes("<NuxtWelcome")) {
-		return;
-	}
-
-	const indexVuePath = new URL("pages/index.vue", srcDir);
-
-	if (!(await exists(indexVuePath))) {
-		await writeFileRecursive(indexVuePath, contents);
-	}
-
+	await writeFileIfMissing(new URL("pages/index.vue", srcDir), contents);
 	await rm(appVuePath);
-}
-
-async function modifySliceLibraryPath(adapter: NuxtAdapter): Promise<void> {
-	const projectRoot = await findProjectRoot();
-	const hasAppDir = await exists(new URL("app/", projectRoot));
-	const hasSrcDir = await exists(new URL("src/", projectRoot));
-
-	if (!hasAppDir && !hasSrcDir) {
-		return;
-	}
-
-	let config;
-	try {
-		config = await readConfig();
-	} catch {
-		return;
-	}
-
-	const libraries = config.libraries;
-	if (!libraries || JSON.stringify(libraries) !== JSON.stringify(["./slices"])) {
-		return;
-	}
-
-	// Only modify if the default library has no slices yet
-	const slices = await adapter.getSlices();
-	if (slices.length > 0) {
-		return;
-	}
-
-	const newLibrary = hasAppDir ? "./app/slices" : "./src/slices";
-	await updateConfig({ libraries: [newLibrary] });
-}
-
-async function createPageFile(model: CustomType): Promise<void> {
-	const routePath = buildRoutePath(model)
-		.split("/")
-		.filter(Boolean)
-		.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
-		.join("/");
-	const pagesDir = await getPagesDir();
-	const pageFilePath = new URL(`${routePath || "index"}.vue`, pagesDir);
-
-	if (await exists(pageFilePath)) return;
-
-	const contents = pageTemplate({
-		model,
-		typescript: await checkIsTypeScriptProject(),
-	});
-	await writeFileRecursive(pageFilePath, contents);
-}
-
-async function getJsFileExtension(): Promise<string> {
-	const isTypeScriptProject = await checkIsTypeScriptProject();
-	return isTypeScriptProject ? "ts" : "js";
 }
