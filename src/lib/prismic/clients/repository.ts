@@ -16,6 +16,7 @@ const RepositoryStarterSchema = z.object({
 });
 
 const RepositorySchema = z.object({
+	name: z.optional(z.string()),
 	starter: z.nullish(RepositoryStarterSchema),
 	quotas: z.optional(
 		z.object({
