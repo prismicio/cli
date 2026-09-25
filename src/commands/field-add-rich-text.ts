@@ -3,7 +3,6 @@ import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { addField } from "../lib/prismic/models";
 
 const ALL_BLOCKS =
 	"paragraph,preformatted,heading1,heading2,heading3,heading4,heading5,heading6,strong,em,hyperlink,image,embed,list-item,o-list-item,rtl";
@@ -76,7 +75,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		},
 	};
 
-	addField(fields, fieldId, field);
+	fields[fieldId] = field;
 	await save();
 
 	console.info(`Field added: ${id}`);
