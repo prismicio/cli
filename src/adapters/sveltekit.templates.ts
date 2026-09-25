@@ -1,12 +1,9 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import { pascalCase } from "change-case";
 
 import { dedent } from "../lib/string";
 
-export function prismicIOFileTemplate(args: { typescript: boolean }): string {
-	const { typescript } = args;
-
+export function prismicIOFileTemplate({ typescript }: { typescript: boolean }): string {
 	if (typescript) {
 		return dedent`
 			import { createClient as baseCreateClient } from "@prismicio/client";
@@ -70,9 +67,7 @@ export function prismicIOFileTemplate(args: { typescript: boolean }): string {
 	`;
 }
 
-export function sliceSimulatorPageTemplate(args: { version: number }): string {
-	const { version } = args;
-
+export function sliceSimulatorPageTemplate({ version }: { version: number }): string {
 	const v5 = dedent`
 		<script>
 			import { SliceSimulator, SliceZone } from '@prismicio/svelte';
@@ -99,9 +94,7 @@ export function sliceSimulatorPageTemplate(args: { version: number }): string {
 	return version <= 4 ? v4 : v5;
 }
 
-export function previewAPIRouteTemplate(args: { typescript: boolean }): string {
-	const { typescript } = args;
-
+export function previewAPIRouteTemplate({ typescript }: { typescript: boolean }): string {
 	if (typescript) {
 		return dedent`
 			import { redirectToPreviewURL } from '@prismicio/svelte/kit';
@@ -129,9 +122,21 @@ export function previewAPIRouteTemplate(args: { typescript: boolean }): string {
 	`;
 }
 
-export function rootLayoutTemplate(args: { version: number }): string {
-	const { version } = args;
+const HEAD_MARKUP = dedent`
+	<svelte:head>
+		<title>{page.data.page?.data.meta_title}</title>
+		<meta property="og:title" content={page.data.page?.data.meta_title} />
+		{#if isFilled.keyText(page.data.page?.data.meta_description)}
+			<meta name="description" content={page.data.page.data.meta_description} />
+			<meta property="og:description" content={page.data.page.data.meta_description} />
+		{/if}
+		{#if isFilled.image(page.data.page?.data.meta_image)}
+			<meta property="og:image" content={asImageSrc(page.data.page.data.meta_image)} />
+		{/if}
+	</svelte:head>
+`;
 
+export function rootLayoutTemplate({ version }: { version: number }): string {
 	const v5 = dedent`
 		<script>
 			import { isFilled, asImageSrc } from '@prismicio/client';
@@ -142,17 +147,7 @@ export function rootLayoutTemplate(args: { version: number }): string {
 			const { children } = $props();
 		</script>
 
-		<svelte:head>
-			<title>{page.data.page?.data.meta_title}</title>
-			<meta property="og:title" content={page.data.page?.data.meta_title} />
-			{#if isFilled.keyText(page.data.page?.data.meta_description)}
-				<meta name="description" content={page.data.page.data.meta_description} />
-				<meta property="og:description" content={page.data.page.data.meta_description} />
-			{/if}
-			{#if isFilled.image(page.data.page?.data.meta_image)}
-				<meta property="og:image" content={asImageSrc(page.data.page.data.meta_image)} />
-			{/if}
-		</svelte:head>
+		${HEAD_MARKUP}
 		{@render children()}
 		<PrismicPreview {repositoryName} />
 	`;
@@ -165,17 +160,7 @@ export function rootLayoutTemplate(args: { version: number }): string {
 			import { repositoryName } from '$lib/prismicio';
 		</script>
 
-		<svelte:head>
-			<title>{page.data.page?.data.meta_title}</title>
-			<meta property="og:title" content={page.data.page?.data.meta_title} />
-			{#if isFilled.keyText(page.data.page?.data.meta_description)}
-				<meta name="description" content={page.data.page.data.meta_description} />
-				<meta property="og:description" content={page.data.page.data.meta_description} />
-			{/if}
-			{#if isFilled.image(page.data.page?.data.meta_image)}
-				<meta property="og:image" content={asImageSrc(page.data.page.data.meta_image)} />
-			{/if}
-		</svelte:head>
+		${HEAD_MARKUP}
 		<slot />
 		<PrismicPreview {repositoryName} />
 	`;
@@ -183,9 +168,7 @@ export function rootLayoutTemplate(args: { version: number }): string {
 	return version <= 4 ? v4 : v5;
 }
 
-export function pageTemplate(args: { typescript: boolean }): string {
-	const { typescript } = args;
-
+export function pageTemplate({ typescript }: { typescript: boolean }): string {
 	if (typescript) {
 		return dedent`
 			<script lang="ts">
@@ -212,9 +195,13 @@ export function pageTemplate(args: { typescript: boolean }): string {
 	`;
 }
 
-export function pageServerTemplate(args: { model: CustomType; typescript: boolean }): string {
-	const { model, typescript } = args;
-
+export function pageServerTemplate({
+	model,
+	typescript,
+}: {
+	model: DynamicCustomTypeModel;
+	typescript: boolean;
+}): string {
 	if (model.repeatable) {
 		if (typescript) {
 			return dedent`
@@ -278,13 +265,15 @@ const SLICE_MARKUP = dedent`
 </section>
 `;
 
-export function sliceTemplate(args: {
+export function sliceTemplate({
+	name,
+	typescript,
+	version,
+}: {
 	name: string;
 	typescript: boolean;
 	version: number;
 }): string {
-	const { name, typescript, version } = args;
-
 	const pascalName = pascalCase(name);
 
 	const v5TS = dedent`

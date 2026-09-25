@@ -1,25 +1,21 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
-import { pascalCase } from "change-case";
-import { loadFile } from "magicast";
 import { writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Adapter, checkSourceContains } from ".";
-import { getCredentials } from "../auth";
-import { exists, writeFileRecursive } from "../lib/file";
-import { addDependencies, findPackageJson, getNpmPackageVersion } from "../lib/packageJson";
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import { pascalCase } from "change-case";
+import { loadFile } from "magicast";
+
 import {
-	addPreview,
-	getPreviews,
-	getSimulatorUrl,
-	setSimulatorUrl,
-} from "../lib/prismic/clients/core";
+	Adapter,
+	checkSourceContains,
+	getInstalledMajor,
+	getJsFileExtension,
+	writeFileIfMissing,
+} from ".";
+import { exists, writeFileRecursive } from "../lib/file";
+import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
-import { appendTrailingSlash } from "../lib/url";
-import { buildRoutePath, getRepositoryName } from "../project";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import {
 	pageServerTemplate,
@@ -47,20 +43,60 @@ export class SvelteKitAdapter extends Adapter {
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
 			"@prismicio/svelte": `^${await getNpmPackageVersion("@prismicio/svelte")}`,
 		});
-		await createPrismicIoFile();
-		await createSliceSimulatorPage();
-		await createPreviewRouteMatcher();
-		await createPreviewAPIRoute();
-		await createPreviewRouteDirectory();
-		await createRootLayoutServerFile();
-		await createRootLayoutFile();
+
+		const projectRoot = await findProjectRoot();
+		const extension = await getJsFileExtension();
+		const typescript = await checkIsTypeScriptProject();
+		const version = await getInstalledMajor("svelte");
+
+		await writeFileIfMissing(
+			new URL(`src/lib/prismicio.${extension}`, projectRoot),
+			prismicIOFileTemplate({ typescript }),
+		);
+		await writeFileIfMissing(
+			new URL("src/routes/slice-simulator/+page.svelte", projectRoot),
+			sliceSimulatorPageTemplate({ version }),
+		);
+		await writeFileIfMissing(
+			new URL(`src/params/preview.${extension}`, projectRoot),
+			dedent`
+				export function match(param) {
+					return param === 'preview';
+				}
+			`,
+		);
+		await writeFileIfMissing(
+			new URL(`src/routes/api/preview/+server.${extension}`, projectRoot),
+			previewAPIRouteTemplate({ typescript }),
+		);
+		await writeFileIfMissing(
+			new URL("src/routes/[[preview=preview]]/README.md", projectRoot),
+			dedent`
+				This directory adds support for optional \`/preview\` routes. Do not remove this directory.
+
+				All routes within this directory will be served using the following URLs:
+
+				- \`/example-route\` (prerendered)
+				- \`/preview/example-route\` (server-rendered)
+
+				See <https://prismic.io/docs/svelte-preview> for more information.
+			`,
+		);
+		await writeFileIfMissing(
+			new URL(`src/routes/+layout.server.${extension}`, projectRoot),
+			'export const prerender = "auto";',
+		);
+		await writeFileIfMissing(
+			new URL("src/routes/+layout.svelte", projectRoot),
+			rootLayoutTemplate({ version }),
+		);
 		await modifyViteConfig();
 	}
 
 	async getPreviewComponentInstructions(): Promise<string | undefined> {
 		if (await checkSourceContains("PrismicPreview")) return;
 
-		const children = (await getSvelteMajor()) <= 4 ? "<slot />" : "{@render children()}";
+		const children = (await getInstalledMajor("svelte")) <= 4 ? "<slot />" : "{@render children()}";
 
 		return dedent`
 			Action required: add <PrismicPreview> to your root layout.
@@ -82,58 +118,15 @@ export class SvelteKitAdapter extends Adapter {
 		`;
 	}
 
-	async onProjectInitialized(): Promise<void> {
-		const repo = await getRepositoryName();
-		const { token, host } = await getCredentials();
-
-		const simulatorUrl = await getSimulatorUrl({ repo, token, host });
-		if (!simulatorUrl) {
-			await setSimulatorUrl(this.localSimulatorUrl, { repo, token, host });
-		}
-
-		const previews = await getPreviews({ repo, token, host });
-		if (previews.length === 0) {
-			await addPreview(this.localPreviewConfig, { repo, token, host });
-		}
-	}
-
-	async onSliceCreated(model: SharedSlice, library: URL): Promise<void> {
-		const sliceDirectoryName = pascalCase(model.name);
-		const sliceDirectory = new URL(sliceDirectoryName, appendTrailingSlash(library));
-
-		const componentPath = new URL("index.svelte", appendTrailingSlash(sliceDirectory));
-		const contents = sliceTemplate({
-			name: model.name,
-			typescript: await checkIsTypeScriptProject(),
-			version: await getSvelteMajor(),
-		});
-		await writeFileRecursive(componentPath, contents);
-	}
-
-	onSliceUpdated(): void {}
-
-	onSliceDeleted(): void {}
-
-	async onCustomTypeCreated(model: CustomType): Promise<void> {
-		if (model.format === "page") await createPageFile(model);
-	}
-
-	onCustomTypeUpdated(): void {}
-
-	onCustomTypeDeleted(): void {}
-
 	async createSliceIndexFile(library: URL): Promise<void> {
-		const allSlices = await this.getSlices();
-		const slices = allSlices.filter((slice) => slice.library.href === library.href);
+		const slices = (await this.getSlices()).filter((slice) => slice.library.href === library.href);
 		const imports = slices.map((slice) => {
-			const componentName = pascalCase(slice.model.name);
 			const relativeDirectory = relative(fileURLToPath(library), fileURLToPath(slice.directory));
-			return `import ${componentName} from "./${relativeDirectory}/index.svelte";`;
+			return `import ${pascalCase(slice.model.name)} from "./${relativeDirectory}/index.svelte";`;
 		});
-		const componentLines = slices.map((slice) => {
-			const componentName = pascalCase(slice.model.name);
-			return `${formatObjectKey(slice.model.id)}: ${componentName}`;
-		});
+		const componentLines = slices.map(
+			(slice) => `${formatObjectKey(slice.model.id)}: ${pascalCase(slice.model.name)}`,
+		);
 		const contents = dedent`
 			// Code generated by Prismic. DO NOT EDIT.
 
@@ -143,155 +136,44 @@ export class SvelteKitAdapter extends Adapter {
 				${componentLines.join(",\n")}
 			};
 		`;
-		const extension = await getJsFileExtension();
-		const filename = `index.${extension}`;
-		const indexPath = new URL(filename, library);
-		await writeFileRecursive(indexPath, contents);
+		await writeFileRecursive(new URL(`index.${await getJsFileExtension()}`, library), contents);
 	}
 
-	async getDefaultSliceLibrary(): Promise<URL> {
-		const projectRoot = await findProjectRoot();
-		return new URL("src/lib/slices/", projectRoot);
+	protected async getDefaultSliceLibrary(): Promise<URL> {
+		return new URL("src/lib/slices/", await findProjectRoot());
 	}
 
-	async getDefaultCustomTypeLibrary(): Promise<URL> {
-		const projectRoot = await findProjectRoot();
-		const defaultCustomTypeLibrary = new URL("customtypes/", projectRoot);
-		return defaultCustomTypeLibrary;
-	}
-}
-
-async function createPrismicIoFile(): Promise<void> {
-	const extension = await getJsFileExtension();
-	const projectRoot = await findProjectRoot();
-	const filePath = new URL(`src/lib/prismicio.${extension}`, projectRoot);
-	if (await exists(filePath)) return;
-
-	const typescript = await checkIsTypeScriptProject();
-	const contents = prismicIOFileTemplate({ typescript });
-	await writeFileRecursive(filePath, contents);
-}
-
-async function createSliceSimulatorPage(): Promise<void> {
-	const projectRoot = await findProjectRoot();
-	const filePath = new URL("src/routes/slice-simulator/+page.svelte", projectRoot);
-	if (await exists(filePath)) return;
-
-	const contents = sliceSimulatorPageTemplate({
-		version: await getSvelteMajor(),
-	});
-	await writeFileRecursive(filePath, contents);
-}
-
-async function createPreviewRouteMatcher(): Promise<void> {
-	const extension = await getJsFileExtension();
-	const projectRoot = await findProjectRoot();
-	const filePath = new URL(`src/params/preview.${extension}`, projectRoot);
-	if (await exists(filePath)) return;
-
-	const contents = dedent`
-		export function match(param) {
-			return param === 'preview';
-		}
-	`;
-	await writeFileRecursive(filePath, contents);
-}
-
-async function createPreviewAPIRoute(): Promise<void> {
-	const extension = await getJsFileExtension();
-	const projectRoot = await findProjectRoot();
-	const filePath = new URL(`src/routes/api/preview/+server.${extension}`, projectRoot);
-	if (await exists(filePath)) return;
-
-	const typescript = await checkIsTypeScriptProject();
-	const contents = previewAPIRouteTemplate({ typescript });
-	await writeFileRecursive(filePath, contents);
-}
-
-async function createPreviewRouteDirectory(): Promise<void> {
-	const projectRoot = await findProjectRoot();
-	const filePath = new URL("src/routes/[[preview=preview]]/README.md", projectRoot);
-	if (await exists(filePath)) return;
-
-	const contents = dedent`
-		This directory adds support for optional \`/preview\` routes. Do not remove this directory.
-
-		All routes within this directory will be served using the following URLs:
-
-		- \`/example-route\` (prerendered)
-		- \`/preview/example-route\` (server-rendered)
-
-		See <https://prismic.io/docs/svelte-preview> for more information.
-	`;
-	await writeFileRecursive(filePath, contents);
-}
-
-async function createRootLayoutServerFile(): Promise<void> {
-	const extension = await getJsFileExtension();
-	const projectRoot = await findProjectRoot();
-	const filePath = new URL(`src/routes/+layout.server.${extension}`, projectRoot);
-	if (await exists(filePath)) return;
-
-	const contents = dedent`
-		export const prerender = "auto";
-	`;
-	await writeFileRecursive(filePath, contents);
-}
-
-async function createRootLayoutFile(): Promise<void> {
-	const projectRoot = await findProjectRoot();
-	const filePath = new URL("src/routes/+layout.svelte", projectRoot);
-	if (await exists(filePath)) return;
-
-	const contents = rootLayoutTemplate({
-		version: await getSvelteMajor(),
-	});
-	await writeFileRecursive(filePath, contents);
-}
-
-async function createPageFile(model: CustomType): Promise<void> {
-	const routePath = buildRoutePath(model)
-		.split("/")
-		.filter(Boolean)
-		.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
-		.join("/");
-	const projectRoot = await findProjectRoot();
-	const extension = await getJsFileExtension();
-	const fullRoutePath = new URL(`src/routes/[[preview=preview]]/${routePath}/`, projectRoot);
-
-	const pageFilePath = new URL("+page.svelte", fullRoutePath);
-	if (!(await exists(pageFilePath))) {
-		const contents = pageTemplate({
+	protected async createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void> {
+		const contents = sliceTemplate({
+			name: model.name,
 			typescript: await checkIsTypeScriptProject(),
+			version: await getInstalledMajor("svelte"),
 		});
-		await writeFileRecursive(pageFilePath, contents);
+		await writeFileRecursive(new URL("index.svelte", directory), contents);
 	}
 
-	const serverFilePath = new URL(`+page.server.${extension}`, fullRoutePath);
-	if (!(await exists(serverFilePath))) {
-		const contents = pageServerTemplate({
-			model,
-			typescript: await checkIsTypeScriptProject(),
-		});
-		await writeFileRecursive(serverFilePath, contents);
+	protected async createPageFile(model: DynamicCustomTypeModel, routePath: string): Promise<void> {
+		const routeDirectory = new URL(
+			`src/routes/[[preview=preview]]/${routePath}/`,
+			await findProjectRoot(),
+		);
+		const typescript = await checkIsTypeScriptProject();
+		await writeFileIfMissing(new URL("+page.svelte", routeDirectory), pageTemplate({ typescript }));
+		await writeFileIfMissing(
+			new URL(`+page.server.${await getJsFileExtension()}`, routeDirectory),
+			pageServerTemplate({ model, typescript }),
+		);
 	}
 }
 
 async function modifyViteConfig(): Promise<void> {
 	const projectRoot = await findProjectRoot();
 	let configUrl = new URL("vite.config.js", projectRoot);
-	if (!(await exists(configUrl))) {
-		configUrl = new URL("vite.config.ts", projectRoot);
-	}
-	if (!(await exists(configUrl))) {
-		return;
-	}
+	if (!(await exists(configUrl))) configUrl = new URL("vite.config.ts", projectRoot);
+	if (!(await exists(configUrl))) return;
 
-	const filepath = configUrl.pathname;
-	const mod = await loadFile(filepath);
-	if (mod.exports.default.$type !== "function-call") {
-		return;
-	}
+	const mod = await loadFile(configUrl.pathname);
+	if (mod.exports.default.$type !== "function-call") return;
 
 	const config = mod.exports.default.$args[0];
 	config.server ??= {};
@@ -301,25 +183,5 @@ async function modifyViteConfig(): Promise<void> {
 		config.server.fs.allow.push("./prismic.config.json");
 	}
 
-	const contents = mod.generate().code.replace(/\n\s*\n(?=\s*server:)/, "\n");
-	await writeFile(configUrl, contents);
-}
-
-async function getJsFileExtension(): Promise<string> {
-	const isTypeScriptProject = await checkIsTypeScriptProject();
-	return isTypeScriptProject ? "ts" : "js";
-}
-
-async function getSvelteMajor(): Promise<number> {
-	const packageJsonPath = await findPackageJson();
-	const require = createRequire(packageJsonPath);
-	try {
-		const { version } = require("svelte/package.json");
-		const major = Number.parseInt(version.split(".")[0]);
-		if (Number.isNaN(major)) return Infinity;
-		return major;
-	} catch {
-		// Svelte is not installed yet, so assume the newest major.
-		return Infinity;
-	}
+	await writeFile(configUrl, mod.generate().code.replace(/\n\s*\n(?=\s*server:)/, "\n"));
 }
