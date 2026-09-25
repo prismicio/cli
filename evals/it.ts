@@ -1,16 +1,16 @@
-import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-import { Codex } from "@openai/codex-sdk";
-import dedent from "dedent";
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect } from "vitest";
 
-import type { Trial } from "./reporter";
+import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
+import { Codex } from "@openai/codex-sdk";
+import dedent from "dedent";
+import { expect } from "vitest";
 
 import { it as base } from "../test/it";
 import { deleteRepository } from "../test/prismic";
+import type { Trial } from "./reporter";
 
 if (process.env.PRISMIC_ALLOW_EVALS !== "true") {
 	throw new Error(
@@ -33,10 +33,9 @@ declare module "vitest" {
 	interface TaskMeta {
 		agent?: Trial;
 	}
-	// oxlint-disable-next-line no-explicit-any
-	interface Matchers<T = any> {
-		toHaveRun(positionals?: string[]): T;
-		toSatisfyJudge(criterion: string): Promise<T>;
+	interface Matchers<R extends void | Promise<void> = void | Promise<void>, T = unknown> {
+		toHaveRun(positionals?: string[]): R;
+		toSatisfyJudge(criterion: string): Promise<void>;
 	}
 }
 

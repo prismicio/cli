@@ -1,5 +1,4 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import { snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
@@ -57,7 +56,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		);
 	}
 
-	const json: CustomType["json"] =
+	const json: DynamicCustomTypeModel["json"] =
 		format === "page"
 			? {
 					Main: {
@@ -101,7 +100,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		};
 	}
 
-	const model: CustomType = {
+	const model: DynamicCustomTypeModel = {
 		id,
 		label: name,
 		repeatable: !single,

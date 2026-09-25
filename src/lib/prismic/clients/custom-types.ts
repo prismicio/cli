@@ -1,6 +1,6 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
-
 import { createHash } from "node:crypto";
+
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
 import { request, type RequestOptions } from "../../request";
@@ -12,23 +12,26 @@ export type CustomTypesConfig = {
 	host: string;
 };
 
-export function getCustomTypes(config: CustomTypesConfig): Promise<CustomType[]> {
+export function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
 	const url = new URL("customtypes", getCustomTypesServiceUrl(config.host));
-	return customTypesServiceRequest<CustomType[]>(url, config);
+	return customTypesServiceRequest<DynamicCustomTypeModel[]>(url, config);
 }
 
-export async function getCustomType(id: string, config: CustomTypesConfig): Promise<CustomType> {
+export async function getCustomType(
+	id: string,
+	config: CustomTypesConfig,
+): Promise<DynamicCustomTypeModel> {
 	const url = new URL(
 		`customtypes/${encodeURIComponent(id)}`,
 		getCustomTypesServiceUrl(config.host),
 	);
-	return customTypesServiceRequest<CustomType>(url, config, {
+	return customTypesServiceRequest<DynamicCustomTypeModel>(url, config, {
 		notFoundMessage: `Type not found: ${id}`,
 	});
 }
 
 export async function updateCustomType(
-	model: CustomType,
+	model: DynamicCustomTypeModel,
 	config: CustomTypesConfig,
 ): Promise<void> {
 	const url = new URL("customtypes/update", getCustomTypesServiceUrl(config.host));
@@ -40,19 +43,22 @@ export async function updateCustomType(
 	});
 }
 
-export function getSlices(config: CustomTypesConfig): Promise<SharedSlice[]> {
+export function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]> {
 	const url = new URL("slices", getCustomTypesServiceUrl(config.host));
-	return customTypesServiceRequest<SharedSlice[]>(url, config);
+	return customTypesServiceRequest<SharedSliceModel[]>(url, config);
 }
 
-export async function getSlice(id: string, config: CustomTypesConfig): Promise<SharedSlice> {
+export async function getSlice(id: string, config: CustomTypesConfig): Promise<SharedSliceModel> {
 	const url = new URL(`slices/${encodeURIComponent(id)}`, getCustomTypesServiceUrl(config.host));
-	return customTypesServiceRequest<SharedSlice>(url, config, {
+	return customTypesServiceRequest<SharedSliceModel>(url, config, {
 		notFoundMessage: `Slice not found: ${id}`,
 	});
 }
 
-export async function updateSlice(model: SharedSlice, config: CustomTypesConfig): Promise<void> {
+export async function updateSlice(
+	model: SharedSliceModel,
+	config: CustomTypesConfig,
+): Promise<void> {
 	const url = new URL("slices/update", getCustomTypesServiceUrl(config.host));
 	await customTypesServiceRequest(url, config, {
 		method: "POST",
@@ -65,7 +71,7 @@ export async function updateSlice(model: SharedSlice, config: CustomTypesConfig)
 export type BulkChange = {
 	type: `${"CUSTOM_TYPE" | "SLICE"}_${"INSERT" | "UPDATE" | "DELETE"}`;
 	id: string;
-	payload: CustomType | SharedSlice | { id: string };
+	payload: DynamicCustomTypeModel | SharedSliceModel | { id: string };
 };
 
 export async function bulkUpdate(changes: BulkChange[], config: CustomTypesConfig): Promise<void> {

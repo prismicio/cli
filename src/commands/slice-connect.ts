@@ -1,4 +1,4 @@
-import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
+import type { DynamicWidgetModel } from "@prismicio/types-internal";
 
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
@@ -39,7 +39,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const { model: slice } = await adapter.getSlice(id);
 	const { model: customType } = await adapter.getCustomType(to);
 
-	const allFields: Record<string, DynamicWidget> = Object.assign(
+	const allFields: Record<string, DynamicWidgetModel> = Object.assign(
 		{},
 		...Object.values(customType.json),
 	);

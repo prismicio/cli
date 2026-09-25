@@ -1,4 +1,4 @@
-import type { Group } from "@prismicio/types-internal/lib/customtypes";
+import type { GroupModel } from "@prismicio/types-internal";
 
 import {
 	buildCustomType,
@@ -71,7 +71,7 @@ it("adds a field inside a group using dot syntax", async ({ expect, prismic, pro
 	expect(stdout).toContain("Field added: my_group.subtitle");
 
 	const updated = await readLocalSlice(project, slice.id);
-	const group = updated!.variations[0].primary!.my_group as Group;
+	const group = updated!.variations[0].primary!.my_group as GroupModel;
 	expect(group.config?.fields).toMatchObject({
 		subtitle: { type: "Text", config: { label: "Subtitle" } },
 	});
