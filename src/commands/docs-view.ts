@@ -26,7 +26,6 @@ const config = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [rawPath] = positionals;
-	const { json } = values;
 
 	const hashIndex = rawPath.indexOf("#");
 	const path = hashIndex >= 0 ? rawPath.slice(0, hashIndex) : rawPath;
@@ -45,7 +44,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		markdown = section;
 	}
 
-	if (json) {
+	if (values.json) {
 		console.info(stringify({ path, anchor, content: markdown }));
 		return;
 	}

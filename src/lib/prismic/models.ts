@@ -30,36 +30,6 @@ export type ContentRelationshipFieldSelection =
 
 const UNFETCHABLE_FIELD_TYPES = ["Slices", "UID", "Choice"];
 
-function getField(container: Fields, fieldId: string): DynamicWidgetModel {
-	const field = container[fieldId];
-	if (!field) throw new FieldNotFoundError(fieldId);
-	return field;
-}
-
-export function reorderField(
-	source: Fields,
-	fieldId: string,
-	target: Fields,
-	anchorId: string,
-	position: "before" | "after",
-): void {
-	const field = getField(source, fieldId);
-	getField(target, anchorId);
-
-	if (source !== target && fieldId in target) throw new FieldExistsError(fieldId);
-
-	const entries = Object.entries(target).filter(([id]) => source !== target || id !== fieldId);
-
-	delete source[fieldId];
-	for (const id of Object.keys(target)) delete target[id];
-
-	for (const [id, value] of entries) {
-		if (position === "before" && id === anchorId) target[fieldId] = field;
-		target[id] = value;
-		if (position === "after" && id === anchorId) target[fieldId] = field;
-	}
-}
-
 export function resolveContentRelationshipFieldSelection(
 	paths: string[],
 	targetTypeId: string,
@@ -164,15 +134,14 @@ export function resolveCustomTypeFieldContainer(
 	customType: DynamicCustomTypeModel,
 	tabName?: string,
 ): { fields: Fields; fieldId: string } {
-	let tab;
 	if (tabName) {
-		tab = customType.json[tabName];
+		const tab = customType.json[tabName];
 		if (!tab) throw new TabNotFoundError(tabName, customType.id);
-	} else {
-		const [root] = path.split(".");
-		tab = Object.values(customType.json).find((fields) => root in fields);
-		if (!tab) throw new FieldNotFoundError(root);
+		return resolveNestedFieldContainer(path, tab);
 	}
+	const [root] = path.split(".");
+	const tab = Object.values(customType.json).find((fields) => root in fields);
+	if (!tab) throw new FieldNotFoundError(root);
 	return resolveNestedFieldContainer(path, tab);
 }
 
@@ -295,7 +264,8 @@ function resolveNestedFieldContainer(
 ): { fields: Fields; fieldId: string } {
 	const [fieldId, ...remaining] = path.split(".");
 	if (remaining.length === 0) return { fields, fieldId };
-	const field = getField(fields, fieldId);
+	const field = fields[fieldId];
+	if (!field) throw new FieldNotFoundError(fieldId);
 	if (field.type !== "Group") throw new UnsupportedNestedFieldError(fieldId);
 	field.config ??= {};
 	field.config.fields ??= {};

@@ -53,18 +53,15 @@ export default createCommand(config, async ({ positionals: [name], values }) => 
 		imageUrl = screenshotUrl.toString();
 	}
 
-	slice.variations = [
-		...slice.variations,
-		{
-			id,
-			name,
-			description: name,
-			docURL: "",
-			imageUrl,
-			version: "",
-			primary: {},
-		},
-	];
+	slice.variations.push({
+		id,
+		name,
+		description: name,
+		docURL: "",
+		imageUrl,
+		version: "",
+		primary: {},
+	});
 
 	await adapter.updateSlice(slice);
 	await adapter.generateTypes();

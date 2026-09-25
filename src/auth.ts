@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import * as z from "zod/mini";
 
@@ -11,7 +12,6 @@ import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { refreshToken as baseRefreshToken } from "./lib/prismic/clients/auth";
-import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000;
@@ -130,7 +130,7 @@ export async function createLoginSession(options: {
 				return;
 			}
 
-			const url = new URL("dashboard/cli/login", `https://${host}/`);
+			const url = new URL("dashboard/cli/login", corsOrigin);
 			url.searchParams.set("source", "prismic-cli");
 			url.searchParams.set("port", address.port.toString());
 			options.onReady(url);
@@ -151,7 +151,7 @@ export async function createLoginSession(options: {
 
 // Only remove ~/.prismic when it holds the legacy CLI's update-check state.
 export async function cleanupLegacyAuthFile(): Promise<void> {
-	const path = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
+	const path = join(homedir(), ".prismic");
 	try {
 		const json = JSON.parse(await readFile(path, "utf-8"));
 		if (json?.latestKnownVersion === undefined && json?.lastUpdateCheckAt === undefined) return;

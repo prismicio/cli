@@ -16,47 +16,8 @@ export async function getCustomTypes(config: CustomTypesConfig): Promise<Dynamic
 	return customTypesRequest("customtypes", config);
 }
 
-export async function getCustomType(
-	id: string,
-	config: CustomTypesConfig,
-): Promise<DynamicCustomTypeModel> {
-	return customTypesRequest(`customtypes/${encodeURIComponent(id)}`, config, {
-		notFoundMessage: `Type not found: ${id}`,
-	});
-}
-
-export async function updateCustomType(
-	model: DynamicCustomTypeModel,
-	config: CustomTypesConfig,
-): Promise<void> {
-	await customTypesRequest("customtypes/update", config, {
-		method: "POST",
-		json: model,
-		notFoundMessage: `Type not found: ${model.id}`,
-		unknownErrorMessage: `Failed to update type "${model.id}"`,
-	});
-}
-
 export async function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]> {
 	return customTypesRequest("slices", config);
-}
-
-export async function getSlice(id: string, config: CustomTypesConfig): Promise<SharedSliceModel> {
-	return customTypesRequest(`slices/${encodeURIComponent(id)}`, config, {
-		notFoundMessage: `Slice not found: ${id}`,
-	});
-}
-
-export async function updateSlice(
-	model: SharedSliceModel,
-	config: CustomTypesConfig,
-): Promise<void> {
-	await customTypesRequest("slices/update", config, {
-		method: "POST",
-		json: model,
-		notFoundMessage: `Slice not found: ${model.id}`,
-		unknownErrorMessage: `Failed to update slice "${model.id}"`,
-	});
 }
 
 export type BulkChange = {
@@ -89,13 +50,7 @@ export async function deleteScreenshots(sliceId: string, config: CustomTypesConf
 
 export async function uploadScreenshot(
 	blob: Blob,
-	config: {
-		sliceId: string;
-		variationId: string;
-		repo: string;
-		token: string | undefined;
-		host: string;
-	},
+	config: CustomTypesConfig & { sliceId: string; variationId: string },
 ): Promise<URL> {
 	const { sliceId, variationId, repo } = config;
 

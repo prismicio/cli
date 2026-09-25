@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import * as z from "zod/mini";
@@ -10,7 +11,6 @@ import { readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import type { Profile } from "./lib/prismic/clients/user";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
-import { appendTrailingSlash } from "./lib/url";
 
 // Stored IDs tie every command, and every documentation page read through the
 // CLI, to one user.
@@ -40,7 +40,7 @@ export async function initTracking(config: {
 	userIntent?: string;
 	taskId?: string;
 }): Promise<void> {
-	if (config.repo) repository = config.repo;
+	repository = config.repo;
 	userIntent = config.userIntent;
 	taskId = config.taskId;
 	agent = detectAgent();
@@ -148,7 +148,7 @@ export async function isTelemetryEnabled(): Promise<boolean> {
 }
 
 async function isTelemetryDisabledIn(dir: string): Promise<boolean> {
-	const path = new URL(".prismicrc", appendTrailingSlash(pathToFileURL(dir)));
+	const path = pathToFileURL(join(dir, ".prismicrc"));
 	const rc = await readJsonFile(path, { schema: PrismicRcSchema }).catch(() => undefined);
 	return rc?.telemetry === false;
 }

@@ -78,13 +78,9 @@ export default createCommand(config, async ({ positionals: [id], values }) => {
 
 	let resolvedCustomTypes: NonNullable<LinkModel["config"]>["customtypes"] = customtypes;
 	if (fieldSelection && customtypes) {
-		const resolvedFields = await getContentRelationshipFieldSelection(
-			fieldSelection,
-			customtypes[0],
-		);
-		resolvedCustomTypes = [
-			{ id: customtypes[0], fields: resolvedFields },
-		] as typeof resolvedCustomTypes;
+		const [customTypeId] = customtypes;
+		const selection = await getContentRelationshipFieldSelection(fieldSelection, customTypeId);
+		resolvedCustomTypes = [{ id: customTypeId, fields: selection }] as typeof resolvedCustomTypes;
 	}
 
 	fields[fieldId] = {

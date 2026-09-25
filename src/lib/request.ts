@@ -28,13 +28,13 @@ export async function request<T = unknown>(
 	const body = "json" in init ? JSON.stringify(json) : init.body;
 	const response = await fetch(input, { ...requestInit, body, headers });
 
-	const rawBody = await response.text();
+	const text = await response.text();
 	let value: unknown;
-	if (rawBody) {
+	if (text) {
 		try {
-			value = JSON.parse(rawBody);
+			value = JSON.parse(text);
 		} catch {
-			value = rawBody;
+			value = text;
 		}
 	}
 
@@ -42,38 +42,30 @@ export async function request<T = unknown>(
 
 	switch (response.status) {
 		case 400:
-			throw new BadRequestError(response, value, rawBody);
+			throw new BadRequestError(response, value);
 		case 401:
-			throw new UnauthorizedRequestError(response, value, rawBody);
+			throw new UnauthorizedRequestError(response, value);
 		case 403:
-			throw new ForbiddenRequestError(response, value, rawBody);
+			throw new ForbiddenRequestError(response, value);
 		case 404:
 			throw new NotFoundRequestError(
 				response,
 				value,
-				rawBody,
 				notFoundMessage ?? "The requested resource was not found.",
 			);
 		default:
-			throw new UnknownRequestError(response, value, rawBody, unknownErrorMessage);
+			throw new UnknownRequestError(response, value, unknownErrorMessage);
 	}
 }
 
 class RequestError extends Error {
-	name = "RequestError";
 	response: Response;
 	body: unknown;
-	#rawBody: string;
 
-	constructor(response: Response, body: unknown, rawBody: string, message?: string) {
+	constructor(response: Response, body: unknown, message?: string) {
 		super(message);
 		this.response = response;
 		this.body = body;
-		this.#rawBody = rawBody;
-	}
-
-	async text(): Promise<string> {
-		return this.#rawBody;
 	}
 
 	get status(): number {

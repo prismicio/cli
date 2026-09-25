@@ -31,10 +31,9 @@ export async function addPreview(
 	},
 	config: CoreConfig,
 ): Promise<void> {
-	const { name, websiteURL, resolverPath } = previewConfig;
 	await coreRequest("previews/new", config, {
 		method: "POST",
-		json: { name, websiteURL, resolverPath },
+		json: previewConfig,
 		unknownErrorMessage: "Failed to add preview",
 	});
 }

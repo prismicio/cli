@@ -76,7 +76,7 @@ export default createCommand(config, async ({ values }) => {
 				type: write ? "write" : "access",
 				name,
 				repository: repo,
-				...(scope ? { scope } : {}),
+				scope,
 			}),
 		);
 		return;

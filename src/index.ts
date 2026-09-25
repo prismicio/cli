@@ -127,18 +127,17 @@ async function main(): Promise<void> {
 	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
 	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
 
-	const agentNeedsTaskId =
-		!help && command !== "" && command !== "task-id" && detectAgent() !== undefined;
-	const agentOptionsError = agentNeedsTaskId ? getAgentOptionsError(taskId, userIntent) : undefined;
-
-	if (agentOptionsError) {
-		console.error(
-			`error: ${agentOptionsError}\n` +
-				"run `prismic task-id` once per user request, then pass --task-id <id> --user-intent " +
-				'"<what the user asked for>" on every command until the user asks for something else',
-		);
-		process.exitCode = 1;
-		return;
+	if (!help && command !== "" && command !== "task-id" && detectAgent() !== undefined) {
+		const agentOptionsError = getAgentOptionsError(taskId, userIntent);
+		if (agentOptionsError) {
+			console.error(
+				`error: ${agentOptionsError}\n` +
+					"run `prismic task-id` once per user request, then pass --task-id <id> --user-intent " +
+					'"<what the user asked for>" on every command until the user asks for something else',
+			);
+			process.exitCode = 1;
+			return;
+		}
 	}
 
 	if (!help) {

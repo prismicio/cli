@@ -36,7 +36,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const [apps, writeTokensInfo] = await Promise.all([
+	const [apps, { tokens: writeTokens }] = await Promise.all([
 		getOAuthApps({ repo, token, host }),
 		getWriteTokens({ repo, token, host }),
 	]);
@@ -50,9 +50,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		return;
 	}
 
-	const writeToken = writeTokensInfo.tokens.find((t) => t.token === tokenValue);
-	if (writeToken) {
-		await deleteWriteToken(writeToken.token, { repo, token, host });
+	if (writeTokens.some((t) => t.token === tokenValue)) {
+		await deleteWriteToken(tokenValue, { repo, token, host });
 		console.info("Token deleted");
 		return;
 	}

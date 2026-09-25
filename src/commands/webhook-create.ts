@@ -81,7 +81,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	// No triggers means all triggers.
 	const triggers = Object.fromEntries(
-		WEBHOOK_TRIGGERS.map((name) => [name, trigger.length === 0 || trigger.includes(name)]),
+		WEBHOOK_TRIGGERS.map((key) => [key, trigger.length === 0 || trigger.includes(key)]),
 	) as WebhookTriggers;
 
 	await createWebhook(

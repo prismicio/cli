@@ -1,5 +1,3 @@
-import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
-
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 
@@ -46,16 +44,13 @@ export default createCommand(config, async ({ positionals: [currentName], values
 	}
 
 	if ("without-slice-zone" in values) {
-		const sliceZoneEntry = Object.entries(tab).find(([, field]) => field.type === "Slices");
-
-		if (!sliceZoneEntry) {
+		const sliceZoneId = Object.keys(tab).find((fieldId) => tab[fieldId].type === "Slices");
+		if (!sliceZoneId) {
 			throw new CommandError(`Tab "${currentName}" does not have a slice zone.`);
 		}
 
-		const [sliceZoneId, sliceZoneField] = sliceZoneEntry;
-		const choices = sliceZoneField.type === "Slices" ? (sliceZoneField.config?.choices ?? {}) : {};
-
-		if (Object.keys(choices).length > 0) {
+		const sliceZone = tab[sliceZoneId];
+		if (sliceZone.type === "Slices" && Object.keys(sliceZone.config?.choices ?? {}).length > 0) {
 			throw new CommandError(
 				`Cannot remove slice zone from "${currentName}": disconnect all slices first.`,
 			);
@@ -69,11 +64,12 @@ export default createCommand(config, async ({ positionals: [currentName], values
 			throw new CommandError(`Tab "${values.name}" already exists in "${typeId}".`);
 		}
 
-		const newJson: DynamicCustomTypeModel["json"] = {};
-		for (const [key, value] of Object.entries(customType.json)) {
-			newJson[key === currentName ? values.name! : key] = value;
-		}
-		customType.json = newJson;
+		customType.json = Object.fromEntries(
+			Object.entries(customType.json).map(([tabName, fields]) => [
+				tabName === currentName ? values.name! : tabName,
+				fields,
+			]),
+		);
 	}
 
 	await adapter.updateCustomType(customType);

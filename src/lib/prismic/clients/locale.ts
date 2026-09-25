@@ -33,7 +33,7 @@ export async function upsertLocale(
 		json: {
 			id: locale.id,
 			isMaster: locale.isMaster ?? false,
-			...(locale.customName ? { customName: locale.customName } : {}),
+			customName: locale.customName || undefined,
 		},
 		schema: LocaleSchema,
 		unknownErrorMessage: "Failed to save locale",
