@@ -70,6 +70,33 @@ it("creates a repo if --repo is not provided and no legacy config exists", async
 	expect(dev?.label).toBe("Development");
 }, 60_000);
 
+it("creates a repo with a display name from --repo-name", async ({
+	expect,
+	project,
+	prismic,
+	token,
+	host,
+	password,
+	onTestFinished,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	const repoName = `Test ${crypto.randomUUID().slice(0, 8)}`;
+	const { stderr, exitCode, stdout } = await prismic("init", ["--repo-name", repoName]);
+	const domain = stdout.match(/^Created repository: ([a-z0-9-]+)$/m)?.[1];
+	if (!domain) throw new Error(`Could not find created repository name in output:\n${stdout}`);
+	onTestFinished(() => deleteRepository(domain, { token, password, host }));
+
+	expect(exitCode, stderr).toBe(0);
+	const repository = await getRepository({ repo: domain, token, host });
+	expect(repository.name).toBe(repoName);
+}, 60_000);
+
+it("fails if --repo and --repo-name are both provided", async ({ expect, prismic, repo }) => {
+	const { exitCode, stderr } = await prismic("init", ["--repo", repo, "--repo-name", "Name"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Only one of --repo or --repo-name can be specified.");
+});
+
 it("preserves existing preview config", async ({
 	expect,
 	project,
