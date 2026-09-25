@@ -15,14 +15,17 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals: [id], values }) => {
+export default createCommand(config, async ({ positionals, values }) => {
+	const [id] = positionals;
 	const { key: position, value: anchorPath } = exactlyOneOption(values, ["before", "after"]);
 
 	if (id === anchorPath) {
 		throw new CommandError(`Cannot reorder "${id}" relative to itself.`);
 	}
 
-	if (id.split(".").slice(0, -1).join(".") !== anchorPath.split(".").slice(0, -1).join(".")) {
+	const idContainer = id.split(".").slice(0, -1).join(".");
+	const anchorContainer = anchorPath.split(".").slice(0, -1).join(".");
+	if (idContainer !== anchorContainer) {
 		throw new CommandError(
 			`Cannot reorder "${id}" relative to "${anchorPath}": fields must be in the same container.`,
 		);
@@ -40,12 +43,19 @@ export default createCommand(config, async ({ positionals: [id], values }) => {
 
 	// Rebuild the container in place to reorder its keys.
 	const entries = Object.entries(anchor.fields);
-	for (const [fieldId] of entries) delete anchor.fields[fieldId];
-	for (const [fieldId, value] of entries) {
-		if (position === "before" && fieldId === anchor.fieldId) anchor.fields[source.fieldId] = field;
-		anchor.fields[fieldId] = value;
-		if (position === "after" && fieldId === anchor.fieldId) anchor.fields[source.fieldId] = field;
+	for (const [fieldId] of entries) {
+		delete anchor.fields[fieldId];
 	}
+	for (const [fieldId, value] of entries) {
+		if (position === "before" && fieldId === anchor.fieldId) {
+			anchor.fields[source.fieldId] = field;
+		}
+		anchor.fields[fieldId] = value;
+		if (position === "after" && fieldId === anchor.fieldId) {
+			anchor.fields[source.fieldId] = field;
+		}
+	}
+
 	await save();
 
 	console.info(`Field reordered: ${id}`);
