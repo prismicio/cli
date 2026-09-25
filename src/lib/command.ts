@@ -230,6 +230,15 @@ export function exactlyOneOption<T extends Record<string, unknown>, K extends ke
 	return { key: provided[0], value: values[provided[0]] } as SelectedOption<T, K>;
 }
 
+export function exclusiveOptions<T extends Record<string, unknown>>(
+	values: T,
+	names: readonly (keyof T)[],
+): void {
+	const provided = names.filter((name) => name in values);
+	const list = names.map((name) => `--${String(name)}`).join(" or ");
+	if (provided.length > 1) throw new CommandError(`Only one of ${list} can be specified.`);
+}
+
 export class CommandError extends Error {
 	name = "CommandError";
 }
