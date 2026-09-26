@@ -41,30 +41,6 @@ export function getField(container: Fields, fieldId: string): DynamicWidgetModel
 	return field;
 }
 
-export function reorderField(
-	source: Fields,
-	fieldId: string,
-	target: Fields,
-	anchorId: string,
-	position: "before" | "after",
-): void {
-	const field = getField(source, fieldId);
-	getField(target, anchorId);
-
-	if (source !== target && fieldId in target) throw new FieldExistsError(fieldId);
-
-	const entries = Object.entries(target).filter(([id]) => source !== target || id !== fieldId);
-
-	delete source[fieldId];
-	for (const id of Object.keys(target)) delete target[id];
-
-	for (const [id, value] of entries) {
-		if (position === "before" && id === anchorId) target[fieldId] = field;
-		target[id] = value;
-		if (position === "after" && id === anchorId) target[fieldId] = field;
-	}
-}
-
 export function resolveContentRelationshipFieldSelection(
 	paths: string[],
 	targetTypeId: string,
