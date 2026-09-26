@@ -96,3 +96,29 @@ it("rejects invalid --format", async ({ expect, prismic }) => {
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain('Invalid format: "invalid"');
 });
+
+it("warns when a SvelteKit page already serves the page's URL", async ({
+	expect,
+	prismic,
+	project,
+}) => {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
+	);
+	await mkdir(new URL("src/routes/", project), { recursive: true });
+	await writeFile(new URL("src/routes/+page.svelte", project), "<h1>Welcome to SvelteKit</h1>");
+
+	const { stdout, stderr, exitCode } = await prismic("type", [
+		"create",
+		"Homepage",
+		"--format",
+		"page",
+		"--single",
+	]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(
+		`${["src", "routes", "+page.svelte"].join(sep)} also serves /. Delete it to use the Prismic page.`,
+	);
+	await expect(project).toHaveFile("src/routes/[[preview=preview]]/+page.svelte");
+});

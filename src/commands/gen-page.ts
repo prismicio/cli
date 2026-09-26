@@ -30,6 +30,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	const skipped = await adapter.writePageFiles(model, { force });
+	const shadowingPageNotice = await adapter.getShadowingPageNotice(model);
+	if (shadowingPageNotice) console.info(shadowingPageNotice);
 	if (skipped.length === 0) {
 		console.info(`Generated the page for "${id}".`);
 		return;

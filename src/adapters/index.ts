@@ -131,6 +131,7 @@ export abstract class Adapter {
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	protected abstract getDefaultSliceLibrary(): Promise<URL>;
 	protected abstract createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void>;
+	protected findShadowingPage?(routePath: string): Promise<URL | undefined>;
 	protected abstract getPageFiles(
 		model: DynamicCustomTypeModel,
 		routePath: string,
@@ -212,21 +213,25 @@ export abstract class Adapter {
 		if (model.format !== "page") return [];
 		await addRoute(model);
 		const projectRoot = await findProjectRoot();
-		return (await this.writePageFiles(model)).map(
+		const notices = (await this.writePageFiles(model)).map(
 			({ path }) =>
 				`Skipped ${relativePathname(projectRoot, path)} (already exists). Run \`prismic gen page ${model.id}\` to get the code.`,
 		);
+		const shadowingPageNotice = await this.getShadowingPageNotice(model);
+		return shadowingPageNotice ? [...notices, shadowingPageNotice] : notices;
+	}
+
+	// Returns a notice when a page the CLI did not generate serves the same URL and wins over it.
+	async getShadowingPageNotice(model: DynamicCustomTypeModel): Promise<string | undefined> {
+		const { route, routePath } = await getRoute(model);
+		const path = await this.findShadowingPage?.(routePath);
+		if (!path) return;
+		return `${relativePathname(await findProjectRoot(), path)} also serves ${route}. Delete it to use the Prismic page.`;
 	}
 
 	// Returns the files skipped because they already exist.
 	async writePageFiles(model: DynamicCustomTypeModel, { force = false } = {}): Promise<PageFile[]> {
-		const { routes = [] } = await readConfig();
-		const route = routes.find((r) => r.type === model.id)?.path ?? buildRoutePath(model);
-		const routePath = route
-			.split("/")
-			.filter(Boolean)
-			.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
-			.join("/");
+		const { routePath } = await getRoute(model);
 		const skipped: PageFile[] = [];
 		for (const file of await this.getPageFiles(model, routePath)) {
 			if (!force && (await exists(file.path))) skipped.push(file);
@@ -300,6 +305,19 @@ export abstract class Adapter {
 	async unsetEnvironment(): Promise<void> {
 		await unsetEnvFileVar(await getEnvLocalPath(), this.environmentEnvVarName);
 	}
+}
+
+async function getRoute(
+	model: DynamicCustomTypeModel,
+): Promise<{ route: string; routePath: string }> {
+	const { routes = [] } = await readConfig();
+	const route = routes.find((r) => r.type === model.id)?.path ?? buildRoutePath(model);
+	const routePath = route
+		.split("/")
+		.filter(Boolean)
+		.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
+		.join("/");
+	return { route, routePath };
 }
 
 async function getEnvLocalPath(): Promise<URL> {

@@ -153,6 +153,14 @@ export class SvelteKitAdapter extends Adapter {
 		await writeFileRecursive(new URL("index.svelte", directory), contents);
 	}
 
+	protected async findShadowingPage(routePath: string): Promise<URL | undefined> {
+		const path = new URL(
+			`src/routes/${routePath && `${routePath}/`}+page.svelte`,
+			await findProjectRoot(),
+		);
+		return (await exists(path)) ? path : undefined;
+	}
+
 	protected async getPageFiles(
 		model: DynamicCustomTypeModel,
 		routePath: string,
