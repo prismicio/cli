@@ -59,37 +59,26 @@ export async function request<T = unknown>(
 
 	switch (response.status) {
 		case 400:
-			throw new BadRequestError(response, value, rawBody);
+			throw new BadRequestError(response, value);
 		case 401:
-			throw new UnauthorizedRequestError(response, value, rawBody);
+			throw new UnauthorizedRequestError(response, value);
 		case 403:
-			throw new ForbiddenRequestError(response, value, rawBody);
+			throw new ForbiddenRequestError(response, value);
 		case 404:
-			throw new NotFoundRequestError(response, value, rawBody, notFoundMessage);
+			throw new NotFoundRequestError(response, value, notFoundMessage);
 		default:
-			throw new UnknownRequestError(response, value, rawBody, unknownErrorMessage);
+			throw new UnknownRequestError(response, value, unknownErrorMessage);
 	}
 }
 
-export class RequestError extends Error {
-	name = "RequestError";
+class RequestError extends Error {
 	response: Response;
 	body: unknown;
-	#rawBody: string;
 
-	constructor(response: Response, body: unknown, rawBody: string, message?: string) {
+	constructor(response: Response, body: unknown, message?: string) {
 		super(message);
 		this.response = response;
 		this.body = body;
-		this.#rawBody = rawBody;
-	}
-
-	async text(): Promise<string> {
-		return this.#rawBody;
-	}
-
-	async json(): Promise<unknown> {
-		return JSON.parse(this.#rawBody);
 	}
 
 	get status(): number {
@@ -103,10 +92,6 @@ export class RequestError extends Error {
 
 export class UnknownRequestError extends RequestError {
 	name = "UnknownRequestError";
-
-	constructor(response: Response, body: unknown, rawBody: string, message = "") {
-		super(response, body, rawBody, message);
-	}
 }
 export class BadRequestError extends RequestError {
 	name = "BadRequestError";
@@ -116,10 +101,9 @@ export class NotFoundRequestError extends RequestError {
 	constructor(
 		response: Response,
 		body: unknown,
-		rawBody: string,
 		message = "The requested resource was not found.",
 	) {
-		super(response, body, rawBody, message);
+		super(response, body, message);
 	}
 }
 export class ForbiddenRequestError extends RequestError {

@@ -6,7 +6,7 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { readURLFile } from "../lib/file";
-import { UnsupportedFileTypeError, uploadScreenshot } from "../lib/prismic/clients/custom-types";
+import { uploadScreenshot } from "../lib/prismic/clients/custom-types";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -44,36 +44,25 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
 		const blob = await readURLFile(url);
-		let screenshotUrl;
-		try {
-			screenshotUrl = await uploadScreenshot(blob, {
-				sliceId: slice.id,
-				variationId: id,
-				repo,
-				token,
-				host,
-			});
-		} catch (error) {
-			if (error instanceof UnsupportedFileTypeError) {
-				throw new CommandError(error.message);
-			}
-			throw error;
-		}
+		const screenshotUrl = await uploadScreenshot(blob, {
+			sliceId: slice.id,
+			variationId: id,
+			repo,
+			token,
+			host,
+		});
 		imageUrl = screenshotUrl.toString();
 	}
 
-	slice.variations = [
-		...slice.variations,
-		{
-			id,
-			name,
-			description: name,
-			docURL: "",
-			imageUrl,
-			version: "",
-			primary: {},
-		},
-	];
+	slice.variations.push({
+		id,
+		name,
+		description: name,
+		docURL: "",
+		imageUrl,
+		version: "",
+		primary: {},
+	});
 
 	await adapter.updateSlice(slice);
 	await adapter.generateTypes();

@@ -1,4 +1,9 @@
-import { getContentRelationshipFieldSelection, getExistingField, SOURCE_OPTIONS } from "../fields";
+import {
+	getContentRelationshipFieldSelection,
+	getExistingField,
+	parseNumber,
+	SOURCE_OPTIONS,
+} from "../fields";
 import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 
 const config = {
@@ -186,21 +191,23 @@ export default createCommand(config, async ({ positionals, values }) => {
 				}
 			}
 			if ("field" in values) {
-				const cts = "custom-type" in values ? values["custom-type"] : field.config.customtypes;
-				if (!cts || cts.length === 0) {
+				const customtypes =
+					"custom-type" in values ? values["custom-type"] : field.config.customtypes;
+				if (!customtypes || customtypes.length === 0) {
 					throw new CommandError(
 						"--field requires the field to be restricted to a custom type. Use --custom-type to specify one.",
 					);
 				}
-				if (cts.length > 1) {
+				if (customtypes.length > 1) {
 					throw new CommandError(
 						"--field requires the field to be restricted to a single custom type.",
 					);
 				}
-				const ctId = typeof cts[0] === "string" ? cts[0] : cts[0].id;
-				const resolvedFields = await getContentRelationshipFieldSelection(values.field!, ctId);
+				const [customType] = customtypes;
+				const customTypeId = typeof customType === "string" ? customType : customType.id;
+				const selection = await getContentRelationshipFieldSelection(values.field!, customTypeId);
 				field.config.customtypes = [
-					{ id: ctId, fields: resolvedFields },
+					{ id: customTypeId, fields: selection },
 				] as typeof field.config.customtypes;
 			} else if ("custom-type" in values) {
 				const customtypes = values["custom-type"]!.filter(Boolean);
@@ -227,12 +234,3 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	console.info(`Field updated: ${id}`);
 });
-
-function parseNumber(value: string | undefined, optionName: string): number | undefined {
-	if (value === undefined) return undefined;
-	const number = Number(value);
-	if (Number.isNaN(number)) {
-		throw new CommandError(`--${optionName} must be a valid number, got "${value}"`);
-	}
-	return number;
-}
