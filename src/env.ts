@@ -21,5 +21,6 @@ const Env = z.object({
 
 export const env = z.parse(Env, {
 	...process.env,
+	// Replaced at build time by tsdown's `define`, so it must be read literally.
 	PROD: process.env.PROD,
 });
