@@ -158,7 +158,7 @@ it("keeps an edited Next.js starter page", async ({ expect, project, prismic, re
 
 	const { stdout, stderr, exitCode } = await prismic("gen", ["page", id]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("Merge this into app/page.tsx");
+	expect(stdout).toContain(`Merge this into ${["app", "page.tsx"].join(sep)}`);
 
 	await expect(project).toHaveFile("app/page.tsx", { contains: "Welcome to" });
 });
@@ -182,7 +182,7 @@ it("keeps an edited Nuxt welcome page", async ({ expect, project, prismic, repo 
 
 	const { stdout, stderr, exitCode } = await prismic("gen", ["page", id]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("Merge this into app/pages/index.vue");
+	expect(stdout).toContain(`Merge this into ${["app", "pages", "index.vue"].join(sep)}`);
 
 	await expect(project).toHaveFile("app/pages/index.vue", { contains: "My site" });
 });

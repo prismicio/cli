@@ -130,7 +130,7 @@ it("keeps an edited Next.js starter page", async ({ expect, prismic, project }) 
 		"--single",
 	]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("Skipped app/page.tsx (already exists).");
+	expect(stdout).toContain(`Skipped ${["app", "page.tsx"].join(sep)} (already exists).`);
 
 	await expect(project).toHaveFile("app/page.tsx", { contains: "Welcome to" });
 });
