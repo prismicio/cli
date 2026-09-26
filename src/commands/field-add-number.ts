@@ -3,6 +3,7 @@ import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, parseNumber, TARGET_OPTIONS } from "../fields";
 import { createCommand, type CommandConfig } from "../lib/command";
+import { addField } from "../lib/prismic/models";
 
 const config = {
 	name: "prismic field add number",
@@ -45,7 +46,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		},
 	};
 
-	fields[fieldId] = field;
+	addField(fields, fieldId, field);
 	await save();
 
 	console.info(`Field added: ${id}`);
