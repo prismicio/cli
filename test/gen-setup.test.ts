@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 
 import { it } from "./it";
 
@@ -69,6 +69,36 @@ it("skips installation with --no-install", async ({ expect, project, prismic }) 
 
 	await expect(project).not.toHaveFile("package-lock.json");
 	await expect(project).toHaveFile("prismicio.js");
+});
+
+it("keeps existing dependency versions", async ({ expect, project, prismic }) => {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { next: "latest", "@prismicio/client": "^6.0.0" } }),
+	);
+
+	const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+
+	const { dependencies } = JSON.parse(await readFile(new URL("package.json", project), "utf8"));
+	expect(dependencies["@prismicio/client"]).toBe("^6.0.0");
+	expect(dependencies).toHaveProperty("@prismicio/next");
+});
+
+it("does not add dev dependencies to dependencies", async ({ expect, project, prismic }) => {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({
+			dependencies: { next: "latest" },
+			devDependencies: { "@prismicio/client": "^7.0.0" },
+		}),
+	);
+
+	const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+
+	const { dependencies } = JSON.parse(await readFile(new URL("package.json", project), "utf8"));
+	expect(dependencies).not.toHaveProperty("@prismicio/client");
 });
 
 async function useSvelteKit(project: URL, version = "5.0.0") {
