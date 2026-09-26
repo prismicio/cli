@@ -15,6 +15,24 @@ it.for(trials)(
 	},
 );
 
+it.for(trials)("initializes Prismic in a Nuxt project", async (_, { project, agent, expect }) => {
+	// There is no real nuxi, so the CLI asks the agent to register the module.
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ name: "my-site", dependencies: { nuxt: "latest" } }),
+	);
+	await rm(new URL("node_modules/next/", project), { recursive: true });
+	await rm(new URL("app/", project), { recursive: true });
+	await rm(new URL("prismic.config.json", project));
+	await writeFile(new URL("nuxt.config.ts", project), "export default defineNuxtConfig({});\n");
+
+	const result = await agent(`Set up Prismic in this Nuxt project.`);
+
+	expect(result).toHaveRun(["init"]);
+	const nuxtConfig = await readFile(new URL("nuxt.config.ts", project), "utf8");
+	expect(nuxtConfig).toContain("@nuxtjs/prismic");
+});
+
 it.for(trials)(
 	"adds Prismic to an existing Next.js app without clobbering it",
 	async (_, { project, agent, expect }) => {
