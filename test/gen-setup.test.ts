@@ -1,6 +1,6 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 
-import { it } from "./it";
+import { it, useSvelteKit } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--help"]);
@@ -71,18 +71,6 @@ it("skips installation with --no-install", async ({ expect, project, prismic }) 
 	await expect(project).toHaveFile("prismicio.js");
 });
 
-async function useSvelteKit(project: URL, version = "5.0.0") {
-	await writeFile(
-		new URL("package.json", project),
-		JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
-	);
-	await mkdir(new URL("node_modules/svelte/", project), { recursive: true });
-	await writeFile(
-		new URL("node_modules/svelte/package.json", project),
-		JSON.stringify({ version }),
-	);
-}
-
 it("prints instructions for adding the preview component", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 	expect(exitCode, stderr).toBe(0);
@@ -126,9 +114,117 @@ it(
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).not.toContain("add <PrismicPreview>");
-		await expect(project).toHaveFile("src/routes/+layout.svelte", {
-			contains: "<PrismicPreview {repositoryName} />",
-		});
+		const layout = await readFile(new URL("src/routes/+layout.svelte", project), "utf8");
+		expect(layout).toContain("const { data, children } = $props();");
+		expect(layout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(layout).not.toContain("$lib/prismicio");
+	},
+);
+
+it(
+	"passes the repository name to a Svelte 4 layout it generated itself",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "4.2.19");
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		const layout = await readFile(new URL("src/routes/+layout.svelte", project), "utf8");
+		expect(layout).toContain("export let data;");
+		expect(layout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(layout).not.toContain("$lib/prismicio");
+	},
+);
+
+it(
+	"returns the repository name from a SvelteKit server layout",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		const serverLayout = await readFile(new URL("src/routes/+layout.server.js", project), "utf8");
+		expect(serverLayout).toContain('import { repositoryName } from "$lib/prismicio";');
+		expect(serverLayout).toContain('export const prerender = "auto";');
+		expect(serverLayout).toContain("return { repositoryName };");
+	},
+);
+
+it(
+	"leaves the Vite config unchanged",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		const viteConfig =
+			'import { sveltekit } from "@sveltejs/kit/vite";\n' +
+			'import { defineConfig } from "vite";\n\n' +
+			"export default defineConfig({ plugins: [sveltekit()] });\n";
+		await writeFile(new URL("vite.config.js", project), viteConfig);
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(await readFile(new URL("vite.config.js", project), "utf8")).toBe(viteConfig);
+	},
+);
+
+it(
+	"asks for the repository name in an existing SvelteKit server layout",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
+		const serverLayout = 'export const load = () => ({ user: "x" });';
+		await writeFile(new URL("src/routes/+layout.server.js", project), serverLayout);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(await readFile(new URL("src/routes/+layout.server.js", project), "utf8")).toBe(
+			serverLayout,
+		);
+		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain(
+			'In src/routes/+layout.server.js, import repositoryName from "$lib/prismicio"',
+		);
+	},
+);
+
+it(
+	"asks for the repository name when it generates a layout next to an existing server layout",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(
+			new URL("src/routes/+layout.server.js", project),
+			'export const load = () => ({ user: "x" });',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("pass repositoryName to <PrismicPreview>");
+		expect(stdout).toContain("In src/routes/+layout.server.js");
+		expect(stdout).not.toContain("src/routes/+layout.svelte");
+	},
+);
+
+it(
+	"does not ask for the repository name in a server layout that already returns it",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
+		await writeFile(
+			new URL("src/routes/+layout.server.js", project),
+			'import { repositoryName } from "$lib/prismicio";\nexport const load = () => ({ repositoryName });',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).not.toContain("+layout.server");
 	},
 );
 
@@ -170,8 +266,10 @@ it(
 
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("+   export let data;");
 		expect(stdout).toContain("<slot />");
 		expect(stdout).not.toContain("{@render children()}");
+		expect(stdout).not.toContain("$props()");
 	},
 );
 
@@ -187,5 +285,9 @@ it(
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("src/routes/+layout.svelte");
 		expect(stdout).toContain('import { PrismicPreview } from "@prismicio/svelte/kit";');
+		expect(stdout).toContain("-   let { children } = $props();");
+		expect(stdout).toContain("+   let { data, children } = $props();");
+		expect(stdout).toContain("+ <PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain("prismic docs view sveltekit");
 	},
 );
