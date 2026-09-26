@@ -14,6 +14,12 @@ import { pageTemplate, sliceSimulatorPageTemplate, sliceTemplate } from "./nuxt.
 
 const NUXT_PRISMIC = "@nuxtjs/prismic";
 
+// app.vue from `nuxi init`, Nuxt 4 and Nuxt 3, with whitespace removed.
+const STARTER_APP_VUES = [
+	"<template><div><NuxtRouteAnnouncer/><NuxtWelcome/></div></template>",
+	"<template><div><NuxtWelcome/></div></template>",
+];
+
 export class NuxtAdapter extends Adapter {
 	readonly id = "nuxt";
 
@@ -35,11 +41,20 @@ export class NuxtAdapter extends Adapter {
 			new URL("slice-simulator.vue", await getPagesDir()),
 			sliceSimulatorPageTemplate({ typescript: await checkIsTypeScriptProject() }),
 		);
-		await moveOrDeleteAppVue();
+		await deleteStarterAppVue();
 		await this.modifySliceLibraryPath();
 	}
 
-	async getPreviewComponentInstructions(): Promise<undefined> {}
+	async getPreviewComponentInstructions(): Promise<string | undefined> {
+		const instructions: string[] = [];
+		const appVue = await readAppVue();
+		if (appVue !== undefined && !appVue.includes("<NuxtPage")) {
+			instructions.push(
+				"Action required: add <NuxtPage /> to app.vue so your pages render, including the slice simulator.",
+			);
+		}
+		return instructions.join("\n\n") || undefined;
+	}
 
 	async createSliceIndexFile(library: URL): Promise<void> {
 		const slices = (await this.getSlices()).filter((slice) => slice.library.href === library.href);
@@ -143,14 +158,17 @@ async function configureNuxtModule(): Promise<void> {
 	await writeFile(mod, filepath);
 }
 
-async function moveOrDeleteAppVue(): Promise<void> {
-	const srcDir = await getSrcDir();
-	const appVuePath = new URL("app.vue", srcDir);
-	if (!(await exists(appVuePath))) return;
+async function readAppVue(): Promise<string | undefined> {
+	try {
+		return await readFile(new URL("app.vue", await getSrcDir()), "utf8");
+	} catch {
+		return undefined;
+	}
+}
 
-	const contents = await readFile(appVuePath, "utf8");
-	if (!contents.includes("<NuxtWelcome")) return;
+async function deleteStarterAppVue(): Promise<void> {
+	const appVue = await readAppVue();
+	if (!STARTER_APP_VUES.includes(appVue?.replace(/\s/g, "") ?? "")) return;
 
-	await writeFileIfMissing(new URL("pages/index.vue", srcDir), contents);
-	await rm(appVuePath);
+	await rm(new URL("app.vue", await getSrcDir()));
 }

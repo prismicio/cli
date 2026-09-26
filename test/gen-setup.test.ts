@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 
 import { it } from "./it";
 
@@ -189,3 +189,67 @@ it(
 		expect(stdout).toContain('import { PrismicPreview } from "@prismicio/svelte/kit";');
 	},
 );
+
+const NUXT_STARTER_APP_VUE = `<template>
+  <div>
+    <NuxtRouteAnnouncer />
+    <NuxtWelcome />
+  </div>
+</template>
+`;
+
+async function useNuxt(project: URL, appVue: string) {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { nuxt: "latest" } }),
+	);
+	await mkdir(new URL("app/", project), { recursive: true });
+	await writeFile(new URL("app/app.vue", project), appVue);
+}
+
+it("deletes the Nuxt starter app.vue", async ({ expect, project, prismic }) => {
+	await useNuxt(project, NUXT_STARTER_APP_VUE);
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).not.toContain("<NuxtPage />");
+
+	await expect(project).not.toHaveFile("app/app.vue");
+	await expect(project).not.toHaveFile("app/pages/index.vue");
+});
+
+it("keeps a customized Nuxt app.vue", async ({ expect, project, prismic }) => {
+	const appVue = "<template>\n  <h1>My site</h1>\n  <NuxtWelcome />\n</template>\n";
+	await useNuxt(project, appVue);
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain("add <NuxtPage /> to app.vue");
+
+	expect(await readFile(new URL("app/app.vue", project), "utf8")).toBe(appVue);
+	await expect(project).not.toHaveFile("app/pages/index.vue");
+});
+
+it("keeps a Nuxt app.vue that renders pages", async ({ expect, project, prismic }) => {
+	await useNuxt(project, "<template><NuxtPage /></template>\n");
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).not.toContain("<NuxtPage />");
+
+	await expect(project).toHaveFile("app/app.vue");
+});
+
+it("keeps an existing Nuxt home page", async ({ expect, project, prismic }) => {
+	await useNuxt(project, NUXT_STARTER_APP_VUE);
+	await mkdir(new URL("app/pages/", project), { recursive: true });
+	await writeFile(new URL("app/pages/index.vue", project), "<template>Home</template>\n");
+
+	const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+
+	await expect(project).not.toHaveFile("app/app.vue");
+	expect(await readFile(new URL("app/pages/index.vue", project), "utf8")).toBe(
+		"<template>Home</template>\n",
+	);
+});
