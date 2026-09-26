@@ -1,11 +1,10 @@
 import { spawn } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import * as z from "zod/mini";
 
 import packageJson from "../../package.json" with { type: "json" };
+import { readJsonFile, writeFileRecursive } from "./file";
 import { stringify } from "./json";
 import { getNpmPackageVersion } from "./packageJson";
 
@@ -17,7 +16,7 @@ const UpdateNotifierStateSchema = z.looseObject({
 });
 type UpdateNotifierState = z.infer<typeof UpdateNotifierStateSchema>;
 
-export type UpdateNotifierOptions = {
+type UpdateNotifierOptions = {
 	npmPackageName: string;
 	statePath: URL;
 };
@@ -59,13 +58,7 @@ function shouldSkip(): boolean {
 }
 
 async function readState(statePath: URL): Promise<UpdateNotifierState | undefined> {
-	try {
-		const contents = await readFile(statePath, "utf-8");
-		const json = JSON.parse(contents);
-		return z.parse(UpdateNotifierStateSchema, json);
-	} catch {
-		return undefined;
-	}
+	return readJsonFile(statePath, { schema: UpdateNotifierStateSchema }).catch(() => undefined);
 }
 
 function isNewer(latest: string, current: string): boolean {
@@ -86,10 +79,8 @@ function isNewer(latest: string, current: string): boolean {
 
 export async function updateVersionState(npmPackageName: string, statePath: URL): Promise<void> {
 	const version = await getNpmPackageVersion(npmPackageName);
-	const filePath = fileURLToPath(statePath);
-	await mkdir(dirname(filePath), { recursive: true });
-	await writeFile(
-		filePath,
+	await writeFileRecursive(
+		statePath,
 		stringify({ latestKnownVersion: version, lastUpdateCheckAt: Date.now() }),
 	);
 }
