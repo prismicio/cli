@@ -10,6 +10,7 @@ export type CustomTypesConfig = {
 	repo: string;
 	token: string | undefined;
 	host: string;
+	releaseId?: string;
 };
 
 export function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
@@ -120,7 +121,9 @@ function customTypesServiceRequest<T>(
 	config: CustomTypesConfig,
 	options: RequestOptions<T> = {},
 ): Promise<T> {
-	return request(url, {
+	const scopedUrl = new URL(url);
+	if (config.releaseId) scopedUrl.searchParams.set("release", config.releaseId);
+	return request(scopedUrl, {
 		headers: {
 			repository: config.repo,
 			Authorization: `Bearer ${config.token}`,

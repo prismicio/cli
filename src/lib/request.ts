@@ -71,7 +71,7 @@ export async function request<T = unknown>(
 	}
 }
 
-class RequestError extends Error {
+export class RequestError extends Error {
 	response: Response;
 	body: unknown;
 
