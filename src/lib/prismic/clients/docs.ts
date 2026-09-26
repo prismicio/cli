@@ -28,16 +28,16 @@ const DocsPageSchema = z.object({
 });
 type DocsPage = z.infer<typeof DocsPageSchema>;
 
-export async function getDocsIndex(config?: DocsConfig): Promise<DocsIndexEntry[]> {
-	const url = new URL("api/index/", getDocsServiceUrl(config?.host));
+export async function getDocsIndex(config: DocsConfig): Promise<DocsIndexEntry[]> {
+	const url = new URL("api/index/", getDocsServiceUrl(config.host));
 	return request(url, {
 		schema: z.array(DocsIndexEntrySchema),
 		unknownErrorMessage: "Failed to fetch documentation index",
 	});
 }
 
-export async function getDocsPageIndex(path: string, config?: DocsConfig): Promise<DocsPage> {
-	const url = new URL(`api/index/${path}`, getDocsServiceUrl(config?.host));
+export async function getDocsPageIndex(path: string, config: DocsConfig): Promise<DocsPage> {
+	const url = new URL(`api/index/${path}`, getDocsServiceUrl(config.host));
 	return request(url, {
 		schema: DocsPageSchema,
 		notFoundMessage: `Documentation page not found: ${path}`,
@@ -45,10 +45,10 @@ export async function getDocsPageIndex(path: string, config?: DocsConfig): Promi
 	});
 }
 
-export async function getDocsPageContent(path: string, config?: DocsConfig): Promise<string> {
-	const url = new URL(path, getDocsServiceUrl(config?.host));
+export async function getDocsPageContent(path: string, config: DocsConfig): Promise<string> {
+	const url = new URL(path, getDocsServiceUrl(config.host));
 	return request(url, {
-		headers: { Accept: "text/markdown", ...config?.headers },
+		headers: { Accept: "text/markdown", ...config.headers },
 		schema: z.string(),
 		notFoundMessage: `Page not found: ${path}`,
 		unknownErrorMessage: "Failed to fetch documentation page",
