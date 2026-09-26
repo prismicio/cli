@@ -47,11 +47,13 @@ async function editPackageJson(edit: (packageJson: PackageJson) => void): Promis
 
 export async function addDependencies(dependencies: Record<string, string>): Promise<void> {
 	await editPackageJson((packageJson) => {
+		const missing = Object.entries(dependencies).filter(
+			([name]) => !packageJson.dependencies?.[name] && !packageJson.devDependencies?.[name],
+		);
 		packageJson.dependencies = Object.fromEntries(
-			Object.entries({
-				...packageJson.dependencies,
-				...dependencies,
-			}).sort(([a], [b]) => a.localeCompare(b)),
+			[...Object.entries(packageJson.dependencies ?? {}), ...missing].sort(([a], [b]) =>
+				a.localeCompare(b),
+			),
 		);
 	});
 }
