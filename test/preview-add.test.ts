@@ -1,6 +1,6 @@
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 
-import { it } from "./it";
+import { it, useSvelteKit } from "./it";
 import { getPreviews } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -58,4 +58,22 @@ it("skips the preview component instructions when the project renders it", async
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`Preview added: ${previewUrl}`);
 	expect(stdout).not.toContain("PrismicPreview");
+});
+
+it("asks for a SvelteKit server layout when the project has none", async ({
+	expect,
+	project,
+	prismic,
+}) => {
+	await useSvelteKit(project);
+	await mkdir(new URL("src/routes/", project), { recursive: true });
+	await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
+	const previewUrl = `https://test-${crypto.randomUUID()}.example.com/api/preview`;
+
+	const { stdout, stderr, exitCode } = await prismic("preview", ["add", previewUrl]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+	expect(stdout).toContain("Create src/routes/+layout.server.js with:");
+	expect(stdout).toContain('export const prerender = "auto";');
+	expect(stdout).toContain("return { repositoryName };");
 });
