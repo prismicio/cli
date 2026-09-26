@@ -22,9 +22,7 @@ export async function getUserEnvironments(config: {
 
 export class InvalidEnvironmentError extends Error {
 	name = "InvalidEnvironmentError";
-	repo: string;
-	env: string;
-	availableEnvironments: Environment[];
+
 	constructor(env: string, availableEnvironments: Environment[], repo: string) {
 		if (availableEnvironments.length === 1 && repo === availableEnvironments[0].domain) {
 			super(`No environments available on repository "${repo}".`);
@@ -37,9 +35,5 @@ export class InvalidEnvironmentError extends Error {
 				  ${list}
 			`);
 		}
-
-		this.repo = repo;
-		this.env = env;
-		this.availableEnvironments = availableEnvironments;
 	}
 }

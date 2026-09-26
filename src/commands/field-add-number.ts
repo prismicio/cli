@@ -1,8 +1,8 @@
 import type { NumberModel } from "@prismicio/types-internal";
 import { capitalCase } from "change-case";
 
-import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { getNewFieldTarget, parseNumber, TARGET_OPTIONS } from "../fields";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { addField } from "../lib/prismic/models";
 
 const config = {
@@ -51,12 +51,3 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	console.info(`Field added: ${id}`);
 });
-
-function parseNumber(value: string | undefined, optionName: string): number | undefined {
-	if (value === undefined) return undefined;
-	const number = Number(value);
-	if (Number.isNaN(number)) {
-		throw new CommandError(`--${optionName} must be a valid number, got "${value}"`);
-	}
-	return number;
-}

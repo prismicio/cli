@@ -41,30 +41,6 @@ export function getField(container: Fields, fieldId: string): DynamicWidgetModel
 	return field;
 }
 
-export function reorderField(
-	source: Fields,
-	fieldId: string,
-	target: Fields,
-	anchorId: string,
-	position: "before" | "after",
-): void {
-	const field = getField(source, fieldId);
-	getField(target, anchorId);
-
-	if (source !== target && fieldId in target) throw new FieldExistsError(fieldId);
-
-	const entries = Object.entries(target).filter(([id]) => source !== target || id !== fieldId);
-
-	delete source[fieldId];
-	for (const id of Object.keys(target)) delete target[id];
-
-	for (const [id, value] of entries) {
-		if (position === "before" && id === anchorId) target[fieldId] = field;
-		target[id] = value;
-		if (position === "after" && id === anchorId) target[fieldId] = field;
-	}
-}
-
 export function resolveContentRelationshipFieldSelection(
 	paths: string[],
 	targetTypeId: string,
@@ -175,7 +151,7 @@ export function resolveCustomTypeFieldContainer(
 		if (!tab) throw new TabNotFoundError(tabName, customType.id);
 	} else {
 		const [root] = path.split(".");
-		tab = Object.entries(customType.json).find(([name]) => root in customType.json[name])?.[1];
+		tab = Object.values(customType.json).find((fields) => root in fields);
 		if (!tab) throw new FieldNotFoundError(root);
 	}
 	return resolveNestedFieldContainer(path, tab);
@@ -301,44 +277,33 @@ function resolveNestedFieldContainer(
 	const [fieldId, ...remaining] = path.split(".");
 	if (remaining.length === 0) return { fields, fieldId };
 	const field = getField(fields, fieldId);
-	switch (field.type) {
-		case "Group": {
-			field.config ??= {};
-			field.config.fields ??= {};
-			return resolveNestedFieldContainer(remaining.join("."), field.config.fields);
-		}
-		default:
-			throw new UnsupportedNestedFieldError(fieldId);
-	}
+	if (field.type !== "Group") throw new UnsupportedNestedFieldError(fieldId);
+	field.config ??= {};
+	field.config.fields ??= {};
+	return resolveNestedFieldContainer(remaining.join("."), field.config.fields);
 }
 
 export class FieldExistsError extends Error {
 	name = "FieldExistsError";
-	id: string;
 
 	constructor(id: string) {
 		super(`Field "${id}" already exists.`);
-		this.id = id;
 	}
 }
 
 export class FieldNotFoundError extends Error {
 	name = "FieldNotFoundError";
-	id: string;
 
 	constructor(id: string) {
 		super(`Field "${id}" does not exist.`);
-		this.id = id;
 	}
 }
 
 export class UnsupportedNestedFieldError extends Error {
 	name = "UnsupportedNestedFieldError";
-	id: string;
 
 	constructor(id: string) {
 		super(`Field "${id}" does not support nested fields.`);
-		this.id = id;
 	}
 }
 
@@ -348,24 +313,16 @@ export class FieldSelectionError extends Error {
 
 export class TabNotFoundError extends Error {
 	name = "TabNotFoundError";
-	id: string;
-	customTypeId: string;
 
 	constructor(id: string, customTypeId: string) {
 		super(`Tab "${id}" does not exist on type "${customTypeId}".`);
-		this.id = id;
-		this.customTypeId = customTypeId;
 	}
 }
 
 export class SliceVariationNotFoundError extends Error {
 	name = "SliceVariationNotFoundError";
-	id: string;
-	sliceId: string;
 
 	constructor(id: string, sliceId: string) {
 		super(`Variation "${id}" does not exist on slice "${sliceId}".`);
-		this.id = id;
-		this.sliceId = sliceId;
 	}
 }
