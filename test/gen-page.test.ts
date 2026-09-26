@@ -87,3 +87,25 @@ it("uses the route from prismic.config.json", async ({ expect, project, prismic,
 		contains: `getByUID("${customType.id}"`,
 	});
 });
+
+it("warns when a SvelteKit page already serves the page's URL", async ({
+	expect,
+	prismic,
+	project,
+}) => {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
+	);
+	const customType = buildCustomType({ format: "page", repeatable: false });
+	await writeLocalCustomType(project, customType);
+	const directory = customType.id.replaceAll("_", "-").toLowerCase();
+	await mkdir(new URL(`src/routes/${directory}/`, project), { recursive: true });
+	await writeFile(new URL(`src/routes/${directory}/+page.svelte`, project), "<h1>My page</h1>");
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["page", customType.id]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(
+		`${["src", "routes", directory, "+page.svelte"].join(sep)} also serves /${directory}. Delete it to use the Prismic page.`,
+	);
+});
