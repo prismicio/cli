@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import { loadFile, writeFile } from "magicast";
 
-import { Adapter, getJsFileExtension, writeFileIfMissing } from ".";
+import { Adapter, getJsFileExtension, type PageFile, writeFileIfMissing } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
@@ -87,11 +87,16 @@ export class NuxtAdapter extends Adapter {
 		await writeFileRecursive(new URL("index.vue", directory), contents);
 	}
 
-	protected async createPageFile(model: DynamicCustomTypeModel, routePath: string): Promise<void> {
-		await writeFileIfMissing(
-			new URL(`${routePath || "index"}.vue`, await getPagesDir()),
-			pageTemplate({ model, typescript: await checkIsTypeScriptProject() }),
-		);
+	protected async getPageFiles(
+		model: DynamicCustomTypeModel,
+		routePath: string,
+	): Promise<PageFile[]> {
+		return [
+			{
+				path: new URL(`${routePath || "index"}.vue`, await getPagesDir()),
+				contents: pageTemplate({ model, typescript: await checkIsTypeScriptProject() }),
+			},
+		];
 	}
 
 	private async modifySliceLibraryPath(): Promise<void> {

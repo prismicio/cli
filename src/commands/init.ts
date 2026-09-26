@@ -250,7 +250,9 @@ export default createCommand(config, async ({ values }) => {
 		isExistingProjectHandoff &&
 		[diff.customTypes, diff.slices].some((ops) => ops.update.length > 0 || ops.delete.length > 0);
 
-	if (!hasStarterModelChanges) await adapter.writeModels(diff);
+	if (!hasStarterModelChanges) {
+		for (const notice of await adapter.writeModels(diff)) console.info(notice);
+	}
 
 	await adapter.generateTypes();
 

@@ -472,8 +472,11 @@ it(
 		await mkdir(new URL(".", pagePath), { recursive: true });
 		await writeFile(pagePath, originalContent);
 
-		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		const { stdout, stderr, exitCode } = await prismic("pull", ["--repo", repo]);
 		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(
+			`Skipped ${["app", expectedSegment, "page.jsx"].join(sep)} (already exists). Run \`prismic gen page ${customType.id}\` to get the code.`,
+		);
 
 		await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
 			contains: originalContent,

@@ -30,7 +30,7 @@ import {
 	type Models,
 	type ModelsDiff,
 } from "../lib/prismic/models";
-import { appendTrailingSlash } from "../lib/url";
+import { appendTrailingSlash, relativePathname } from "../lib/url";
 import {
 	addRoute,
 	buildRoutePath,
@@ -38,11 +38,13 @@ import {
 	findProjectRoot,
 	getLibraries,
 	getRepositoryName,
+	readConfig,
 	removeRoute,
 	updateRoute,
 } from "../project";
 
 type ModelMeta<T> = { model: T; modelPath: URL; directory: URL; library: URL };
+export type PageFile = { path: URL; contents: string };
 
 export const FRAMEWORKS = ["next", "nuxt", "sveltekit"];
 
@@ -129,10 +131,11 @@ export abstract class Adapter {
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	protected abstract getDefaultSliceLibrary(): Promise<URL>;
 	protected abstract createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void>;
-	protected abstract createPageFile(
+	protected findShadowingPage?(routePath: string): Promise<URL | undefined>;
+	protected abstract getPageFiles(
 		model: DynamicCustomTypeModel,
 		routePath: string,
-	): Promise<void>;
+	): Promise<PageFile[]>;
 
 	async initProject({ setup }: { setup: boolean }): Promise<void> {
 		for (const library of await this.getSliceLibraries()) {
@@ -199,21 +202,42 @@ export abstract class Adapter {
 		return customType;
 	}
 
-	async createCustomType(model: DynamicCustomTypeModel): Promise<void> {
+	// Returns a notice for each page file skipped because it already exists.
+	async createCustomType(model: DynamicCustomTypeModel): Promise<string[]> {
 		const [library] = await this.getCustomTypeLibraries();
 		const directory = appendTrailingSlash(new URL(model.id, appendTrailingSlash(library)));
 		await writeFileRecursive(
 			new URL("index.json", directory),
 			stringify(canonicalizeCustomType(model)),
 		);
-		if (model.format !== "page") return;
+		if (model.format !== "page") return [];
 		await addRoute(model);
-		const routePath = buildRoutePath(model)
-			.split("/")
-			.filter(Boolean)
-			.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
-			.join("/");
-		await this.createPageFile(model, routePath);
+		const projectRoot = await findProjectRoot();
+		const notices = (await this.writePageFiles(model)).map(
+			({ path }) =>
+				`Skipped ${relativePathname(projectRoot, path)} (already exists). Run \`prismic gen page ${model.id}\` to get the code.`,
+		);
+		const shadowingPageNotice = await this.getShadowingPageNotice(model);
+		return shadowingPageNotice ? [...notices, shadowingPageNotice] : notices;
+	}
+
+	// Returns a notice when a page the CLI did not generate serves the same URL and wins over it.
+	async getShadowingPageNotice(model: DynamicCustomTypeModel): Promise<string | undefined> {
+		const { route, routePath } = await getRoute(model);
+		const path = await this.findShadowingPage?.(routePath);
+		if (!path) return;
+		return `${relativePathname(await findProjectRoot(), path)} also serves ${route}. Delete it to use the Prismic page.`;
+	}
+
+	// Returns the files skipped because they already exist.
+	async writePageFiles(model: DynamicCustomTypeModel, { force = false } = {}): Promise<PageFile[]> {
+		const { routePath } = await getRoute(model);
+		const skipped: PageFile[] = [];
+		for (const file of await this.getPageFiles(model, routePath)) {
+			if (!force && (await exists(file.path))) skipped.push(file);
+			else await writeFileRecursive(file.path, file.contents);
+		}
+		return skipped;
 	}
 
 	async updateCustomType(model: DynamicCustomTypeModel): Promise<void> {
@@ -236,13 +260,17 @@ export abstract class Adapter {
 		};
 	}
 
-	async writeModels(diff: ModelsDiff): Promise<void> {
+	async writeModels(diff: ModelsDiff): Promise<string[]> {
 		for (const model of diff.slices.update) await this.updateSlice(model);
 		for (const model of diff.slices.delete) await this.deleteSlice(model.id);
 		for (const model of diff.slices.insert) await this.createSlice(model);
 		for (const model of diff.customTypes.update) await this.updateCustomType(model);
 		for (const model of diff.customTypes.delete) await this.deleteCustomType(model.id);
-		for (const model of diff.customTypes.insert) await this.createCustomType(model);
+		const notices = [];
+		for (const model of diff.customTypes.insert) {
+			notices.push(...(await this.createCustomType(model)));
+		}
+		return notices;
 	}
 
 	async generateTypes(): Promise<URL> {
@@ -277,6 +305,19 @@ export abstract class Adapter {
 	async unsetEnvironment(): Promise<void> {
 		await unsetEnvFileVar(await getEnvLocalPath(), this.environmentEnvVarName);
 	}
+}
+
+async function getRoute(
+	model: DynamicCustomTypeModel,
+): Promise<{ route: string; routePath: string }> {
+	const { routes = [] } = await readConfig();
+	const route = routes.find((r) => r.type === model.id)?.path ?? buildRoutePath(model);
+	const routePath = route
+		.split("/")
+		.filter(Boolean)
+		.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
+		.join("/");
+	return { route, routePath };
 }
 
 async function getEnvLocalPath(): Promise<URL> {

@@ -9,6 +9,7 @@ import {
 	checkSourceContains,
 	getInstalledMajor,
 	getJsFileExtension,
+	type PageFile,
 	writeFileIfMissing,
 } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
@@ -174,15 +175,22 @@ export class NextJsAdapter extends Adapter {
 		await writeFileRecursive(new URL(`index.${await getJsFileExtension()}x`, directory), contents);
 	}
 
-	protected async createPageFile(model: DynamicCustomTypeModel, routePath: string): Promise<void> {
+	protected async getPageFiles(
+		model: DynamicCustomTypeModel,
+		routePath: string,
+	): Promise<PageFile[]> {
 		const sourceRoot = await getSourceRoot();
 		const extension = `${await getJsFileExtension()}x`;
 		const appRouter = await checkUsesAppRouter();
-		const path = appRouter
-			? new URL(`app/${routePath}/page.${extension}`, sourceRoot)
-			: new URL(`pages/${routePath || "index"}.${extension}`, sourceRoot);
+		const basename = appRouter ? `app/${routePath}/page` : `pages/${routePath || "index"}`;
+		let path = new URL(`${basename}.${extension}`, sourceRoot);
+		// Next.js serves any of these as the same page, so an existing one is the page file.
+		for (const candidate of ["js", "jsx", "tsx"]) {
+			const candidatePath = new URL(`${basename}.${candidate}`, sourceRoot);
+			if (await exists(candidatePath)) path = candidatePath;
+		}
 		const typescript = await checkIsTypeScriptProject();
-		await writeFileIfMissing(path, pageTemplate({ model, routePath, typescript, appRouter }));
+		return [{ path, contents: pageTemplate({ model, routePath, typescript, appRouter }) }];
 	}
 }
 
