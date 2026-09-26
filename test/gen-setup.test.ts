@@ -207,11 +207,7 @@ async function useNuxt(project: URL, appVue: string) {
 	await writeFile(new URL("app/app.vue", project), appVue);
 }
 
-it("replaces the Nuxt starter app.vue with a welcome page", async ({
-	expect,
-	project,
-	prismic,
-}) => {
+it("deletes the Nuxt starter app.vue", async ({ expect, project, prismic }) => {
 	await useNuxt(project, NUXT_STARTER_APP_VUE);
 
 	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
@@ -219,9 +215,7 @@ it("replaces the Nuxt starter app.vue with a welcome page", async ({
 	expect(stdout).not.toContain("<NuxtPage />");
 
 	await expect(project).not.toHaveFile("app/app.vue");
-	expect(await readFile(new URL("app/pages/index.vue", project), "utf8")).toBe(
-		"<template><NuxtWelcome /></template>\n",
-	);
+	await expect(project).not.toHaveFile("app/pages/index.vue");
 });
 
 it("keeps a customized Nuxt app.vue", async ({ expect, project, prismic }) => {
