@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { sep } from "node:path";
 
 import { describe } from "vitest";
 
@@ -61,7 +62,7 @@ describe("with an isolated repository", () => {
 
 		await expect.poll(output, { timeout: 30_000 }).toContain("Initial sync complete.");
 		expect(output()).toContain(
-			`Skipped ${path} (already exists). Run \`prismic gen page ${customType.id}\` to get the code.`,
+			`Skipped ${path.replaceAll("/", sep)} (already exists). Run \`prismic gen page ${customType.id}\` to get the code.`,
 		);
 		await expect(project).toHaveFile(path, { contains: "// existing page" });
 	}, 60_000);

@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { sep } from "node:path";
 
 import { buildCustomType, it, writeLocalCustomType } from "./it";
 
@@ -33,7 +34,9 @@ it("prints the code for an existing page", async ({ expect, project, prismic }) 
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`getSingle("${customType.id}"`);
 	await expect(project).not.toHaveFile(`app/${customType.id.toLowerCase()}/page.jsx`);
-	expect(stdout).toContain(`Merge this into ${path}, or rerun with --force to replace it.`);
+	expect(stdout).toContain(
+		`Merge this into ${path.replaceAll("/", sep)}, or rerun with --force to replace it.`,
+	);
 
 	await expect(project).toHaveFile(path, { contains: "// existing page" });
 });

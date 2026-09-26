@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { sep } from "node:path";
 
 import { snakeCase } from "change-case";
 
@@ -82,7 +83,7 @@ it("keeps an existing page file", async ({ expect, prismic, project }) => {
 	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(
-		`Skipped ${path} (already exists). Run \`prismic gen page ${id}\` to get the code.`,
+		`Skipped ${path.replaceAll("/", sep)} (already exists). Run \`prismic gen page ${id}\` to get the code.`,
 	);
 
 	await expect(project).toHaveFile(path, { contains: "// existing page" });

@@ -475,7 +475,7 @@ it(
 		const { stdout, stderr, exitCode } = await prismic("pull", ["--repo", repo]);
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain(
-			`Skipped app/${expectedSegment}/page.jsx (already exists). Run \`prismic gen page ${customType.id}\` to get the code.`,
+			`Skipped ${["app", expectedSegment, "page.jsx"].join(sep)} (already exists). Run \`prismic gen page ${customType.id}\` to get the code.`,
 		);
 
 		await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
