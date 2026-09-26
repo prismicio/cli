@@ -129,17 +129,21 @@ export class SvelteKitAdapter extends Adapter {
 					+ <PrismicPreview repositoryName={data.repositoryName} />
 				`;
 
-		const serverLayoutStep = dedent`
-			In ${serverLayout}, import repositoryName from "$lib/prismicio" and add
-			it to the object that load returns:
+		const serverLayoutStep = serverLayout?.exists
+			? dedent`
+				In ${serverLayout.path}, import repositoryName from "$lib/prismicio" and add
+				it to the object that load returns:
 
-			+ import { repositoryName } from "$lib/prismicio";
+				+ import { repositoryName } from "$lib/prismicio";
 
-			  export function load() {
-			-   return { ... };
-			+   return { ..., repositoryName };
-			  }
-		`;
+				  export function load() {
+				-   return { ... };
+				+   return { ..., repositoryName };
+				  }
+			`
+			: `Create ${serverLayout?.path} with:\n\n${layoutServerTemplate({
+					typescript: await checkIsTypeScriptProject(),
+				}).replace(/^/gm, "  ")}`;
 
 		return [
 			dedent`
@@ -204,10 +208,15 @@ export class SvelteKitAdapter extends Adapter {
 	}
 }
 
-async function findServerLayoutMissingRepositoryName(): Promise<string | undefined> {
+async function findServerLayoutMissingRepositoryName(): Promise<
+	{ path: string; exists: boolean } | undefined
+> {
 	const projectRoot = await findProjectRoot();
 	for (const path of ["src/routes/+layout.server.ts", "src/routes/+layout.server.js"]) {
 		const contents = await readFile(new URL(path, projectRoot), "utf8").catch(() => undefined);
-		if (contents !== undefined) return contents.includes("repositoryName") ? undefined : path;
+		if (contents !== undefined) {
+			return contents.includes("repositoryName") ? undefined : { path, exists: true };
+		}
 	}
+	return { path: `src/routes/+layout.server.${await getJsFileExtension()}`, exists: false };
 }
