@@ -10,12 +10,7 @@ import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
 import { checkIsTypeScriptProject, findProjectRoot, readConfig, updateConfig } from "../project";
-import {
-	pageTemplate,
-	sliceSimulatorPageTemplate,
-	sliceTemplate,
-	welcomePageTemplate,
-} from "./nuxt.templates";
+import { pageTemplate, sliceSimulatorPageTemplate, sliceTemplate } from "./nuxt.templates";
 
 const NUXT_PRISMIC = "@nuxtjs/prismic";
 
@@ -175,7 +170,5 @@ async function deleteStarterAppVue(): Promise<void> {
 	const appVue = await readAppVue();
 	if (!STARTER_APP_VUES.includes(appVue?.replace(/\s/g, "") ?? "")) return;
 
-	const srcDir = await getSrcDir();
-	await writeFileIfMissing(new URL("pages/index.vue", srcDir), welcomePageTemplate);
-	await rm(new URL("app.vue", srcDir));
+	await rm(new URL("app.vue", await getSrcDir()));
 }
