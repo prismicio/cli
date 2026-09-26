@@ -1,5 +1,6 @@
 import { readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
@@ -30,7 +31,7 @@ import {
 	type Models,
 	type ModelsDiff,
 } from "../lib/prismic/models";
-import { appendTrailingSlash } from "../lib/url";
+import { appendTrailingSlash, relativePathname } from "../lib/url";
 import {
 	addRoute,
 	buildRoutePath,
@@ -68,6 +69,23 @@ export class NoSupportedFrameworkError extends Error {
 	name = "NoSupportedFrameworkError";
 	message =
 		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
+}
+
+export class ModelExistsError extends Error {
+	name = "ModelExistsError";
+}
+
+async function assertModelMissing(
+	kind: string,
+	id: string,
+	directory: URL,
+	models: ModelMeta<{ id: string }>[],
+): Promise<void> {
+	const existing = models.find((m) => m.model.id === id || m.directory.href === directory.href);
+	if (!existing && !(await exists(directory))) return;
+	const path = relativePathname(await findProjectRoot(), existing?.directory ?? directory);
+	const suffix = existing ? ` (id: ${existing.model.id})` : "";
+	throw new ModelExistsError(`A ${kind} already exists at ${path}${sep}${suffix}.`);
 }
 
 export async function getActiveRepositoryName(): Promise<string> {
@@ -168,6 +186,7 @@ export abstract class Adapter {
 		const directory = appendTrailingSlash(
 			new URL(pascalCase(model.name), appendTrailingSlash(library)),
 		);
+		await assertModelMissing("slice", model.id, directory, await this.getSlices());
 		await writeFileRecursive(new URL("model.json", directory), stringify(canonicalizeSlice(model)));
 		await this.createSliceIndexFile(library);
 		await this.createSliceComponent(model, directory);
@@ -202,6 +221,7 @@ export abstract class Adapter {
 	async createCustomType(model: DynamicCustomTypeModel): Promise<void> {
 		const [library] = await this.getCustomTypeLibraries();
 		const directory = appendTrailingSlash(new URL(model.id, appendTrailingSlash(library)));
+		await assertModelMissing("type", model.id, directory, await this.getCustomTypes());
 		await writeFileRecursive(
 			new URL("index.json", directory),
 			stringify(canonicalizeCustomType(model)),
