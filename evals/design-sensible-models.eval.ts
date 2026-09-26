@@ -1,5 +1,6 @@
-import dedent from "dedent";
 import { copyFile } from "node:fs/promises";
+
+import dedent from "dedent";
 
 import {
 	buildCustomType,

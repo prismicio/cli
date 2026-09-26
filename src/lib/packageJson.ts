@@ -1,6 +1,7 @@
-import detectIndent from "detect-indent";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+
+import detectIndent from "detect-indent";
 import { x } from "tinyexec";
 import { z } from "zod/mini";
 
@@ -33,46 +34,46 @@ export class MissingPackageJson extends Error {
 	message = "Could not find a package.json file.";
 }
 
-export async function addDependencies(dependencies: Record<string, string>): Promise<void> {
+// Rewrites package.json in place, keeping its indentation.
+async function editPackageJson(edit: (packageJson: PackageJson) => void): Promise<void> {
 	const packageJsonPath = await findPackageJson();
 	const raw = await readFile(packageJsonPath, "utf8");
 	const indent = detectIndent(raw).indent || "\t";
 	const packageJson = JSON.parse(raw);
-	packageJson.dependencies = Object.fromEntries(
-		Object.entries({
-			...packageJson.dependencies,
-			...dependencies,
-		}).sort(([a], [b]) => a.localeCompare(b)),
-	);
+	edit(packageJson);
 	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
 	await writeFile(packageJsonPath, newContents);
+}
+
+export async function addDependencies(dependencies: Record<string, string>): Promise<void> {
+	await editPackageJson((packageJson) => {
+		packageJson.dependencies = Object.fromEntries(
+			Object.entries({
+				...packageJson.dependencies,
+				...dependencies,
+			}).sort(([a], [b]) => a.localeCompare(b)),
+		);
+	});
 }
 
 export async function removeDependencies(names: string[]): Promise<void> {
-	const packageJsonPath = await findPackageJson();
-	const raw = await readFile(packageJsonPath, "utf8");
-	const indent = detectIndent(raw).indent || "\t";
-	const packageJson = JSON.parse(raw);
-	for (const section of ["dependencies", "devDependencies", "peerDependencies"]) {
-		if (!packageJson[section]) continue;
-		for (const name of names) delete packageJson[section][name];
-	}
-	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
-	await writeFile(packageJsonPath, newContents);
+	await editPackageJson((packageJson) => {
+		for (const section of ["dependencies", "devDependencies", "peerDependencies"] as const) {
+			const dependencies = packageJson[section];
+			if (!dependencies) continue;
+			for (const name of names) delete dependencies[name];
+		}
+	});
 }
 
 export async function updatePackageJsonName(name: string): Promise<void> {
-	const packageJsonPath = await findPackageJson();
-	const raw = await readFile(packageJsonPath, "utf8");
-	const indent = detectIndent(raw).indent || "\t";
-	const packageJson = JSON.parse(raw);
-	packageJson.name = name;
-	const newContents = JSON.stringify(packageJson, null, indent) + "\n";
-	await writeFile(packageJsonPath, newContents);
+	await editPackageJson((packageJson) => {
+		packageJson.name = name;
+	});
 }
 
-export async function getNpmPackageVersion(name: string, tag = "latest"): Promise<string> {
-	const url = new URL(`${name}/${tag}`, "https://registry.npmjs.org/");
+export async function getNpmPackageVersion(name: string): Promise<string> {
+	const url = new URL(`${name}/latest`, "https://registry.npmjs.org/");
 	const { version } = await request(url, {
 		schema: z.object({ version: z.string() }),
 	});

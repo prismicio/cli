@@ -1,4 +1,4 @@
-import type { DynamicSlices } from "@prismicio/types-internal/lib/customtypes";
+import type { DynamicSlicesModel } from "@prismicio/types-internal";
 
 import {
 	buildCustomType,
@@ -43,6 +43,6 @@ it("disconnects a slice from a type", async ({ expect, prismic, project }) => {
 	expect(stdout).toContain(`Disconnected slice "${slice.id}" from "${customType.id}"`);
 
 	const updated = await readLocalCustomType(project, customType.id);
-	const choices = (updated.json.Main.slices as DynamicSlices).config!.choices!;
+	const choices = (updated.json.Main.slices as DynamicSlicesModel).config!.choices!;
 	expect(choices[slice.id]).toBeUndefined();
 });

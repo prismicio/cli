@@ -1,14 +1,12 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
-import { readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { realpath, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
-import { env } from "./env";
-import { exists, findUpward } from "./lib/file";
+import { exists, findUpward, readJsonFile } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
-import { getRepository } from "./lib/prismic/clients/repository";
 import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
 
@@ -40,8 +38,7 @@ export async function createConfig(config: Config): Promise<URL> {
 export async function readConfig(): Promise<Config> {
 	const configPath = await findConfigPath();
 	try {
-		const raw = await readFile(configPath, "utf8");
-		return z.parse(ConfigSchema, JSON.parse(raw));
+		return await readJsonFile(configPath, { schema: ConfigSchema });
 	} catch {
 		throw new InvalidPrismicConfigError();
 	}
@@ -91,7 +88,7 @@ export class UnknownProjectRootError extends Error {
 	}
 }
 
-export async function addRoute(pageType: CustomType): Promise<void> {
+export async function addRoute(pageType: DynamicCustomTypeModel): Promise<void> {
 	const { routes = [] } = await readConfig();
 	const hasRoute = routes.some((r) => r.type === pageType.id);
 	if (hasRoute) return;
@@ -101,7 +98,7 @@ export async function addRoute(pageType: CustomType): Promise<void> {
 	await updateConfig({ routes: newRoutes });
 }
 
-export async function updateRoute(pageType: CustomType): Promise<void> {
+export async function updateRoute(pageType: DynamicCustomTypeModel): Promise<void> {
 	if (pageType.format === "page") {
 		await addRoute(pageType);
 	} else {
@@ -116,7 +113,7 @@ export async function removeRoute(id: string): Promise<void> {
 	await updateConfig({ routes: newRoutes });
 }
 
-export function buildRoutePath(pageType: CustomType): string {
+export function buildRoutePath(pageType: DynamicCustomTypeModel): string {
 	const { id, repeatable } = pageType;
 	const namespace = id.replaceAll("_", "-").toLowerCase();
 	if (repeatable) {
@@ -134,13 +131,12 @@ const LegacySliceMachineConfigSchema = z.object({
 	repositoryName: z.string(),
 	libraries: z.optional(z.array(z.string())),
 });
-export type LegacySliceMachineConfig = z.infer<typeof LegacySliceMachineConfigSchema>;
+type LegacySliceMachineConfig = z.infer<typeof LegacySliceMachineConfigSchema>;
 
 export async function readLegacySliceMachineConfig(): Promise<LegacySliceMachineConfig> {
 	const configPath = await findLegacySliceMachineConfigPath();
 	try {
-		const raw = await readFile(configPath, "utf8");
-		return z.parse(LegacySliceMachineConfigSchema, JSON.parse(raw));
+		return await readJsonFile(configPath, { schema: LegacySliceMachineConfigSchema });
 	} catch {
 		throw new InvalidLegacySliceMachineConfigError();
 	}
@@ -184,14 +180,6 @@ export async function findProjectRoot(): Promise<URL> {
 	return appendTrailingSlash(pathToFileURL(await realpath(fileURLToPath(projectRoot))));
 }
 
-export async function safeGetRepositoryName(): Promise<string | undefined> {
-	try {
-		return await getRepositoryName();
-	} catch {
-		return undefined;
-	}
-}
-
 export async function getRepositoryName(): Promise<string> {
 	try {
 		const config = await readConfig();
@@ -221,17 +209,6 @@ export async function getLibraries(): Promise<URL[] | undefined> {
 export async function checkIsTypeScriptProject(): Promise<boolean> {
 	const projectRoot = await findProjectRoot();
 	return exists(new URL("tsconfig.json", projectRoot));
-}
-
-export async function checkIsTypeBuilderEnabled(
-	repo: string,
-	config: { token: string | undefined; host: string },
-): Promise<boolean> {
-	if (env.PRISMIC_TYPE_BUILDER_ENABLED !== undefined) return env.PRISMIC_TYPE_BUILDER_ENABLED;
-
-	const { token, host } = config;
-	const repository = await getRepository({ repo, token, host });
-	return repository.quotas?.sliceMachineEnabled === true;
 }
 
 export class TypeBuilderRequiredError extends Error {

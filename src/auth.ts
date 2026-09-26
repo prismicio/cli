@@ -3,11 +3,12 @@ import { readFile, rm } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir } from "node:os";
 import { fileURLToPath, pathToFileURL } from "node:url";
+
 import * as z from "zod/mini";
 
 import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
-import { exists, writeFileRecursive } from "./lib/file";
+import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { refreshToken as baseRefreshToken } from "./lib/prismic/clients/auth";
 import { appendTrailingSlash } from "./lib/url";
@@ -54,21 +55,15 @@ export async function logout(): Promise<boolean> {
 }
 
 async function readCredentials(): Promise<Credentials | undefined> {
-	try {
-		const contents = await readFile(CREDENTIALS_PATH, "utf-8");
-		const json = JSON.parse(contents);
-		return z.parse(CredentialsSchema, json);
-	} catch {
-		return undefined;
-	}
+	return readJsonFile(CREDENTIALS_PATH, { schema: CredentialsSchema }).catch(() => undefined);
 }
 
 async function saveCredentials(credentials: Credentials): Promise<void> {
 	await writeFileRecursive(CREDENTIALS_PATH, stringify(credentials));
 }
 
-export async function createLoginSession(options?: {
-	onReady?: (url: URL) => void;
+export async function createLoginSession(options: {
+	onReady: (url: URL) => void;
 }): Promise<{ email: string }> {
 	const { host } = await getCredentials();
 	const corsOrigin = `https://${host}`;
@@ -86,6 +81,14 @@ export async function createLoginSession(options?: {
 			}
 
 			if (req.method === "POST") {
+				const respond = (status: number, body: unknown): void => {
+					res.writeHead(status, {
+						"Access-Control-Allow-Origin": corsOrigin,
+						"Content-Type": "application/json",
+					});
+					res.end(JSON.stringify(body));
+				};
+
 				let body = "";
 
 				req.on("data", (chunk) => {
@@ -102,32 +105,20 @@ export async function createLoginSession(options?: {
 						const token = cookie?.split(";")[0]?.replace(/^prismic-auth=/, "");
 
 						if (!token) {
-							res.writeHead(400, {
-								"Access-Control-Allow-Origin": corsOrigin,
-								"Content-Type": "application/json",
-							});
-							res.end(JSON.stringify({ error: "Invalid request" }));
+							respond(400, { error: "Invalid request" });
 							return;
 						}
 
 						await saveCredentials({ token, host });
 						await forgetTrackedUser();
 
-						res.writeHead(200, {
-							"Access-Control-Allow-Origin": corsOrigin,
-							"Content-Type": "application/json",
-						});
-						res.end(JSON.stringify({ success: true }));
+						respond(200, { success: true });
 
 						clearTimeout(timeoutId);
 						server.close();
 						resolve({ email });
 					} catch {
-						res.writeHead(400, {
-							"Access-Control-Allow-Origin": corsOrigin,
-							"Content-Type": "application/json",
-						});
-						res.end(JSON.stringify({ error: "Invalid request" }));
+						respond(400, { error: "Invalid request" });
 					}
 				});
 
@@ -153,7 +144,7 @@ export async function createLoginSession(options?: {
 			}
 
 			const url = await buildLoginUrl(host, address.port);
-			options?.onReady?.(url);
+			options.onReady(url);
 		};
 
 		server.on("error", (error: NodeJS.ErrnoException) => {

@@ -1,9 +1,8 @@
-import type { DynamicWidget } from "@prismicio/types-internal/lib/customtypes";
-
-import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
+import type { DynamicWidgetModel } from "@prismicio/types-internal";
 
 import { getAdapter } from "./adapters";
-import { exactlyOneOption, type CommandConfig } from "./lib/command";
+import { CommandError, exactlyOneOption, type CommandConfig } from "./lib/command";
+import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
 import {
 	FieldExistsError,
 	FieldNotFoundError,
@@ -11,6 +10,7 @@ import {
 	resolveContentRelationshipFieldSelection,
 	resolveSliceFieldContainer,
 } from "./lib/prismic/models";
+import { formatTable } from "./lib/string";
 
 export const TARGET_OPTIONS = {
 	"to-slice": {
@@ -50,7 +50,7 @@ export const SOURCE_OPTIONS = {
 } satisfies CommandConfig["options"];
 
 type ResolvedFieldTarget = {
-	fields: Record<string, DynamicWidget>;
+	fields: Record<string, DynamicWidgetModel>;
 	fieldId: string;
 	save: () => Promise<void>;
 };
@@ -127,7 +127,7 @@ export async function getExistingField(
 		"from-type"?: string;
 		variation?: string;
 	},
-): Promise<ResolvedFieldTarget & { field: DynamicWidget }> {
+): Promise<ResolvedFieldTarget & { field: DynamicWidgetModel }> {
 	const { variation = "default" } = values;
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const target =
@@ -187,4 +187,28 @@ async function getCustomTypeFieldTarget(
 			await adapter.generateTypes();
 		},
 	};
+}
+
+export function parseNumber(value: string | undefined, optionName: string): number | undefined {
+	if (value === undefined) return undefined;
+	const number = Number(value);
+	if (Number.isNaN(number)) {
+		throw new CommandError(`--${optionName} must be a valid number, got "${value}"`);
+	}
+	return number;
+}
+
+export function formatFieldTable(fields: Record<string, DynamicWidgetModel>): string {
+	const entries = Object.entries(fields);
+	if (entries.length === 0) {
+		return "  (no fields)";
+	}
+
+	const rows = entries.map(([id, field]) => {
+		const config = field.config as Record<string, unknown> | undefined;
+		const label = (config?.label as string) || "";
+		const placeholder = config?.placeholder ? `"${config.placeholder}"` : "";
+		return [`  ${id}`, field.type, label, placeholder];
+	});
+	return formatTable(rows);
 }

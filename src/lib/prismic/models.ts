@@ -1,10 +1,10 @@
 import type {
-	CustomType,
-	DynamicSlices,
-	DynamicWidget,
-	Link,
-	SharedSlice,
-} from "@prismicio/types-internal/lib/customtypes";
+	DynamicCustomTypeModel,
+	DynamicSlicesModel,
+	DynamicWidgetModel,
+	LinkModel,
+	SharedSliceModel,
+} from "@prismicio/types-internal";
 
 import { type ArrayDiff, diffArrays } from "../diff";
 import {
@@ -15,10 +15,13 @@ import {
 	getSlices,
 } from "./clients/custom-types";
 
-type Fields = Record<string, DynamicWidget>;
+type Fields = Record<string, DynamicWidgetModel>;
 
-export type Models = { customTypes: CustomType[]; slices: SharedSlice[] };
-export type ModelsDiff = { customTypes: ArrayDiff<CustomType>; slices: ArrayDiff<SharedSlice> };
+export type Models = { customTypes: DynamicCustomTypeModel[]; slices: SharedSliceModel[] };
+export type ModelsDiff = {
+	customTypes: ArrayDiff<DynamicCustomTypeModel>;
+	slices: ArrayDiff<SharedSliceModel>;
+};
 
 export type ContentRelationshipFieldSelection =
 	| string
@@ -33,45 +36,21 @@ export type ContentRelationshipFieldSelection =
 
 const UNFETCHABLE_FIELD_TYPES = ["Slices", "UID", "Choice"];
 
-export function addField(container: Fields, fieldId: string, field: DynamicWidget): void {
+export function addField(container: Fields, fieldId: string, field: DynamicWidgetModel): void {
 	if (fieldId in container) throw new FieldExistsError(fieldId);
 	container[fieldId] = field;
 }
 
-export function getField(container: Fields, fieldId: string): DynamicWidget {
+export function getField(container: Fields, fieldId: string): DynamicWidgetModel {
 	const field = container[fieldId];
 	if (!field) throw new FieldNotFoundError(fieldId);
 	return field;
 }
 
-export function reorderField(
-	source: Fields,
-	fieldId: string,
-	target: Fields,
-	anchorId: string,
-	position: "before" | "after",
-): void {
-	const field = getField(source, fieldId);
-	getField(target, anchorId);
-
-	if (source !== target && fieldId in target) throw new FieldExistsError(fieldId);
-
-	const entries = Object.entries(target).filter(([id]) => source !== target || id !== fieldId);
-
-	delete source[fieldId];
-	for (const id of Object.keys(target)) delete target[id];
-
-	for (const [id, value] of entries) {
-		if (position === "before" && id === anchorId) target[fieldId] = field;
-		target[id] = value;
-		if (position === "after" && id === anchorId) target[fieldId] = field;
-	}
-}
-
 export function resolveContentRelationshipFieldSelection(
 	paths: string[],
 	targetTypeId: string,
-	customTypes: CustomType[],
+	customTypes: DynamicCustomTypeModel[],
 ): ContentRelationshipFieldSelection[] {
 	const customTypesById = new Map(customTypes.map((customType) => [customType.id, customType]));
 	const targetType = customTypesById.get(targetTypeId);
@@ -133,7 +112,7 @@ export function resolveContentRelationshipFieldSelection(
 					throw new FieldSelectionError("Content relationships cannot be nested more than once.");
 				}
 
-				const configuredTypes = (field as Link).config?.customtypes;
+				const configuredTypes = (field as LinkModel).config?.customtypes;
 				if (!configuredTypes || configuredTypes.length !== 1) {
 					throw new FieldSelectionError(
 						`Field "${id}" must target exactly one custom type to select its fields.`,
@@ -169,7 +148,7 @@ export function resolveContentRelationshipFieldSelection(
 
 export function resolveCustomTypeFieldContainer(
 	path: string,
-	customType: CustomType,
+	customType: DynamicCustomTypeModel,
 	tabName?: string,
 ): { fields: Fields; fieldId: string } {
 	let tab;
@@ -178,7 +157,7 @@ export function resolveCustomTypeFieldContainer(
 		if (!tab) throw new TabNotFoundError(tabName, customType.id);
 	} else {
 		const [root] = path.split(".");
-		tab = Object.entries(customType.json).find(([name]) => root in customType.json[name])?.[1];
+		tab = Object.values(customType.json).find((fields) => root in fields);
 		if (!tab) throw new FieldNotFoundError(root);
 	}
 	return resolveNestedFieldContainer(path, tab);
@@ -186,7 +165,7 @@ export function resolveCustomTypeFieldContainer(
 
 export function resolveSliceFieldContainer(
 	path: string,
-	slice: SharedSlice,
+	slice: SharedSliceModel,
 	variationId: string,
 ): { fields: Fields; fieldId: string } {
 	const variation = slice.variations.find((variation) => variation.id === variationId);
@@ -242,7 +221,7 @@ export function diffModels(
 	};
 }
 
-export function canonicalizeCustomType(model: CustomType): CustomType {
+export function canonicalizeCustomType(model: DynamicCustomTypeModel): DynamicCustomTypeModel {
 	return {
 		...sortKeys(model),
 		json: Object.fromEntries(
@@ -251,7 +230,7 @@ export function canonicalizeCustomType(model: CustomType): CustomType {
 	};
 }
 
-export function canonicalizeSlice(model: SharedSlice): SharedSlice {
+export function canonicalizeSlice(model: SharedSliceModel): SharedSliceModel {
 	return {
 		...sortKeys(model),
 		variations: model.variations.map((variation) => {
@@ -263,7 +242,9 @@ export function canonicalizeSlice(model: SharedSlice): SharedSlice {
 	};
 }
 
-function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>): Record<string, F> {
+function canonicalizeFields<F extends DynamicWidgetModel>(
+	fields: Record<string, F>,
+): Record<string, F> {
 	return Object.fromEntries(
 		Object.entries(fields).map(([id, field]) => {
 			const sorted = sortKeys(field);
@@ -288,7 +269,7 @@ function canonicalizeFields<F extends DynamicWidget>(fields: Record<string, F>):
 	);
 }
 
-type Choices = NonNullable<NonNullable<DynamicSlices["config"]>["choices"]>;
+type Choices = NonNullable<NonNullable<DynamicSlicesModel["config"]>["choices"]>;
 
 // Entry order of a slice zone's choices is its slice order, and legacy slices
 // hold field maps of their own.
@@ -322,44 +303,33 @@ function resolveNestedFieldContainer(
 	const [fieldId, ...remaining] = path.split(".");
 	if (remaining.length === 0) return { fields, fieldId };
 	const field = getField(fields, fieldId);
-	switch (field.type) {
-		case "Group": {
-			field.config ??= {};
-			field.config.fields ??= {};
-			return resolveNestedFieldContainer(remaining.join("."), field.config.fields);
-		}
-		default:
-			throw new UnsupportedNestedFieldError(fieldId);
-	}
+	if (field.type !== "Group") throw new UnsupportedNestedFieldError(fieldId);
+	field.config ??= {};
+	field.config.fields ??= {};
+	return resolveNestedFieldContainer(remaining.join("."), field.config.fields);
 }
 
 export class FieldExistsError extends Error {
 	name = "FieldExistsError";
-	id: string;
 
 	constructor(id: string) {
 		super(`Field "${id}" already exists.`);
-		this.id = id;
 	}
 }
 
 export class FieldNotFoundError extends Error {
 	name = "FieldNotFoundError";
-	id: string;
 
 	constructor(id: string) {
 		super(`Field "${id}" does not exist.`);
-		this.id = id;
 	}
 }
 
 export class UnsupportedNestedFieldError extends Error {
 	name = "UnsupportedNestedFieldError";
-	id: string;
 
 	constructor(id: string) {
 		super(`Field "${id}" does not support nested fields.`);
-		this.id = id;
 	}
 }
 
@@ -369,24 +339,16 @@ export class FieldSelectionError extends Error {
 
 export class TabNotFoundError extends Error {
 	name = "TabNotFoundError";
-	id: string;
-	customTypeId: string;
 
 	constructor(id: string, customTypeId: string) {
 		super(`Tab "${id}" does not exist on type "${customTypeId}".`);
-		this.id = id;
-		this.customTypeId = customTypeId;
 	}
 }
 
 export class SliceVariationNotFoundError extends Error {
 	name = "SliceVariationNotFoundError";
-	id: string;
-	sliceId: string;
 
 	constructor(id: string, sliceId: string) {
 		super(`Variation "${id}" does not exist on slice "${sliceId}".`);
-		this.id = id;
-		this.sliceId = sliceId;
 	}
 }

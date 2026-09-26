@@ -44,7 +44,7 @@ import {
 	InvalidLegacySliceMachineConfigError,
 	InvalidPrismicConfigError,
 	MissingPrismicConfigError,
-	safeGetRepositoryName,
+	getRepositoryName,
 	TypeBuilderRequiredError,
 	UnknownProjectRootError,
 } from "./project";
@@ -98,7 +98,7 @@ async function main(): Promise<void> {
 		values: {
 			version,
 			help,
-			repo: repoValue = await safeGetRepositoryName(),
+			repo: repoValue = await getRepositoryName().catch(() => undefined),
 			"analytics-intent": legacyIntentValue,
 			"analytics-task-id": legacyTaskIdValue,
 			"user-intent": intentValue = legacyIntentValue,

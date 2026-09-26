@@ -1,4 +1,4 @@
-import type { CustomType, SharedSlice } from "@prismicio/types-internal/lib/customtypes";
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 
 const DEFAULT_HOST = "prismic.io";
 
@@ -75,7 +75,7 @@ export async function deleteRepository(
 	}
 }
 
-export async function getCustomTypes(config: ReleaseConfig): Promise<CustomType[]> {
+export async function getCustomTypes(config: ReleaseConfig): Promise<DynamicCustomTypeModel[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("customtypes", `https://customtypes.${host}/`);
 	if (config.releaseId) url.searchParams.set("release", config.releaseId);
@@ -152,7 +152,7 @@ export async function createDocument(customTypeId: string, config: RepoConfig): 
 	if (!res.ok) throw new Error(`Failed to create document: ${res.status} ${await res.text()}`);
 }
 
-export async function getSlices(config: ReleaseConfig): Promise<SharedSlice[]> {
+export async function getSlices(config: ReleaseConfig): Promise<SharedSliceModel[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("slices", `https://customtypes.${host}/`);
 	if (config.releaseId) url.searchParams.set("release", config.releaseId);

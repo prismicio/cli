@@ -20,13 +20,17 @@ it("deletes an access token", async ({ expect, prismic, repo, token, host }) => 
 });
 
 // Wroom 500s under concurrent same-user write-token creates; keep this sequential.
-it.sequential("deletes a write token", async ({ expect, prismic, repo, token, host }) => {
-	const created = await createWriteToken({ repo, token, host });
+it(
+	"deletes a write token",
+	{ concurrent: false },
+	async ({ expect, prismic, repo, token, host }) => {
+		const created = await createWriteToken({ repo, token, host });
 
-	const { stdout, stderr, exitCode } = await prismic("token", ["delete", created.token]);
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("Token deleted");
+		const { stdout, stderr, exitCode } = await prismic("token", ["delete", created.token]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("Token deleted");
 
-	const writeTokensInfo = await getWriteTokens({ repo, token, host });
-	expect(writeTokensInfo.tokens.find((t) => t.token === created.token)).toBeUndefined();
-});
+		const writeTokensInfo = await getWriteTokens({ repo, token, host });
+		expect(writeTokensInfo.tokens.find((t) => t.token === created.token)).toBeUndefined();
+	},
+);

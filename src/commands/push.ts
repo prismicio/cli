@@ -1,5 +1,4 @@
-import type { CustomType } from "@prismicio/types-internal/lib/customtypes";
-
+import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import { pascalCase } from "change-case";
 import * as z from "zod/mini";
 
@@ -162,7 +161,7 @@ const ExistingDocumentsErrorSchema = z.object({ hasExistingDocuments: z.literal(
 
 async function explainExistingDocuments(
 	error: unknown,
-	deletedCustomTypes: CustomType[],
+	deletedCustomTypes: DynamicCustomTypeModel[],
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<unknown> {
 	if (!(error instanceof ForbiddenRequestError)) return error;
