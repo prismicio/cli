@@ -24,13 +24,15 @@ it("writes a missing page", async ({ expect, project, prismic }) => {
 it("prints the code for an existing page", async ({ expect, project, prismic }) => {
 	const customType = buildCustomType({ format: "page", repeatable: false });
 	await writeLocalCustomType(project, customType);
-	const path = `app/${customType.id.toLowerCase()}/page.jsx`;
+	// create-next-app names JavaScript pages page.js, while the CLI writes page.jsx.
+	const path = `app/${customType.id.toLowerCase()}/page.js`;
 	await mkdir(new URL(".", new URL(path, project)), { recursive: true });
 	await writeFile(new URL(path, project), "// existing page");
 
 	const { stdout, stderr, exitCode } = await prismic("gen", ["page", customType.id]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`getSingle("${customType.id}"`);
+	await expect(project).not.toHaveFile(`app/${customType.id.toLowerCase()}/page.jsx`);
 	expect(stdout).toContain(`Merge this into ${path}, or rerun with --force to replace it.`);
 
 	await expect(project).toHaveFile(path, { contains: "// existing page" });

@@ -182,9 +182,13 @@ export class NextJsAdapter extends Adapter {
 		const sourceRoot = await getSourceRoot();
 		const extension = `${await getJsFileExtension()}x`;
 		const appRouter = await checkUsesAppRouter();
-		const path = appRouter
-			? new URL(`app/${routePath}/page.${extension}`, sourceRoot)
-			: new URL(`pages/${routePath || "index"}.${extension}`, sourceRoot);
+		const basename = appRouter ? `app/${routePath}/page` : `pages/${routePath || "index"}`;
+		let path = new URL(`${basename}.${extension}`, sourceRoot);
+		// Next.js serves any of these as the same page, so an existing one is the page file.
+		for (const candidate of ["js", "jsx", "tsx"]) {
+			const candidatePath = new URL(`${basename}.${candidate}`, sourceRoot);
+			if (await exists(candidatePath)) path = candidatePath;
+		}
 		const typescript = await checkIsTypeScriptProject();
 		return [{ path, contents: pageTemplate({ model, routePath, typescript, appRouter }) }];
 	}
