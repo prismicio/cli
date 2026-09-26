@@ -44,18 +44,7 @@ export async function createWebhook(
 	webhookConfig: Omit<Webhook["config"], "_id" | "active" | "headers">,
 	config: WroomConfig,
 ): Promise<void> {
-	const body = new FormData();
-	body.set("url", webhookConfig.url);
-	body.set("name", webhookConfig.name ?? "");
-	body.set("secret", webhookConfig.secret ?? "");
-	body.set("headers", JSON.stringify({}));
-	body.set("active", "on");
-	body.set("documentsPublished", webhookConfig.documentsPublished.toString());
-	body.set("documentsUnpublished", webhookConfig.documentsUnpublished.toString());
-	body.set("releasesCreated", webhookConfig.releasesCreated.toString());
-	body.set("releasesUpdated", webhookConfig.releasesUpdated.toString());
-	body.set("tagsCreated", webhookConfig.tagsCreated.toString());
-	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
+	const body = toWebhookFormData({ ...webhookConfig, active: true, headers: {} });
 	const { repo, host } = config;
 	const url = new URL("app/settings/webhooks/create", getWroomRepoServiceUrl(repo, host));
 	await wroomRepoServiceRequest(url, config, {
@@ -70,18 +59,7 @@ export async function updateWebhook(
 	webhookConfig: Omit<Webhook["config"], "_id">,
 	config: WroomConfig,
 ): Promise<void> {
-	const body = new FormData();
-	body.set("url", webhookConfig.url);
-	body.set("name", webhookConfig.name ?? "");
-	body.set("secret", webhookConfig.secret ?? "");
-	body.set("headers", JSON.stringify(webhookConfig.headers ?? {}));
-	body.set("active", webhookConfig.active ? "on" : "off");
-	body.set("documentsPublished", webhookConfig.documentsPublished.toString());
-	body.set("documentsUnpublished", webhookConfig.documentsUnpublished.toString());
-	body.set("releasesCreated", webhookConfig.releasesCreated.toString());
-	body.set("releasesUpdated", webhookConfig.releasesUpdated.toString());
-	body.set("tagsCreated", webhookConfig.tagsCreated.toString());
-	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
+	const body = toWebhookFormData(webhookConfig);
 	const { repo, host } = config;
 	const url = new URL(
 		`app/settings/webhooks/${encodeURIComponent(id)}`,
@@ -106,6 +84,22 @@ export async function deleteWebhook(id: string, config: WroomConfig): Promise<vo
 		notFoundMessage: `Webhook not found: ${id}`,
 		unknownErrorMessage: "Failed to delete webhook",
 	});
+}
+
+function toWebhookFormData(webhookConfig: Omit<Webhook["config"], "_id">): FormData {
+	const body = new FormData();
+	body.set("url", webhookConfig.url);
+	body.set("name", webhookConfig.name ?? "");
+	body.set("secret", webhookConfig.secret ?? "");
+	body.set("headers", JSON.stringify(webhookConfig.headers ?? {}));
+	body.set("active", webhookConfig.active ? "on" : "off");
+	body.set("documentsPublished", webhookConfig.documentsPublished.toString());
+	body.set("documentsUnpublished", webhookConfig.documentsUnpublished.toString());
+	body.set("releasesCreated", webhookConfig.releasesCreated.toString());
+	body.set("releasesUpdated", webhookConfig.releasesUpdated.toString());
+	body.set("tagsCreated", webhookConfig.tagsCreated.toString());
+	body.set("tagsDeleted", webhookConfig.tagsDeleted.toString());
+	return body;
 }
 
 const AccessTokenSchema = z.object({
