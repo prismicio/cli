@@ -32,8 +32,9 @@ it.for(trials)(
 	async (_, { project, agent, expect }) => {
 		await writeFile(new URL("app/page.js", project), NEXT_STARTER_PAGE);
 
-		await agent(`Create a home page type for this website's home page at /.`);
+		const result = await agent(`Create a home page type for this website's home page at /.`);
 
+		expect(result).toHaveRun(["gen", "page"]);
 		const page = await readPages(new URL("app/", project));
 		expect(page).toContain("SliceZone");
 		expect(page).not.toContain("To get started");
