@@ -108,3 +108,5 @@ export function sliceSimulatorPageTemplate({ typescript }: { typescript: boolean
 		</template>
 	`;
 }
+
+export const welcomePageTemplate = "<template><NuxtWelcome /></template>\n";
