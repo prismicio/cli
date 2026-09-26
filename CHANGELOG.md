@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.20.1](https://github.com/prismicio/cli/compare/v1.20.0...v1.20.1) (2026-09-26)
+
+
+### Bug Fixes
+
+* **deps:** override uuid to 14.0.2 ([#355](https://github.com/prismicio/cli/issues/355)) ([cfe6e2a](https://github.com/prismicio/cli/commit/cfe6e2a13f57f709d0eee70697a6461cb0ec6b44))
+* **deps:** update fast-uri to 3.1.8 ([#338](https://github.com/prismicio/cli/issues/338)) ([2290aef](https://github.com/prismicio/cli/commit/2290aef54d9e6cac6676fb2c1a0adeaeacb3fa54))
+* **deps:** update hono to 4.13.9 ([#337](https://github.com/prismicio/cli/issues/337)) ([3076b19](https://github.com/prismicio/cli/commit/3076b19c8f92c909e6b427c0a99ba52892e4044f))
+* **deps:** update joi to 17.13.8 ([#339](https://github.com/prismicio/cli/issues/339)) ([1ed09e3](https://github.com/prismicio/cli/commit/1ed09e379898b5d4f19de30876710564124846d2))
+* **deps:** update transitive packages with security advisories ([#343](https://github.com/prismicio/cli/issues/343)) ([e051926](https://github.com/prismicio/cli/commit/e051926bb0f69c9c0b86dce9f5fe9aa3ef474205))
+* **deps:** update vitest to 4.1.11 ([#342](https://github.com/prismicio/cli/issues/342)) ([a1d206b](https://github.com/prismicio/cli/commit/a1d206b2378ffbba08d2d427c0fa3d6dd3d64758))
+
+
+### Performance Improvements
+
+* load the profile without the repository list ([#336](https://github.com/prismicio/cli/issues/336)) ([5ccd5e1](https://github.com/prismicio/cli/commit/5ccd5e14eb0989c8a095cd644c9be3638c1c1f1b))
+
 ## [1.20.0](https://github.com/prismicio/cli/compare/v1.19.0...v1.20.0) (2026-09-23)
 
 
