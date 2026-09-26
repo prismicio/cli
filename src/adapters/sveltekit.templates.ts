@@ -136,20 +136,45 @@ const HEAD_MARKUP = dedent`
 	</svelte:head>
 `;
 
+export function layoutServerTemplate({ typescript }: { typescript: boolean }): string {
+	if (typescript) {
+		return dedent`
+			import { repositoryName } from "$lib/prismicio";
+			import type { LayoutServerLoad } from "./$types";
+
+			export const prerender = "auto";
+
+			export const load: LayoutServerLoad = () => {
+				return { repositoryName };
+			};
+		`;
+	}
+
+	return dedent`
+		import { repositoryName } from "$lib/prismicio";
+
+		export const prerender = "auto";
+
+		/** @type {import("./$types").LayoutServerLoad} */
+		export function load() {
+			return { repositoryName };
+		}
+	`;
+}
+
 export function rootLayoutTemplate({ version }: { version: number }): string {
 	const v5 = dedent`
 		<script>
 			import { isFilled, asImageSrc } from '@prismicio/client';
 			import { PrismicPreview } from '@prismicio/svelte/kit';
 			import { page } from '$app/state';
-			import { repositoryName } from '$lib/prismicio';
 
-			const { children } = $props();
+			const { data, children } = $props();
 		</script>
 
 		${HEAD_MARKUP}
 		{@render children()}
-		<PrismicPreview {repositoryName} />
+		<PrismicPreview repositoryName={data.repositoryName} />
 	`;
 
 	const v4 = dedent`
@@ -157,12 +182,13 @@ export function rootLayoutTemplate({ version }: { version: number }): string {
 			import { isFilled, asImageSrc } from '@prismicio/client';
 			import { PrismicPreview } from '@prismicio/svelte/kit';
 			import { page } from '$app/state';
-			import { repositoryName } from '$lib/prismicio';
+
+			export let data;
 		</script>
 
 		${HEAD_MARKUP}
 		<slot />
-		<PrismicPreview {repositoryName} />
+		<PrismicPreview repositoryName={data.repositoryName} />
 	`;
 
 	return version <= 4 ? v4 : v5;
