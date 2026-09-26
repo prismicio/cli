@@ -1,6 +1,6 @@
 import { snakeCase } from "change-case";
 
-import { buildCustomType, it, readLocalCustomType } from "./it";
+import { buildCustomType, it, readLocalCustomType, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("type", ["create", "--help"]);
@@ -71,4 +71,17 @@ it("rejects invalid --format", async ({ expect, prismic }) => {
 	const { stderr, exitCode } = await prismic("type", ["create", label!, "--format", "invalid"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain('Invalid format: "invalid"');
+});
+
+it("rejects an existing type id", async ({ expect, prismic, project }) => {
+	const existing = buildCustomType();
+	await writeLocalCustomType(project, existing);
+
+	const { stderr, exitCode } = await prismic("type", ["create", "New", "--id", existing.id]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`Type "${existing.id}" already exists`);
+	expect(stderr).toContain(`prismic type edit ${existing.id}`);
+
+	const unchanged = await readLocalCustomType(project, existing.id);
+	expect(unchanged).toEqual(existing);
 });
