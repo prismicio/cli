@@ -9,6 +9,7 @@ import {
 	checkSourceContains,
 	getInstalledMajor,
 	getJsFileExtension,
+	type PageFile,
 	writeFileIfMissing,
 } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
@@ -174,7 +175,10 @@ export class NextJsAdapter extends Adapter {
 		await writeFileRecursive(new URL(`index.${await getJsFileExtension()}x`, directory), contents);
 	}
 
-	protected async createPageFile(model: DynamicCustomTypeModel, routePath: string): Promise<void> {
+	protected async getPageFiles(
+		model: DynamicCustomTypeModel,
+		routePath: string,
+	): Promise<PageFile[]> {
 		const sourceRoot = await getSourceRoot();
 		const extension = `${await getJsFileExtension()}x`;
 		const appRouter = await checkUsesAppRouter();
@@ -182,7 +186,7 @@ export class NextJsAdapter extends Adapter {
 			? new URL(`app/${routePath}/page.${extension}`, sourceRoot)
 			: new URL(`pages/${routePath || "index"}.${extension}`, sourceRoot);
 		const typescript = await checkIsTypeScriptProject();
-		await writeFileIfMissing(path, pageTemplate({ model, routePath, typescript, appRouter }));
+		return [{ path, contents: pageTemplate({ model, routePath, typescript, appRouter }) }];
 	}
 }
 

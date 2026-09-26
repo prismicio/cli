@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+
 import { describe } from "vitest";
 
 import { buildCustomType, buildSlice, captureOutput, it } from "./it";
@@ -45,5 +47,22 @@ describe("with an isolated repository", () => {
 		await expect.poll(newOutput, { timeout: 30_000 }).toContain("Changes detected in slices");
 		expect(newOutput()).not.toContain("custom types");
 		await expect(project).toContainSlice(sliceB);
+	}, 60_000);
+
+	it("keeps an existing page file", async ({ expect, project, prismic, repo, token, host }) => {
+		const customType = buildCustomType({ format: "page", repeatable: false });
+		await insertCustomType(customType, { repo, token, host });
+		const path = `app/${customType.id.toLowerCase()}/page.jsx`;
+		await mkdir(new URL(".", new URL(path, project)), { recursive: true });
+		await writeFile(new URL(path, project), "// existing page");
+
+		const proc = prismic("sync", ["--repo", repo, "--watch"]);
+		const output = captureOutput(proc);
+
+		await expect.poll(output, { timeout: 30_000 }).toContain("Initial sync complete.");
+		expect(output()).toContain(
+			`Skipped ${path} (already exists). Run \`prismic gen page ${customType.id}\` to get the code.`,
+		);
+		await expect(project).toHaveFile(path, { contains: "// existing page" });
 	}, 60_000);
 });

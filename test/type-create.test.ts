@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+
 import { snakeCase } from "change-case";
 
 import { buildCustomType, it, readLocalCustomType } from "./it";
@@ -63,6 +65,27 @@ it("creates a custom type with a custom id", async ({ expect, prismic, project }
 
 	const created = await readLocalCustomType(project, id);
 	expect(created.id).toBe(id);
+});
+
+it("keeps an existing page file", async ({ expect, prismic, project }) => {
+	const { label } = buildCustomType({ format: "page" });
+	const id = snakeCase(label!);
+	const path = `app/${id.replaceAll("_", "-")}/[uid]/page.jsx`;
+	await mkdir(new URL(".", new URL(path, project)), { recursive: true });
+	await writeFile(new URL(path, project), "// existing page");
+
+	const { stdout, stderr, exitCode } = await prismic("type", [
+		"create",
+		label!,
+		"--format",
+		"page",
+	]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(
+		`Skipped ${path} (already exists). Run \`prismic gen page ${id}\` to get the code.`,
+	);
+
+	await expect(project).toHaveFile(path, { contains: "// existing page" });
 });
 
 it("rejects invalid --format", async ({ expect, prismic }) => {

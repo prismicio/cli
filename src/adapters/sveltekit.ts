@@ -11,6 +11,7 @@ import {
 	checkSourceContains,
 	getInstalledMajor,
 	getJsFileExtension,
+	type PageFile,
 	writeFileIfMissing,
 } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
@@ -152,17 +153,22 @@ export class SvelteKitAdapter extends Adapter {
 		await writeFileRecursive(new URL("index.svelte", directory), contents);
 	}
 
-	protected async createPageFile(model: DynamicCustomTypeModel, routePath: string): Promise<void> {
+	protected async getPageFiles(
+		model: DynamicCustomTypeModel,
+		routePath: string,
+	): Promise<PageFile[]> {
 		const routeDirectory = new URL(
 			`src/routes/[[preview=preview]]/${routePath}/`,
 			await findProjectRoot(),
 		);
 		const typescript = await checkIsTypeScriptProject();
-		await writeFileIfMissing(new URL("+page.svelte", routeDirectory), pageTemplate({ typescript }));
-		await writeFileIfMissing(
-			new URL(`+page.server.${await getJsFileExtension()}`, routeDirectory),
-			pageServerTemplate({ model, typescript }),
-		);
+		return [
+			{ path: new URL("+page.svelte", routeDirectory), contents: pageTemplate({ typescript }) },
+			{
+				path: new URL(`+page.server.${await getJsFileExtension()}`, routeDirectory),
+				contents: pageServerTemplate({ model, typescript }),
+			},
+		];
 	}
 }
 
