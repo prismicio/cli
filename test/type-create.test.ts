@@ -88,6 +88,52 @@ it("keeps an existing page file", async ({ expect, prismic, project }) => {
 	await expect(project).toHaveFile(path, { contains: "// existing page" });
 });
 
+// From create-next-app 15, shortened.
+const NEXT_STARTER_PAGE = `export default function Home() {
+  return (
+    <main>
+      <p>
+        Get started by editing <code>app/page.js</code>.
+      </p>
+    </main>
+  );
+}
+`;
+
+it("replaces the Next.js starter page", async ({ expect, prismic, project }) => {
+	await writeFile(new URL("app/page.js", project), NEXT_STARTER_PAGE);
+
+	const { stderr, exitCode } = await prismic("type", [
+		"create",
+		"Homepage",
+		"--format",
+		"page",
+		"--single",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	await expect(project).not.toHaveFile("app/page.js");
+	await expect(project).toHaveFile("app/page.jsx", { contains: 'getSingle("homepage"' });
+});
+
+it("keeps an edited Next.js starter page", async ({ expect, prismic, project }) => {
+	await writeFile(new URL("tsconfig.json", project), "{}");
+	const page = NEXT_STARTER_PAGE.replace("Get started by editing", "Welcome to");
+	await writeFile(new URL("app/page.tsx", project), page);
+
+	const { stdout, stderr, exitCode } = await prismic("type", [
+		"create",
+		"Homepage",
+		"--format",
+		"page",
+		"--single",
+	]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain("Skipped app/page.tsx (already exists).");
+
+	await expect(project).toHaveFile("app/page.tsx", { contains: "Welcome to" });
+});
+
 it("rejects invalid --format", async ({ expect, prismic }) => {
 	const { label } = buildCustomType();
 

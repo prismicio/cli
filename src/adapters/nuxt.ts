@@ -104,6 +104,12 @@ export class NuxtAdapter extends Adapter {
 		];
 	}
 
+	protected async findStarterPages(): Promise<URL[]> {
+		const path = new URL("index.vue", await getPagesDir());
+		const contents = await readFile(path, "utf8").catch(() => "");
+		return contents === welcomePageTemplate ? [path] : [];
+	}
+
 	private async modifySliceLibraryPath(): Promise<void> {
 		const projectRoot = await findProjectRoot();
 		const hasAppDir = await exists(new URL("app/", projectRoot));

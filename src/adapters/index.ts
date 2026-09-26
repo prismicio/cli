@@ -136,6 +136,11 @@ export abstract class Adapter {
 		routePath: string,
 	): Promise<PageFile[]>;
 
+	// Untouched framework starter pages that the home page replaces.
+	protected async findStarterPages(): Promise<URL[]> {
+		return [];
+	}
+
 	async initProject({ setup }: { setup: boolean }): Promise<void> {
 		for (const library of await this.getSliceLibraries()) {
 			await this.createSliceIndexFile(library);
@@ -227,6 +232,9 @@ export abstract class Adapter {
 			.filter(Boolean)
 			.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
 			.join("/");
+		if (!routePath) {
+			for (const path of await this.findStarterPages()) await rm(path);
+		}
 		const skipped: PageFile[] = [];
 		for (const file of await this.getPageFiles(model, routePath)) {
 			if (!force && (await exists(file.path))) skipped.push(file);

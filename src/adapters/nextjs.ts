@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -25,6 +26,9 @@ import {
 	sliceSimulatorPageTemplate,
 	sliceTemplate,
 } from "./nextjs.templates";
+
+// Text from the create-next-app home page, 15 and 16.
+const STARTER_PAGE_MARKERS = ["Get started by editing", "To get started, edit the"];
 
 export class NextJsAdapter extends Adapter {
 	readonly id = "next";
@@ -191,6 +195,18 @@ export class NextJsAdapter extends Adapter {
 		}
 		const typescript = await checkIsTypeScriptProject();
 		return [{ path, contents: pageTemplate({ model, routePath, typescript, appRouter }) }];
+	}
+
+	protected async findStarterPages(): Promise<URL[]> {
+		const sourceRoot = await getSourceRoot();
+		const basename = (await checkUsesAppRouter()) ? "app/page" : "pages/index";
+		const starters: URL[] = [];
+		for (const extension of ["js", "jsx", "tsx"]) {
+			const path = new URL(`${basename}.${extension}`, sourceRoot);
+			const contents = await readFile(path, "utf8").catch(() => "");
+			if (STARTER_PAGE_MARKERS.some((marker) => contents.includes(marker))) starters.push(path);
+		}
+		return starters;
 	}
 }
 

@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,6 +27,10 @@ import {
 	sliceSimulatorPageTemplate,
 	sliceTemplate,
 } from "./sveltekit.templates";
+
+// src/routes/+page.svelte from the `sv create` minimal template, 0.17, with whitespace removed.
+const STARTER_PAGE =
+	'<h1>WelcometoSvelteKit</h1><p>Visit<ahref="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a>toreadthedocumentation</p>';
 
 export class SvelteKitAdapter extends Adapter {
 	readonly id = "sveltekit";
@@ -169,6 +173,12 @@ export class SvelteKitAdapter extends Adapter {
 				contents: pageServerTemplate({ model, typescript }),
 			},
 		];
+	}
+
+	protected async findStarterPages(): Promise<URL[]> {
+		const path = new URL("src/routes/+page.svelte", await findProjectRoot());
+		const contents = await readFile(path, "utf8").catch(() => "");
+		return contents.replace(/\s/g, "") === STARTER_PAGE ? [path] : [];
 	}
 }
 
