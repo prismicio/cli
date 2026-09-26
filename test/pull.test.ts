@@ -12,6 +12,7 @@ import {
 	it,
 	readLocalCustomType,
 	readLocalSlice,
+	readLocalSlices,
 	writeLocalCustomType,
 	writeLocalSlice,
 } from "./it";
@@ -398,6 +399,30 @@ describe("with an isolated repository", () => {
 		const sliceAfter = await readLocalSlice(project, slice.id);
 		expect(JSON.stringify(typeAfter)).toBe(JSON.stringify(writtenType));
 		expect(JSON.stringify(sliceAfter)).toBe(JSON.stringify(writtenSlice));
+	});
+
+	it("refuses to pull a slice into another slice's directory", async ({
+		expect,
+		project,
+		prismic,
+		repo,
+		token,
+		host,
+	}) => {
+		const sliceA = buildSlice();
+		const sliceB = buildSlice({ name: sliceA.name });
+
+		await Promise.all([
+			insertSlice(sliceA, { repo, token, host }),
+			insertSlice(sliceB, { repo, token, host }),
+		]);
+
+		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain(
+			`A slice already exists at ${["slices", sliceA.name, ""].join(sep)} (id: `,
+		);
+		expect(await readLocalSlices(project)).toHaveLength(1);
 	});
 });
 

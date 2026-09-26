@@ -1,3 +1,6 @@
+import { writeFile } from "node:fs/promises";
+import { sep } from "node:path";
+
 import { snakeCase } from "change-case";
 
 import { buildCustomType, it, readLocalCustomType } from "./it";
@@ -71,4 +74,22 @@ it("rejects invalid --format", async ({ expect, prismic }) => {
 	const { stderr, exitCode } = await prismic("type", ["create", label!, "--format", "invalid"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain('Invalid format: "invalid"');
+});
+
+it("refuses to replace an existing type", async ({ expect, prismic, project }) => {
+	const { label } = buildCustomType({ format: "custom" });
+	const id = snakeCase(label!);
+
+	const first = await prismic("type", ["create", label!]);
+	expect(first.exitCode, first.stderr).toBe(0);
+
+	const edited = { ...(await readLocalCustomType(project, id)), label: "Edited" };
+	await writeFile(new URL(`customtypes/${id}/index.json`, project), JSON.stringify(edited));
+
+	const second = await prismic("type", ["create", label!]);
+	expect(second.exitCode).toBe(1);
+	expect(second.stderr).toContain(
+		`A type already exists at ${["customtypes", id, ""].join(sep)} (id: ${id})`,
+	);
+	expect(await readLocalCustomType(project, id)).toEqual(edited);
 });
