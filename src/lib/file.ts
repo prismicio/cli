@@ -6,31 +6,24 @@ import * as z from "zod/mini";
 
 import { appendTrailingSlash, getExtension } from "./url";
 
+// Searches the current directory and its ancestors. The search ends without a
+// result at a directory that contains `stop`.
 export async function findUpward(
 	name: string,
-	config: { start?: URL; stop?: URL | string } = {},
+	config: { stop?: string } = {},
 ): Promise<URL | undefined> {
-	const { start = pathToFileURL(process.cwd()), stop } = config;
+	const { stop } = config;
 
-	let dir = appendTrailingSlash(start);
+	let dir = appendTrailingSlash(pathToFileURL(process.cwd()));
 
 	while (true) {
 		const path = new URL(name, dir);
-		try {
-			await access(path);
+		if (await exists(path)) {
 			return path;
-		} catch {}
+		}
 
-		if (typeof stop === "string") {
-			const stopPath = new URL(stop, dir);
-			try {
-				await access(stopPath);
-				return;
-			} catch {}
-		} else if (stop instanceof URL) {
-			if (stop.href === dir.href) {
-				return;
-			}
+		if (stop && (await exists(new URL(stop, dir)))) {
+			return;
 		}
 
 		const parent = new URL("..", dir);
@@ -102,15 +95,9 @@ export async function readURLFile(url: URL): Promise<Blob> {
 	throw new Error(`Unsupported file protocol: ${url.protocol}`);
 }
 
-export async function readEnvFile<T = Partial<Record<string, string>>>(
-	path: URL,
-	options: { schema?: z.ZodMiniType<T> } = {},
-): Promise<T> {
-	const { schema } = options;
+export async function readEnvFile(path: URL): Promise<Partial<Record<string, string>>> {
 	const contents = await readFile(path, "utf8");
-	const parsed = parseEnv(contents);
-	if (schema) return z.parse(schema, parsed);
-	return parsed as T;
+	return parseEnv(contents);
 }
 
 export async function setEnvFileVar(path: URL, key: string, value: string): Promise<void> {

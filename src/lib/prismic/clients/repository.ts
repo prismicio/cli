@@ -35,7 +35,7 @@ export function getRepository(config: RepositoryConfig): Promise<Repository> {
 const OnboardingStateSchema = z.object({
 	completedSteps: z.array(z.string()),
 });
-export type OnboardingState = z.infer<typeof OnboardingStateSchema>;
+type OnboardingState = z.infer<typeof OnboardingStateSchema>;
 
 export async function getOnboardingState(config: RepositoryConfig): Promise<OnboardingState> {
 	const url = new URL("onboarding", getRepositoryServiceUrl(config.host));

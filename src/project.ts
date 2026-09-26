@@ -1,10 +1,10 @@
-import { readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { realpath, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
-import { exists, findUpward } from "./lib/file";
+import { exists, findUpward, readJsonFile } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
 import { dedent } from "./lib/string";
@@ -38,8 +38,7 @@ export async function createConfig(config: Config): Promise<URL> {
 export async function readConfig(): Promise<Config> {
 	const configPath = await findConfigPath();
 	try {
-		const raw = await readFile(configPath, "utf8");
-		return z.parse(ConfigSchema, JSON.parse(raw));
+		return await readJsonFile(configPath, { schema: ConfigSchema });
 	} catch {
 		throw new InvalidPrismicConfigError();
 	}
@@ -132,13 +131,12 @@ const LegacySliceMachineConfigSchema = z.object({
 	repositoryName: z.string(),
 	libraries: z.optional(z.array(z.string())),
 });
-export type LegacySliceMachineConfig = z.infer<typeof LegacySliceMachineConfigSchema>;
+type LegacySliceMachineConfig = z.infer<typeof LegacySliceMachineConfigSchema>;
 
 export async function readLegacySliceMachineConfig(): Promise<LegacySliceMachineConfig> {
 	const configPath = await findLegacySliceMachineConfigPath();
 	try {
-		const raw = await readFile(configPath, "utf8");
-		return z.parse(LegacySliceMachineConfigSchema, JSON.parse(raw));
+		return await readJsonFile(configPath, { schema: LegacySliceMachineConfigSchema });
 	} catch {
 		throw new InvalidLegacySliceMachineConfigError();
 	}
@@ -180,14 +178,6 @@ export async function findProjectRoot(): Promise<URL> {
 	}
 	const projectRoot = new URL(".", configPath);
 	return appendTrailingSlash(pathToFileURL(await realpath(fileURLToPath(projectRoot))));
-}
-
-export async function safeGetRepositoryName(): Promise<string | undefined> {
-	try {
-		return await getRepositoryName();
-	} catch {
-		return undefined;
-	}
 }
 
 export async function getRepositoryName(): Promise<string> {
