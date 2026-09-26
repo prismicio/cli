@@ -54,7 +54,7 @@ export async function initTracking(config: {
 	ids = storedIds ?? { anonymousId: crypto.randomUUID() };
 	if (!storedIds) await saveIds(ids);
 
-	await initSegment({
+	initSegment({
 		writeKey,
 		anonymousId: ids.anonymousId,
 		userId: getTrackedUserId(),
@@ -118,15 +118,15 @@ export function trackCommandStart(command: string, config: { watch?: boolean } =
 
 export function trackCommandEnd(
 	command: string,
-	config: { watch?: boolean; success?: boolean; error?: unknown } = {},
+	config: { watch?: boolean; error?: unknown } = {},
 ): void {
-	const { watch, success = !process.exitCode, error } = config;
+	const { watch, error } = config;
 	const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : undefined;
 	trackEvent("Prismic CLI End", {
 		properties: {
 			commandType: command,
 			fullCommand: process.argv.join(" "),
-			success,
+			success: !process.exitCode,
 			repository,
 			watch,
 			error: errorMessage?.slice(0, 512),
@@ -144,22 +144,22 @@ const PrismicRcSchema = z.object({
 
 export async function isTelemetryEnabled(): Promise<boolean> {
 	try {
-		// Check user-level .prismicrc
-		const userRc = await readJsonFile(
-			new URL(".prismicrc", appendTrailingSlash(pathToFileURL(homedir()))),
-			{ schema: PrismicRcSchema },
-		).catch(() => ({ telemetry: true }));
-		if (userRc.telemetry === false) return false;
+		// Check the user-level .prismicrc before calling process.cwd(), which
+		// throws if the current directory was deleted.
+		if (await isTelemetryDisabledIn(homedir())) return false;
 
-		// Check project-level .prismicrc
-		const projectRc = await readJsonFile(
-			new URL(".prismicrc", appendTrailingSlash(pathToFileURL(process.cwd()))),
-			{ schema: PrismicRcSchema },
-		).catch(() => ({ telemetry: true }));
-		if (projectRc.telemetry === false) return false;
+		// Check the project-level .prismicrc
+		if (await isTelemetryDisabledIn(process.cwd())) return false;
 
 		return true;
 	} catch {
 		return true;
 	}
+}
+
+async function isTelemetryDisabledIn(dir: string): Promise<boolean> {
+	const rc = await readJsonFile(new URL(".prismicrc", appendTrailingSlash(pathToFileURL(dir))), {
+		schema: PrismicRcSchema,
+	}).catch(() => undefined);
+	return rc?.telemetry === false;
 }

@@ -17,55 +17,9 @@ export function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustom
 	return customTypesServiceRequest<DynamicCustomTypeModel[]>(url, config);
 }
 
-export async function getCustomType(
-	id: string,
-	config: CustomTypesConfig,
-): Promise<DynamicCustomTypeModel> {
-	const url = new URL(
-		`customtypes/${encodeURIComponent(id)}`,
-		getCustomTypesServiceUrl(config.host),
-	);
-	return customTypesServiceRequest<DynamicCustomTypeModel>(url, config, {
-		notFoundMessage: `Type not found: ${id}`,
-	});
-}
-
-export async function updateCustomType(
-	model: DynamicCustomTypeModel,
-	config: CustomTypesConfig,
-): Promise<void> {
-	const url = new URL("customtypes/update", getCustomTypesServiceUrl(config.host));
-	await customTypesServiceRequest(url, config, {
-		method: "POST",
-		json: model,
-		notFoundMessage: `Type not found: ${model.id}`,
-		unknownErrorMessage: `Failed to update type "${model.id}"`,
-	});
-}
-
 export function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]> {
 	const url = new URL("slices", getCustomTypesServiceUrl(config.host));
 	return customTypesServiceRequest<SharedSliceModel[]>(url, config);
-}
-
-export async function getSlice(id: string, config: CustomTypesConfig): Promise<SharedSliceModel> {
-	const url = new URL(`slices/${encodeURIComponent(id)}`, getCustomTypesServiceUrl(config.host));
-	return customTypesServiceRequest<SharedSliceModel>(url, config, {
-		notFoundMessage: `Slice not found: ${id}`,
-	});
-}
-
-export async function updateSlice(
-	model: SharedSliceModel,
-	config: CustomTypesConfig,
-): Promise<void> {
-	const url = new URL("slices/update", getCustomTypesServiceUrl(config.host));
-	await customTypesServiceRequest(url, config, {
-		method: "POST",
-		json: model,
-		notFoundMessage: `Slice not found: ${model.id}`,
-		unknownErrorMessage: `Failed to update slice "${model.id}"`,
-	});
 }
 
 export type BulkChange = {
