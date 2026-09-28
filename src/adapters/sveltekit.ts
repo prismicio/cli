@@ -101,7 +101,7 @@ export class SvelteKitAdapter extends Adapter {
 		await deleteStarterHomePage();
 	}
 
-	async getPreviewComponentInstructions(): Promise<string | undefined> {
+	async getSetupInstructions(): Promise<string | undefined> {
 		const projectRoot = await findProjectRoot();
 		// The Prismic home page lives in [[preview=preview]], so this page also serves / and wins.
 		const hidesHomePage =
