@@ -91,9 +91,13 @@ export default createCommand(config, async ({ values }) => {
 		if (!(error instanceof MissingPrismicConfigError)) throw error;
 	}
 	if (existingConfig && !explicitRepo) {
-		throw new CommandError(
-			"A prismic.config.json file exists. Use `prismic init --repo <repository>` to connect it to an existing repository.",
-		);
+		throw new CommandError(`
+			This project is already set up for Prismic (repository: ${existingConfig.repositoryName}).
+
+			Do one of the following:
+			  - Run \`prismic gen setup\` to add missing framework files and install dependencies.
+			  - Run \`prismic init --repo <domain>\` to connect the project to a different repository.
+		`);
 	}
 	const isExistingProjectHandoff = existingConfig !== undefined && explicitRepo !== undefined;
 
