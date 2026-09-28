@@ -39,7 +39,7 @@ export class NuxtAdapter extends Adapter {
 		await this.modifySliceLibraryPath();
 	}
 
-	async getPreviewComponentInstructions(): Promise<string | undefined> {
+	async getSetupInstructions(): Promise<string | undefined> {
 		if (await checkNuxtConfigHasModule()) return;
 
 		return dedent`

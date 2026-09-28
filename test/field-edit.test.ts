@@ -106,8 +106,7 @@ it("edits boolean field options", async ({ expect, prismic, project }) => {
 		"is_active",
 		"--from-slice",
 		slice.id,
-		"--default-value",
-		"true",
+		"--default-true",
 		"--true-label",
 		"Yes",
 		"--false-label",
@@ -126,6 +125,49 @@ it("edits boolean field options", async ({ expect, prismic, project }) => {
 			placeholder_false: "No",
 		},
 	});
+});
+
+it("sets a boolean field's default value to false", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	slice.variations[0].primary!.is_active = {
+		type: "Boolean",
+		config: { label: "Active", default_value: true },
+	};
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"edit",
+		"is_active",
+		"--from-slice",
+		slice.id,
+		"--default-false",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	const field = updated!.variations[0].primary!.is_active;
+	expect(field).toMatchObject({ type: "Boolean", config: { default_value: false } });
+});
+
+it("errors when both --default-true and --default-false are given", async ({
+	expect,
+	prismic,
+	project,
+}) => {
+	const slice = buildSlice();
+	slice.variations[0].primary!.is_active = { type: "Boolean", config: { label: "Active" } };
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"edit",
+		"is_active",
+		"--from-slice",
+		slice.id,
+		"--default-true",
+		"--default-false",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Only one of --default-true or --default-false can be specified.");
 });
 
 it("edits number field options", async ({ expect, prismic, project }) => {
