@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,7 +12,7 @@ import {
 	getJsFileExtension,
 	writeFileIfMissing,
 } from ".";
-import { writeFileRecursive } from "../lib/file";
+import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
@@ -26,6 +26,12 @@ import {
 	sliceSimulatorPageTemplate,
 	sliceTemplate,
 } from "./sveltekit.templates";
+
+// The home pages from `sv create` and the older `create-svelte`, with whitespace removed.
+const STARTER_HOME_PAGES = [
+	'<h1>WelcometoSvelteKit</h1><p>Visit<ahref="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a>toreadthedocumentation</p>',
+	'<h1>WelcometoSvelteKit</h1><p>Visit<ahref="https://kit.svelte.dev">kit.svelte.dev</a>toreadthedocumentation</p>',
+];
 
 export class SvelteKitAdapter extends Adapter {
 	readonly id = "sveltekit";
@@ -90,9 +96,29 @@ export class SvelteKitAdapter extends Adapter {
 			new URL("src/routes/+layout.svelte", projectRoot),
 			rootLayoutTemplate({ version }),
 		);
+		await deleteStarterHomePage();
 	}
 
 	async getPreviewComponentInstructions(): Promise<string | undefined> {
+		const projectRoot = await findProjectRoot();
+		// The Prismic home page lives in [[preview=preview]], so this page also serves / and wins.
+		const hidesHomePage =
+			(await exists(new URL("src/routes/+page.svelte", projectRoot))) &&
+			(await exists(new URL("src/routes/[[preview=preview]]/+page.svelte", projectRoot)));
+		const homePageStep =
+			hidesHomePage &&
+			dedent`
+				Action required: delete src/routes/+page.svelte.
+
+				It also serves / and hides your Prismic home page in
+				src/routes/[[preview=preview]]/+page.svelte. Move anything you need
+				from it first.
+			`;
+
+		return [await this.getPreviewStep(), homePageStep].filter(Boolean).join("\n\n") || undefined;
+	}
+
+	private async getPreviewStep(): Promise<string | undefined> {
 		if (await checkSourceContains("PrismicPreview")) return;
 
 		const layoutStep =
@@ -194,4 +220,12 @@ export class SvelteKitAdapter extends Adapter {
 			pageServerTemplate({ model, typescript }),
 		);
 	}
+}
+
+async function deleteStarterHomePage(): Promise<void> {
+	const path = new URL("src/routes/+page.svelte", await findProjectRoot());
+	const contents = await readFile(path, "utf8").catch(() => undefined);
+	if (!STARTER_HOME_PAGES.includes(contents?.replace(/\s/g, "") ?? "")) return;
+
+	await rm(path);
 }
