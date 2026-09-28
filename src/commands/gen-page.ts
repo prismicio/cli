@@ -14,14 +14,10 @@ const config = {
 	positionals: {
 		"type-id": { description: "ID of the page type", required: true },
 	},
-	options: {
-		force: { type: "boolean", short: "f", description: "Replace existing page files" },
-	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async ({ positionals, values }) => {
+export default createCommand(config, async ({ positionals }) => {
 	const [id] = positionals;
-	const { force = false } = values;
 
 	const adapter = await getAdapter();
 	const { model } = await adapter.getCustomType(id);
@@ -29,7 +25,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		throw new CommandError(`"${id}" is not a page type.`);
 	}
 
-	const skipped = await adapter.writePageFiles(model, { force });
+	const skipped = await adapter.writePageFiles(model);
 	if (skipped.length === 0) {
 		console.info(`Generated the page for "${id}".`);
 		return;
@@ -39,6 +35,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	for (const file of skipped) {
 		const path = relativePathname(projectRoot, file.path);
 		console.info(`${path} already exists. Generated code:\n\n${file.contents}`);
-		console.info(`Merge this into ${path}, or rerun with --force to replace it.\n`);
+		console.info(`Merge this into ${path}.\n`);
 	}
 });
