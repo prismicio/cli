@@ -40,22 +40,20 @@ export class NuxtAdapter extends Adapter {
 	}
 
 	async getPreviewComponentInstructions(): Promise<string | undefined> {
-		const moduleStep =
-			!(await checkNuxtConfigHasModule()) &&
-			dedent`
-				Action required: add "${NUXT_PRISMIC}" to modules in nuxt.config.
+		if (await checkNuxtConfigHasModule()) return;
 
-				The CLI could not register the module for you. Prismic does not work
-				until you do this. Make the change now.
+		return dedent`
+			Action required: add "${NUXT_PRISMIC}" to modules in nuxt.config.
 
-				  export default defineNuxtConfig({
-				    modules: [
-				+     "${NUXT_PRISMIC}",
-				    ],
-				  });
-			`;
+			The CLI could not register the module for you. Prismic does not work
+			until you do this. Make the change now.
 
-		return [moduleStep].filter(Boolean).join("\n\n") || undefined;
+			  export default defineNuxtConfig({
+			    modules: [
+			+     "${NUXT_PRISMIC}",
+			    ],
+			  });
+		`;
 	}
 
 	async createSliceIndexFile(library: URL): Promise<void> {

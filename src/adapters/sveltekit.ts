@@ -84,7 +84,7 @@ export class SvelteKitAdapter extends Adapter {
 		);
 		await writeFileIfMissing(
 			new URL(`src/routes/+layout.server.${extension}`, projectRoot),
-			layoutServerTemplate({ typescript }),
+			layoutServerTemplate(),
 		);
 		await writeFileIfMissing(
 			new URL("src/routes/+layout.svelte", projectRoot),
@@ -93,13 +93,7 @@ export class SvelteKitAdapter extends Adapter {
 	}
 
 	async getPreviewComponentInstructions(): Promise<string | undefined> {
-		const hasPreview = await checkSourceContains("PrismicPreview");
-		const serverLayout = await findServerLayoutMissingRepositoryName();
-		// A layout that reads the name from layout data, like the generated one,
-		// needs the server layout to return it.
-		const needsServerLayout =
-			serverLayout && (!hasPreview || (await checkSourceContains("data.repositoryName")));
-		if (hasPreview && !needsServerLayout) return;
+		if (await checkSourceContains("PrismicPreview")) return;
 
 		const layoutStep =
 			(await getInstalledMajor("svelte")) <= 4
@@ -129,31 +123,25 @@ export class SvelteKitAdapter extends Adapter {
 					+ <PrismicPreview repositoryName={data.repositoryName} />
 				`;
 
-		const serverLayoutStep = serverLayout?.exists
-			? dedent`
-				In ${serverLayout.path}, import repositoryName from "$lib/prismicio" and add
-				it to the object that load returns:
-
-				+ import { repositoryName } from "$lib/prismicio";
-
-				  export function load() {
-				-   return { ... };
-				+   return { ..., repositoryName };
-				  }
-			`
-			: `Create ${serverLayout?.path} with:\n\n${layoutServerTemplate({
-					typescript: await checkIsTypeScriptProject(),
-				}).replace(/^/gm, "  ")}`;
+		// The layout reads repositoryName from the server layout's data.
+		const serverLayoutPath = `src/routes/+layout.server.${await getJsFileExtension()}`;
+		const serverLayout = await readFile(
+			new URL(serverLayoutPath, await findProjectRoot()),
+			"utf8",
+		).catch(() => "");
+		const serverLayoutStep =
+			!serverLayout.includes("repositoryName") &&
+			`Return repositoryName from load in ${serverLayoutPath}, creating the file if needed:\n\n${layoutServerTemplate().replace(/^/gm, "  ")}`;
 
 		return [
 			dedent`
-				Action required: ${hasPreview ? "pass repositoryName to <PrismicPreview>" : "add <PrismicPreview> to your root layout"}.
+				Action required: add <PrismicPreview> to your root layout.
 
 				Previews do not work until you do this, and the CLI cannot edit your
 				layout for you. Make the change now.
 			`,
-			!hasPreview && layoutStep,
-			needsServerLayout && serverLayoutStep,
+			layoutStep,
+			serverLayoutStep,
 			"Run `prismic docs view sveltekit` for details.",
 		]
 			.filter(Boolean)
@@ -206,17 +194,4 @@ export class SvelteKitAdapter extends Adapter {
 			pageServerTemplate({ model, typescript }),
 		);
 	}
-}
-
-async function findServerLayoutMissingRepositoryName(): Promise<
-	{ path: string; exists: boolean } | undefined
-> {
-	const projectRoot = await findProjectRoot();
-	for (const path of ["src/routes/+layout.server.ts", "src/routes/+layout.server.js"]) {
-		const contents = await readFile(new URL(path, projectRoot), "utf8").catch(() => undefined);
-		if (contents !== undefined) {
-			return contents.includes("repositoryName") ? undefined : { path, exists: true };
-		}
-	}
-	return { path: `src/routes/+layout.server.${await getJsFileExtension()}`, exists: false };
 }

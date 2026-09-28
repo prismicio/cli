@@ -184,28 +184,7 @@ it(
 			serverLayout,
 		);
 		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
-		expect(stdout).toContain(
-			'In src/routes/+layout.server.js, import repositoryName from "$lib/prismicio"',
-		);
-	},
-);
-
-it(
-	"asks for the repository name when it generates a layout next to an existing server layout",
-	{ timeout: 30_000 },
-	async ({ expect, project, prismic }) => {
-		await useSvelteKit(project);
-		await mkdir(new URL("src/routes/", project), { recursive: true });
-		await writeFile(
-			new URL("src/routes/+layout.server.js", project),
-			'export const load = () => ({ user: "x" });',
-		);
-
-		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
-		expect(exitCode, stderr).toBe(0);
-		expect(stdout).toContain("pass repositoryName to <PrismicPreview>");
-		expect(stdout).toContain("In src/routes/+layout.server.js");
-		expect(stdout).not.toContain("src/routes/+layout.svelte");
+		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
 	},
 );
 

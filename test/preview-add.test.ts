@@ -73,7 +73,7 @@ it("asks for a SvelteKit server layout when the project has none", async ({
 	const { stdout, stderr, exitCode } = await prismic("preview", ["add", previewUrl]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
-	expect(stdout).toContain("Create src/routes/+layout.server.js with:");
+	expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
 	expect(stdout).toContain('export const prerender = "auto";');
 	expect(stdout).toContain("return { repositoryName };");
 });
