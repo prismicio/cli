@@ -12,7 +12,7 @@ import {
 	getJsFileExtension,
 	writeFileIfMissing,
 } from ".";
-import { writeFileRecursive } from "../lib/file";
+import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
@@ -82,10 +82,12 @@ export class SvelteKitAdapter extends Adapter {
 				See <https://prismic.io/docs/svelte-preview> for more information.
 			`,
 		);
-		await writeFileIfMissing(
-			new URL(`src/routes/+layout.server.${extension}`, projectRoot),
-			layoutServerTemplate(),
-		);
+		if (!(await findServerLayout())) {
+			await writeFileRecursive(
+				new URL(`src/routes/+layout.server.${extension}`, projectRoot),
+				layoutServerTemplate(),
+			);
+		}
 		await writeFileIfMissing(
 			new URL("src/routes/+layout.svelte", projectRoot),
 			rootLayoutTemplate({ version }),
@@ -124,7 +126,8 @@ export class SvelteKitAdapter extends Adapter {
 				`;
 
 		// The layout reads repositoryName from the server layout's data.
-		const serverLayoutPath = `src/routes/+layout.server.${await getJsFileExtension()}`;
+		const serverLayoutPath =
+			(await findServerLayout()) ?? `src/routes/+layout.server.${await getJsFileExtension()}`;
 		const serverLayout = await readFile(
 			new URL(serverLayoutPath, await findProjectRoot()),
 			"utf8",
@@ -193,5 +196,12 @@ export class SvelteKitAdapter extends Adapter {
 			new URL(`+page.server.${await getJsFileExtension()}`, routeDirectory),
 			pageServerTemplate({ model, typescript }),
 		);
+	}
+}
+
+async function findServerLayout(): Promise<string | undefined> {
+	const projectRoot = await findProjectRoot();
+	for (const path of ["src/routes/+layout.server.js", "src/routes/+layout.server.ts"]) {
+		if (await exists(new URL(path, projectRoot))) return path;
 	}
 }
