@@ -189,6 +189,25 @@ it(
 );
 
 it(
+	"asks for the repository name in a server layout written in the other language",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
+		await writeFile(
+			new URL("src/routes/+layout.server.ts", project),
+			'export const load = () => ({ user: "x" });',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("src/routes/+layout.server.js");
+		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.ts");
+	},
+);
+
+it(
 	"does not ask for the repository name in a server layout that already returns it",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
