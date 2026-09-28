@@ -46,28 +46,26 @@ export class NuxtAdapter extends Adapter {
 	}
 
 	async getPreviewComponentInstructions(): Promise<string | undefined> {
-		const instructions: string[] = [];
 		const appVue = await readAppVue();
-		if (appVue !== undefined && !appVue.includes("<NuxtPage")) {
-			const appVuePath = relative(
-				fileURLToPath(await findProjectRoot()),
-				fileURLToPath(new URL("app.vue", await getSrcDir())),
-			);
-			instructions.push(dedent`
-				Action required: add <NuxtPage /> to ${appVuePath}.
+		if (appVue === undefined || appVue.includes("<NuxtPage")) return;
 
-				Pages, including the slice simulator, do not render until you do
-				this. Make the change now.
+		const appVuePath = relative(
+			fileURLToPath(await findProjectRoot()),
+			fileURLToPath(new URL("app.vue", await getSrcDir())),
+		);
+		return dedent`
+			Action required: add <NuxtPage /> to ${appVuePath}.
 
-				  <template>
-				    <div>
-				      <!-- your existing content -->
-				+     <NuxtPage />
-				    </div>
-				  </template>
-			`);
-		}
-		return instructions.join("\n\n") || undefined;
+			Pages, including the slice simulator, do not render until you do
+			this. Make the change now.
+
+			  <template>
+			    <div>
+			      <!-- your existing content -->
+			+     <NuxtPage />
+			    </div>
+			  </template>
+		`;
 	}
 
 	async createSliceIndexFile(library: URL): Promise<void> {
@@ -173,11 +171,7 @@ async function configureNuxtModule(): Promise<void> {
 }
 
 async function readAppVue(): Promise<string | undefined> {
-	try {
-		return await readFile(new URL("app.vue", await getSrcDir()), "utf8");
-	} catch {
-		return undefined;
-	}
+	return await readFile(new URL("app.vue", await getSrcDir()), "utf8").catch(() => undefined);
 }
 
 async function deleteStarterAppVue(): Promise<void> {
