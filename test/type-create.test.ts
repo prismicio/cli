@@ -3,7 +3,7 @@ import { sep } from "node:path";
 
 import { snakeCase } from "change-case";
 
-import { buildCustomType, it, readLocalCustomType } from "./it";
+import { buildCustomType, it, readLocalCustomType, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("type", ["create", "--help"]);
@@ -121,4 +121,17 @@ it("warns when a SvelteKit page already serves the page's URL", async ({
 		`${["src", "routes", "+page.svelte"].join(sep)} also serves /. Delete it to use the Prismic page.`,
 	);
 	await expect(project).toHaveFile("src/routes/[[preview=preview]]/+page.svelte");
+});
+
+it("rejects an existing type id", async ({ expect, prismic, project }) => {
+	const existing = buildCustomType();
+	await writeLocalCustomType(project, existing);
+
+	const { stderr, exitCode } = await prismic("type", ["create", "New", "--id", existing.id]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`Type "${existing.id}" already exists`);
+	expect(stderr).toContain(`prismic type edit ${existing.id}`);
+
+	const unchanged = await readLocalCustomType(project, existing.id);
+	expect(unchanged).toEqual(existing);
 });
