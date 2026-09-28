@@ -138,10 +138,10 @@ async function getPagesDir(): Promise<URL> {
 async function configureNuxtModule(): Promise<void> {
 	if (await checkNuxtConfigHasModule()) return;
 
-	// Piped stdio keeps nuxi from prompting. It can exit 0 without editing the
+	// Piped stdio keeps the Nuxt CLI from prompting. It can exit 0 without editing the
 	// config, so the instructions check the config instead of the exit code.
 	try {
-		await x("nuxi", ["module", "add", NUXT_PRISMIC, "--skipInstall"], {
+		await x("nuxt", ["module", "add", NUXT_PRISMIC, "--skipInstall"], {
 			nodeOptions: { cwd: fileURLToPath(await findProjectRoot()) },
 		});
 	} catch {}

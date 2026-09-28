@@ -16,7 +16,7 @@ it.for(trials)(
 );
 
 it.for(trials)("initializes Prismic in a Nuxt project", async (_, { project, agent, expect }) => {
-	// There is no real nuxi, so the CLI asks the agent to register the module.
+	// The project has no Nuxt CLI installed, so the CLI asks the agent to register the module.
 	await writeFile(
 		new URL("package.json", project),
 		JSON.stringify({ name: "my-site", dependencies: { nuxt: "latest" } }),
