@@ -10,7 +10,7 @@ export default createCommandRouter({
 	commands: {
 		page: {
 			handler: genPage,
-			description: "Generate the page file for a page type",
+			description: "Generate the page files for a page type",
 		},
 		setup: {
 			handler: genSetup,
