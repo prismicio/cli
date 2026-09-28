@@ -39,7 +39,7 @@ export class NuxtAdapter extends Adapter {
 		await this.modifySliceLibraryPath();
 	}
 
-	async getPreviewComponentInstructions(): Promise<undefined> {}
+	async getSetupInstructions(): Promise<undefined> {}
 
 	async createSliceIndexFile(library: URL): Promise<void> {
 		const slices = (await this.getSlices()).filter((slice) => slice.library.href === library.href);
