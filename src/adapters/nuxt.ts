@@ -49,9 +49,23 @@ export class NuxtAdapter extends Adapter {
 		const instructions: string[] = [];
 		const appVue = await readAppVue();
 		if (appVue !== undefined && !appVue.includes("<NuxtPage")) {
-			instructions.push(
-				"Action required: add <NuxtPage /> to app.vue so your pages render, including the slice simulator.",
+			const appVuePath = relative(
+				fileURLToPath(await findProjectRoot()),
+				fileURLToPath(new URL("app.vue", await getSrcDir())),
 			);
+			instructions.push(dedent`
+				Action required: add <NuxtPage /> to ${appVuePath}.
+
+				Pages, including the slice simulator, do not render until you do
+				this. Make the change now.
+
+				  <template>
+				    <div>
+				      <!-- your existing content -->
+				+     <NuxtPage />
+				    </div>
+				  </template>
+			`);
 		}
 		return instructions.join("\n\n") || undefined;
 	}
