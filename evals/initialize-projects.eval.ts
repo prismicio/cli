@@ -103,7 +103,7 @@ it.for(trials)(
 		);
 		await rm(new URL("node_modules/next/", project), { recursive: true });
 		await rm(new URL("prismic.config.json", project));
-		// The module is registered, so setup asks only for the app.vue change.
+		// Registers the module up front, so the only step left is the app.vue change.
 		await writeFile(
 			new URL("nuxt.config.ts", project),
 			'export default defineNuxtConfig({ modules: ["@nuxtjs/prismic"] });\n',
