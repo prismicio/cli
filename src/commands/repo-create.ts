@@ -11,7 +11,13 @@ const MAX_DOMAIN_TRIES = 5;
 
 const config = {
 	name: "prismic repo create",
-	description: "Create a new Prismic repository.",
+	description: `
+		Create a new Prismic repository.
+
+		The CLI generates a random domain, shown in the output. The domain cannot
+		be chosen or changed. --name sets only the display name, which
+		\`prismic repo set-name\` can change later.
+	`,
 	options: {
 		name: { type: "string", short: "n", description: "Display name for the repository" },
 		lang: {

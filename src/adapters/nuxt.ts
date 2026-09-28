@@ -39,14 +39,13 @@ export class NuxtAdapter extends Adapter {
 		await this.modifySliceLibraryPath();
 	}
 
-	async getPreviewComponentInstructions(): Promise<string | undefined> {
+	async getSetupInstructions(): Promise<string | undefined> {
 		if (await checkNuxtConfigHasModule()) return;
 
 		return dedent`
 			Action required: add "${NUXT_PRISMIC}" to modules in nuxt.config.
 
-			The CLI could not register the module for you. Prismic does not work
-			until you do this. Make the change now.
+			Prismic does not work until you do this. Make the change now.
 
 			  export default defineNuxtConfig({
 			    modules: [
