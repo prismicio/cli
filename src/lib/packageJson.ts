@@ -45,15 +45,31 @@ async function editPackageJson(edit: (packageJson: PackageJson) => void): Promis
 	await writeFile(packageJsonPath, newContents);
 }
 
+// Updates a package where it is already listed, so a dev dependency does not get a second entry.
 export async function addDependencies(dependencies: Record<string, string>): Promise<void> {
 	await editPackageJson((packageJson) => {
+		const updated = { ...packageJson.dependencies };
+		for (const [name, version] of Object.entries(dependencies)) {
+			if (packageJson.devDependencies?.[name]) packageJson.devDependencies[name] = version;
+			else updated[name] = version;
+		}
 		packageJson.dependencies = Object.fromEntries(
-			Object.entries({
-				...packageJson.dependencies,
-				...dependencies,
-			}).sort(([a], [b]) => a.localeCompare(b)),
+			Object.entries(updated).sort(([a], [b]) => a.localeCompare(b)),
 		);
 	});
+}
+
+// Returns the packages whose major version changed between two reads of package.json.
+export function getMajorDependencyUpdates(
+	before: PackageJson,
+	after: PackageJson,
+): { name: string; from: string; to: string }[] {
+	const beforeVersions = { ...before.dependencies, ...before.devDependencies };
+	const afterVersions = { ...after.dependencies, ...after.devDependencies };
+	const major = (version: string) => /\d+/.exec(version)?.[0];
+	return Object.entries(afterVersions)
+		.filter(([name, to]) => name in beforeVersions && major(beforeVersions[name]) !== major(to))
+		.map(([name, to]) => ({ name, from: beforeVersions[name], to }));
 }
 
 export async function removeDependencies(names: string[]): Promise<void> {
@@ -86,6 +102,10 @@ const INSTALL_COMMANDS = {
 	pnpm: ["pnpm", "install"],
 	bun: ["bun", "install"],
 };
+
+export async function getInstallCommand(): Promise<string> {
+	return INSTALL_COMMANDS[await detectPackageManager()].join(" ");
+}
 
 export async function installDependencies(): Promise<void> {
 	const packageJsonPath = await findPackageJson();

@@ -326,6 +326,22 @@ it("installs dependencies", { timeout: 30_000 }, async ({ expect, project, prism
 	await expect(access(new URL("package-lock.json", project))).resolves.toBeUndefined();
 });
 
+it(
+	"tells the user how to finish when the install fails",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic, repo }) => {
+		await rm(new URL("prismic.config.json", project));
+		const bin = new URL("node_modules/.bin/", project);
+		await writeFile(new URL("npm", bin), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+		await writeFile(new URL("npm.cmd", bin), "@exit /b 1\r\n");
+
+		const { stderr, exitCode } = await prismic("init", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stderr).toContain("Could not install dependencies. Run `npm install` to finish.");
+		expect(stderr).toContain("you don't need to run `prismic init` again");
+	},
+);
+
 it("warns and keeps local models when reconnecting with model differences", async ({
 	expect,
 	project,
