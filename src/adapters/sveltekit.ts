@@ -94,7 +94,7 @@ export class SvelteKitAdapter extends Adapter {
 		await modifyViteConfig();
 	}
 
-	async getPreviewComponentInstructions(): Promise<string | undefined> {
+	async getSetupInstructions(): Promise<string | undefined> {
 		if (await checkSourceContains("PrismicPreview")) return;
 
 		const children = (await getInstalledMajor("svelte")) <= 4 ? "<slot />" : "{@render children()}";
