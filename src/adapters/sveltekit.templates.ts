@@ -136,26 +136,12 @@ const HEAD_MARKUP = dedent`
 	</svelte:head>
 `;
 
-export function layoutServerTemplate({ typescript }: { typescript: boolean }): string {
-	if (typescript) {
-		return dedent`
-			import { repositoryName } from "$lib/prismicio";
-			import type { LayoutServerLoad } from "./$types";
-
-			export const prerender = "auto";
-
-			export const load: LayoutServerLoad = () => {
-				return { repositoryName };
-			};
-		`;
-	}
-
+export function layoutServerTemplate(): string {
 	return dedent`
 		import { repositoryName } from "$lib/prismicio";
 
 		export const prerender = "auto";
 
-		/** @type {import("./$types").LayoutServerLoad} */
 		export function load() {
 			return { repositoryName };
 		}
