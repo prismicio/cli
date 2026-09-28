@@ -219,7 +219,7 @@ export abstract class Adapter {
 	}
 
 	// Returns the files skipped because they already exist.
-	async writePageFiles(model: DynamicCustomTypeModel, { force = false } = {}): Promise<PageFile[]> {
+	async writePageFiles(model: DynamicCustomTypeModel): Promise<PageFile[]> {
 		const { routes = [] } = await readConfig();
 		const route = routes.find((r) => r.type === model.id)?.path ?? buildRoutePath(model);
 		const routePath = route
@@ -229,7 +229,7 @@ export abstract class Adapter {
 			.join("/");
 		const skipped: PageFile[] = [];
 		for (const file of await this.getPageFiles(model, routePath)) {
-			if (!force && (await exists(file.path))) skipped.push(file);
+			if (await exists(file.path)) skipped.push(file);
 			else await writeFileRecursive(file.path, file.contents);
 		}
 		return skipped;

@@ -34,24 +34,9 @@ it("prints the code for an existing page", async ({ expect, project, prismic }) 
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`getSingle("${customType.id}"`);
 	await expect(project).not.toHaveFile(`app/${customType.id.toLowerCase()}/page.jsx`);
-	expect(stdout).toContain(
-		`Merge this into ${path.replaceAll("/", sep)}, or rerun with --force to replace it.`,
-	);
+	expect(stdout).toContain(`Merge this into ${path.replaceAll("/", sep)}.`);
 
 	await expect(project).toHaveFile(path, { contains: "// existing page" });
-});
-
-it("replaces an existing page with --force", async ({ expect, project, prismic }) => {
-	const customType = buildCustomType({ format: "page", repeatable: false });
-	await writeLocalCustomType(project, customType);
-	const path = `app/${customType.id.toLowerCase()}/page.jsx`;
-	await mkdir(new URL(".", new URL(path, project)), { recursive: true });
-	await writeFile(new URL(path, project), "// existing page");
-
-	const { stderr, exitCode } = await prismic("gen", ["page", customType.id, "--force"]);
-	expect(exitCode, stderr).toBe(0);
-
-	await expect(project).toHaveFile(path, { contains: `getSingle("${customType.id}"` });
 });
 
 it("errors for a non-page type", async ({ expect, project, prismic }) => {
