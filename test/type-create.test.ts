@@ -1,9 +1,6 @@
-import { writeFile } from "node:fs/promises";
-import { sep } from "node:path";
-
 import { snakeCase } from "change-case";
 
-import { buildCustomType, it, readLocalCustomType } from "./it";
+import { buildCustomType, it, readLocalCustomType, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("type", ["create", "--help"]);
@@ -76,20 +73,15 @@ it("rejects invalid --format", async ({ expect, prismic }) => {
 	expect(stderr).toContain('Invalid format: "invalid"');
 });
 
-it("refuses to replace an existing type", async ({ expect, prismic, project }) => {
-	const { label } = buildCustomType({ format: "custom" });
-	const id = snakeCase(label!);
+it("rejects an existing type id", async ({ expect, prismic, project }) => {
+	const existing = buildCustomType();
+	await writeLocalCustomType(project, existing);
 
-	const first = await prismic("type", ["create", label!]);
-	expect(first.exitCode, first.stderr).toBe(0);
+	const { stderr, exitCode } = await prismic("type", ["create", "New", "--id", existing.id]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`Type "${existing.id}" already exists`);
+	expect(stderr).toContain(`prismic type edit ${existing.id}`);
 
-	const edited = { ...(await readLocalCustomType(project, id)), label: "Edited" };
-	await writeFile(new URL(`customtypes/${id}/index.json`, project), JSON.stringify(edited));
-
-	const second = await prismic("type", ["create", label!]);
-	expect(second.exitCode).toBe(1);
-	expect(second.stderr).toContain(
-		`A type already exists at ${["customtypes", id, ""].join(sep)} (id: ${id})`,
-	);
-	expect(await readLocalCustomType(project, id)).toEqual(edited);
+	const unchanged = await readLocalCustomType(project, existing.id);
+	expect(unchanged).toEqual(existing);
 });
