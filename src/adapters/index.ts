@@ -261,7 +261,7 @@ export abstract class Adapter {
 		for (const model of diff.slices.insert) await this.createSlice(model);
 		for (const model of diff.customTypes.update) await this.updateCustomType(model);
 		for (const model of diff.customTypes.delete) await this.deleteCustomType(model.id);
-		const notices = [];
+		const notices: string[] = [];
 		for (const model of diff.customTypes.insert) {
 			notices.push(...(await this.createCustomType(model)));
 		}

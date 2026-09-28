@@ -6,7 +6,7 @@ import { findProjectRoot } from "../project";
 const config = {
 	name: "prismic gen page",
 	description: `
-		Generate the page file for a page type.
+		Generate the page files for a page type.
 
 		Uses the type's route in prismic.config.json. Existing files are not
 		changed: their generated code is printed instead.
