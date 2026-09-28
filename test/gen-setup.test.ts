@@ -1,4 +1,5 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { sep } from "node:path";
 
 import { it } from "./it";
 
@@ -224,7 +225,8 @@ it("keeps a customized Nuxt app.vue", async ({ expect, project, prismic }) => {
 
 	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("add <NuxtPage /> to app.vue");
+	expect(stdout).toContain(`add <NuxtPage /> to ${["app", "app.vue"].join(sep)}`);
+	expect(stdout).toContain("+     <NuxtPage />");
 
 	expect(await readFile(new URL("app/app.vue", project), "utf8")).toBe(appVue);
 	await expect(project).not.toHaveFile("app/pages/index.vue");
