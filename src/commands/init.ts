@@ -4,7 +4,7 @@ import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from 
 import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 import {
 	installDependencies,
 	MissingPackageJson,
@@ -60,6 +60,10 @@ const config = {
 			short: "r",
 			description: "Domain of an existing repository to connect to",
 		},
+		"repo-name": {
+			type: "string",
+			description: "Display name for the new repository (its domain is generated)",
+		},
 		lang: {
 			type: "string",
 			short: "l",
@@ -77,6 +81,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
+	exclusiveOptions(values, ["repo", "repo-name"]);
 	const { repo: explicitRepo, lang, "no-browser": noBrowser, "no-setup": noSetup } = values;
 
 	let existingConfig: Config | undefined;
@@ -171,7 +176,13 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (!repo) {
-		repo = await createRepo({ lang, framework: adapter.id, token, host });
+		repo = await createRepo({
+			name: values["repo-name"],
+			lang,
+			framework: adapter.id,
+			token,
+			host,
+		});
 		console.info(`Created repository: ${repo}`);
 	}
 
