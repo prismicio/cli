@@ -45,7 +45,7 @@ export class NuxtAdapter extends Adapter {
 		await this.modifySliceLibraryPath();
 	}
 
-	async getPreviewComponentInstructions(): Promise<string | undefined> {
+	async getSetupInstructions(): Promise<string | undefined> {
 		const appVue = await readAppVue();
 		if (appVue === undefined || appVue.includes("<NuxtPage")) return;
 

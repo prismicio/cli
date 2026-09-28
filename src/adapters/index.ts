@@ -127,7 +127,8 @@ export abstract class Adapter {
 	}
 
 	abstract setupProject(): Promise<void>;
-	abstract getPreviewComponentInstructions(): Promise<string | undefined>;
+	// Steps the CLI cannot do for the developer, such as adding the preview component.
+	abstract getSetupInstructions(): Promise<string | undefined>;
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	protected abstract getDefaultSliceLibrary(): Promise<URL>;
 	protected abstract createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void>;
