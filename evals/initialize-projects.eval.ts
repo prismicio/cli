@@ -93,3 +93,34 @@ it.for(trials)(
 		);
 	},
 );
+
+it.for(trials)(
+	"finishes Nuxt setup when app.vue has been changed",
+	async (_, { project, agent, expect, repo }) => {
+		await writeFile(
+			new URL("package.json", project),
+			JSON.stringify({ name: "my-site", dependencies: { nuxt: "latest" } }),
+		);
+		await rm(new URL("node_modules/next/", project), { recursive: true });
+		await rm(new URL("prismic.config.json", project));
+		// The module is registered, so setup asks only for the app.vue change.
+		await writeFile(
+			new URL("nuxt.config.ts", project),
+			'export default defineNuxtConfig({ modules: ["@nuxtjs/prismic"] });\n',
+		);
+		// A changed starter, so setup keeps it. KEEP-ME catches an agent that replaces it.
+		await writeFile(
+			new URL("app/app.vue", project),
+			"<template>\n  <div>\n    <header>KEEP-ME</header>\n    <NuxtWelcome />\n  </div>\n</template>\n",
+		);
+
+		const result = await agent(
+			`Set up Prismic in this Nuxt project using the existing "${repo}" Prismic repository.`,
+		);
+
+		expect(result).toHaveRun(["init"]);
+		const appVue = await readFile(new URL("app/app.vue", project), "utf8");
+		expect(appVue).toContain("<NuxtPage");
+		expect(appVue).toContain("KEEP-ME");
+	},
+);
