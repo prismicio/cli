@@ -43,7 +43,7 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-type Release = { repo: string; token: string; host: string; releaseId: string };
+type Release = { repo: string; token: string; host: string; release: string };
 type Snapshot = { local: Models; remote: Models };
 
 export default createCommand(config, async ({ values }) => {
@@ -93,7 +93,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	try {
-		await watch(adapter, { repo, token, host, releaseId }, watching.signal);
+		await watch(adapter, { repo, token, host, release: releaseId }, watching.signal);
 	} catch (error) {
 		await stop();
 		throw error;
@@ -124,7 +124,7 @@ async function watch(adapter: Adapter, release: Release, signal: AbortSignal): P
 	let last: Snapshot = { local: initial, remote: initial };
 
 	const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
-	url.searchParams.set("r", release.releaseId);
+	url.searchParams.set("release", release.release);
 	console.info(`Type Builder: ${url}`);
 	openBrowser(url);
 	console.info("Syncing local models with the Type Builder (Ctrl+C to stop)");
@@ -209,7 +209,7 @@ async function checkReleaseSupport(config: {
 	host: string;
 }): Promise<boolean> {
 	try {
-		await getCustomTypes({ ...config, releaseId: "prismic-cli-release-check" });
+		await getCustomTypes({ ...config, release: "prismic-cli-release-check" });
 		return false;
 	} catch (error) {
 		if (getErrorCode(error) === "RELEASE_NOT_FOUND") return true;
