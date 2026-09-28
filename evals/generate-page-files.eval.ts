@@ -82,11 +82,12 @@ it.for(trials)(
 			}),
 		);
 
-		await agent(
+		const result = await agent(
 			`Serve blog posts at /articles/<uid> instead of /blog-post/<uid>, and make sure a page renders them at the new URL.`,
 		);
 
+		expect(result).toHaveRun(["gen", "page"]);
 		const page = await readPages(new URL("app/articles/[uid]/", project));
-		expect(page).toContain("blog_post");
+		expect(page).toContain('getByUID("blog_post"');
 	},
 );
