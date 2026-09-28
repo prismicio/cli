@@ -68,7 +68,11 @@ export function getMajorDependencyUpdates(
 	const afterVersions = { ...after.dependencies, ...after.devDependencies };
 	const major = (version: string) => /\d+/.exec(version)?.[0];
 	return Object.entries(afterVersions)
-		.filter(([name, to]) => name in beforeVersions && major(beforeVersions[name]) !== major(to))
+		.filter(([name, to]) => {
+			// Ranges without a version, like "latest", have no major to compare.
+			const from = name in beforeVersions ? major(beforeVersions[name]) : undefined;
+			return from !== undefined && from !== major(to);
+		})
 		.map(([name, to]) => ({ name, from: beforeVersions[name], to }));
 }
 

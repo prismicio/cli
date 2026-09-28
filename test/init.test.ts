@@ -5,6 +5,7 @@ import { describe } from "vitest";
 import {
 	buildCustomType,
 	captureOutput,
+	failInstall,
 	it,
 	readLocalCustomType,
 	writeLocalCustomType,
@@ -331,9 +332,7 @@ it(
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic, repo }) => {
 		await rm(new URL("prismic.config.json", project));
-		const bin = new URL("node_modules/.bin/", project);
-		await writeFile(new URL("npm", bin), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
-		await writeFile(new URL("npm.cmd", bin), "@exit /b 1\r\n");
+		await failInstall(project);
 
 		const { stderr, exitCode } = await prismic("init", ["--repo", repo]);
 		expect(exitCode, stderr).toBe(0);
