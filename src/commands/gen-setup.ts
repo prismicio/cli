@@ -50,6 +50,6 @@ export default createCommand(config, async ({ values }) => {
 
 	console.info("Generated setup files.");
 
-	const previewInstructions = await adapter.getPreviewComponentInstructions();
-	if (previewInstructions) console.info(`\n${previewInstructions}`);
+	const setupInstructions = await adapter.getSetupInstructions();
+	if (setupInstructions) console.info(`\n${setupInstructions}`);
 });

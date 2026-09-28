@@ -311,8 +311,8 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Printed last so it is the step the reader is left with.
-	const previewInstructions = await adapter.getPreviewComponentInstructions();
-	if (previewInstructions) console.info(`\n${previewInstructions}`);
+	const setupInstructions = await adapter.getSetupInstructions();
+	if (setupInstructions) console.info(`\n${setupInstructions}`);
 });
 
 async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Promise<boolean> {
