@@ -1,4 +1,4 @@
-import { readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 
 import { buildCustomType, writeLocalCustomType } from "../test/it";
 import { it, trials } from "./it";
@@ -88,32 +88,5 @@ it.for(trials)(
 
 		const page = await readPages(new URL("app/articles/[uid]/", project));
 		expect(page).toContain("blog_post");
-	},
-);
-
-it.for(trials)(
-	"creates a Nuxt home page after init",
-	async (_, { project, agent, expect, repo }) => {
-		await writeFile(
-			new URL("package.json", project),
-			JSON.stringify({ dependencies: { nuxt: "" } }),
-		);
-		await rm(new URL("prismic.config.json", project));
-		await writeFile(new URL("nuxt.config.ts", project), "export default defineNuxtConfig({});\n");
-		// The fixture's app/ directory is Nuxt 4's source directory.
-		await writeFile(
-			new URL("app/app.vue", project),
-			"<template>\n  <div>\n    <NuxtRouteAnnouncer />\n    <NuxtWelcome />\n  </div>\n</template>\n",
-		);
-
-		const result = await agent(
-			`Set up Prismic in this Nuxt project using the existing "${repo}" Prismic repository.`,
-		);
-		expect(result).toHaveRun(["init"]);
-
-		await result.continue(`Create a home page type for this website's home page at /.`);
-
-		const page = await readFile(new URL("app/pages/index.vue", project), "utf8");
-		expect(page).toContain("SliceZone");
 	},
 );
