@@ -88,10 +88,12 @@ export class SvelteKitAdapter extends Adapter {
 				See <https://prismic.io/docs/svelte-preview> for more information.
 			`,
 		);
-		await writeFileIfMissing(
-			new URL(`src/routes/+layout.server.${extension}`, projectRoot),
-			layoutServerTemplate(),
-		);
+		if (!(await findServerLayout())) {
+			await writeFileRecursive(
+				new URL(`src/routes/+layout.server.${extension}`, projectRoot),
+				layoutServerTemplate(),
+			);
+		}
 		await writeFileIfMissing(
 			new URL("src/routes/+layout.svelte", projectRoot),
 			rootLayoutTemplate({ version }),
@@ -150,7 +152,8 @@ export class SvelteKitAdapter extends Adapter {
 				`;
 
 		// The layout reads repositoryName from the server layout's data.
-		const serverLayoutPath = `src/routes/+layout.server.${await getJsFileExtension()}`;
+		const serverLayoutPath =
+			(await findServerLayout()) ?? `src/routes/+layout.server.${await getJsFileExtension()}`;
 		const serverLayout = await readFile(
 			new URL(serverLayoutPath, await findProjectRoot()),
 			"utf8",
@@ -228,4 +231,11 @@ async function deleteStarterHomePage(): Promise<void> {
 	if (!STARTER_HOME_PAGES.includes(contents?.replace(/\s/g, "") ?? "")) return;
 
 	await rm(path);
+}
+
+async function findServerLayout(): Promise<string | undefined> {
+	const projectRoot = await findProjectRoot();
+	for (const path of ["src/routes/+layout.server.js", "src/routes/+layout.server.ts"]) {
+		if (await exists(new URL(path, projectRoot))) return path;
+	}
 }
