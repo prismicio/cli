@@ -208,6 +208,25 @@ it(
 );
 
 it(
+	"does not generate a layout next to a server layout without the repository name",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(
+			new URL("src/routes/+layout.server.js", project),
+			'export const load = () => ({ user: "x" });',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("src/routes/+layout.svelte");
+		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
+	},
+);
+
+it(
 	"does not ask for the repository name in a server layout that already returns it",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
