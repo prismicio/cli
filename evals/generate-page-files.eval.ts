@@ -17,14 +17,13 @@ export default function Home() {
 }
 `;
 
-// Agents sometimes rename the page to match the project's language.
-async function readPages(directory: URL): Promise<string> {
+// Agents sometimes rename the page to match the project's language. Next.js cannot serve two
+// page files for one route, so there must be exactly one.
+async function readPage(directory: URL): Promise<string> {
 	const files = await readdir(directory).catch(() => []);
 	const pages = files.filter((file) => /^page\.[jt]sx?$/.test(file));
-	const contents = await Promise.all(
-		pages.map((file) => readFile(new URL(file, directory), "utf8")),
-	);
-	return contents.join("\n");
+	if (pages.length !== 1) throw new Error(`Expected one page file, found: ${pages.join(", ")}`);
+	return await readFile(new URL(pages[0], directory), "utf8");
 }
 
 it.for(trials)(
@@ -35,7 +34,7 @@ it.for(trials)(
 		const result = await agent(`Create a home page type for this website's home page at /.`);
 
 		expect(result).toHaveRun(["gen", "page"]);
-		const page = await readPages(new URL("app/", project));
+		const page = await readPage(new URL("app/", project));
 		expect(page).toContain("SliceZone");
 		expect(page).not.toContain("To get started");
 	},
@@ -53,7 +52,7 @@ it.for(trials)(
 		const result = await agent(`Create a home page type for this website's home page at /.`);
 
 		expect(result).toHaveRun(["gen", "page"]);
-		const page = await readPages(new URL("app/", project));
+		const page = await readPage(new URL("app/", project));
 		expect(page).toMatch(/SliceZone|getSingle\(/);
 		expect(page).toContain("KEEP-ME");
 	},
@@ -87,7 +86,7 @@ it.for(trials)(
 		);
 
 		expect(result).toHaveRun(["gen", "page"]);
-		const page = await readPages(new URL("app/articles/[uid]/", project));
+		const page = await readPage(new URL("app/articles/[uid]/", project));
 		expect(page).toContain('getByUID("blog_post"');
 	},
 );
