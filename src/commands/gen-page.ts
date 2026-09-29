@@ -1,7 +1,7 @@
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { relativePathname } from "../lib/url";
-import { findProjectRoot } from "../project";
+import { buildRoutePath, findPageRoute, findProjectRoot, readConfig } from "../project";
 
 const config = {
 	name: "prismic gen page",
@@ -23,6 +23,14 @@ export default createCommand(config, async ({ positionals }) => {
 	const { model } = await adapter.getCustomType(id);
 	if (model.format !== "page") {
 		throw new CommandError(`"${id}" is not a page type.`);
+	}
+
+	const { routes = [] } = await readConfig();
+	const unusedRoute = !findPageRoute(routes, id) && routes.find((r) => r.type === id && !r.uid);
+	if (unusedRoute) {
+		console.info(
+			`The route ${unusedRoute.path} has optional or repeated params, so the page uses the default path ${buildRoutePath(model)}. Move it to match the route.\n`,
+		);
 	}
 
 	const skipped = await adapter.writePageFiles(model);

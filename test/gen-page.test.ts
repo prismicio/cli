@@ -127,8 +127,11 @@ it("uses the default path for a route with an optional param", async ({
 		}),
 	);
 
-	const { stderr, exitCode } = await prismic("gen", ["page", customType.id]);
+	const { stdout, stderr, exitCode } = await prismic("gen", ["page", customType.id]);
 	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(
+		`The route /:lang?/articles/:uid has optional or repeated params, so the page uses the default path /${customType.id.toLowerCase()}/:uid.`,
+	);
 
 	await expect(project).toHaveFile(`app/${customType.id.toLowerCase()}/[uid]/page.jsx`);
 	await expect(project).not.toHaveFile("app/[lang?]/articles/[uid]/page.jsx");

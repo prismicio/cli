@@ -113,6 +113,12 @@ export async function removeRoute(id: string): Promise<void> {
 	await updateConfig({ routes: newRoutes });
 }
 
+// A route with a uid serves one document, not every page of the type. Optional or repeated
+// params (`:lang?`, `:path*`) have no folder name that works in every framework.
+export function findPageRoute(routes: Route[], typeId: string): Route | undefined {
+	return routes.find((route) => route.type === typeId && !route.uid && !/[?*+]/.test(route.path));
+}
+
 export function buildRoutePath(pageType: DynamicCustomTypeModel): string {
 	const { id, repeatable } = pageType;
 	const namespace = id.replaceAll("_", "-").toLowerCase();
