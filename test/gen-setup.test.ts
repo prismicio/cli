@@ -1,6 +1,6 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 
-import { it } from "./it";
+import { failInstall, it, useSvelteKit } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--help"]);
@@ -71,17 +71,62 @@ it("skips installation with --no-install", async ({ expect, project, prismic }) 
 	await expect(project).toHaveFile("prismicio.js");
 });
 
-async function useSvelteKit(project: URL, version = "5.0.0") {
+it("reports a new major version of an existing dependency", async ({
+	expect,
+	project,
+	prismic,
+}) => {
 	await writeFile(
 		new URL("package.json", project),
-		JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
+		JSON.stringify({ dependencies: { next: "latest", "@prismicio/client": "^6.0.0" } }),
 	);
-	await mkdir(new URL("node_modules/svelte/", project), { recursive: true });
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toMatch(
+		/Updated @prismicio\/client from \^6\.0\.0 to \^\d+\S*\. Check your code for breaking changes/,
+	);
+});
+
+it("updates a dev dependency where it is listed", async ({ expect, project, prismic }) => {
 	await writeFile(
-		new URL("node_modules/svelte/package.json", project),
-		JSON.stringify({ version }),
+		new URL("package.json", project),
+		JSON.stringify({
+			dependencies: { next: "latest" },
+			devDependencies: { "@prismicio/client": "^7.0.0" },
+		}),
 	);
-}
+
+	const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	const packageJson = JSON.parse(await readFile(new URL("package.json", project), "utf8"));
+	expect(packageJson.dependencies).not.toHaveProperty("@prismicio/client");
+	expect(packageJson.devDependencies).toHaveProperty("@prismicio/client");
+});
+
+it("does not report an update from a range without a version", async ({
+	expect,
+	project,
+	prismic,
+}) => {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { next: "latest", "@prismicio/client": "latest" } }),
+	);
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).not.toContain("Updated @prismicio/client");
+});
+
+it("tells the user how to finish when the install fails", async ({ expect, project, prismic }) => {
+	await failInstall(project);
+
+	const { stderr, exitCode } = await prismic("gen", ["setup"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stderr).toContain("Could not install dependencies. Run `npm install` to finish.");
+	expect(stderr).toContain("The rest of the setup is done.");
+});
 
 it("prints instructions for adding the preview component", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
@@ -126,9 +171,134 @@ it(
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).not.toContain("add <PrismicPreview>");
-		await expect(project).toHaveFile("src/routes/+layout.svelte", {
-			contains: "<PrismicPreview {repositoryName} />",
-		});
+		const layout = await readFile(new URL("src/routes/+layout.svelte", project), "utf8");
+		expect(layout).toContain("const { data, children } = $props();");
+		expect(layout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(layout).not.toContain("$lib/prismicio");
+	},
+);
+
+it(
+	"passes the repository name to a Svelte 4 layout it generated itself",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "4.2.19");
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		const layout = await readFile(new URL("src/routes/+layout.svelte", project), "utf8");
+		expect(layout).toContain("export let data;");
+		expect(layout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(layout).not.toContain("$lib/prismicio");
+	},
+);
+
+it(
+	"returns the repository name from a SvelteKit server layout",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		const serverLayout = await readFile(new URL("src/routes/+layout.server.js", project), "utf8");
+		expect(serverLayout).toContain('import { repositoryName } from "$lib/prismicio";');
+		expect(serverLayout).toContain('export const prerender = "auto";');
+		expect(serverLayout).toContain("return { repositoryName };");
+	},
+);
+
+it(
+	"leaves the Vite config unchanged",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		const viteConfig =
+			'import { sveltekit } from "@sveltejs/kit/vite";\n' +
+			'import { defineConfig } from "vite";\n\n' +
+			"export default defineConfig({ plugins: [sveltekit()] });\n";
+		await writeFile(new URL("vite.config.js", project), viteConfig);
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(await readFile(new URL("vite.config.js", project), "utf8")).toBe(viteConfig);
+	},
+);
+
+it(
+	"asks for the repository name in an existing SvelteKit server layout",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
+		const serverLayout = 'export const load = () => ({ user: "x" });';
+		await writeFile(new URL("src/routes/+layout.server.js", project), serverLayout);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(await readFile(new URL("src/routes/+layout.server.js", project), "utf8")).toBe(
+			serverLayout,
+		);
+		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
+	},
+);
+
+it(
+	"asks for the repository name in a server layout written in the other language",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
+		await writeFile(
+			new URL("src/routes/+layout.server.ts", project),
+			'export const load = () => ({ user: "x" });',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("src/routes/+layout.server.js");
+		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.ts");
+	},
+);
+
+it(
+	"does not generate a layout next to a server layout without the repository name",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(
+			new URL("src/routes/+layout.server.js", project),
+			'export const load = () => ({ user: "x" });',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("src/routes/+layout.svelte");
+		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
+	},
+);
+
+it(
+	"does not ask for the repository name in a server layout that already returns it",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
+		await writeFile(
+			new URL("src/routes/+layout.server.js", project),
+			'import { repositoryName } from "$lib/prismicio";\nexport const load = () => ({ repositoryName });',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).not.toContain("+layout.server");
 	},
 );
 
@@ -170,8 +340,10 @@ it(
 
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("+   export let data;");
 		expect(stdout).toContain("<slot />");
 		expect(stdout).not.toContain("{@render children()}");
+		expect(stdout).not.toContain("$props()");
 	},
 );
 
@@ -187,5 +359,130 @@ it(
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain("src/routes/+layout.svelte");
 		expect(stdout).toContain('import { PrismicPreview } from "@prismicio/svelte/kit";');
+		expect(stdout).toContain("-   let { children } = $props();");
+		expect(stdout).toContain("+   let { data, children } = $props();");
+		expect(stdout).toContain("+ <PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain("prismic docs view sveltekit");
+	},
+);
+
+async function useNuxt(
+	project: URL,
+	cli?: { addsModule?: boolean; exitCode?: number },
+): Promise<void> {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { nuxt: "latest" } }),
+	);
+	await writeFile(new URL("nuxt.config.ts", project), "export default defineNuxtConfig({});\n");
+	if (!cli) return;
+
+	// A fake Nuxt CLI that records its arguments, with npm-style shims for POSIX and Windows.
+	const bin = new URL("node_modules/.bin/", project);
+	await mkdir(bin, { recursive: true });
+	const config = 'export default defineNuxtConfig({ modules: ["@nuxtjs/prismic"] });\n';
+	await writeFile(
+		new URL("nuxt.mjs", bin),
+		'import { appendFileSync, writeFileSync } from "node:fs";\n' +
+			'appendFileSync("nuxt-args.txt", process.argv.slice(2).join(" "));\n' +
+			(cli.addsModule ? `writeFileSync("nuxt.config.ts", ${JSON.stringify(config)});\n` : "") +
+			`process.exitCode = ${cli.exitCode ?? 0};\n`,
+	);
+	await writeFile(new URL("nuxt", bin), '#!/bin/sh\nexec node "$(dirname "$0")/nuxt.mjs" "$@"\n', {
+		mode: 0o755,
+	});
+	await writeFile(new URL("nuxt.cmd", bin), '@node "%~dp0\\nuxt.mjs" %*\r\n');
+}
+
+const NUXT_MODULE_INSTRUCTION = 'add "@nuxtjs/prismic" to modules in nuxt.config';
+
+it(
+	"registers the Nuxt module with the Nuxt CLI",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { addsModule: true });
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(await readFile(new URL("nuxt-args.txt", project), "utf8")).toBe(
+			"module add @nuxtjs/prismic --skipInstall",
+		);
+		expect(stdout).not.toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"does not run the Nuxt CLI when the Nuxt module is registered",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { addsModule: true });
+		await writeFile(
+			new URL("nuxt.config.ts", project),
+			'export default defineNuxtConfig({ modules: [["@nuxtjs/prismic", { preview: "/preview" }]] });\n',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("nuxt-args.txt");
+		expect(stdout).not.toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"finds the Nuxt module in a nuxt.config.mjs file",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { addsModule: true });
+		await rm(new URL("nuxt.config.ts", project));
+		await writeFile(
+			new URL("nuxt.config.mjs", project),
+			'export default defineNuxtConfig({ modules: ["@nuxtjs/prismic"] });\n',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("nuxt-args.txt");
+		expect(stdout).not.toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"asks for the Nuxt module when the Nuxt CLI exits without adding it",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { exitCode: 0 });
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).toHaveFile("nuxt-args.txt");
+		expect(stdout).toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"asks for the Nuxt module when the Nuxt CLI fails",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { exitCode: 1 });
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).toHaveFile("nuxt-args.txt");
+		expect(stdout).toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"asks for the Nuxt module when the Nuxt CLI is not installed",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(NUXT_MODULE_INSTRUCTION);
+		await expect(project).toHaveFile("nuxt.config.ts", {
+			contains: "export default defineNuxtConfig({});",
+		});
 	},
 );
