@@ -6,6 +6,8 @@ import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 import {
+	getInstallCommand,
+	getMajorDependencyUpdates,
 	installDependencies,
 	MissingPackageJson,
 	readPackageJson,
@@ -228,7 +230,16 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Install dependencies and create framework files
+	const packageJson = await readPackageJson();
 	await adapter.initProject({ setup: !noSetup && !existingConfig });
+	for (const { name, from, to } of getMajorDependencyUpdates(
+		packageJson,
+		await readPackageJson(),
+	)) {
+		console.info(
+			`Updated ${name} from ${from} to ${to}. Check your code for breaking changes in the new version.`,
+		);
+	}
 
 	// Run package manager install
 	if (!noSetup) {
@@ -237,7 +248,7 @@ export default createCommand(config, async ({ values }) => {
 			await installDependencies();
 		} catch {
 			console.warn(
-				"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
+				`Could not install dependencies. Run \`${await getInstallCommand()}\` to finish.\nThe rest of the setup is done, so you don't need to run \`prismic init\` again.`,
 			);
 		}
 	}

@@ -198,6 +198,13 @@ export async function useSvelteKit(project: URL, version = "5.0.0"): Promise<voi
 	);
 }
 
+// Makes the package manager install fail by shadowing npm in node_modules/.bin.
+export async function failInstall(project: URL): Promise<void> {
+	const bin = new URL("node_modules/.bin/", project);
+	await writeFile(new URL("npm", bin), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+	await writeFile(new URL("npm.cmd", bin), "@exit /b 1\r\n");
+}
+
 export function captureOutput(proc: Result): () => string {
 	let output = "";
 	proc.process?.stdout?.on("data", (c: Buffer) => (output += c.toString()));
