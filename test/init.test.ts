@@ -5,6 +5,7 @@ import { describe } from "vitest";
 import {
 	buildCustomType,
 	captureOutput,
+	failInstall,
 	it,
 	readLocalCustomType,
 	writeLocalCustomType,
@@ -325,6 +326,20 @@ it("installs dependencies", { timeout: 30_000 }, async ({ expect, project, prism
 	// Verify the stubbed npm was invoked (it creates package-lock.json)
 	await expect(access(new URL("package-lock.json", project))).resolves.toBeUndefined();
 });
+
+it(
+	"tells the user how to finish when the install fails",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic, repo }) => {
+		await rm(new URL("prismic.config.json", project));
+		await failInstall(project);
+
+		const { stderr, exitCode } = await prismic("init", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stderr).toContain("Could not install dependencies. Run `npm install` to finish.");
+		expect(stderr).toContain("you don't need to run `prismic init` again");
+	},
+);
 
 it("warns and keeps local models when reconnecting with model differences", async ({
 	expect,

@@ -1,6 +1,11 @@
 import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { installDependencies } from "../lib/packageJson";
+import {
+	getInstallCommand,
+	getMajorDependencyUpdates,
+	installDependencies,
+	readPackageJson,
+} from "../lib/packageJson";
 
 const config = {
 	name: "prismic gen setup",
@@ -21,7 +26,16 @@ const config = {
 
 export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
+	const packageJson = await readPackageJson();
 	await adapter.setupProject();
+	for (const { name, from, to } of getMajorDependencyUpdates(
+		packageJson,
+		await readPackageJson(),
+	)) {
+		console.info(
+			`Updated ${name} from ${from} to ${to}. Check your code for breaking changes in the new version.`,
+		);
+	}
 
 	if (!values["no-install"]) {
 		try {
@@ -29,7 +43,7 @@ export default createCommand(config, async ({ values }) => {
 			await installDependencies();
 		} catch {
 			console.warn(
-				"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
+				`Could not install dependencies. Run \`${await getInstallCommand()}\` to finish.\nThe rest of the setup is done.`,
 			);
 		}
 	}
