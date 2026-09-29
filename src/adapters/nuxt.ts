@@ -150,8 +150,9 @@ async function configureNuxtModule(): Promise<void> {
 
 async function checkNuxtConfigHasModule(): Promise<boolean> {
 	const projectRoot = await findProjectRoot();
-	for (const filename of ["nuxt.config.ts", "nuxt.config.js"]) {
-		const contents = await readFile(new URL(filename, projectRoot), "utf8").catch(() => "");
+	for (const extension of ["ts", "js", "mts", "mjs", "cts", "cjs"]) {
+		const configUrl = new URL(`nuxt.config.${extension}`, projectRoot);
+		const contents = await readFile(configUrl, "utf8").catch(() => "");
 		if (contents.includes(NUXT_PRISMIC)) return true;
 	}
 	return false;

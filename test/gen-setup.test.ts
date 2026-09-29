@@ -372,6 +372,24 @@ it(
 );
 
 it(
+	"finds the Nuxt module in a nuxt.config.mjs file",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { addsModule: true });
+		await rm(new URL("nuxt.config.ts", project));
+		await writeFile(
+			new URL("nuxt.config.mjs", project),
+			'export default defineNuxtConfig({ modules: ["@nuxtjs/prismic"] });\n',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("nuxt-args.txt");
+		expect(stdout).not.toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
 	"asks for the Nuxt module when the Nuxt CLI exits without adding it",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
