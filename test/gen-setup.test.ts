@@ -549,3 +549,12 @@ it("keeps an existing Nuxt home page", async ({ expect, project, prismic }) => {
 		"<template>Home</template>\n",
 	);
 });
+
+it("asks for both the Nuxt module and <NuxtPage />", async ({ expect, project, prismic }) => {
+	await useNuxtWithAppVue(project, "<template>\n  <h1>My site</h1>\n</template>\n");
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(NUXT_MODULE_INSTRUCTION);
+	expect(stdout).toContain(`Action required: add <NuxtPage /> to ${["app", "app.vue"].join(sep)}.`);
+});
