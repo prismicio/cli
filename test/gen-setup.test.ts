@@ -365,3 +365,124 @@ it(
 		expect(stdout).toContain("prismic docs view sveltekit");
 	},
 );
+
+async function useNuxt(
+	project: URL,
+	cli?: { addsModule?: boolean; exitCode?: number },
+): Promise<void> {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { nuxt: "latest" } }),
+	);
+	await writeFile(new URL("nuxt.config.ts", project), "export default defineNuxtConfig({});\n");
+	if (!cli) return;
+
+	// A fake Nuxt CLI that records its arguments, with npm-style shims for POSIX and Windows.
+	const bin = new URL("node_modules/.bin/", project);
+	await mkdir(bin, { recursive: true });
+	const config = 'export default defineNuxtConfig({ modules: ["@nuxtjs/prismic"] });\n';
+	await writeFile(
+		new URL("nuxt.mjs", bin),
+		'import { appendFileSync, writeFileSync } from "node:fs";\n' +
+			'appendFileSync("nuxt-args.txt", process.argv.slice(2).join(" "));\n' +
+			(cli.addsModule ? `writeFileSync("nuxt.config.ts", ${JSON.stringify(config)});\n` : "") +
+			`process.exitCode = ${cli.exitCode ?? 0};\n`,
+	);
+	await writeFile(new URL("nuxt", bin), '#!/bin/sh\nexec node "$(dirname "$0")/nuxt.mjs" "$@"\n', {
+		mode: 0o755,
+	});
+	await writeFile(new URL("nuxt.cmd", bin), '@node "%~dp0\\nuxt.mjs" %*\r\n');
+}
+
+const NUXT_MODULE_INSTRUCTION = 'add "@nuxtjs/prismic" to modules in nuxt.config';
+
+it(
+	"registers the Nuxt module with the Nuxt CLI",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { addsModule: true });
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(await readFile(new URL("nuxt-args.txt", project), "utf8")).toBe(
+			"module add @nuxtjs/prismic --skipInstall",
+		);
+		expect(stdout).not.toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"does not run the Nuxt CLI when the Nuxt module is registered",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { addsModule: true });
+		await writeFile(
+			new URL("nuxt.config.ts", project),
+			'export default defineNuxtConfig({ modules: [["@nuxtjs/prismic", { preview: "/preview" }]] });\n',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("nuxt-args.txt");
+		expect(stdout).not.toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"finds the Nuxt module in a nuxt.config.mjs file",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { addsModule: true });
+		await rm(new URL("nuxt.config.ts", project));
+		await writeFile(
+			new URL("nuxt.config.mjs", project),
+			'export default defineNuxtConfig({ modules: ["@nuxtjs/prismic"] });\n',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("nuxt-args.txt");
+		expect(stdout).not.toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"asks for the Nuxt module when the Nuxt CLI exits without adding it",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { exitCode: 0 });
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).toHaveFile("nuxt-args.txt");
+		expect(stdout).toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"asks for the Nuxt module when the Nuxt CLI fails",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { exitCode: 1 });
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).toHaveFile("nuxt-args.txt");
+		expect(stdout).toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"asks for the Nuxt module when the Nuxt CLI is not installed",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(NUXT_MODULE_INSTRUCTION);
+		await expect(project).toHaveFile("nuxt.config.ts", {
+			contains: "export default defineNuxtConfig({});",
+		});
+	},
+);
