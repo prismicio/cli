@@ -1,6 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 
-import { it, useSvelteKit } from "./it";
+import { failInstall, it, useSvelteKit } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--help"]);
@@ -69,6 +69,63 @@ it("skips installation with --no-install", async ({ expect, project, prismic }) 
 
 	await expect(project).not.toHaveFile("package-lock.json");
 	await expect(project).toHaveFile("prismicio.js");
+});
+
+it("reports a new major version of an existing dependency", async ({
+	expect,
+	project,
+	prismic,
+}) => {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { next: "latest", "@prismicio/client": "^6.0.0" } }),
+	);
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toMatch(
+		/Updated @prismicio\/client from \^6\.0\.0 to \^\d+\S*\. Check your code for breaking changes/,
+	);
+});
+
+it("updates a dev dependency where it is listed", async ({ expect, project, prismic }) => {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({
+			dependencies: { next: "latest" },
+			devDependencies: { "@prismicio/client": "^7.0.0" },
+		}),
+	);
+
+	const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	const packageJson = JSON.parse(await readFile(new URL("package.json", project), "utf8"));
+	expect(packageJson.dependencies).not.toHaveProperty("@prismicio/client");
+	expect(packageJson.devDependencies).toHaveProperty("@prismicio/client");
+});
+
+it("does not report an update from a range without a version", async ({
+	expect,
+	project,
+	prismic,
+}) => {
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { next: "latest", "@prismicio/client": "latest" } }),
+	);
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).not.toContain("Updated @prismicio/client");
+});
+
+it("tells the user how to finish when the install fails", async ({ expect, project, prismic }) => {
+	await failInstall(project);
+
+	const { stderr, exitCode } = await prismic("gen", ["setup"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stderr).toContain("Could not install dependencies. Run `npm install` to finish.");
+	expect(stderr).toContain("The rest of the setup is done.");
 });
 
 it("prints instructions for adding the preview component", async ({ expect, prismic }) => {
