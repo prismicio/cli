@@ -110,3 +110,26 @@ it("treats an existing page.ts as the page", async ({ expect, project, prismic }
 	);
 	await expect(project).not.toHaveFile(`${directory}page.jsx`);
 });
+
+it("uses the default path for a route with an optional param", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+}) => {
+	const customType = buildCustomType({ format: "page", repeatable: true });
+	await writeLocalCustomType(project, customType);
+	await writeFile(
+		new URL("prismic.config.json", project),
+		JSON.stringify({
+			repositoryName: repo,
+			routes: [{ type: customType.id, path: "/:lang?/articles/:uid" }],
+		}),
+	);
+
+	const { stderr, exitCode } = await prismic("gen", ["page", customType.id]);
+	expect(exitCode, stderr).toBe(0);
+
+	await expect(project).toHaveFile(`app/${customType.id.toLowerCase()}/[uid]/page.jsx`);
+	await expect(project).not.toHaveFile("app/[lang?]/articles/[uid]/page.jsx");
+});

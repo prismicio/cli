@@ -222,8 +222,11 @@ export abstract class Adapter {
 	// Returns the files skipped because they already exist.
 	async writePageFiles(model: DynamicCustomTypeModel): Promise<PageFile[]> {
 		const { routes = [] } = await readConfig();
-		// A route with a uid serves one document, not every page of the type.
-		const route = routes.find((r) => r.type === model.id && !r.uid)?.path ?? buildRoutePath(model);
+		// A route with a uid serves one document, not every page of the type. Optional or
+		// repeated params (`:lang?`, `:path*`) have no folder name that works in every framework.
+		const route =
+			routes.find((r) => r.type === model.id && !r.uid && !/[?*+]/.test(r.path))?.path ??
+			buildRoutePath(model);
 		const routePath = route
 			.split("/")
 			.filter(Boolean)
