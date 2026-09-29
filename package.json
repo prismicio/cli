@@ -44,7 +44,6 @@
 		"dedent": "^1.7.2",
 		"detect-indent": "^7.0.2",
 		"github-slugger": "2.0.0",
-		"magicast": "0.5.5",
 		"oxfmt": "^0.70.0",
 		"oxlint": "1.85.0",
 		"prismic-ts-codegen": "^0.1.30",

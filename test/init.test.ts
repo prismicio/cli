@@ -34,10 +34,16 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic docs view cli#set-up-a-type-builder-project");
 });
 
-it("fails if prismic.config.json already exists without --repo", async ({ expect, prismic }) => {
+it("fails if prismic.config.json already exists without --repo", async ({
+	expect,
+	prismic,
+	repo,
+}) => {
 	const { exitCode, stderr } = await prismic("init");
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("init --repo");
+	expect(stderr).toContain(`This project is already set up for Prismic (repository: ${repo}).`);
+	expect(stderr).toContain("Run `prismic gen setup`");
+	expect(stderr).toContain("Run `prismic init --repo <domain>`");
 });
 
 it("creates a repo if --repo is not provided and no legacy config exists", async ({
