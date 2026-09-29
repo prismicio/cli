@@ -185,7 +185,7 @@ export class NextJsAdapter extends Adapter {
 		const basename = appRouter ? `app/${routePath}/page` : `pages/${routePath || "index"}`;
 		let path = new URL(`${basename}.${extension}`, sourceRoot);
 		// Next.js serves any of these as the same page, so an existing one is the page file.
-		for (const candidate of ["js", "jsx", "tsx"]) {
+		for (const candidate of ["js", "jsx", "ts", "tsx"]) {
 			const candidatePath = new URL(`${basename}.${candidate}`, sourceRoot);
 			if (await exists(candidatePath)) path = candidatePath;
 		}

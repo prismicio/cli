@@ -72,3 +72,41 @@ it("uses the route from prismic.config.json", async ({ expect, project, prismic,
 		contains: `getByUID("${customType.id}"`,
 	});
 });
+
+it("skips routes for a single document", async ({ expect, project, prismic, repo }) => {
+	const customType = buildCustomType({ format: "page", repeatable: true });
+	await writeLocalCustomType(project, customType);
+	await writeFile(
+		new URL("prismic.config.json", project),
+		JSON.stringify({
+			repositoryName: repo,
+			routes: [
+				{ type: customType.id, uid: "home", path: "/" },
+				{ type: customType.id, path: "/articles/:uid" },
+			],
+		}),
+	);
+
+	const { stderr, exitCode } = await prismic("gen", ["page", customType.id]);
+	expect(exitCode, stderr).toBe(0);
+
+	await expect(project).toHaveFile("app/articles/[uid]/page.jsx", {
+		contains: `getByUID("${customType.id}"`,
+	});
+	await expect(project).not.toHaveFile("app/page.jsx");
+});
+
+it("treats an existing page.ts as the page", async ({ expect, project, prismic }) => {
+	const customType = buildCustomType({ format: "page", repeatable: false });
+	await writeLocalCustomType(project, customType);
+	const directory = `app/${customType.id.toLowerCase()}/`;
+	await mkdir(new URL(directory, project), { recursive: true });
+	await writeFile(new URL(`${directory}page.ts`, project), "// existing page");
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["page", customType.id]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(
+		`${[...directory.split("/").filter(Boolean), "page.ts"].join(sep)} already exists`,
+	);
+	await expect(project).not.toHaveFile(`${directory}page.jsx`);
+});
