@@ -77,7 +77,7 @@ export default createCommand(config, async ({ values }) => {
 				const diff = diffModels(remote, await adapter.getModels(), {
 					treatNonCanonicalAsChanged: true,
 				});
-				await adapter.writeModels(diff);
+				for (const notice of await adapter.writeModels(diff)) console.info(notice);
 				const changed = [
 					...(hasChanges(diff.slices) ? ["slices"] : []),
 					...(hasChanges(diff.customTypes) ? ["custom types"] : []),

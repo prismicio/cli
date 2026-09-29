@@ -36,14 +36,17 @@ import {
 	addRoute,
 	buildRoutePath,
 	checkIsTypeScriptProject,
+	findPageRoute,
 	findProjectRoot,
 	getLibraries,
 	getRepositoryName,
+	readConfig,
 	removeRoute,
 	updateRoute,
 } from "../project";
 
 type ModelMeta<T> = { model: T; modelPath: URL; directory: URL; library: URL };
+export type PageFile = { path: URL; contents: string };
 
 export const FRAMEWORKS = ["next", "nuxt", "sveltekit"];
 
@@ -148,10 +151,10 @@ export abstract class Adapter {
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	protected abstract getDefaultSliceLibrary(): Promise<URL>;
 	protected abstract createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void>;
-	protected abstract createPageFile(
+	protected abstract getPageFiles(
 		model: DynamicCustomTypeModel,
 		routePath: string,
-	): Promise<void>;
+	): Promise<PageFile[]>;
 
 	async initProject({ setup }: { setup: boolean }): Promise<void> {
 		for (const library of await this.getSliceLibraries()) {
@@ -219,7 +222,8 @@ export abstract class Adapter {
 		return customType;
 	}
 
-	async createCustomType(model: DynamicCustomTypeModel): Promise<void> {
+	// Returns a notice for each page file skipped because it already exists.
+	async createCustomType(model: DynamicCustomTypeModel): Promise<string[]> {
 		const [library] = await this.getCustomTypeLibraries();
 		const directory = appendTrailingSlash(new URL(model.id, appendTrailingSlash(library)));
 		await assertModelMissing("type", model.id, directory, await this.getCustomTypes());
@@ -227,14 +231,30 @@ export abstract class Adapter {
 			new URL("index.json", directory),
 			stringify(canonicalizeCustomType(model)),
 		);
-		if (model.format !== "page") return;
+		if (model.format !== "page") return [];
 		await addRoute(model);
-		const routePath = buildRoutePath(model)
+		const projectRoot = await findProjectRoot();
+		return (await this.writePageFiles(model)).map(
+			({ path }) =>
+				`Skipped ${relativePathname(projectRoot, path)} (already exists). Run \`prismic gen page ${model.id}\` to get the code.`,
+		);
+	}
+
+	// Returns the files skipped because they already exist.
+	async writePageFiles(model: DynamicCustomTypeModel): Promise<PageFile[]> {
+		const { routes = [] } = await readConfig();
+		const route = findPageRoute(routes, model.id)?.path ?? buildRoutePath(model);
+		const routePath = route
 			.split("/")
 			.filter(Boolean)
 			.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
 			.join("/");
-		await this.createPageFile(model, routePath);
+		const skipped: PageFile[] = [];
+		for (const file of await this.getPageFiles(model, routePath)) {
+			if (await exists(file.path)) skipped.push(file);
+			else await writeFileRecursive(file.path, file.contents);
+		}
+		return skipped;
 	}
 
 	async updateCustomType(model: DynamicCustomTypeModel): Promise<void> {
@@ -257,13 +277,17 @@ export abstract class Adapter {
 		};
 	}
 
-	async writeModels(diff: ModelsDiff): Promise<void> {
+	async writeModels(diff: ModelsDiff): Promise<string[]> {
 		for (const model of diff.slices.update) await this.updateSlice(model);
 		for (const model of diff.slices.delete) await this.deleteSlice(model.id);
 		for (const model of diff.slices.insert) await this.createSlice(model);
 		for (const model of diff.customTypes.update) await this.updateCustomType(model);
 		for (const model of diff.customTypes.delete) await this.deleteCustomType(model.id);
-		for (const model of diff.customTypes.insert) await this.createCustomType(model);
+		const notices: string[] = [];
+		for (const model of diff.customTypes.insert) {
+			notices.push(...(await this.createCustomType(model)));
+		}
+		return notices;
 	}
 
 	async generateTypes(): Promise<URL> {

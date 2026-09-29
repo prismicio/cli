@@ -1,4 +1,5 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { sep } from "node:path";
 
 import { failInstall, it, useSvelteKit } from "./it";
 
@@ -486,6 +487,77 @@ it(
 		});
 	},
 );
+
+const NUXT_STARTER_APP_VUE = `<template>
+  <div>
+    <NuxtRouteAnnouncer />
+    <NuxtWelcome />
+  </div>
+</template>
+`;
+
+async function useNuxtWithAppVue(project: URL, appVue: string) {
+	await useNuxt(project);
+	await mkdir(new URL("app/", project), { recursive: true });
+	await writeFile(new URL("app/app.vue", project), appVue);
+}
+
+it("deletes the Nuxt starter app.vue", async ({ expect, project, prismic }) => {
+	await useNuxtWithAppVue(project, NUXT_STARTER_APP_VUE);
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).not.toContain("<NuxtPage />");
+
+	await expect(project).not.toHaveFile("app/app.vue");
+	await expect(project).not.toHaveFile("app/pages/index.vue");
+});
+
+it("keeps a customized Nuxt app.vue", async ({ expect, project, prismic }) => {
+	const appVue = "<template>\n  <h1>My site</h1>\n  <NuxtWelcome />\n</template>\n";
+	await useNuxtWithAppVue(project, appVue);
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(`add <NuxtPage /> to ${["app", "app.vue"].join(sep)}`);
+	expect(stdout).toContain("+     <NuxtPage />");
+
+	expect(await readFile(new URL("app/app.vue", project), "utf8")).toBe(appVue);
+	await expect(project).not.toHaveFile("app/pages/index.vue");
+});
+
+it("keeps a Nuxt app.vue that renders pages", async ({ expect, project, prismic }) => {
+	await useNuxtWithAppVue(project, "<template><NuxtPage /></template>\n");
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).not.toContain("<NuxtPage />");
+
+	await expect(project).toHaveFile("app/app.vue");
+});
+
+it("keeps an existing Nuxt home page", async ({ expect, project, prismic }) => {
+	await useNuxtWithAppVue(project, NUXT_STARTER_APP_VUE);
+	await mkdir(new URL("app/pages/", project), { recursive: true });
+	await writeFile(new URL("app/pages/index.vue", project), "<template>Home</template>\n");
+
+	const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+
+	await expect(project).not.toHaveFile("app/app.vue");
+	expect(await readFile(new URL("app/pages/index.vue", project), "utf8")).toBe(
+		"<template>Home</template>\n",
+	);
+});
+
+it("asks for both the Nuxt module and <NuxtPage />", async ({ expect, project, prismic }) => {
+	await useNuxtWithAppVue(project, "<template>\n  <h1>My site</h1>\n</template>\n");
+
+	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(NUXT_MODULE_INSTRUCTION);
+	expect(stdout).toContain(`Action required: add <NuxtPage /> to ${["app", "app.vue"].join(sep)}.`);
+});
 
 const SVELTEKIT_STARTER_HOME_PAGE =
 	'<h1>Welcome to SvelteKit</h1>\n<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>\n';

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import { x } from "tinyexec";
 
-import { Adapter, getJsFileExtension, writeFileIfMissing } from ".";
+import { Adapter, getJsFileExtension, type PageFile, writeFileIfMissing } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
@@ -13,6 +13,12 @@ import { checkIsTypeScriptProject, findProjectRoot, readConfig, updateConfig } f
 import { pageTemplate, sliceSimulatorPageTemplate, sliceTemplate } from "./nuxt.templates";
 
 const NUXT_PRISMIC = "@nuxtjs/prismic";
+
+// app.vue from `nuxi init`, Nuxt 4 and Nuxt 3, with whitespace removed.
+const STARTER_APP_VUES = [
+	"<template><div><NuxtRouteAnnouncer/><NuxtWelcome/></div></template>",
+	"<template><div><NuxtWelcome/></div></template>",
+];
 
 export class NuxtAdapter extends Adapter {
 	readonly id = "nuxt";
@@ -35,24 +41,48 @@ export class NuxtAdapter extends Adapter {
 			new URL("slice-simulator.vue", await getPagesDir()),
 			sliceSimulatorPageTemplate({ typescript: await checkIsTypeScriptProject() }),
 		);
-		await moveOrDeleteAppVue();
+		await deleteStarterAppVue();
 		await this.modifySliceLibraryPath();
 	}
 
 	async getSetupInstructions(): Promise<string | undefined> {
-		if (await checkNuxtConfigHasModule()) return;
+		const steps: string[] = [];
+		if (!(await checkNuxtConfigHasModule())) {
+			steps.push(dedent`
+				Action required: add "${NUXT_PRISMIC}" to modules in nuxt.config.
 
-		return dedent`
-			Action required: add "${NUXT_PRISMIC}" to modules in nuxt.config.
+				Prismic does not work until you do this. Make the change now.
 
-			Prismic does not work until you do this. Make the change now.
+				  export default defineNuxtConfig({
+				    modules: [
+				+     "${NUXT_PRISMIC}",
+				    ],
+				  });
+			`);
+		}
 
-			  export default defineNuxtConfig({
-			    modules: [
-			+     "${NUXT_PRISMIC}",
-			    ],
-			  });
-		`;
+		const appVue = await readAppVue();
+		if (appVue !== undefined && !appVue.includes("<NuxtPage")) {
+			const appVuePath = relative(
+				fileURLToPath(await findProjectRoot()),
+				fileURLToPath(new URL("app.vue", await getSrcDir())),
+			);
+			steps.push(dedent`
+				Action required: add <NuxtPage /> to ${appVuePath}.
+
+				Pages, including the slice simulator, do not render until you do
+				this. Make the change now.
+
+				  <template>
+				    <div>
+				      <!-- your existing content -->
+				+     <NuxtPage />
+				    </div>
+				  </template>
+			`);
+		}
+
+		return steps.join("\n\n") || undefined;
 	}
 
 	async createSliceIndexFile(library: URL): Promise<void> {
@@ -86,11 +116,16 @@ export class NuxtAdapter extends Adapter {
 		await writeFileRecursive(new URL("index.vue", directory), contents);
 	}
 
-	protected async createPageFile(model: DynamicCustomTypeModel, routePath: string): Promise<void> {
-		await writeFileIfMissing(
-			new URL(`${routePath || "index"}.vue`, await getPagesDir()),
-			pageTemplate({ model, typescript: await checkIsTypeScriptProject() }),
-		);
+	protected async getPageFiles(
+		model: DynamicCustomTypeModel,
+		routePath: string,
+	): Promise<PageFile[]> {
+		return [
+			{
+				path: new URL(`${routePath || "index"}.vue`, await getPagesDir()),
+				contents: pageTemplate({ model, typescript: await checkIsTypeScriptProject() }),
+			},
+		];
 	}
 
 	private async modifySliceLibraryPath(): Promise<void> {
@@ -158,14 +193,13 @@ async function checkNuxtConfigHasModule(): Promise<boolean> {
 	return false;
 }
 
-async function moveOrDeleteAppVue(): Promise<void> {
-	const srcDir = await getSrcDir();
-	const appVuePath = new URL("app.vue", srcDir);
-	if (!(await exists(appVuePath))) return;
+async function readAppVue(): Promise<string | undefined> {
+	return await readFile(new URL("app.vue", await getSrcDir()), "utf8").catch(() => undefined);
+}
 
-	const contents = await readFile(appVuePath, "utf8");
-	if (!contents.includes("<NuxtWelcome")) return;
+async function deleteStarterAppVue(): Promise<void> {
+	const appVue = await readAppVue();
+	if (!STARTER_APP_VUES.includes(appVue?.replace(/\s/g, "") ?? "")) return;
 
-	await writeFileIfMissing(new URL("pages/index.vue", srcDir), contents);
-	await rm(appVuePath);
+	await rm(new URL("app.vue", await getSrcDir()));
 }

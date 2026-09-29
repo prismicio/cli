@@ -118,7 +118,7 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	await adapter.writeModels(diff);
+	const notices = await adapter.writeModels(diff);
 	await adapter.generateTypes();
 
 	await completeOnboardingSteps(["connectPrismic"], {
@@ -130,6 +130,8 @@ export default createCommand(config, async ({ values }) => {
 	const totalTypes = diff.customTypes.insert.length + diff.customTypes.update.length;
 	const totalSlices = diff.slices.insert.length + diff.slices.update.length;
 	const totalDeletes = diff.customTypes.delete.length + diff.slices.delete.length;
+
+	for (const notice of notices) console.info(notice);
 
 	if (totalTypes === 0 && totalSlices === 0 && totalDeletes === 0) {
 		console.info("Already up to date.");

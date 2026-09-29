@@ -1,0 +1,48 @@
+import { getAdapter } from "../adapters";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { relativePathname } from "../lib/url";
+import { buildRoutePath, findPageRoute, findProjectRoot, readConfig } from "../project";
+
+const config = {
+	name: "prismic gen page",
+	description: `
+		Generate the page files for a page type.
+
+		Uses the type's route in prismic.config.json. Existing files are not
+		changed: their generated code is printed instead.
+	`,
+	positionals: {
+		"type-id": { description: "ID of the page type", required: true },
+	},
+} satisfies CommandConfig;
+
+export default createCommand(config, async ({ positionals }) => {
+	const [id] = positionals;
+
+	const adapter = await getAdapter();
+	const { model } = await adapter.getCustomType(id);
+	if (model.format !== "page") {
+		throw new CommandError(`"${id}" is not a page type.`);
+	}
+
+	const { routes = [] } = await readConfig();
+	const unusedRoute = !findPageRoute(routes, id) && routes.find((r) => r.type === id && !r.uid);
+	if (unusedRoute) {
+		console.info(
+			`The route ${unusedRoute.path} has optional or repeated params, so the page uses the default path ${buildRoutePath(model)}. Move it to match the route.\n`,
+		);
+	}
+
+	const skipped = await adapter.writePageFiles(model);
+	if (skipped.length === 0) {
+		console.info(`Generated the page for "${id}".`);
+		return;
+	}
+
+	const projectRoot = await findProjectRoot();
+	for (const file of skipped) {
+		const path = relativePathname(projectRoot, file.path);
+		console.info(`${path} already exists. Generated code:\n\n${file.contents}`);
+		console.info(`Merge this into ${path}.\n`);
+	}
+});
