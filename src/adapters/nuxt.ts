@@ -3,7 +3,7 @@ import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
-import { loadFile, writeFile } from "magicast";
+import { x } from "tinyexec";
 
 import { Adapter, getJsFileExtension, writeFileIfMissing } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
@@ -39,7 +39,21 @@ export class NuxtAdapter extends Adapter {
 		await this.modifySliceLibraryPath();
 	}
 
-	async getSetupInstructions(): Promise<undefined> {}
+	async getSetupInstructions(): Promise<string | undefined> {
+		if (await checkNuxtConfigHasModule()) return;
+
+		return dedent`
+			Action required: add "${NUXT_PRISMIC}" to modules in nuxt.config.
+
+			Prismic does not work until you do this. Make the change now.
+
+			  export default defineNuxtConfig({
+			    modules: [
+			+     "${NUXT_PRISMIC}",
+			    ],
+			  });
+		`;
+	}
 
 	async createSliceIndexFile(library: URL): Promise<void> {
 		const slices = (await this.getSlices()).filter((slice) => slice.library.href === library.href);
@@ -119,28 +133,29 @@ async function getPagesDir(): Promise<URL> {
 }
 
 async function configureNuxtModule(): Promise<void> {
+	if (await checkNuxtConfigHasModule()) return;
+
+	// Closed stdin and a timeout keep a Nuxt CLI prompt from hanging setup. It can exit 0
+	// without editing the config, so the instructions check the config instead of the exit code.
+	try {
+		await x("nuxt", ["module", "add", NUXT_PRISMIC, "--skipInstall"], {
+			timeout: 60_000,
+			nodeOptions: {
+				cwd: fileURLToPath(await findProjectRoot()),
+				stdio: ["ignore", "pipe", "pipe"],
+			},
+		});
+	} catch {}
+}
+
+async function checkNuxtConfigHasModule(): Promise<boolean> {
 	const projectRoot = await findProjectRoot();
-	let configUrl = new URL("nuxt.config.js", projectRoot);
-	if (!(await exists(configUrl))) configUrl = new URL("nuxt.config.ts", projectRoot);
-	if (!(await exists(configUrl))) return;
-
-	const filepath = fileURLToPath(configUrl);
-	const mod = await loadFile(filepath);
-	const config =
-		mod.exports.default.$type === "function-call"
-			? mod.exports.default.$args[0]
-			: mod.exports.default;
-
-	// `find`, not `some`: magicast's array proxy returns the wrong result for `some`.
-	const isRegistered = (config.modules || []).find((registration: string | [string, unknown]) =>
-		Array.isArray(registration) ? registration[0] === NUXT_PRISMIC : registration === NUXT_PRISMIC,
-	);
-	if (!isRegistered) {
-		config.modules ||= [];
-		config.modules.push(NUXT_PRISMIC);
+	for (const extension of ["ts", "js", "mts", "mjs", "cts", "cjs"]) {
+		const configUrl = new URL(`nuxt.config.${extension}`, projectRoot);
+		const contents = await readFile(configUrl, "utf8").catch(() => "");
+		if (contents.includes(NUXT_PRISMIC)) return true;
 	}
-
-	await writeFile(mod, filepath);
+	return false;
 }
 
 async function moveOrDeleteAppVue(): Promise<void> {
