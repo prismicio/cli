@@ -88,16 +88,24 @@ export class SvelteKitAdapter extends Adapter {
 				See <https://prismic.io/docs/svelte-preview> for more information.
 			`,
 		);
-		if (!(await findServerLayout())) {
+		const serverLayout = await findServerLayout();
+		if (!serverLayout) {
 			await writeFileRecursive(
 				new URL(`src/routes/+layout.server.${extension}`, projectRoot),
 				layoutServerTemplate(),
 			);
 		}
-		await writeFileIfMissing(
-			new URL("src/routes/+layout.svelte", projectRoot),
-			rootLayoutTemplate({ version }),
-		);
+		// The generated layout reads repositoryName from the server layout. When an existing
+		// server layout does not return it, the setup instructions cover both files instead.
+		const returnsRepositoryName =
+			!serverLayout ||
+			(await readFile(new URL(serverLayout, projectRoot), "utf8")).includes("repositoryName");
+		if (returnsRepositoryName) {
+			await writeFileIfMissing(
+				new URL("src/routes/+layout.svelte", projectRoot),
+				rootLayoutTemplate({ version }),
+			);
+		}
 		await deleteStarterHomePage();
 	}
 
