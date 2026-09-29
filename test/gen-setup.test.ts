@@ -208,6 +208,25 @@ it(
 );
 
 it(
+	"does not generate a layout next to a server layout without the repository name",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(
+			new URL("src/routes/+layout.server.js", project),
+			'export const load = () => ({ user: "x" });',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("src/routes/+layout.svelte");
+		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
+	},
+);
+
+it(
 	"does not ask for the repository name in a server layout that already returns it",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
@@ -343,6 +362,24 @@ it(
 		await writeFile(
 			new URL("nuxt.config.ts", project),
 			'export default defineNuxtConfig({ modules: [["@nuxtjs/prismic", { preview: "/preview" }]] });\n',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("nuxt-args.txt");
+		expect(stdout).not.toContain(NUXT_MODULE_INSTRUCTION);
+	},
+);
+
+it(
+	"finds the Nuxt module in a nuxt.config.mjs file",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useNuxt(project, { addsModule: true });
+		await rm(new URL("nuxt.config.ts", project));
+		await writeFile(
+			new URL("nuxt.config.mjs", project),
+			'export default defineNuxtConfig({ modules: ["@nuxtjs/prismic"] });\n',
 		);
 
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
