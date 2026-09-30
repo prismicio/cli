@@ -51,6 +51,45 @@ it.for(trials)(
 	},
 );
 
+it.for(trials)(
+	"converts a legacy slice to a shared slice",
+	async (_, { project, agent, expect }) => {
+		const page = buildCustomType({
+			id: "page",
+			label: "Page",
+			json: {
+				Main: {
+					slices: {
+						type: "Slices",
+						fieldset: "Slice Zone",
+						config: {
+							choices: {
+								hero: {
+									type: "Slice",
+									fieldset: "Hero",
+									"non-repeat": { title: { type: "Text", config: { label: "Title" } } },
+									repeat: {},
+								},
+							},
+						},
+					},
+				},
+			},
+		});
+		await writeLocalCustomType(project, page);
+
+		const result = await agent(`Convert the legacy slices in the "page" type to shared slices.`);
+
+		expect(result).toHaveRun(["slice", "migrate", "hero"]);
+		const slice = await readLocalSlice(project, "hero");
+		expect(slice?.legacyPaths).toEqual({ "page::slices::hero": "default" });
+		const model = await readLocalCustomType(project, page.id);
+		expect(model.json.Main.slices).toMatchObject({
+			config: { choices: { hero: { type: "SharedSlice" } } },
+		});
+	},
+);
+
 // The CLI cannot rename a field ID; `field edit` only changes label and config.
 it.todo("renames a field without disturbing field order", async ({ project, agent, expect }) => {
 	const article = buildCustomType({
