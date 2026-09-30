@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.21.0](https://github.com/prismicio/cli/compare/v1.20.0...v1.21.0) (2026-09-30)
+
+
+### Features
+
+* add `prismic gen page` and keep changed Nuxt `app.vue` files ([#372](https://github.com/prismicio/cli/issues/372)) ([18bc13d](https://github.com/prismicio/cli/commit/18bc13d54dd33257afeb79f1f967fcd9bf6700e1))
+* **field:** add --default-true and --default-false for boolean fields ([#347](https://github.com/prismicio/cli/issues/347)) ([ab9519a](https://github.com/prismicio/cli/commit/ab9519a404dee4bc5fbd8d67dd1b3d317fdec9f7))
+* **init:** add --repo-name option ([#348](https://github.com/prismicio/cli/issues/348)) ([ea648a4](https://github.com/prismicio/cli/commit/ea648a44414c57dcd597bd1005427c4bd5da44f7))
+
+
+### Bug Fixes
+
+* **deps:** override uuid to 14.0.2 ([#355](https://github.com/prismicio/cli/issues/355)) ([cfe6e2a](https://github.com/prismicio/cli/commit/cfe6e2a13f57f709d0eee70697a6461cb0ec6b44))
+* **deps:** update fast-uri to 3.1.8 ([#338](https://github.com/prismicio/cli/issues/338)) ([2290aef](https://github.com/prismicio/cli/commit/2290aef54d9e6cac6676fb2c1a0adeaeacb3fa54))
+* **deps:** update hono to 4.13.9 ([#337](https://github.com/prismicio/cli/issues/337)) ([3076b19](https://github.com/prismicio/cli/commit/3076b19c8f92c909e6b427c0a99ba52892e4044f))
+* **deps:** update joi to 17.13.8 ([#339](https://github.com/prismicio/cli/issues/339)) ([1ed09e3](https://github.com/prismicio/cli/commit/1ed09e379898b5d4f19de30876710564124846d2))
+* **deps:** update transitive packages with security advisories ([#343](https://github.com/prismicio/cli/issues/343)) ([e051926](https://github.com/prismicio/cli/commit/e051926bb0f69c9c0b86dce9f5fe9aa3ef474205))
+* **deps:** update vitest to 4.1.11 ([#342](https://github.com/prismicio/cli/issues/342)) ([a1d206b](https://github.com/prismicio/cli/commit/a1d206b2378ffbba08d2d427c0fa3d6dd3d64758))
+* **init:** list next steps when the project is already set up ([#382](https://github.com/prismicio/cli/issues/382)) ([e8de377](https://github.com/prismicio/cli/commit/e8de3774acf8e4c6303f95a2819971a853acf062))
+* never silently replace an existing slice or custom type ([#373](https://github.com/prismicio/cli/issues/373)) ([9cb9f37](https://github.com/prismicio/cli/commit/9cb9f371fdaaf1056048db92ad67dbfefdf6dfc9))
+* **nuxt:** register the module with nuxt module add ([#375](https://github.com/prismicio/cli/issues/375)) ([25e8ab3](https://github.com/prismicio/cli/commit/25e8ab3db2ca184044d2dcdf7b8cdc1d83410b5e))
+* report major upgrades and explain how to finish a failed install ([#371](https://github.com/prismicio/cli/issues/371)) ([6a6f1d6](https://github.com/prismicio/cli/commit/6a6f1d661da17bf233b7861e62f53301a2b992ae))
+* **sveltekit:** keep prismic.config.json server-only ([#374](https://github.com/prismicio/cli/issues/374)) ([38286fc](https://github.com/prismicio/cli/commit/38286fc199f2857843e0abaa8265d4e2448229a6))
+* **sveltekit:** remove the starter home page that hides the Prismic home page ([#383](https://github.com/prismicio/cli/issues/383)) ([a13117f](https://github.com/prismicio/cli/commit/a13117ffc1d2699fe459d15ca0a02f6a4452bba1))
+* **type-create:** reject an existing type ID ([#345](https://github.com/prismicio/cli/issues/345)) ([0eb6fd4](https://github.com/prismicio/cli/commit/0eb6fd47761c18c393468e08e3b6d692adcc8bc8))
+
+
+### Performance Improvements
+
+* load the profile without the repository list ([#336](https://github.com/prismicio/cli/issues/336)) ([5ccd5e1](https://github.com/prismicio/cli/commit/5ccd5e14eb0989c8a095cd644c9be3638c1c1f1b))
+
 ## [1.20.0](https://github.com/prismicio/cli/compare/v1.19.0...v1.20.0) (2026-09-23)
 
 
