@@ -45,7 +45,6 @@ import {
 	InvalidPrismicConfigError,
 	MissingPrismicConfigError,
 	getRepositoryName,
-	TypeBuilderRequiredError,
 	UnknownProjectRootError,
 } from "./project";
 import {
@@ -74,7 +73,6 @@ const KNOWN_ERRORS = [
 	InvalidLegacySliceMachineConfigError,
 	MissingPackageJson,
 	UnknownProjectRootError,
-	TypeBuilderRequiredError,
 	NotFoundRequestError,
 	UnauthorizedRequestError,
 	ForbiddenRequestError,
@@ -82,7 +80,7 @@ const KNOWN_ERRORS = [
 	UnknownRequestError,
 ];
 
-const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError, TypeBuilderRequiredError];
+const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError];
 
 await main();
 
