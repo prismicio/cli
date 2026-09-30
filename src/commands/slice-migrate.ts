@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+
 import type {
 	DynamicCustomTypeModel,
 	DynamicSlicesModel,
@@ -9,7 +11,7 @@ import { camelCase, pascalCase } from "change-case";
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { dedent, formatTable } from "../lib/string";
+import { formatTable } from "../lib/string";
 import { relativePathname } from "../lib/url";
 import { findProjectRoot } from "../project";
 
@@ -18,30 +20,23 @@ const config = {
 	description: `
 		Convert a legacy slice to a shared slice.
 
-		Legacy slices are defined inside a type's slice zone. They come from the
-		Legacy Builder and cannot be edited with the CLI or the Type Builder.
+		Legacy slices come from the Legacy Builder. The CLI and the Type Builder
+		cannot edit them. Without an ID, the command lists them.
 
-		Without arguments, the command lists the legacy slices in the project and
-		the command to convert each one.
-
-		The conversion changes local models only. Documents keep their content.
-		After \`prismic push\`, Prismic returns legacy content in the shape of the
-		shared slice. Update the slice component, then deploy it together with
-		\`prismic push\`.
+		Only local models change. After \`prismic push\`, Prismic returns their
+		content in the shared slice shape, so deploy the updated component with
+		the push.
 	`,
 	sections: {
 		EXAMPLES: `
 			List legacy slices:
 			  prismic slice migrate
 
-			Convert a legacy slice to a new shared slice with the same ID:
+			Convert a legacy slice to a shared slice with the same ID:
 			  prismic slice migrate hero --from blog_post
 
-			Add a legacy slice as a variation of an existing shared slice:
-			  prismic slice migrate hero --from landing_page --to hero --variation landing
-
-			Merge a legacy slice into an identical variation of a shared slice:
-			  prismic slice migrate hero --from landing_page --to hero --variation default
+			Add a legacy slice to an existing shared slice:
+			  prismic slice migrate hero --from landing_page --to hero
 		`,
 	},
 	positionals: {
@@ -53,18 +48,13 @@ const config = {
 			type: "string",
 			description: "Slice zone field ID (default: the zone that contains the legacy slice)",
 		},
-		id: {
-			type: "string",
-			description: "ID of the new shared slice (default: the legacy slice ID)",
-		},
 		to: {
 			type: "string",
 			description: "ID of an existing shared slice to add the legacy slice to",
 		},
 		variation: {
 			type: "string",
-			description:
-				"Variation ID. With --to, an existing variation with the same fields is merged; a new ID adds a variation.",
+			description: "Variation of --to to merge into or create (default: one with the same fields)",
 		},
 		json: { type: "boolean", description: "Output the list of legacy slices as JSON" },
 	},
@@ -83,7 +73,7 @@ type LegacySlice = {
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
-	const { from, "slice-zone": sliceZoneId, id: newSliceId, to, variation, json } = values;
+	const { from, "slice-zone": sliceZoneId, to, variation, json } = values;
 
 	const adapter = await getAdapter();
 	const customTypes = (await adapter.getCustomTypes()).map((customType) => customType.model);
@@ -95,13 +85,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		return;
 	}
 
-	if (newSliceId && to) {
-		throw new CommandError("Use either --id or --to, not both.");
-	}
-	if (variation && !to && variation !== "default") {
-		throw new CommandError(
-			"--variation needs --to. A new shared slice has one variation: default.",
-		);
+	if (variation && !to) {
+		throw new CommandError("--variation needs --to.");
 	}
 
 	const matches = legacySlices.filter(
@@ -116,18 +101,15 @@ export default createCommand(config, async ({ positionals, values }) => {
 		);
 	}
 	if (matches.length > 1) {
-		const locations = matches.map((match) => `  - ${match.customTypeId} (${match.sliceZoneId})`);
-		throw new CommandError(dedent`
-			Legacy slice "${id}" is in more than one slice zone:
-			${locations.join("\n")}
-
-			Use --from and --slice-zone to choose one.
-		`);
+		throw new CommandError(
+			`Legacy slice "${id}" is in more than one slice zone. Use --from and --slice-zone to choose one.`,
+		);
 	}
 	const [legacySlice] = matches;
 	const legacyPath = `${legacySlice.customTypeId}::${legacySlice.sliceZoneId}::${legacySlice.sliceId}`;
 
 	let slice: SharedSliceModel;
+	let variationId = "default";
 	let summary: string;
 	if (to) {
 		const existing = slices.find((s) => s.id === to);
@@ -136,55 +118,47 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 		slice = existing;
 
-		const converted = toVariation(legacySlice, variation ?? camelCase(legacySlice.sliceId));
-		const target = variation
-			? slice.variations.find((v) => v.id === variation)
-			: slice.variations.find((v) => hasSameFields(v, converted));
-
+		const converted = toVariation(legacySlice, variation ?? camelCase(id));
+		const target = slice.variations.find((v) =>
+			variation ? v.id === variation : hasSameFields(v, converted),
+		);
+		if (target && !hasSameFields(target, converted)) {
+			throw new CommandError(
+				`Variation "${target.id}" of slice "${to}" has different fields than legacy slice "${id}". Use a new variation ID with --variation.`,
+			);
+		}
 		if (target) {
-			if (!hasSameFields(target, converted)) {
-				throw new CommandError(dedent`
-					Variation "${target.id}" of slice "${to}" has different fields than legacy slice "${id}".
-					Only a variation with the same fields can be merged.
-
-					Use a new variation ID with --variation to add the legacy slice as a variation.
-				`);
-			}
-			summary = `Merged legacy slice "${id}" into variation "${target.id}" of slice "${to}"`;
-			slice.legacyPaths = { ...slice.legacyPaths, [legacyPath]: target.id };
+			variationId = target.id;
+			summary = `Merged legacy slice "${id}" into variation "${variationId}" of slice "${to}"`;
 		} else {
 			if (slice.variations.some((v) => v.id === converted.id)) {
 				throw new CommandError(
 					`Variation "${converted.id}" already exists in slice "${to}". Use --variation to choose another ID.`,
 				);
 			}
-			summary = `Added legacy slice "${id}" to slice "${to}" as variation "${converted.id}"`;
+			variationId = converted.id;
 			slice.variations.push(converted);
-			slice.legacyPaths = { ...slice.legacyPaths, [legacyPath]: converted.id };
+			summary = `Added legacy slice "${id}" to slice "${to}" as variation "${variationId}"`;
 		}
-
+		slice.legacyPaths = { ...slice.legacyPaths, [legacyPath]: variationId };
 		await adapter.updateSlice(slice);
 	} else {
-		const sliceId = newSliceId ?? legacySlice.sliceId;
-		if (slices.some((s) => s.id === sliceId)) {
-			throw new CommandError(dedent`
-				Slice "${sliceId}" already exists.
-
-				Do one of the following:
-				  - Add the legacy slice to it: prismic slice migrate ${id} --from ${legacySlice.customTypeId} --to ${sliceId}
-				  - Create a slice with another ID: prismic slice migrate ${id} --from ${legacySlice.customTypeId} --id <new-id>
-			`);
+		if (slices.some((s) => s.id === id)) {
+			throw new CommandError(
+				`Slice "${id}" already exists. Add the legacy slice to it with --to ${id}.`,
+			);
 		}
 
+		const { model } = legacySlice;
+		const name = model.type === "Slice" || model.type === "Group" ? model.fieldset : undefined;
 		slice = {
-			id: sliceId,
+			id,
 			type: "SharedSlice",
-			name: pascalCase(getLegacySliceName(legacySlice) ?? sliceId),
-			legacyPaths: { [legacyPath]: "default" },
-			variations: [toVariation(legacySlice, "default")],
+			name: pascalCase(name ?? id),
+			legacyPaths: { [legacyPath]: variationId },
+			variations: [toVariation(legacySlice, variationId)],
 		};
-		summary = `Created slice "${sliceId}" from legacy slice "${id}"`;
-
+		summary = `Created slice "${id}"`;
 		await adapter.createSlice(slice);
 	}
 
@@ -195,20 +169,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { directory } = await adapter.getSlice(slice.id);
 	const componentPath = relativePathname(await findProjectRoot(), directory);
-	const variationId = slice.legacyPaths?.[legacyPath] ?? "default";
 	const remaining = legacySlices.length - 1;
 
 	console.info(summary);
-	console.info("\nContent changes after `prismic push`:");
-	for (const change of getContentChanges(legacySlice, slice.id, variationId)) {
-		console.info(`  - ${change}`);
-	}
-	console.info(dedent`
-
-		Next steps:
-		  1. Update the slice component in ${componentPath} for these changes.
-		  2. Deploy the component together with \`prismic push\`. Documents use the new shape after the next publish, even documents that nobody edits.
-	`);
+	console.info(`After \`prismic push\`: ${getContentChange(legacySlice, slice.id, variationId)}`);
+	console.info(
+		`Update the component in ${componentPath}, then deploy it with \`prismic push\`. Documents use the new shape after the next publish.`,
+	);
 	if (remaining > 0) {
 		console.info(
 			`\n${remaining} legacy ${remaining === 1 ? "slice remains" : "slices remain"}. Run \`prismic slice migrate\` to list them.`,
@@ -216,29 +183,16 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 });
 
-function getContentChanges(
-	legacySlice: LegacySlice,
-	sliceId: string,
-	variationId: string,
-): string[] {
+function getContentChange(legacySlice: LegacySlice, sliceId: string, variationId: string) {
 	const { model, sliceId: legacySliceId } = legacySlice;
-	const changes: string[] = [];
-	if (sliceId !== legacySliceId) {
-		changes.push(
-			`\`slice_type\` changes from "${legacySliceId}" to "${sliceId}". The "${sliceId}" component renders this content.`,
-		);
+	const changes = [];
+	if (sliceId !== legacySliceId || variationId !== "default") {
+		changes.push(`\`slice_type\` becomes "${sliceId}" and \`variation\` becomes "${variationId}".`);
 	}
-	changes.push(`\`variation\` is "${variationId}".`);
-	if (model.type === "Group") {
-		changes.push("The repeatable fields move from `slice.value` to `slice.items`.");
-	} else if (model.type !== "Slice") {
-		changes.push(
-			`The field value moves from \`slice.value\` to \`slice.primary.${legacySliceId}\`.`,
-		);
-	} else {
-		changes.push("`slice.primary` and `slice.items` do not change.");
-	}
-	return changes;
+	if (model.type === "Group") changes.push("`slice.value` moves to `slice.items`.");
+	else if (model.type !== "Slice")
+		changes.push(`\`slice.value\` moves to \`slice.primary.${legacySliceId}\`.`);
+	return changes.join(" ") || "`slice.primary` and `slice.items` keep their shape.";
 }
 
 function getLegacySlices(customType: DynamicCustomTypeModel): LegacySlice[] {
@@ -286,23 +240,10 @@ function toVariation(legacySlice: LegacySlice, id: string): SharedSliceModelVari
 	return variation;
 }
 
-function getLegacySliceName({ model }: LegacySlice): string | undefined {
-	if (model.type === "Slice" || model.type === "Group") return model.fieldset ?? undefined;
-	return undefined;
-}
-
 function hasSameFields(a: SharedSliceModelVariation, b: SharedSliceModelVariation): boolean {
 	return (
-		sortedJSON(a.primary ?? {}) === sortedJSON(b.primary ?? {}) &&
-		sortedJSON(a.items ?? {}) === sortedJSON(b.items ?? {})
-	);
-}
-
-function sortedJSON(value: unknown): string {
-	return JSON.stringify(value, (_key, v: unknown) =>
-		v && typeof v === "object" && !Array.isArray(v)
-			? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)))
-			: v,
+		isDeepStrictEqual(a.primary ?? {}, b.primary ?? {}) &&
+		isDeepStrictEqual(a.items ?? {}, b.items ?? {})
 	);
 }
 
@@ -311,19 +252,16 @@ function replaceChoice(
 	customType: DynamicCustomTypeModel,
 	legacySlice: LegacySlice,
 	sliceId: string,
-): void {
+) {
 	const field = customType.json[legacySlice.tabId][legacySlice.sliceZoneId];
-	if (field.type !== "Slices" || !field.config?.choices) return;
-
-	const choices: typeof field.config.choices = {};
-	for (const [key, choice] of Object.entries(field.config.choices)) {
-		if (key === legacySlice.sliceId) {
-			choices[sliceId] = { type: "SharedSlice" };
-		} else if (key !== sliceId) {
-			choices[key] = choice;
-		}
-	}
-	field.config.choices = choices;
+	if (field.type !== "Slices") return;
+	field.config!.choices = Object.fromEntries(
+		Object.entries(field.config!.choices!)
+			.filter(([key]) => key === legacySlice.sliceId || key !== sliceId)
+			.map(([key, choice]) =>
+				key === legacySlice.sliceId ? [sliceId, { type: "SharedSlice" }] : [key, choice],
+			),
+	);
 }
 
 function printLegacySlices(
@@ -359,8 +297,5 @@ function printLegacySlices(
 			rows.map((row) => [row.sliceId, row.customTypeId, row.sliceZoneId, row.kind, row.command]),
 			{ headers: ["ID", "TYPE", "SLICE ZONE", "KIND", "COMMAND"] },
 		),
-	);
-	console.info(
-		"\nConvert one slice at a time. After each one, update its component and test your website.",
 	);
 }

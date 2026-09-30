@@ -1,6 +1,6 @@
 import { rm } from "node:fs/promises";
 
-import type { DynamicCustomTypeModel, DynamicWidgetModel } from "@prismicio/types-internal";
+import type { DynamicWidgetModel } from "@prismicio/types-internal";
 
 import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from "../adapters";
 import { createLoginSession, getCredentials } from "../auth";
@@ -150,7 +150,6 @@ export default createCommand(config, async ({ values }) => {
 
 	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
 	let connectedRepository: Repository | undefined;
-	let shouldEnableTypeBuilder = false;
 	if (repo) {
 		connectedRepository = await getRepository({ repo, token, host }).catch((error) => {
 			if (!(error instanceof ForbiddenRequestError)) throw error;
@@ -158,10 +157,6 @@ export default createCommand(config, async ({ values }) => {
 				`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
 			);
 		});
-
-		shouldEnableTypeBuilder = !(
-			env.PRISMIC_TYPE_BUILDER_ENABLED ?? connectedRepository.quotas?.sliceMachineEnabled === true
-		);
 	}
 
 	let adapter: Adapter;
@@ -182,9 +177,9 @@ export default createCommand(config, async ({ values }) => {
 		`);
 	}
 
-	// Repositories from the Legacy Builder need the Type Builder turned on.
-	// Their content and legacy slices stay as they are.
-	if (repo && shouldEnableTypeBuilder) {
+	const isTypeBuilderEnabled =
+		env.PRISMIC_TYPE_BUILDER_ENABLED ?? connectedRepository?.quotas?.sliceMachineEnabled;
+	if (repo && connectedRepository && !isTypeBuilderEnabled) {
 		await enableTypeBuilder(adapter.id, { repo, token, host }).catch((error) => {
 			if (!(error instanceof ForbiddenRequestError)) throw error;
 			throw new CommandError(
@@ -296,11 +291,15 @@ export default createCommand(config, async ({ values }) => {
 
 	await adapter.generateTypes();
 
-	const legacySliceCount = countLegacySlices(remote.customTypes);
-	if (legacySliceCount > 0) {
-		console.info(
-			`\n${legacySliceCount} legacy ${legacySliceCount === 1 ? "slice needs" : "slices need"} conversion to shared slices. Run \`prismic slice migrate\` to list them.`,
+	const hasLegacySlices = remote.customTypes
+		.flatMap((customType) => Object.values(customType.json).flatMap(Object.values))
+		.some((field: DynamicWidgetModel) =>
+			Object.values(field.type === "Slices" ? (field.config?.choices ?? {}) : {}).some(
+				(choice) => choice.type !== "SharedSlice",
+			),
 		);
+	if (hasLegacySlices) {
+		console.info("\nRun `prismic slice migrate` to convert legacy slices to shared slices.");
 	}
 
 	if (hasStarterModelChanges) {
@@ -340,15 +339,6 @@ export default createCommand(config, async ({ values }) => {
 	const setupInstructions = await adapter.getSetupInstructions();
 	if (setupInstructions) console.info(`\n${setupInstructions}`);
 });
-
-function countLegacySlices(customTypes: DynamicCustomTypeModel[]): number {
-	return customTypes
-		.flatMap((customType) => Object.values(customType.json).flatMap(Object.values))
-		.flatMap((field: DynamicWidgetModel) =>
-			field.type === "Slices" ? Object.values(field.config?.choices ?? {}) : [],
-		)
-		.filter((choice) => choice.type !== "SharedSlice").length;
-}
 
 async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Promise<boolean> {
 	const packageJson = await readPackageJson();

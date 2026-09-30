@@ -97,8 +97,9 @@ it("converts a legacy slice to a new shared slice", async ({ expect, prismic, pr
 		customType.id,
 	]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain('Created slice "hero" from legacy slice "hero"');
+	expect(stdout).toContain('Created slice "hero"');
 	expect(stdout).toContain("2 legacy slices remain");
+	expect(stdout).toContain("keep their shape");
 
 	const slice = await readLocalSlice(project, "hero");
 	expect(slice).toMatchObject({
@@ -125,11 +126,11 @@ it("converts group and single-field legacy slices", async ({ expect, prismic, pr
 
 	const gallery = await prismic("slice", ["migrate", "gallery", "--from", customType.id]);
 	expect(gallery.exitCode, gallery.stderr).toBe(0);
-	expect(gallery.stdout).toContain("move from `slice.value` to `slice.items`");
+	expect(gallery.stdout).toContain("`slice.value` moves to `slice.items`");
 
 	const quote = await prismic("slice", ["migrate", "quote", "--from", customType.id]);
 	expect(quote.exitCode, quote.stderr).toBe(0);
-	expect(quote.stdout).toContain("moves from `slice.value` to `slice.primary.quote`");
+	expect(quote.stdout).toContain("`slice.value` moves to `slice.primary.quote`");
 
 	const gallerySlice = await readLocalSlice(project, "gallery");
 	expect(gallerySlice!.variations[0].items).toEqual({
