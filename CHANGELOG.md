@@ -12,12 +12,6 @@
 
 ### Bug Fixes
 
-* **deps:** override uuid to 14.0.2 ([#355](https://github.com/prismicio/cli/issues/355)) ([cfe6e2a](https://github.com/prismicio/cli/commit/cfe6e2a13f57f709d0eee70697a6461cb0ec6b44))
-* **deps:** update fast-uri to 3.1.8 ([#338](https://github.com/prismicio/cli/issues/338)) ([2290aef](https://github.com/prismicio/cli/commit/2290aef54d9e6cac6676fb2c1a0adeaeacb3fa54))
-* **deps:** update hono to 4.13.9 ([#337](https://github.com/prismicio/cli/issues/337)) ([3076b19](https://github.com/prismicio/cli/commit/3076b19c8f92c909e6b427c0a99ba52892e4044f))
-* **deps:** update joi to 17.13.8 ([#339](https://github.com/prismicio/cli/issues/339)) ([1ed09e3](https://github.com/prismicio/cli/commit/1ed09e379898b5d4f19de30876710564124846d2))
-* **deps:** update transitive packages with security advisories ([#343](https://github.com/prismicio/cli/issues/343)) ([e051926](https://github.com/prismicio/cli/commit/e051926bb0f69c9c0b86dce9f5fe9aa3ef474205))
-* **deps:** update vitest to 4.1.11 ([#342](https://github.com/prismicio/cli/issues/342)) ([a1d206b](https://github.com/prismicio/cli/commit/a1d206b2378ffbba08d2d427c0fa3d6dd3d64758))
 * **init:** list next steps when the project is already set up ([#382](https://github.com/prismicio/cli/issues/382)) ([e8de377](https://github.com/prismicio/cli/commit/e8de3774acf8e4c6303f95a2819971a853acf062))
 * never silently replace an existing slice or custom type ([#373](https://github.com/prismicio/cli/issues/373)) ([9cb9f37](https://github.com/prismicio/cli/commit/9cb9f371fdaaf1056048db92ad67dbfefdf6dfc9))
 * **nuxt:** register the module with nuxt module add ([#375](https://github.com/prismicio/cli/issues/375)) ([25e8ab3](https://github.com/prismicio/cli/commit/25e8ab3db2ca184044d2dcdf7b8cdc1d83410b5e))
