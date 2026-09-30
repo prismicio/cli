@@ -86,16 +86,6 @@ export async function deleteWebhook(id: string, config: WroomConfig): Promise<vo
 	});
 }
 
-export async function enableTypeBuilder(framework: string, config: WroomConfig): Promise<void> {
-	const { repo, host } = config;
-	const url = new URL("app/settings/enableTypeBuilder", getWroomRepoServiceUrl(repo, host));
-	await wroomRepoServiceRequest(url, config, {
-		method: "POST",
-		body: new URLSearchParams({ framework }),
-		unknownErrorMessage: "Failed to enable the Type Builder",
-	});
-}
-
 function toWebhookFormData(webhookConfig: Omit<Webhook["config"], "_id">): FormData {
 	const body = new FormData();
 	body.set("url", webhookConfig.url);

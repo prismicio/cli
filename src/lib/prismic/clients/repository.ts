@@ -18,6 +18,7 @@ const RepositoryStarterSchema = z.object({
 const RepositorySchema = z.object({
 	name: z.optional(z.string()),
 	starter: z.nullish(RepositoryStarterSchema),
+	framework: z.optional(z.string()),
 	quotas: z.optional(
 		z.object({
 			sliceMachineEnabled: z.boolean(),
@@ -30,6 +31,14 @@ export type Repository = z.infer<typeof RepositorySchema>;
 export function getRepository(config: RepositoryConfig): Promise<Repository> {
 	const url = getRepositoryServiceUrl(config.host);
 	return repositoryServiceRequest(url, config, { schema: RepositorySchema });
+}
+
+export async function enableTypeBuilder(
+	framework: string,
+	config: RepositoryConfig,
+): Promise<void> {
+	const url = new URL("type-builder", getRepositoryServiceUrl(config.host));
+	await repositoryServiceRequest(url, config, { method: "PATCH", json: { framework } });
 }
 
 const OnboardingStateSchema = z.object({

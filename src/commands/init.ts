@@ -22,9 +22,12 @@ import {
 	removePreview,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
-import { getRepository, type Repository } from "../lib/prismic/clients/repository";
+import {
+	enableTypeBuilder,
+	getRepository,
+	type Repository,
+} from "../lib/prismic/clients/repository";
 import { getProfile } from "../lib/prismic/clients/user";
-import { enableTypeBuilder } from "../lib/prismic/clients/wroom";
 import { diffModels, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
@@ -177,16 +180,29 @@ export default createCommand(config, async ({ values }) => {
 		`);
 	}
 
+	// The editor shows code snippets for the repository's framework.
 	const isTypeBuilderEnabled =
 		env.PRISMIC_TYPE_BUILDER_ENABLED ?? connectedRepository?.quotas?.sliceMachineEnabled;
-	if (repo && connectedRepository && !isTypeBuilderEnabled) {
-		await enableTypeBuilder(adapter.id, { repo, token, host }).catch((error) => {
+	if (
+		repo &&
+		connectedRepository &&
+		(!isTypeBuilderEnabled || connectedRepository.framework !== adapter.id)
+	) {
+		try {
+			await enableTypeBuilder(adapter.id, { repo, token, host });
+			if (!isTypeBuilderEnabled)
+				console.info(`Turned on the Type Builder for repository "${repo}".`);
+		} catch (error) {
 			if (!(error instanceof ForbiddenRequestError)) throw error;
-			throw new CommandError(
-				`Repository "${repo}" uses the Legacy Builder. Only a repository administrator can turn on the Type Builder. Ask an administrator to run \`prismic init\`.`,
+			if (!isTypeBuilderEnabled) {
+				throw new CommandError(
+					`Repository "${repo}" uses the Legacy Builder. Only a repository administrator can turn on the Type Builder. Ask an administrator to run \`prismic init\`.`,
+				);
+			}
+			console.warn(
+				`Could not set the repository's framework to ${adapter.id}. Ask a repository administrator to run \`prismic init\`.`,
 			);
-		});
-		console.info(`Turned on the Type Builder for repository "${repo}".`);
+		}
 	}
 
 	if (!repo) {
