@@ -6,6 +6,7 @@ import sliceDisconnect from "./slice-disconnect";
 import sliceEdit from "./slice-edit";
 import sliceEditVariation from "./slice-edit-variation";
 import sliceList from "./slice-list";
+import sliceMigrate from "./slice-migrate";
 import sliceRemove from "./slice-remove";
 import sliceRemoveVariation from "./slice-remove-variation";
 import sliceView from "./slice-view";
@@ -45,6 +46,10 @@ export default createCommandRouter({
 		disconnect: {
 			handler: sliceDisconnect,
 			description: "Disconnect a slice from a type's slice zone",
+		},
+		migrate: {
+			handler: sliceMigrate,
+			description: "Convert a legacy slice to a shared slice",
 		},
 		"add-variation": {
 			handler: sliceAddVariation,
