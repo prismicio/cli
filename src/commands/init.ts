@@ -20,7 +20,11 @@ import {
 	removePreview,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
-import { getRepository, type Repository } from "../lib/prismic/clients/repository";
+import {
+	enableTypeBuilder,
+	getRepository,
+	type Repository,
+} from "../lib/prismic/clients/repository";
 import { getProfile } from "../lib/prismic/clients/user";
 import { diffModels, getLegacySlices, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
@@ -36,7 +40,6 @@ import {
 	MissingPrismicConfigError,
 	readConfig,
 	readLegacySliceMachineConfig,
-	TypeBuilderRequiredError,
 	UnknownProjectRootError,
 	updateConfig,
 } from "../project";
@@ -155,12 +158,6 @@ export default createCommand(config, async ({ values }) => {
 				`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
 			);
 		});
-
-		const isTypeBuilderEnabled =
-			env.PRISMIC_TYPE_BUILDER_ENABLED ?? connectedRepository.quotas?.sliceMachineEnabled === true;
-		if (!isTypeBuilderEnabled) {
-			throw new TypeBuilderRequiredError(repo);
-		}
 	}
 
 	let adapter: Adapter;
@@ -179,6 +176,31 @@ export default createCommand(config, async ({ values }) => {
 			  - To create the repository now, run \`prismic repo create --framework <${FRAMEWORKS.join("|")}>\`.
 			    Connect the project later with \`prismic init --repo <domain>\`.
 		`);
+	}
+
+	// The editor shows code snippets for the repository's framework.
+	const isTypeBuilderEnabled =
+		env.PRISMIC_TYPE_BUILDER_ENABLED ?? connectedRepository?.quotas?.sliceMachineEnabled;
+	if (
+		repo &&
+		connectedRepository &&
+		(!isTypeBuilderEnabled || connectedRepository.framework !== adapter.id)
+	) {
+		try {
+			await enableTypeBuilder(adapter.id, { repo, token, host });
+			if (!isTypeBuilderEnabled)
+				console.info(`Turned on the Type Builder for repository "${repo}".`);
+		} catch (error) {
+			if (!(error instanceof ForbiddenRequestError)) throw error;
+			if (!isTypeBuilderEnabled) {
+				throw new CommandError(
+					`Repository "${repo}" uses the Legacy Builder. Only a repository administrator can turn on the Type Builder. Ask an administrator to run \`prismic init\`.`,
+				);
+			}
+			console.warn(
+				`Could not set the repository's framework to ${adapter.id}. Ask a repository administrator to run \`prismic init\`.`,
+			);
+		}
 	}
 
 	if (!repo) {
