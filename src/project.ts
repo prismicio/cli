@@ -7,6 +7,7 @@ import * as z from "zod/mini";
 import { exists, findUpward, readJsonFile } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
+import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
 
 const CONFIG_FILENAME = "prismic.config.json";
@@ -214,4 +215,17 @@ export async function getLibraries(): Promise<URL[] | undefined> {
 export async function checkIsTypeScriptProject(): Promise<boolean> {
 	const projectRoot = await findProjectRoot();
 	return exists(new URL("tsconfig.json", projectRoot));
+}
+
+export class TypeBuilderRequiredError extends Error {
+	name = "TypeBuilderRequired";
+	constructor(repo: string) {
+		super(dedent`
+			This command requires the Type Builder, but repository "${repo}" uses the Legacy Builder.
+
+			Contact Prismic support to enable the Type Builder: https://prismic.io/docs/help-center
+
+			Learn more at https://prismic.io/docs/type-builder
+		`);
+	}
 }

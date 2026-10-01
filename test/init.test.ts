@@ -314,18 +314,13 @@ it("fails with next steps when no supported framework is found", async ({
 	expect(stderr).toContain("prismic repo create --framework");
 });
 
-it("turns on the Type Builder when it is not enabled", async ({
-	expect,
-	project,
-	prismic,
-	repo,
-}) => {
+it("fails when Type Builder is not enabled", async ({ expect, project, prismic, repo }) => {
 	await rm(new URL("prismic.config.json", project));
-	const { exitCode, stdout, stderr } = await prismic("init", ["--repo", repo, "--no-setup"], {
+	const { exitCode, stderr } = await prismic("init", ["--repo", repo], {
 		nodeOptions: { env: { PRISMIC_TYPE_BUILDER_ENABLED: "false" } },
 	});
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain(`Turned on the Type Builder for repository "${repo}".`);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Type Builder");
 });
 
 it("installs dependencies", { timeout: 30_000 }, async ({ expect, project, prismic, repo }) => {
