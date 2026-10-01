@@ -42,10 +42,7 @@ it("lists only legacy slices as JSON", async ({ expect, prismic, project }) => {
 
 	const { stdout, stderr, exitCode } = await prismic("slice", ["list", "--legacy", "--json"]);
 	expect(exitCode, stderr).toBe(0);
-	expect(JSON.parse(stdout)).toContainEqual({
-		id: "hero",
-		definedIn: customType.id,
-		sliceZone: "body",
-	});
-	expect(JSON.parse(stdout)).toHaveLength(3);
+	const parsed = JSON.parse(stdout);
+	expect(parsed).toHaveLength(3);
+	expect(parsed).toContainEqual({ id: "hero", definedIn: customType.id, sliceZone: "body" });
 });

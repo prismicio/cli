@@ -227,15 +227,13 @@ export function buildCustomType(
 	};
 }
 
-/** A page type whose "body" slice zone holds a Slice, a Group, and a field legacy slice. */
+/** A type whose "body" slice zone holds a Slice, a Group, and a field legacy slice. */
 export function buildLegacyCustomType(): DynamicCustomTypeModel {
 	return buildCustomType({
-		format: "page",
 		json: {
 			Main: {
 				body: {
 					type: "Slices",
-					fieldset: "Slice Zone",
 					config: {
 						choices: {
 							hero: {
