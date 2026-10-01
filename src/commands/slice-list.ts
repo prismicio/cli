@@ -26,18 +26,18 @@ export default createCommand(config, async ({ values }) => {
 	const customTypes = (await adapter.getCustomTypes()).map((customType) => customType.model);
 	const legacySlices = getLegacySlices(customTypes);
 
+	if (json && legacy) {
+		const rows = legacySlices.map((s) => ({
+			id: s.id,
+			definedIn: s.customTypeId,
+			sliceZone: s.sliceZoneId,
+		}));
+		console.info(stringify(rows));
+		return;
+	}
+
 	if (json) {
-		console.info(
-			stringify(
-				legacy
-					? legacySlices.map((s) => ({
-							id: s.id,
-							definedIn: s.customTypeId,
-							sliceZone: s.sliceZoneId,
-						}))
-					: slices,
-			),
-		);
+		console.info(stringify(slices));
 		return;
 	}
 
