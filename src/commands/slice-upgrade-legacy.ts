@@ -91,6 +91,12 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const legacyPath = `${from}::${sliceZoneId}::${id}`;
 
 	const sliceId = to ?? snakeCase(id);
+	const zoneChoice = legacySlice.sliceZone.config?.choices?.[sliceId];
+	if (sliceId !== id && zoneChoice && zoneChoice.type !== "SharedSlice") {
+		throw new CommandError(
+			`The "${sliceZoneId}" slice zone of "${from}" also has legacy slice "${sliceId}". Upgrade it first.`,
+		);
+	}
 	let slice = slices.find((s) => s.id === sliceId);
 	const variationId = camelCase(variation ?? (slice ? id : "default"));
 	const upgraded = toVariation(legacySlice, variationId);

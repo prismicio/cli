@@ -187,6 +187,27 @@ it("adds a legacy slice to an existing slice as a new variation", async ({
 	expect(Object.keys(choices)).toEqual([slice.id, "gallery", "quote"]);
 });
 
+it("fails when the slice ID is another legacy slice in the zone", async ({
+	expect,
+	prismic,
+	project,
+}) => {
+	const customType = buildLegacyCustomType();
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("slice", [
+		"upgrade-legacy",
+		"quote",
+		"--from",
+		customType.id,
+		"--to",
+		"hero",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain('also has legacy slice "hero". Upgrade it first.');
+	expect(getChoices(await readLocalCustomType(project, customType.id)).hero.type).toBe("Slice");
+});
+
 it("upgrades a legacy slice to a slice with another ID", async ({ expect, prismic, project }) => {
 	const customType = buildLegacyCustomType();
 	await writeLocalCustomType(project, customType);
