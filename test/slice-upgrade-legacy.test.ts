@@ -123,27 +123,7 @@ it("upgrades a legacy slice in another slice zone", async ({ expect, prismic, pr
 	expect(slice!.legacyPaths).toEqual({ [`${customType.id}::page_slices::hero`]: "default" });
 });
 
-it("asks how to upgrade when the slice exists", async ({ expect, prismic, project }) => {
-	const first = buildLegacyCustomType();
-	const second = buildLegacyCustomType();
-	await writeLocalCustomType(project, first);
-	await writeLocalCustomType(project, second);
-	await prismic("slice", ["upgrade-legacy", "hero", "--from", first.id]);
-
-	const { stderr, exitCode } = await prismic("slice", [
-		"upgrade-legacy",
-		"hero",
-		"--from",
-		second.id,
-	]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain('Slice "hero" already exists. Ask the user');
-	expect(stderr).toContain(`--from ${second.id} --to hero\n`);
-	expect(stderr).toContain(`--from ${second.id} --to hero --variation default`);
-	expect(stderr).toContain(`--from ${second.id} --to <new-slice-id>`);
-});
-
-it("merges a legacy slice into a variation with the same fields", async ({
+it("asks how to upgrade when the slice exists, then merges", async ({
 	expect,
 	prismic,
 	project,
@@ -153,12 +133,17 @@ it("merges a legacy slice into a variation with the same fields", async ({
 	await writeLocalCustomType(project, first);
 	await writeLocalCustomType(project, second);
 	await prismic("slice", ["upgrade-legacy", "hero", "--from", first.id]);
+	const args = ["upgrade-legacy", "hero", "--from", second.id];
+
+	const ask = await prismic("slice", args);
+	expect(ask.exitCode).toBe(1);
+	expect(ask.stderr).toContain('Slice "hero" already exists. Ask the user');
+	expect(ask.stderr).toContain(`--from ${second.id} --to hero\n`);
+	expect(ask.stderr).toContain(`--from ${second.id} --to hero --variation default`);
+	expect(ask.stderr).toContain(`--from ${second.id} --to <new-slice-id>`);
 
 	const { stdout, stderr, exitCode } = await prismic("slice", [
-		"upgrade-legacy",
-		"hero",
-		"--from",
-		second.id,
+		...args,
 		"--to",
 		"hero",
 		"--variation",
@@ -184,15 +169,13 @@ it("adds a legacy slice to an existing slice as a new variation", async ({
 	const customType = buildLegacyCustomType();
 	await writeLocalSlice(project, slice);
 	await writeLocalCustomType(project, customType);
+	const args = ["upgrade-legacy", "hero", "--from", customType.id, "--to", slice.id];
 
-	const { stdout, stderr, exitCode } = await prismic("slice", [
-		"upgrade-legacy",
-		"hero",
-		"--from",
-		customType.id,
-		"--to",
-		slice.id,
-	]);
+	const merge = await prismic("slice", [...args, "--variation", "default"]);
+	expect(merge.exitCode).toBe(1);
+	expect(merge.stderr).toContain("has different fields");
+
+	const { stdout, stderr, exitCode } = await prismic("slice", args);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain('as variation "hero"');
 
@@ -224,53 +207,17 @@ it("upgrades a legacy slice to a slice with another ID", async ({ expect, prismi
 	});
 });
 
-it("refuses to merge into a variation with different fields", async ({
-	expect,
-	prismic,
-	project,
-}) => {
-	const slice = buildSlice();
-	const customType = buildLegacyCustomType();
-	await writeLocalSlice(project, slice);
-	await writeLocalCustomType(project, customType);
-
-	const { stderr, exitCode } = await prismic("slice", [
-		"upgrade-legacy",
-		"hero",
-		"--from",
-		customType.id,
-		"--to",
-		slice.id,
-		"--variation",
-		"default",
-	]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain("has different fields");
-});
-
-it("fails when the type is not found", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("slice", [
-		"upgrade-legacy",
-		"hero",
-		"--from",
-		"missing",
-	]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain('Type "missing" not found.');
-});
-
-it("fails when the legacy slice is not found", async ({ expect, prismic, project }) => {
+it("fails when the type or legacy slice is not found", async ({ expect, prismic, project }) => {
 	const customType = buildLegacyCustomType();
 	await writeLocalCustomType(project, customType);
 
-	const { stderr, exitCode } = await prismic("slice", [
-		"upgrade-legacy",
-		"missing",
-		"--from",
-		customType.id,
-	]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain('Legacy slice "missing" not found');
+	const type = await prismic("slice", ["upgrade-legacy", "hero", "--from", "missing"]);
+	expect(type.exitCode).toBe(1);
+	expect(type.stderr).toContain('Type "missing" not found.');
+
+	const slice = await prismic("slice", ["upgrade-legacy", "missing", "--from", customType.id]);
+	expect(slice.exitCode).toBe(1);
+	expect(slice.stderr).toContain('Legacy slice "missing" not found');
 });
 
 describe("with an isolated repository", () => {
