@@ -1,10 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 
-import type {
-	DynamicCustomTypeModel,
-	SharedSliceModel,
-	SharedSliceModelVariation,
-} from "@prismicio/types-internal";
+import type { SharedSliceModel, SharedSliceModelVariation } from "@prismicio/types-internal";
 import { camelCase, pascalCase, snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
@@ -131,7 +127,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		await adapter.createSlice(slice);
 	}
 
-	replaceChoice(customType, legacySlice, slice.id);
+	replaceChoice(legacySlice, slice.id);
 	await adapter.updateCustomType(customType);
 	await adapter.generateTypes();
 
@@ -225,18 +221,10 @@ function hasSameFields(a: SharedSliceModelVariation, b: SharedSliceModelVariatio
 }
 
 // Keeps the slice at the same position in the zone. Choice order is slice order.
-function replaceChoice(
-	customType: DynamicCustomTypeModel,
-	legacySlice: LegacySlice,
-	sliceId: string,
-) {
-	const field = customType.json[legacySlice.tabId][legacySlice.sliceZoneId];
-	if (field.type !== "Slices") return;
-	field.config!.choices = Object.fromEntries(
-		Object.entries(field.config!.choices!)
-			.filter(([key]) => key === legacySlice.id || key !== sliceId)
-			.map(([key, choice]) =>
-				key === legacySlice.id ? [sliceId, { type: "SharedSlice" }] : [key, choice],
-			),
+function replaceChoice({ id, sliceZone }: LegacySlice, sliceId: string) {
+	sliceZone.config!.choices = Object.fromEntries(
+		Object.entries(sliceZone.config!.choices!)
+			.filter(([key]) => key === id || key !== sliceId)
+			.map(([key, choice]) => (key === id ? [sliceId, { type: "SharedSlice" }] : [key, choice])),
 	);
 }

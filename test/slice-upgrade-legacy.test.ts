@@ -2,7 +2,7 @@ import type { DynamicCustomTypeModel, DynamicSlicesModel } from "@prismicio/type
 import { describe } from "vitest";
 
 import {
-	buildCustomType,
+	buildLegacyCustomType,
 	buildSlice,
 	it,
 	readLocalCustomType,
@@ -11,38 +11,6 @@ import {
 	writeLocalSlice,
 } from "./it";
 import { getCustomTypes, getSlices, insertCustomType } from "./prismic";
-
-function buildLegacyCustomType(): DynamicCustomTypeModel {
-	return buildCustomType({
-		format: "page",
-		json: {
-			Main: {
-				body: {
-					type: "Slices",
-					fieldset: "Slice Zone",
-					config: {
-						choices: {
-							hero: {
-								type: "Slice",
-								fieldset: "Hero",
-								"non-repeat": {
-									title: { type: "StructuredText", config: { label: "Title", single: "heading1" } },
-								},
-								repeat: { label: { type: "Text", config: { label: "Label" } } },
-							},
-							gallery: {
-								type: "Group",
-								fieldset: "Gallery",
-								config: { fields: { caption: { type: "Text", config: { label: "Caption" } } } },
-							},
-							quote: { type: "Text", config: { label: "Quote" } },
-						},
-					},
-				},
-			},
-		},
-	});
-}
 
 function getChoices(customType: DynamicCustomTypeModel) {
 	return (customType.json.Main.body as DynamicSlicesModel).config!.choices!;

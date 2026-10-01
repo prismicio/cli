@@ -1,4 +1,4 @@
-import { buildCustomType, it, writeLocalCustomType } from "./it";
+import { buildCustomType, buildLegacyCustomType, it, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("type", ["view", "--help"]);
@@ -54,25 +54,11 @@ it("views a type as JSON", async ({ expect, prismic, project }) => {
 });
 
 it("marks legacy slices", async ({ expect, prismic, project }) => {
-	const customType = buildCustomType({
-		json: {
-			Main: {
-				body: {
-					type: "Slices",
-					config: {
-						choices: {
-							cta: { type: "SharedSlice" },
-							hero: { type: "Slice", fieldset: "Hero", "non-repeat": {}, repeat: {} },
-						},
-					},
-				},
-			},
-		},
-	});
+	const customType = buildLegacyCustomType();
 	await writeLocalCustomType(project, customType);
 
 	const { stdout, stderr, exitCode } = await prismic("type", ["view", customType.id]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("body slices: cta, hero *");
+	expect(stdout).toContain("body slices: hero *, gallery *, quote *");
 	expect(stdout).toContain("* Legacy slice.");
 });

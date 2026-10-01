@@ -9,6 +9,7 @@ import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
 import { getCredentials } from "../auth";
+import { CommandError } from "../lib/command";
 import {
 	exists,
 	readEnvFile,
@@ -77,10 +78,6 @@ export class NoSupportedFrameworkError extends Error {
 
 export class ModelExistsError extends Error {
 	name = "ModelExistsError";
-}
-
-export class LegacySliceError extends Error {
-	name = "LegacySliceError";
 }
 
 async function assertModelMissing(
@@ -192,7 +189,7 @@ export abstract class Adapter {
 		if (legacySlice) {
 			const { customTypeId, sliceZoneId } = legacySlice;
 			const zoneOption = sliceZoneId === "body" ? "" : ` --slice-zone ${sliceZoneId}`;
-			throw new LegacySliceError(
+			throw new CommandError(
 				`"${id}" is a legacy slice in "${customTypeId}". Upgrade it first: \`prismic slice upgrade-legacy ${id} --from ${customTypeId}${zoneOption}\`.`,
 			);
 		}

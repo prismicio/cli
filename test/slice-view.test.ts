@@ -1,4 +1,4 @@
-import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
+import { buildLegacyCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("slice", ["view", "--help"]);
@@ -67,21 +67,7 @@ it("views a slice as JSON", async ({ expect, prismic, project }) => {
 });
 
 it("points at the upgrade for a legacy slice", async ({ expect, prismic, project }) => {
-	const customType = buildCustomType({
-		json: {
-			Main: {
-				body: {
-					type: "Slices",
-					config: {
-						choices: {
-							cta: { type: "SharedSlice" },
-							hero: { type: "Slice", fieldset: "Hero", "non-repeat": {}, repeat: {} },
-						},
-					},
-				},
-			},
-		},
-	});
+	const customType = buildLegacyCustomType();
 	await writeLocalCustomType(project, customType);
 
 	const { stderr, exitCode } = await prismic("slice", ["view", "hero"]);

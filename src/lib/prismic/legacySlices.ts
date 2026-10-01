@@ -5,21 +5,21 @@ type SliceChoice = NonNullable<NonNullable<DynamicSlicesModel["config"]>["choice
 export type LegacySlice = {
 	id: string;
 	customTypeId: string;
-	tabId: string;
 	sliceZoneId: string;
+	sliceZone: DynamicSlicesModel;
 	model: Exclude<SliceChoice, { type: "SharedSlice" }>;
 };
 
 /** Slices defined inside a slice zone by the Legacy Builder. */
 export function getLegacySlices(customTypes: DynamicCustomTypeModel[]): LegacySlice[] {
 	return customTypes.flatMap((customType) =>
-		Object.entries(customType.json).flatMap(([tabId, tab]) =>
-			Object.entries(tab).flatMap(([sliceZoneId, field]) => {
-				if (field.type !== "Slices") return [];
-				return Object.entries(field.config?.choices ?? {}).flatMap(([id, model]) =>
+		Object.values(customType.json).flatMap((tab) =>
+			Object.entries(tab).flatMap(([sliceZoneId, sliceZone]) => {
+				if (sliceZone.type !== "Slices") return [];
+				return Object.entries(sliceZone.config?.choices ?? {}).flatMap(([id, model]) =>
 					model.type === "SharedSlice"
 						? []
-						: [{ id, customTypeId: customType.id, tabId, sliceZoneId, model }],
+						: [{ id, customTypeId: customType.id, sliceZoneId, sliceZone, model }],
 				);
 			}),
 		),
