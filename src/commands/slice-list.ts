@@ -1,7 +1,7 @@
 import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getLegacySlices } from "../lib/prismic/legacySlices";
+import { getLegacySlices } from "../lib/prismic/models";
 import { formatTable } from "../lib/string";
 
 const config = {

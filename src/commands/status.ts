@@ -4,8 +4,12 @@ import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getProfile } from "../lib/prismic/clients/user";
-import { getLegacySlices } from "../lib/prismic/legacySlices";
-import { diffModels, getRemoteModels, type ModelsDiff } from "../lib/prismic/models";
+import {
+	diffModels,
+	getLegacySlices,
+	getRemoteModels,
+	type ModelsDiff,
+} from "../lib/prismic/models";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
 

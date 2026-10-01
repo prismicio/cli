@@ -26,10 +26,10 @@ import {
 	getSimulatorUrl,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
-import { getLegacySlices } from "../lib/prismic/legacySlices";
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,
+	getLegacySlices,
 	type Models,
 	type ModelsDiff,
 } from "../lib/prismic/models";

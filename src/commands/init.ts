@@ -22,8 +22,7 @@ import {
 } from "../lib/prismic/clients/core";
 import { getRepository, type Repository } from "../lib/prismic/clients/repository";
 import { getProfile } from "../lib/prismic/clients/user";
-import { getLegacySlices } from "../lib/prismic/legacySlices";
-import { diffModels, getRemoteModels } from "../lib/prismic/models";
+import { diffModels, getLegacySlices, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";

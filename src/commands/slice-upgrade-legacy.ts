@@ -5,7 +5,7 @@ import { camelCase, pascalCase, snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { getLegacySlices, type LegacySlice } from "../lib/prismic/legacySlices";
+import { getLegacySlices, type LegacySlice } from "../lib/prismic/models";
 import { relativePathname } from "../lib/url";
 import { findProjectRoot } from "../project";
 
