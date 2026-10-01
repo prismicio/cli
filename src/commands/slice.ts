@@ -8,6 +8,7 @@ import sliceEditVariation from "./slice-edit-variation";
 import sliceList from "./slice-list";
 import sliceRemove from "./slice-remove";
 import sliceRemoveVariation from "./slice-remove-variation";
+import sliceUpgradeLegacy from "./slice-upgrade-legacy";
 import sliceView from "./slice-view";
 
 export default createCommandRouter({
@@ -45,6 +46,10 @@ export default createCommandRouter({
 		disconnect: {
 			handler: sliceDisconnect,
 			description: "Disconnect a slice from a type's slice zone",
+		},
+		"upgrade-legacy": {
+			handler: sliceUpgradeLegacy,
+			description: "Upgrade a legacy slice",
 		},
 		"add-variation": {
 			handler: sliceAddVariation,

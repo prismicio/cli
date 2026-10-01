@@ -59,6 +59,6 @@ export default createCommand(config, async ({ values }) => {
 	];
 	console.info(formatTable(rows, { headers: ["NAME", "ID", "DEFINED IN"] }));
 	if (legacySlices.length > 0) {
-		console.info("\n* Legacy slice. The CLI cannot edit legacy slices.");
+		console.info("\n* Legacy slice. Run `prismic slice upgrade-legacy --help` to upgrade it.");
 	}
 });

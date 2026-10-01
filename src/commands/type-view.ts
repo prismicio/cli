@@ -50,6 +50,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	if (getLegacySlices([type]).length > 0) {
-		console.info("\n* Legacy slice. The CLI cannot edit legacy slices.");
+		console.info("\n* Legacy slice. Run `prismic slice upgrade-legacy --help` to upgrade it.");
 	}
 });

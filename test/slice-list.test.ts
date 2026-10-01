@@ -32,7 +32,9 @@ it("marks legacy slices", async ({ expect, prismic, project }) => {
 	const { stdout, stderr, exitCode } = await prismic("slice", ["list"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toMatch(new RegExp(`Hero \\*\\s+hero\\s+${customType.id}`));
-	expect(stdout).toContain("* Legacy slice. The CLI cannot edit legacy slices.");
+	expect(stdout).toContain(
+		"* Legacy slice. Run `prismic slice upgrade-legacy --help` to upgrade it.",
+	);
 });
 
 it("lists only legacy slices as JSON", async ({ expect, prismic, project }) => {

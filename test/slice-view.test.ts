@@ -66,13 +66,13 @@ it("views a slice as JSON", async ({ expect, prismic, project }) => {
 	expect(parsed).toMatchObject({ id: slice.id, name: slice.name });
 });
 
-it("fails for a legacy slice", async ({ expect, prismic, project }) => {
+it("points at the upgrade for a legacy slice", async ({ expect, prismic, project }) => {
 	const customType = buildLegacyCustomType();
 	await writeLocalCustomType(project, customType);
 
 	const { stderr, exitCode } = await prismic("slice", ["view", "hero"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain(
-		`"hero" is a legacy slice in "${customType.id}". The CLI cannot edit legacy slices.`,
+		`"hero" is a legacy slice in "${customType.id}". Upgrade it first: \`prismic slice upgrade-legacy hero --from ${customType.id}\`.`,
 	);
 });

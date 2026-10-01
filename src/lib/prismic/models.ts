@@ -289,6 +289,7 @@ export type LegacySlice = {
 	id: string;
 	customTypeId: string;
 	sliceZoneId: string;
+	sliceZone: DynamicSlicesModel;
 	model: Exclude<SliceChoice, { type: "SharedSlice" }>;
 };
 
@@ -301,7 +302,7 @@ export function getLegacySlices(customTypes: DynamicCustomTypeModel[]): LegacySl
 				return Object.entries(sliceZone.config?.choices ?? {}).flatMap(([id, model]) =>
 					model.type === "SharedSlice"
 						? []
-						: [{ id, customTypeId: customType.id, sliceZoneId, model }],
+						: [{ id, customTypeId: customType.id, sliceZoneId, sliceZone, model }],
 				);
 			}),
 		),

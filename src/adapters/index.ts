@@ -187,8 +187,10 @@ export abstract class Adapter {
 		const customTypes = (await this.getCustomTypes()).map((customType) => customType.model);
 		const legacySlice = getLegacySlices(customTypes).find((s) => s.id === id);
 		if (legacySlice) {
+			const { customTypeId, sliceZoneId } = legacySlice;
+			const zoneOption = sliceZoneId === "body" ? "" : ` --slice-zone ${sliceZoneId}`;
 			throw new CommandError(
-				`"${id}" is a legacy slice in "${legacySlice.customTypeId}". The CLI cannot edit legacy slices.`,
+				`"${id}" is a legacy slice in "${customTypeId}". Upgrade it first: \`prismic slice upgrade-legacy ${id} --from ${customTypeId}${zoneOption}\`.`,
 			);
 		}
 		throw new Error(`No slice found with ID: ${id}`);
