@@ -94,6 +94,18 @@ This repository uses [Release Please](https://github.com/googleapis/release-plea
 
 If you don't see a pending PR, there are no changes to publish from `main`.
 
+### npm authentication
+
+The `publish.yml` workflow uses npm trusted publishing (OIDC) for publishing
+`prismic` and removing closed PR tags. Enable **Allow npm dist-tag** for the
+`prismicio/cli` trusted publisher in the package's npm settings. Tag operations
+require npm 11.21.0 or later; the prerelease job installs that version explicitly.
+
+The workflow does not use `NPM_TOKEN`. Publishing updates the `canary` or `pr-N`
+tag, and closing a PR removes its tag. Superseded versions remain installable and
+are no longer automatically deprecated because `npm deprecate` does not support
+OIDC.
+
 [^1]: This package is maintained by the DevX team. Prismic employees can ask for help or a review in the [#team-devx](https://prismic-team.slack.com/archives/C014VAACCQL) Slack channel.
 
 [^2]: Prismic employees are highly encouraged to discuss changes with the DevX team in the [#team-devx](https://prismic-team.slack.com/archives/C014VAACCQL) Slack channel before starting.

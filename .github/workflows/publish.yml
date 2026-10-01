@@ -54,19 +54,11 @@ jobs:
           node-version: 26
           registry-url: "https://registry.npmjs.org"
 
-      # Canary
-      - name: "Deprecate previous canary"
-        if: github.event_name == 'push' && needs.release.outputs.release_created != 'true'
-        continue-on-error: true
-        run: |
-          PACKAGE_NAME=$(jq -r ".name" package.json)
-          PREVIOUS_VERSION=$(npm view "$PACKAGE_NAME" dist-tags.canary 2>/dev/null || true)
-          if [ -n "$PREVIOUS_VERSION" ]; then
-            npm deprecate "$PACKAGE_NAME@$PREVIOUS_VERSION" "Replaced by newer canary version"
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: "Install npm with OIDC dist-tag support"
+        run: npm install --global npm@11.21.0
 
+      # npm deprecate does not support OIDC. Publishing advances the tag instead.
+      # Canary
       - name: "Publish canary"
         if: github.event_name == 'push' && needs.release.outputs.release_created != 'true'
         run: |
@@ -77,19 +69,6 @@ jobs:
           npm publish --tag canary
 
       # Pull request
-      - name: "Deprecate previous PR prerelease"
-        if: github.event_name == 'pull_request' && github.event.action != 'closed'
-        continue-on-error: true
-        run: |
-          PACKAGE_NAME=$(jq -r ".name" package.json)
-          TAG="pr-${{ github.event.number }}"
-          PREVIOUS_VERSION=$(npm view "$PACKAGE_NAME" dist-tags."$TAG" 2>/dev/null || true)
-          if [ -n "$PREVIOUS_VERSION" ]; then
-            npm deprecate "$PACKAGE_NAME@$PREVIOUS_VERSION" "Replaced by newer prerelease version"
-          fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: "Publish PR prerelease"
         if: github.event_name == 'pull_request' && github.event.action != 'closed'
         run: |
@@ -99,16 +78,12 @@ jobs:
           npm version "${CURRENT_VERSION}-pr.${{ github.event.number }}.${SHORT_SHA}" --no-git-tag-version
           npm publish --tag pr-${{ github.event.number }}
 
-      - name: "Clean up PR prerelease"
+      - name: "Remove closed PR tag"
         if: github.event_name == 'pull_request' && github.event.action == 'closed'
-        continue-on-error: true
         run: |
           PACKAGE_NAME=$(jq -r ".name" package.json)
           TAG="pr-${{ github.event.number }}"
-          VERSION=$(npm view "$PACKAGE_NAME" dist-tags."$TAG" 2>/dev/null || echo "")
+          VERSION=$(npm view "$PACKAGE_NAME" "dist-tags.$TAG")
           if [ -n "$VERSION" ]; then
-            npm deprecate "$PACKAGE_NAME@$VERSION" "PR ${{ github.event.number }} was closed"
             npm dist-tag rm "$PACKAGE_NAME" "$TAG"
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
