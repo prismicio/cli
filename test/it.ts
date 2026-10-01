@@ -227,6 +227,37 @@ export function buildCustomType(
 	};
 }
 
+/** A type whose "body" slice zone holds a Slice, a Group, and a field legacy slice. */
+export function buildLegacyCustomType(): DynamicCustomTypeModel {
+	return buildCustomType({
+		json: {
+			Main: {
+				body: {
+					type: "Slices",
+					config: {
+						choices: {
+							hero: {
+								type: "Slice",
+								fieldset: "Hero",
+								"non-repeat": {
+									title: { type: "StructuredText", config: { label: "Title", single: "heading1" } },
+								},
+								repeat: { label: { type: "Text", config: { label: "Label" } } },
+							},
+							gallery: {
+								type: "Group",
+								fieldset: "Gallery",
+								config: { fields: { caption: { type: "Text", config: { label: "Caption" } } } },
+							},
+							quote: { type: "Text", config: { label: "Quote" } },
+						},
+					},
+				},
+			},
+		},
+	});
+}
+
 export function buildSlice(overrides?: Partial<SharedSliceModel>): SharedSliceModel {
 	const id = crypto.randomUUID().split("-")[0];
 	return {

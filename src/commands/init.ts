@@ -26,7 +26,7 @@ import {
 	type Repository,
 } from "../lib/prismic/clients/repository";
 import { getProfile } from "../lib/prismic/clients/user";
-import { diffModels, getRemoteModels } from "../lib/prismic/models";
+import { diffModels, getLegacySlices, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
@@ -304,6 +304,10 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	await adapter.generateTypes();
+
+	if (getLegacySlices(remote.customTypes).length > 0) {
+		console.info("\nRun `prismic slice list --legacy` to find legacy slices to upgrade.");
+	}
 
 	if (hasStarterModelChanges) {
 		console.warn(

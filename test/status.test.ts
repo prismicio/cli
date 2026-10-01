@@ -3,7 +3,14 @@ import { fileURLToPath } from "node:url";
 import { x } from "tinyexec";
 import { describe } from "vitest";
 
-import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
+import {
+	buildCustomType,
+	buildLegacyCustomType,
+	buildSlice,
+	it,
+	writeLocalCustomType,
+	writeLocalSlice,
+} from "./it";
 import { insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -23,6 +30,15 @@ describe("with an isolated repository", () => {
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain(`Repository: ${repo}`);
 		expect(stdout).toContain("Already up to date.");
+	});
+
+	it("reports legacy slices", async ({ expect, project, prismic, repo }) => {
+		const customType = buildLegacyCustomType();
+		await writeLocalCustomType(project, customType);
+
+		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("3 legacy slices need upgrading. Run `prismic slice list --legacy`.");
 	});
 
 	it("reports local-only models when added locally but not pushed", async ({
