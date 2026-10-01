@@ -1,7 +1,5 @@
 import { rm } from "node:fs/promises";
 
-import type { DynamicWidgetModel } from "@prismicio/types-internal";
-
 import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from "../adapters";
 import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
@@ -28,6 +26,7 @@ import {
 	type Repository,
 } from "../lib/prismic/clients/repository";
 import { getProfile } from "../lib/prismic/clients/user";
+import { getLegacySlices } from "../lib/prismic/legacySlices";
 import { diffModels, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
@@ -307,15 +306,8 @@ export default createCommand(config, async ({ values }) => {
 
 	await adapter.generateTypes();
 
-	const hasLegacySlices = remote.customTypes
-		.flatMap((customType) => Object.values(customType.json).flatMap(Object.values))
-		.some((field: DynamicWidgetModel) =>
-			Object.values(field.type === "Slices" ? (field.config?.choices ?? {}) : {}).some(
-				(choice) => choice.type !== "SharedSlice",
-			),
-		);
-	if (hasLegacySlices) {
-		console.info("\nRun `prismic slice migrate` to convert legacy slices to shared slices.");
+	if (getLegacySlices(remote.customTypes).length > 0) {
+		console.info("\nRun `prismic slice list --legacy` to find legacy slices to upgrade.");
 	}
 
 	if (hasStarterModelChanges) {

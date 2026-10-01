@@ -51,44 +51,75 @@ it.for(trials)(
 	},
 );
 
-it.for(trials)(
-	"converts a legacy slice to a shared slice",
-	async (_, { project, agent, expect }) => {
-		const page = buildCustomType({
-			id: "page",
-			label: "Page",
-			json: {
-				Main: {
-					slices: {
-						type: "Slices",
-						fieldset: "Slice Zone",
-						config: {
-							choices: {
-								hero: {
-									type: "Slice",
-									fieldset: "Hero",
-									"non-repeat": { title: { type: "Text", config: { label: "Title" } } },
-									repeat: {},
-								},
+it.for(trials)("upgrades a legacy slice", async (_, { project, agent, expect }) => {
+	const page = buildCustomType({
+		id: "page",
+		label: "Page",
+		json: {
+			Main: {
+				slices: {
+					type: "Slices",
+					fieldset: "Slice Zone",
+					config: {
+						choices: {
+							hero: {
+								type: "Slice",
+								fieldset: "Hero",
+								"non-repeat": { title: { type: "Text", config: { label: "Title" } } },
+								repeat: {},
 							},
 						},
 					},
 				},
 			},
-		});
-		await writeLocalCustomType(project, page);
+		},
+	});
+	await writeLocalCustomType(project, page);
 
-		const result = await agent(`Convert the legacy slices in the "page" type to shared slices.`);
+	const result = await agent(`Upgrade the legacy slices in the "page" type.`);
 
-		expect(result).toHaveRun(["slice", "migrate", "hero"]);
-		const slice = await readLocalSlice(project, "hero");
-		expect(slice?.legacyPaths).toEqual({ "page::slices::hero": "default" });
-		const model = await readLocalCustomType(project, page.id);
-		expect(model.json.Main.slices).toMatchObject({
-			config: { choices: { hero: { type: "SharedSlice" } } },
-		});
-	},
-);
+	expect(result).toHaveRun(["slice", "upgrade-legacy", "hero"]);
+	const slice = await readLocalSlice(project, "hero");
+	expect(slice?.legacyPaths).toEqual({ "page::slices::hero": "default" });
+	const model = await readLocalCustomType(project, page.id);
+	expect(model.json.Main.slices).toMatchObject({
+		config: { choices: { hero: { type: "SharedSlice" } } },
+	});
+});
+
+it.for(trials)("asks before combining legacy slices", async (_, { project, agent, expect }) => {
+	const hero = {
+		type: "Slice",
+		fieldset: "Hero",
+		"non-repeat": { title: { type: "Text", config: { label: "Title" } } },
+		repeat: {},
+	} as const;
+	for (const id of ["blog_post", "landing_page"]) {
+		await writeLocalCustomType(
+			project,
+			buildCustomType({
+				id,
+				json: { Main: { body: { type: "Slices", config: { choices: { hero } } } } },
+			}),
+		);
+	}
+
+	const result = await agent(`Upgrade all the legacy slices.`);
+
+	await expect(result.text).toSatisfyJudge(
+		`Asks the user whether the two "hero" legacy slices should become one slice or separate slices, and offers the options, instead of choosing on its own.`,
+	);
+	const upgraded = await readLocalSlice(project, "hero");
+	expect(Object.keys(upgraded?.legacyPaths ?? {}).length).toBeLessThan(2);
+
+	await result.continue("Combine them into one slice.");
+
+	const slice = await readLocalSlice(project, "hero");
+	expect(Object.keys(slice?.legacyPaths ?? {}).sort()).toEqual([
+		"blog_post::body::hero",
+		"landing_page::body::hero",
+	]);
+});
 
 // The CLI cannot rename a field ID; `field edit` only changes label and config.
 it.todo("renames a field without disturbing field order", async ({ project, agent, expect }) => {

@@ -25,6 +25,7 @@ import {
 	getSimulatorUrl,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
+import { getLegacySlices } from "../lib/prismic/legacySlices";
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,
@@ -76,6 +77,10 @@ export class NoSupportedFrameworkError extends Error {
 
 export class ModelExistsError extends Error {
 	name = "ModelExistsError";
+}
+
+export class LegacySliceError extends Error {
+	name = "LegacySliceError";
 }
 
 async function assertModelMissing(
@@ -181,8 +186,17 @@ export abstract class Adapter {
 
 	async getSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
 		const slice = (await this.getSlices()).find((s) => s.model.id === id);
-		if (!slice) throw new Error(`No slice found with ID: ${id}`);
-		return slice;
+		if (slice) return slice;
+		const customTypes = (await this.getCustomTypes()).map((customType) => customType.model);
+		const legacySlice = getLegacySlices(customTypes).find((s) => s.id === id);
+		if (legacySlice) {
+			const { customTypeId, sliceZoneId } = legacySlice;
+			const zoneOption = sliceZoneId === "body" ? "" : ` --slice-zone ${sliceZoneId}`;
+			throw new LegacySliceError(
+				`"${id}" is a legacy slice in "${customTypeId}". Upgrade it first: \`prismic slice upgrade-legacy ${id} --from ${customTypeId}${zoneOption}\`.`,
+			);
+		}
+		throw new Error(`No slice found with ID: ${id}`);
 	}
 
 	async createSlice(model: SharedSliceModel): Promise<void> {

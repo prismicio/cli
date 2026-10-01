@@ -52,3 +52,27 @@ it("views a type as JSON", async ({ expect, prismic, project }) => {
 	const parsed = JSON.parse(stdout);
 	expect(parsed).toMatchObject({ id: customType.id, label: customType.label, format: "custom" });
 });
+
+it("marks legacy slices", async ({ expect, prismic, project }) => {
+	const customType = buildCustomType({
+		json: {
+			Main: {
+				body: {
+					type: "Slices",
+					config: {
+						choices: {
+							cta: { type: "SharedSlice" },
+							hero: { type: "Slice", fieldset: "Hero", "non-repeat": {}, repeat: {} },
+						},
+					},
+				},
+			},
+		},
+	});
+	await writeLocalCustomType(project, customType);
+
+	const { stdout, stderr, exitCode } = await prismic("type", ["view", customType.id]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain("body slices: cta, hero *");
+	expect(stdout).toContain("* Legacy slice.");
+});

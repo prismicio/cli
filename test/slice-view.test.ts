@@ -1,4 +1,4 @@
-import { buildSlice, it, writeLocalSlice } from "./it";
+import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("slice", ["view", "--help"]);
@@ -64,4 +64,29 @@ it("views a slice as JSON", async ({ expect, prismic, project }) => {
 	expect(exitCode, stderr).toBe(0);
 	const parsed = JSON.parse(stdout);
 	expect(parsed).toMatchObject({ id: slice.id, name: slice.name });
+});
+
+it("points at the upgrade for a legacy slice", async ({ expect, prismic, project }) => {
+	const customType = buildCustomType({
+		json: {
+			Main: {
+				body: {
+					type: "Slices",
+					config: {
+						choices: {
+							cta: { type: "SharedSlice" },
+							hero: { type: "Slice", fieldset: "Hero", "non-repeat": {}, repeat: {} },
+						},
+					},
+				},
+			},
+		},
+	});
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("slice", ["view", "hero"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(
+		`"hero" is a legacy slice in "${customType.id}". Upgrade it first: \`prismic slice upgrade-legacy hero --from ${customType.id}\`.`,
+	);
 });

@@ -3,7 +3,12 @@
 import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
-import { getAdapter, ModelExistsError, NoSupportedFrameworkError } from "./adapters";
+import {
+	getAdapter,
+	LegacySliceError,
+	ModelExistsError,
+	NoSupportedFrameworkError,
+} from "./adapters";
 import { cleanupLegacyAuthFile, getCredentials, spawnTokenRefresh } from "./auth";
 import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
@@ -67,6 +72,7 @@ const KNOWN_ERRORS = [
 	UnsupportedFileTypeError,
 	NoSupportedFrameworkError,
 	ModelExistsError,
+	LegacySliceError,
 	InvalidEnvironmentError,
 	InvalidPrismicConfigError,
 	MissingPrismicConfigError,

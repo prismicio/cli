@@ -25,6 +25,29 @@ describe("with an isolated repository", () => {
 		expect(stdout).toContain("Already up to date.");
 	});
 
+	it("reports legacy slices", async ({ expect, project, prismic, repo }) => {
+		const customType = buildCustomType({
+			json: {
+				Main: {
+					body: {
+						type: "Slices",
+						config: {
+							choices: {
+								cta: { type: "SharedSlice" },
+								hero: { type: "Slice", fieldset: "Hero", "non-repeat": {}, repeat: {} },
+							},
+						},
+					},
+				},
+			},
+		});
+		await writeLocalCustomType(project, customType);
+
+		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("1 legacy slice needs upgrading. Run `prismic slice list --legacy`.");
+	});
+
 	it("reports local-only models when added locally but not pushed", async ({
 		expect,
 		project,

@@ -4,6 +4,7 @@ import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getProfile } from "../lib/prismic/clients/user";
+import { getLegacySlices } from "../lib/prismic/legacySlices";
 import { diffModels, getRemoteModels, type ModelsDiff } from "../lib/prismic/models";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -78,6 +79,13 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Authenticated as: ${userEmail}`);
 	} else {
 		console.info("Not logged in — log in with `prismic login` to compare with remote.");
+	}
+
+	const legacySliceCount = getLegacySlices(local.customTypes).length;
+	if (legacySliceCount > 0) {
+		console.info(
+			`\n${legacySliceCount} legacy ${legacySliceCount === 1 ? "slice needs" : "slices need"} upgrading. Run \`prismic slice list --legacy\`.`,
+		);
 	}
 
 	const inSync = diff !== undefined && !hasChanges(diff.customTypes) && !hasChanges(diff.slices);
