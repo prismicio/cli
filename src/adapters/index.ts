@@ -9,6 +9,7 @@ import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
 import { getCredentials } from "../auth";
+import { CommandError } from "../lib/command";
 import {
 	exists,
 	readEnvFile,
@@ -28,6 +29,7 @@ import {
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,
+	getLegacySlices,
 	type Models,
 	type ModelsDiff,
 } from "../lib/prismic/models";
@@ -181,8 +183,15 @@ export abstract class Adapter {
 
 	async getSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
 		const slice = (await this.getSlices()).find((s) => s.model.id === id);
-		if (!slice) throw new Error(`No slice found with ID: ${id}`);
-		return slice;
+		if (slice) return slice;
+		const customTypes = (await this.getCustomTypes()).map((customType) => customType.model);
+		const legacySlice = getLegacySlices(customTypes).find((s) => s.id === id);
+		if (legacySlice) {
+			throw new CommandError(
+				`"${id}" is a legacy slice in "${legacySlice.customTypeId}". The CLI cannot edit legacy slices.`,
+			);
+		}
+		throw new Error(`No slice found with ID: ${id}`);
 	}
 
 	async createSlice(model: SharedSliceModel): Promise<void> {

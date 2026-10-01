@@ -1,4 +1,4 @@
-import { buildSlice, it, writeLocalSlice } from "./it";
+import { buildLegacyCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("slice", ["view", "--help"]);
@@ -64,4 +64,15 @@ it("views a slice as JSON", async ({ expect, prismic, project }) => {
 	expect(exitCode, stderr).toBe(0);
 	const parsed = JSON.parse(stdout);
 	expect(parsed).toMatchObject({ id: slice.id, name: slice.name });
+});
+
+it("fails for a legacy slice", async ({ expect, prismic, project }) => {
+	const customType = buildLegacyCustomType();
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("slice", ["view", "hero"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(
+		`"hero" is a legacy slice in "${customType.id}". The CLI cannot edit legacy slices.`,
+	);
 });
