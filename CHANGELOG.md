@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.22.0](https://github.com/prismicio/cli/compare/v1.21.0...v1.22.0) (2026-10-01)
+
+
+### Features
+
+* add `prismic slice upgrade-legacy` ([#388](https://github.com/prismicio/cli/issues/388)) ([c74832a](https://github.com/prismicio/cli/commit/c74832afb26c14e1d1109a7d2b1fc236732051a1))
+* show legacy slices in `slice list` and `type view` ([#390](https://github.com/prismicio/cli/issues/390)) ([f48e90b](https://github.com/prismicio/cli/commit/f48e90b7f56f8cdf913a93c27625b5cfa28b0d8a))
+* turn on the Type Builder in `prismic init` ([#389](https://github.com/prismicio/cli/issues/389)) ([439e4e7](https://github.com/prismicio/cli/commit/439e4e7fcacd0d756d9753269f0e0998004c0fc1))
+
 ## [1.21.0](https://github.com/prismicio/cli/compare/v1.20.0...v1.21.0) (2026-09-30)
 
 
