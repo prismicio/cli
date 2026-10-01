@@ -137,7 +137,7 @@ it("asks how to upgrade when the slice exists, then merges", async ({
 
 	const ask = await prismic("slice", args);
 	expect(ask.exitCode).toBe(1);
-	expect(ask.stderr).toContain('Slice "hero" already exists. Ask the user');
+	expect(ask.stderr).toContain('Slice "hero" already exists. How do you want to upgrade');
 	expect(ask.stderr).toContain(`--from ${second.id} --to hero\n`);
 	expect(ask.stderr).toContain(`--from ${second.id} --to hero --variation default`);
 	expect(ask.stderr).toContain(`--from ${second.id} --to <new-slice-id>`);

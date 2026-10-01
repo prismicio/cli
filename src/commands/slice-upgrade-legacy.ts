@@ -19,8 +19,9 @@ const config = {
 
 		Each legacy slice becomes its own slice unless --to names an existing
 		slice, which gets it as a new variation. Legacy slices with the same ID
-		in several types are often the same component. Ask the user whether to
-		combine them into one slice or keep them separate before upgrading them.
+		in several types are often the same component. Combining them is a content
+		modeling decision for the project's owner, since it changes how editors pick
+		slices. Get their choice before upgrading them.
 
 		Only local models change. After \`prismic push\`, Prismic returns the
 		slice's content in its upgraded shape, so deploy the updated component
@@ -153,7 +154,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 });
 
-// Upgrading into an existing slice changes how editors use it, so the user decides.
+// Upgrading into an existing slice changes how editors use it, so list the choices instead of picking one.
 function getSliceExistsMessage(
 	slice: SharedSliceModel,
 	legacySlice: LegacySlice,
@@ -164,7 +165,7 @@ function getSliceExistsMessage(
 	const command = `prismic slice upgrade-legacy ${id} --from ${customTypeId}${zoneOption}`;
 	const sameFields = slice.variations.find((v) => hasSameFields(v, upgraded));
 	return [
-		`Slice "${slice.id}" already exists. Ask the user how to upgrade legacy slice "${id}" of "${customTypeId}":`,
+		`Slice "${slice.id}" already exists. How do you want to upgrade legacy slice "${id}" of "${customTypeId}"? This changes how editors pick slices, so the project's owner should choose:`,
 		`  Add it to slice "${slice.id}" as a new variation: ${command} --to ${slice.id}`,
 		...(sameFields
 			? [
