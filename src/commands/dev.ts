@@ -40,6 +40,7 @@ const config = {
 	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		"no-browser": { type: "boolean", description: "Skip opening the Type Builder in the browser" },
 	},
 } satisfies CommandConfig;
 
@@ -92,14 +93,19 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	try {
-		await watch(adapter, { repo, token, host, releaseId }, watching.signal);
+		await watch(adapter, { repo, token, host, releaseId }, values["no-browser"], watching.signal);
 	} catch (error) {
 		await stop();
 		throw error;
 	}
 });
 
-async function watch(adapter: Adapter, release: Release, signal: AbortSignal): Promise<never> {
+async function watch(
+	adapter: Adapter,
+	release: Release,
+	noBrowser: boolean | undefined,
+	signal: AbortSignal,
+): Promise<never> {
 	let changed = false;
 	let wake = (): void => {};
 	const libraries = [
@@ -125,7 +131,7 @@ async function watch(adapter: Adapter, release: Release, signal: AbortSignal): P
 	const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
 	url.searchParams.set("r", release.releaseId);
 	console.info(`Type Builder: ${url}`);
-	openBrowser(url);
+	if (!noBrowser) openBrowser(url);
 	console.info("Syncing local models with the Type Builder (Ctrl+C to stop)");
 
 	let lastErrorMessage: string | undefined;
