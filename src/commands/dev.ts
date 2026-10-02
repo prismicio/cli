@@ -14,7 +14,6 @@ import { createCommand, type CommandConfig, CommandError } from "../lib/command"
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
-import { getCustomTypes } from "../lib/prismic/clients/custom-types";
 import {
 	diffModels,
 	getRemoteModels,
@@ -59,10 +58,6 @@ export default createCommand(config, async ({ values }) => {
 		throw new CommandError(
 			`\`prismic dev\` is already running in this project (PID ${previous.pid}). Stop it first.`,
 		);
-	}
-
-	if (!(await checkReleaseSupport({ repo, token, host }))) {
-		throw new CommandError(`Local mode isn't available on ${host} yet.`);
 	}
 
 	if (previous) {
@@ -201,16 +196,6 @@ function getChangedIds(changes: ModelsDiff): string[] {
 
 function log(message: string): void {
 	console.info(`[${new Date().toLocaleTimeString()}] ${message}`);
-}
-
-async function checkReleaseSupport(config: Omit<Release, "releaseId">): Promise<boolean> {
-	try {
-		await getCustomTypes({ ...config, releaseId: "prismic-cli-release-check" });
-		return false;
-	} catch (error) {
-		if (getErrorCode(error) === "RELEASE_NOT_FOUND") return true;
-		throw toCommandError(error);
-	}
 }
 
 const ErrorBodySchema = z.object({ error: z.string() });
