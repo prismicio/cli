@@ -101,18 +101,8 @@ async function watch(
 	noBrowser: boolean | undefined,
 	signal: AbortSignal,
 ): Promise<never> {
-	let changed = false;
-	let wake = (): void => {};
-	const libraries = [
-		...(await adapter.getCustomTypeLibraries()),
-		...(await adapter.getSliceLibraries()),
-	];
-	watchFiles(
-		libraries,
-		() => {
-			changed = true;
-			wake();
-		},
+	const waitForChange = watchFiles(
+		[...(await adapter.getCustomTypeLibraries()), ...(await adapter.getSliceLibraries())],
 		signal,
 	);
 
@@ -131,16 +121,7 @@ async function watch(
 
 	let lastErrorMessage: string | undefined;
 	while (true) {
-		if (!changed) {
-			await new Promise<void>((resolve) => {
-				const poll = setTimeout(resolve, POLL_INTERVAL_MS);
-				wake = () => {
-					clearTimeout(poll);
-					resolve();
-				};
-			});
-		}
-		changed = false;
+		await waitForChange(POLL_INTERVAL_MS);
 
 		try {
 			const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);

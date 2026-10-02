@@ -45,16 +45,40 @@ export async function exists(path: URL): Promise<boolean> {
 	}
 }
 
-export function watchFiles(paths: URL[], onChange: () => void, signal: AbortSignal): void {
-	let timeout: NodeJS.Timeout | undefined;
-	const debouncedOnChange = (): void => {
-		clearTimeout(timeout);
-		timeout = setTimeout(onChange, 100);
+/**
+ * Watches files and returns a function that waits until one changes or the
+ * timeout passes. A change that happens between waits ends the next wait at once.
+ */
+export function watchFiles(
+	paths: URL[],
+	signal: AbortSignal,
+): (timeoutMs: number) => Promise<void> {
+	let changed = false;
+	let wake = (): void => {};
+	let debounce: NodeJS.Timeout | undefined;
+	const onChange = (): void => {
+		clearTimeout(debounce);
+		debounce = setTimeout(() => {
+			changed = true;
+			wake();
+		}, 100);
 	};
 	for (const path of paths) {
 		if (!existsSync(path)) continue;
-		watch(path, { recursive: true, signal }, debouncedOnChange).on("error", () => {});
+		watch(path, { recursive: true, signal }, onChange).on("error", () => {});
 	}
+	return async (timeoutMs) => {
+		if (!changed) {
+			await new Promise<void>((resolve) => {
+				const timeout = setTimeout(resolve, timeoutMs);
+				wake = () => {
+					clearTimeout(timeout);
+					resolve();
+				};
+			});
+		}
+		changed = false;
+	};
 }
 
 export async function writeFileRecursive(
