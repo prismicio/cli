@@ -134,6 +134,31 @@ describe("with an isolated repository", () => {
 		expect(await readdir(new URL(".config/prismic/dev/", home))).toEqual([]);
 	}, 120_000);
 
+	it("keeps syncing after a rejected change", async ({
+		expect,
+		prismic,
+		project,
+		repo,
+		token,
+		host,
+	}) => {
+		const customType = buildCustomType({ repeatable: true });
+		await insertCustomType(customType, { repo, token, host });
+		await writeLocalCustomType(project, customType);
+
+		const proc = prismic("dev");
+		const output = captureOutput(proc);
+		await expect.poll(output, { timeout: 30_000 }).toContain("Type Builder:");
+		const releaseId = getReleaseId(output());
+
+		await writeLocalCustomType(project, { ...customType, repeatable: false });
+		await expect.poll(output, { timeout: 30_000 }).toContain(`Sync failed: ${customType.id}:`);
+
+		const builderType = buildCustomType();
+		await insertCustomType(builderType, { repo, token, host, releaseId });
+		await expect.poll(output, { timeout: 30_000 }).toContain("Written from the Type Builder");
+	}, 60_000);
+
 	it("explains that a type cannot change repeatable", async ({
 		expect,
 		prismic,

@@ -145,11 +145,12 @@ async function watch(adapter: Adapter, release: Release, signal: AbortSignal): P
 		try {
 			const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
 			const edited = getChangedIds(diffModels(local, last.local));
-			if (edited.length > 0) {
-				last = await pushLocalEdits(edited, local, remote, release);
-			} else if (getChangedIds(diffModels(remote, last.remote)).length > 0) {
-				last = await pullTypeBuilderEdits(adapter, local, remote);
-			}
+			const pulled = getChangedIds(diffModels(remote, last.remote)).filter(
+				(id) => !edited.includes(id),
+			);
+			await pullTypeBuilderEdits(adapter, pick(remote, pulled), pick(local, pulled));
+			last = { local: pulled.length > 0 ? await adapter.getModels() : local, remote };
+			await pushLocalEdits(pick(local, edited), pick(remote, edited), release);
 			lastErrorMessage = undefined;
 		} catch (error) {
 			if (getErrorCode(error) === "RELEASE_NOT_FOUND") throw toCommandError(error);
@@ -160,30 +161,24 @@ async function watch(adapter: Adapter, release: Release, signal: AbortSignal): P
 	}
 }
 
-async function pushLocalEdits(
-	ids: string[],
-	local: Models,
-	remote: Models,
-	release: Release,
-): Promise<Snapshot> {
-	const changes = diffModels(pick(local, ids), pick(remote, ids));
+async function pushLocalEdits(local: Models, remote: Models, release: Release): Promise<void> {
+	const changes = diffModels(local, remote);
 	await writeRemoteModels(changes, release);
 	const sent = getChangedIds(changes);
 	if (sent.length > 0) log(`Sent to the Type Builder: ${sent.join(", ")}`);
-	return { local, remote: local };
 }
 
 async function pullTypeBuilderEdits(
 	adapter: Adapter,
-	local: Models,
 	remote: Models,
-): Promise<Snapshot> {
+	local: Models,
+): Promise<void> {
 	const changes = diffModels(remote, local);
+	const written = getChangedIds(changes);
+	if (written.length === 0) return;
 	await adapter.writeModels(changes);
 	await adapter.generateTypes();
-	const written = getChangedIds(changes);
-	if (written.length > 0) log(`Written from the Type Builder: ${written.join(", ")}`);
-	return { local: await adapter.getModels(), remote };
+	log(`Written from the Type Builder: ${written.join(", ")}`);
 }
 
 function pick(models: Models, ids: string[]): Models {
@@ -245,10 +240,21 @@ function toCommandError(error: unknown): unknown {
 			);
 		case "RELEASE_NOT_FOUND":
 			return new CommandError("The hidden release was deleted. Run `prismic dev` again.");
-		default:
-			return error;
 	}
+	if (!(error instanceof RequestError)) return error;
+	const details = z.safeParse(BulkErrorBodySchema, error.body).data?.details;
+	if (!details) return error;
+	return new CommandError(
+		[...details.customTypes, ...details.slices]
+			.map(({ id, error }) => `${id}: ${error}`)
+			.join("\n"),
+	);
 }
+
+const ModelErrorsSchema = z.array(z.object({ id: z.string(), error: z.string() }));
+const BulkErrorBodySchema = z.object({
+	details: z.object({ customTypes: ModelErrorsSchema, slices: ModelErrorsSchema }),
+});
 
 const SessionSchema = z.object({ repo: z.string(), releaseId: z.string(), pid: z.number() });
 
