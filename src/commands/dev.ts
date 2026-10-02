@@ -226,13 +226,10 @@ function throwCommandError(error: unknown): never {
 
 function toCommandError(error: unknown): unknown {
 	switch (getErrorCode(error)) {
-		case "NOT_ADMIN":
 		case "missing_right":
 			return new CommandError(
 				"Local mode needs an Administrator, Owner, or Super User role on this repository.",
 			);
-		case "FEATURE_DISABLED":
-			return new CommandError("Local mode isn't enabled for this repository yet.");
 		case "LEGACY_REPOSITORY":
 			return new CommandError("Local mode doesn't support this repository yet.");
 		case "REPEATABLE_MISMATCH":
