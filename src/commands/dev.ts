@@ -44,7 +44,6 @@ const config = {
 } satisfies CommandConfig;
 
 type Release = { repo: string; token: string; host: string; releaseId: string };
-type Snapshot = { local: Models; remote: Models };
 
 export default createCommand(config, async ({ values }) => {
 	const adapter = await getAdapter();
@@ -113,7 +112,7 @@ async function watch(adapter: Adapter, release: Release, signal: AbortSignal): P
 			changed = true;
 			wake();
 		},
-		{ signal },
+		signal,
 	);
 
 	const [initial, initialRemote] = await Promise.all([
@@ -121,7 +120,7 @@ async function watch(adapter: Adapter, release: Release, signal: AbortSignal): P
 		getRemoteModels(release),
 	]).catch(throwCommandError);
 	await writeRemoteModels(diffModels(initial, initialRemote), release).catch(throwCommandError);
-	let last: Snapshot = { local: initial, remote: initial };
+	let last = { local: initial, remote: initial };
 
 	const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
 	url.searchParams.set("r", release.releaseId);
@@ -198,11 +197,7 @@ function log(message: string): void {
 	console.info(`[${new Date().toLocaleTimeString()}] ${message}`);
 }
 
-async function checkReleaseSupport(config: {
-	repo: string;
-	token: string;
-	host: string;
-}): Promise<boolean> {
+async function checkReleaseSupport(config: Omit<Release, "releaseId">): Promise<boolean> {
 	try {
 		await getCustomTypes({ ...config, releaseId: "prismic-cli-release-check" });
 		return false;

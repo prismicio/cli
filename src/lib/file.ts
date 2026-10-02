@@ -45,16 +45,11 @@ export async function exists(path: URL): Promise<boolean> {
 	}
 }
 
-export function watchFiles(
-	paths: URL[],
-	onChange: () => void,
-	options: { signal: AbortSignal; debounceMs?: number },
-): void {
-	const { signal, debounceMs = 100 } = options;
+export function watchFiles(paths: URL[], onChange: () => void, signal: AbortSignal): void {
 	let timeout: NodeJS.Timeout | undefined;
 	const debouncedOnChange = (): void => {
 		clearTimeout(timeout);
-		timeout = setTimeout(onChange, debounceMs);
+		timeout = setTimeout(onChange, 100);
 	};
 	for (const path of paths) {
 		if (!existsSync(path)) continue;
