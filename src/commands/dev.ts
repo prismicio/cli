@@ -35,6 +35,9 @@ const config = {
 		Type Builder changes are saved to local files, and local file changes
 		appear in the Type Builder.
 
+		The command runs until you stop it. Agents should run it in the
+		background and give the user the Type Builder URL.
+
 		Local mode is in closed alpha.
 	`,
 	options: {
