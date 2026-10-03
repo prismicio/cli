@@ -1,6 +1,6 @@
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { query, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
@@ -51,6 +51,7 @@ export const it = base.extend<{
 	agent: async (
 		{
 			home,
+			bin,
 			project,
 			login,
 			exec,
@@ -78,8 +79,15 @@ export const it = base.extend<{
 		await exec("git", ["add", "-A"]);
 		await exec("git", ["commit", "-q", "-m", "Initial commit"]);
 
+		// Commands like `prismic dev` and `prismic login` open a browser. These stand-ins
+		// keep evals from opening real tabs.
+		for (const opener of ["open", "xdg-open"]) {
+			await writeFile(new URL(opener, bin), "#!/bin/sh\n", { mode: 0o755 });
+		}
+
 		const env: NodeJS.ProcessEnv = {
 			...process.env,
+			PATH: `${fileURLToPath(bin)}${delimiter}${process.env.PATH}`,
 			HOME: fileURLToPath(home),
 			NO_UPDATE_NOTIFIER: "1",
 			CLAUDE_CONFIG_DIR: await createClaudeConfigDir(),
@@ -92,10 +100,10 @@ export const it = base.extend<{
 		// CLI, so evals see the arguments as the CLI received them, not as the agent typed them.
 		const argvLog = join(tmpdir(), `prismic-argv-${crypto.randomUUID()}.jsonl`);
 		if (installCli) {
-			const bin = new URL("node_modules/.bin/prismic", project);
-			await mkdir(new URL(".", bin), { recursive: true });
+			const prismicBin = new URL("node_modules/.bin/prismic", project);
+			await mkdir(new URL(".", prismicBin), { recursive: true });
 			await writeFile(
-				bin,
+				prismicBin,
 				dedent`
 					#!/bin/sh
 					node -e 'console.log(JSON.stringify(process.argv.slice(1)))' -- "$@" >> ${JSON.stringify(argvLog)}

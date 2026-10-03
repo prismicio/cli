@@ -1,3 +1,5 @@
+import { readdir, readFile } from "node:fs/promises";
+
 import {
 	buildCustomType,
 	captureOutput,
@@ -41,3 +43,28 @@ it.for(trials)(
 			.toContain("subtitle");
 	},
 );
+
+it.for(trials)(
+	"starts the Type Builder when asked",
+	async (_, { agent, home, expect, onTestFinished }) => {
+		onTestFinished(() => stopSessions(home));
+
+		const result = await agent(
+			"Open the Type Builder so I can edit this project's models visually.",
+		);
+
+		expect(result).toHaveRun(["dev"]);
+		expect(result.text).toContain("/builder/types?r=");
+	},
+);
+
+// The agent leaves `prismic dev` running in the background.
+async function stopSessions(home: URL): Promise<void> {
+	const dir = new URL(".config/prismic/dev/", home);
+	for (const file of await readdir(dir).catch(() => [])) {
+		const { pid } = JSON.parse(await readFile(new URL(file, dir), "utf8"));
+		try {
+			process.kill(pid, "SIGINT");
+		} catch {}
+	}
+}

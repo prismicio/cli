@@ -36,7 +36,7 @@ const config = {
 		appear in the Type Builder.
 
 		The command runs until you stop it. Agents should run it in the
-		background and give the user the Type Builder URL.
+		background and give the user the URL from its "Type Builder:" line.
 
 		Local mode is in closed alpha.
 	`,
