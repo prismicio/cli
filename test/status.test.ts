@@ -11,7 +11,7 @@ import {
 	writeLocalCustomType,
 	writeLocalSlice,
 } from "./it";
-import { insertCustomType, insertSlice } from "./prismic";
+import { createWriteToken, insertCustomType, insertSlice } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("status", ["--help"]);
@@ -22,13 +22,15 @@ it("supports --help", async ({ expect, prismic }) => {
 describe("with an isolated repository", () => {
 	it.scoped({ isolateRepo: true });
 
-	it("reports in-sync when local matches remote", async ({ expect, prismic, repo }) => {
+	it("reports in-sync when local matches remote", async ({ expect, prismic, repo, login }) => {
+		const { email } = await login();
 		const pull = await prismic("pull", ["--repo", repo]);
 		expect(pull.exitCode, pull.stderr).toBe(0);
 
 		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo]);
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain(`Repository: ${repo}`);
+		expect(stdout).toContain(`Authenticated as: ${email}`);
 		expect(stdout).toContain("Already up to date.");
 	});
 
@@ -158,6 +160,30 @@ describe("with an isolated repository", () => {
 		expect(stdout).toContain("Differ:");
 		expect(stdout).toContain(`${customType.id} (custom type)`);
 	});
+
+	// Wroom 500s under concurrent same-user write-token creates; keep this sequential.
+	it(
+		"compares models with a write API token",
+		{ concurrent: false },
+		async ({ expect, project, prismic, repo, token, host }) => {
+			const pull = await prismic("pull", ["--repo", repo]);
+			expect(pull.exitCode, pull.stderr).toBe(0);
+
+			const customType = buildCustomType();
+			await writeLocalCustomType(project, customType);
+			const { token: writeToken } = await createWriteToken({ repo, token, host });
+
+			const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo], {
+				nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },
+			});
+			expect(exitCode, stderr).toBe(0);
+			expect(stdout).toContain("Authenticated as: Write API token");
+			expect(stdout).toContain("Local-only:");
+			expect(stdout).toContain(`${customType.id} (custom type)`);
+			expect(stdout).not.toContain("This Write API token cannot run administrative commands.");
+			expect(stderr).not.toContain("invalid or expired");
+		},
+	);
 
 	it("lists the commit as the first step when model files are uncommitted", async ({
 		expect,

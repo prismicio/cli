@@ -2,6 +2,9 @@ import * as z from "zod/mini";
 
 const JWTPayloadSchema = z.looseObject({
 	exp: z.optional(z.number()),
+	// Present on a Write API token. A user session does not carry them.
+	appName: z.optional(z.string()),
+	domain: z.optional(z.string()),
 });
 type JWTPayload = z.infer<typeof JWTPayloadSchema>;
 

@@ -3,6 +3,7 @@ import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
+import { decodePayload } from "../lib/jwt";
 import { getProfile } from "../lib/prismic/clients/user";
 import {
 	diffModels,
@@ -50,14 +51,20 @@ export default createCommand(config, async ({ values }) => {
 		adapter.getModels(),
 	]);
 
-	let userEmail: string | undefined;
+	let authenticatedAs: string | undefined;
 	let diff: ModelsDiff | undefined;
-	if (token) {
+	if (token && isWriteApiToken(token)) {
+		// A Write API token has no user. GET /profile fails the comparison even
+		// though the type and slice reads already accept this token.
+		const remote = await getRemoteModels({ repo, token, host });
+		authenticatedAs = "Write API token";
+		diff = diffModels(local, remote);
+	} else if (token) {
 		const [profile, remote] = await Promise.all([
 			getProfile({ token, host }),
 			getRemoteModels({ repo, token, host }),
 		]);
-		userEmail = profile.email;
+		authenticatedAs = profile.email;
 		diff = diffModels(local, remote);
 	}
 
@@ -79,8 +86,8 @@ export default createCommand(config, async ({ values }) => {
 	if (repo !== repositoryName) {
 		console.info(`Environment: ${repo}`);
 	}
-	if (userEmail) {
-		console.info(`Authenticated as: ${userEmail}`);
+	if (authenticatedAs) {
+		console.info(`Authenticated as: ${authenticatedAs}`);
 	} else {
 		console.info("Not logged in — log in with `prismic login` to compare with remote.");
 	}
@@ -146,3 +153,8 @@ export default createCommand(config, async ({ values }) => {
 		for (const line of next) console.info(`  ${line}`);
 	}
 });
+
+function isWriteApiToken(token: string): boolean {
+	const payload = decodePayload(token);
+	return Boolean(payload?.appName && payload.domain);
+}
