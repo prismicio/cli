@@ -3,12 +3,13 @@ import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
 import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe } from "vitest";
+import { describe, type ExpectStatic } from "vitest";
 
 import {
 	buildCustomType,
 	buildSlice,
 	captureOutput,
+	type Fixtures,
 	it,
 	readLocalCustomType,
 	writeLocalCustomType,
@@ -33,19 +34,19 @@ it("fails when not logged in", async ({ expect, prismic, logout }) => {
 });
 
 it("refuses a second session in the same project", async ({ expect, prismic, project, home }) => {
-	await writeSession(home, project, { repo: "unused", releaseId: "unused", pid: process.pid });
+	await writeSession(home, project, {
+		repo: "unused",
+		releaseId: "unused",
+		pid: process.pid,
+		synced: { local: {}, remote: {} },
+	});
 	const { stderr, exitCode } = await prismic("dev");
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("already running in this project");
+	expect(stderr).toContain("already running for this project");
 });
 
 it("deletes the release of a crashed session", async ({ expect, prismic, repo, token, host }) => {
-	const first = prismic("dev");
-	const firstOutput = captureOutput(first);
-	await expect.poll(firstOutput, { timeout: 30_000 }).toContain("Type Builder:");
-	const firstRelease = getReleaseId(firstOutput());
-	first.kill("SIGKILL");
-	await first;
+	const firstRelease = await startAndCrash(prismic, expect);
 
 	const second = prismic("dev");
 	const secondOutput = captureOutput(second);
@@ -53,6 +54,47 @@ it("deletes the release of a crashed session", async ({ expect, prismic, repo, t
 	expect(getReleaseId(secondOutput())).not.toBe(firstRelease);
 	await expect(getCustomTypes({ repo, token, host, releaseId: firstRelease })).rejects.toThrow();
 }, 60_000);
+
+it("continues a crashed session with unpulled changes", async ({
+	expect,
+	prismic,
+	project,
+	repo,
+	token,
+	host,
+}) => {
+	const releaseId = await startAndCrash(prismic, expect);
+	const builderType = buildCustomType();
+	await insertCustomType(builderType, { repo, token, host, releaseId });
+
+	const restart = await prismic("dev");
+	expect(restart.exitCode).toBe(1);
+	expect(restart.stderr).toContain("prismic dev --continue");
+
+	const proc = prismic("dev", ["--continue"]);
+	const output = captureOutput(proc);
+	await expect.poll(output, { timeout: 30_000 }).toContain("Type Builder:");
+	expect(getReleaseId(output())).toBe(releaseId);
+	expect(output()).toContain(`Pulled ${builderType.id}`);
+	expect(await readLocalCustomType(project, builderType.id)).toMatchObject(builderType);
+}, 90_000);
+
+it("discards a crashed session with --new", async ({ expect, prismic, repo, token, host }) => {
+	const releaseId = await startAndCrash(prismic, expect);
+	await insertCustomType(buildCustomType(), { repo, token, host, releaseId });
+
+	const proc = prismic("dev", ["--new"]);
+	const output = captureOutput(proc);
+	await expect.poll(output, { timeout: 30_000 }).toContain("Type Builder:");
+	expect(getReleaseId(output())).not.toBe(releaseId);
+	await expect(getCustomTypes({ repo, token, host, releaseId })).rejects.toThrow();
+}, 90_000);
+
+it("fails to continue without a session", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("dev", ["--continue"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("no session to continue");
+});
 
 it("sends local changes as soon as they are saved", async ({
 	expect,
@@ -71,7 +113,7 @@ it("sends local changes as soon as they are saved", async ({
 	const releaseId = getReleaseId(output());
 
 	await writeLocalCustomType(project, { ...customType, label: "Edited" });
-	await expect.poll(output, { timeout: 10_000 }).toContain("Sent to the Type Builder");
+	await expect.poll(output, { timeout: 10_000 }).toContain("Pushed");
 	const releaseTypes = await getCustomTypes({ repo, token, host, releaseId });
 	expect(releaseTypes.find((m) => m.id === customType.id)?.label).toBe("Edited");
 }, 60_000);
@@ -114,13 +156,13 @@ describe("with an isolated repository", () => {
 		// A Type Builder save is written to the project.
 		const builderType = buildCustomType();
 		await insertCustomType(builderType, { repo, token, host, releaseId });
-		await expect.poll(output, { timeout: 30_000 }).toContain("Written from the Type Builder");
+		await expect.poll(output, { timeout: 30_000 }).toContain("Pulled");
 		expect(await readLocalCustomType(project, builderType.id)).toMatchObject(builderType);
 
 		// A local change is sent to the release.
 		const editedType = { ...localType, label: "Edited" };
 		await writeLocalCustomType(project, editedType);
-		await expect.poll(output, { timeout: 30_000 }).toContain("Sent to the Type Builder");
+		await expect.poll(output, { timeout: 30_000 }).toContain("Pushed");
 		const releaseTypes = await getCustomTypes({ repo, token, host, releaseId });
 		expect(releaseTypes.find((m) => m.id === localType.id)?.label).toBe("Edited");
 
@@ -152,11 +194,11 @@ describe("with an isolated repository", () => {
 		const releaseId = getReleaseId(output());
 
 		await writeLocalCustomType(project, { ...customType, repeatable: false });
-		await expect.poll(output, { timeout: 30_000 }).toContain(`Sync failed: ${customType.id}:`);
+		await expect.poll(output, { timeout: 30_000 }).toContain(`Couldn't push ${customType.id}:`);
 
 		const builderType = buildCustomType();
 		await insertCustomType(builderType, { repo, token, host, releaseId });
-		await expect.poll(output, { timeout: 30_000 }).toContain("Written from the Type Builder");
+		await expect.poll(output, { timeout: 30_000 }).toContain("Pulled");
 	}, 60_000);
 
 	it("explains that a type cannot change repeatable", async ({
@@ -177,17 +219,22 @@ describe("with an isolated repository", () => {
 	}, 60_000);
 });
 
+async function startAndCrash(prismic: Fixtures["prismic"], expect: ExpectStatic): Promise<string> {
+	const proc = prismic("dev");
+	const output = captureOutput(proc);
+	await expect.poll(output, { timeout: 30_000 }).toContain("Type Builder:");
+	proc.kill("SIGKILL");
+	await proc;
+	return getReleaseId(output());
+}
+
 function getReleaseId(output: string): string {
 	const release = output.match(/\?r=(\S+)/)?.[1];
 	if (!release) throw new Error("No release in output");
 	return release;
 }
 
-async function writeSession(
-	home: URL,
-	project: URL,
-	session: { repo: string; releaseId: string; pid: number },
-): Promise<void> {
+async function writeSession(home: URL, project: URL, session: object): Promise<void> {
 	const projectRoot = (await realpath(fileURLToPath(project))) + sep;
 	const projectHash = createHash("sha256").update(projectRoot).digest("hex");
 	const dir = new URL(".config/prismic/dev/", home);

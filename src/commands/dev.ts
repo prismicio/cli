@@ -11,6 +11,7 @@ import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
+import type { ArrayDiff } from "../lib/diff";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
@@ -21,11 +22,12 @@ import {
 	type ModelsDiff,
 	writeRemoteModels,
 } from "../lib/prismic/models";
-import { RequestError } from "../lib/request";
+import { ForbiddenRequestError, RequestError, UnauthorizedRequestError } from "../lib/request";
 import { findProjectRoot, getRepositoryName } from "../project";
 import { trackCommandEnd, trackCommandStart } from "../tracking";
 
 const POLL_INTERVAL_MS = env.PRISMIC_SYNC_POLL_MS ?? 5000;
+const FAILURES_BEFORE_WARNING = 6;
 
 const config = {
 	name: "prismic dev",
@@ -42,13 +44,24 @@ const config = {
 	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
+		continue: { type: "boolean", description: "Continue the previous session" },
+		new: {
+			type: "boolean",
+			description: "Start a new session, even if the previous one has unpulled changes",
+		},
 		"no-browser": { type: "boolean", description: "Skip opening the Type Builder in the browser" },
 	},
 } satisfies CommandConfig;
 
 type Release = { repo: string; token: string; host: string; releaseId: string };
+type Fingerprints = Record<string, string>;
+type Synced = { local: Fingerprints; remote: Fingerprints };
 
 export default createCommand(config, async ({ values }) => {
+	if (values.continue && values.new) {
+		throw new CommandError("Use either `--continue` or `--new`, not both.");
+	}
+
 	const adapter = await getAdapter();
 	const repo = values.repo ?? (await adapter.getEnvironment()) ?? (await getRepositoryName());
 
@@ -59,115 +72,197 @@ export default createCommand(config, async ({ values }) => {
 	const previous = await readJsonFile(sessionPath, { schema: SessionSchema }).catch(() => {});
 	if (previous && isRunning(previous.pid)) {
 		throw new CommandError(
-			`\`prismic dev\` is already running in this project (PID ${previous.pid}). Stop it first.`,
+			`A session is already running for this project. Press Ctrl+C in its terminal to end it, or run \`kill ${previous.pid}\`.`,
 		);
 	}
 
-	if (previous) {
-		await deleteRelease(previous.releaseId, { repo: previous.repo, token, host }).catch(() => {});
+	let session: Session;
+	if (values.continue) {
+		if (!previous) {
+			throw new CommandError(
+				"There's no session to continue. Run `prismic dev` to start a new one.",
+			);
+		}
+		session = { ...previous, pid: process.pid };
+		console.info(`Continuing your session for ${session.repo}...`);
+	} else {
+		if (previous) {
+			const previousRelease = { repo: previous.repo, token, host, releaseId: previous.releaseId };
+			if (!values.new && (await hasUnpulledChanges(adapter, previousRelease, previous.synced))) {
+				throw new CommandError(
+					"Your last session has Type Builder changes that weren't pulled.\nRun `prismic dev --continue` to continue the session, or `prismic dev --new` to start a new one without them.",
+				);
+			}
+			await deleteRelease(previous.releaseId, previousRelease).catch(() => {});
+		}
+		console.info(`Preparing your session for ${repo}...`);
+		const releaseId = await createRelease(
+			{ label: "prismic dev", hidden: true },
+			{ repo, token, host },
+		).catch(throwCommandError);
+		const remote = fingerprint(
+			await getRemoteModels({ repo, token, host, releaseId }).catch(throwCommandError),
+		);
+		session = { repo, releaseId, pid: process.pid, synced: { local: remote, remote } };
 	}
 
-	const releaseId = await createRelease(
-		{ label: "prismic dev", hidden: true },
-		{ repo, token, host },
-	).catch(throwCommandError);
-	await writeFileRecursive(sessionPath, stringify({ repo, releaseId, pid: process.pid }));
+	const release = { repo: session.repo, token, host, releaseId: session.releaseId };
+	const save = (synced: Synced) =>
+		writeFileRecursive(sessionPath, stringify({ ...session, synced }));
+	await save(session.synced);
 
 	const watching = new AbortController();
-	const stop = async (): Promise<void> => {
-		watching.abort();
-		await deleteRelease(releaseId, { repo, token, host }).catch(async (error) => {
-			console.error(`Couldn't delete the hidden release: ${await getErrorMessage(error)}`);
-		});
-		await rm(sessionPath, { force: true });
-	};
-
 	trackCommandStart("dev");
-	let stopping = false;
-	for (const signal of ["SIGINT", "SIGTERM"]) {
+	let ending = false;
+	for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"]) {
 		process.on(signal, async () => {
-			if (stopping) return;
-			stopping = true;
-			console.info("\nDeleting the hidden release...");
-			await stop();
+			if (ending) return;
+			ending = true;
+			watching.abort();
+			process.stdout.on("error", () => {});
+			process.stderr.on("error", () => {});
+			process.stdout.write("\nEnding the session...");
+			try {
+				await deleteRelease(release.releaseId, release);
+				await rm(sessionPath, { force: true });
+				console.info(" done.");
+			} catch (error) {
+				console.error(`\nCouldn't end the session: ${await getErrorMessage(error)}`);
+			}
 			trackCommandEnd("dev");
 			process.exit(0);
 		});
 	}
 
 	try {
-		await watch(adapter, { repo, token, host, releaseId }, values["no-browser"], watching.signal);
+		const waitForChange = watchFiles(
+			[...(await adapter.getCustomTypeLibraries()), ...(await adapter.getSliceLibraries())],
+			watching.signal,
+		);
+		const first = await sync(adapter, release, session.synced, Boolean(values.continue));
+		await save(first.synced);
+		console.info(
+			`Ready. Loaded ${count(first.local.customTypes.length, "type")} and ${count(first.local.slices.length, "slice")} from your project.\n`,
+		);
+
+		const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
+		url.searchParams.set("r", release.releaseId);
+		console.info(`Type Builder: ${url}`);
+		if (values["no-browser"]) {
+			console.info("Open the URL above to start editing. Changes sync both ways while this runs.");
+		} else {
+			openBrowser(url);
+			console.info("Opened in your browser. Changes sync both ways while this runs.");
+		}
+		console.info("Press Ctrl+C to end the session.\n");
+
+		await watch(adapter, release, first.synced, waitForChange, save);
 	} catch (error) {
-		await stop();
-		throw error;
+		watching.abort();
+		if (getErrorCode(error) === "RELEASE_NOT_FOUND") await rm(sessionPath, { force: true });
+		if (error instanceof UnauthorizedRequestError) {
+			throw new CommandError(
+				"Your login expired. Run `prismic login`, then `prismic dev --continue` to continue the session.",
+			);
+		}
+		throw toCommandError(error);
 	}
 });
 
 async function watch(
 	adapter: Adapter,
 	release: Release,
-	noBrowser: boolean | undefined,
-	signal: AbortSignal,
+	synced: Synced,
+	waitForChange: (timeoutMs: number) => Promise<void>,
+	save: (synced: Synced) => Promise<void>,
 ): Promise<never> {
-	const waitForChange = watchFiles(
-		[...(await adapter.getCustomTypeLibraries()), ...(await adapter.getSliceLibraries())],
-		signal,
-	);
-
-	const [initial, initialRemote] = await Promise.all([
-		adapter.getModels(),
-		getRemoteModels(release),
-	]).catch(throwCommandError);
-	await writeRemoteModels(diffModels(initial, initialRemote), release).catch(throwCommandError);
-	let last = { local: initial, remote: initial };
-
-	const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
-	url.searchParams.set("r", release.releaseId);
-	console.info(`Type Builder: ${url}`);
-	if (!noBrowser) openBrowser(url);
-	console.info("Syncing local models with the Type Builder (Ctrl+C to stop)");
-
+	let failures = 0;
 	let lastErrorMessage: string | undefined;
 	while (true) {
 		await waitForChange(POLL_INTERVAL_MS);
-
 		try {
-			const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
-			const edited = getChangedIds(diffModels(local, last.local));
-			const pulled = getChangedIds(diffModels(remote, last.remote)).filter(
-				(id) => !edited.includes(id),
-			);
-			await pullTypeBuilderEdits(adapter, pick(remote, pulled), pick(local, pulled));
-			last = { local: pulled.length > 0 ? await adapter.getModels() : local, remote };
-			await pushLocalEdits(pick(local, edited), pick(remote, edited), release);
+			const result = await sync(adapter, release, synced, true);
+			if (failures >= FAILURES_BEFORE_WARNING) log("Back in sync.");
+			failures = 0;
 			lastErrorMessage = undefined;
+			synced = result.synced;
+			await save(synced);
 		} catch (error) {
-			if (getErrorCode(error) === "RELEASE_NOT_FOUND") throw toCommandError(error);
+			if (isFatal(error)) throw error;
+			if (isTemporary(error)) {
+				if (++failures === FAILURES_BEFORE_WARNING) {
+					log("! Can't reach Prismic. Retrying...", console.error);
+				}
+				continue;
+			}
 			const message = (await getErrorMessage(toCommandError(error))) ?? "Unknown error";
-			if (message !== lastErrorMessage) console.error(`Sync failed: ${message}`);
+			if (message !== lastErrorMessage) log(`! ${message}`, console.error);
 			lastErrorMessage = message;
 		}
 	}
 }
 
-async function pushLocalEdits(local: Models, remote: Models, release: Release): Promise<void> {
-	const changes = diffModels(local, remote);
-	await writeRemoteModels(changes, release);
-	const sent = getChangedIds(changes);
-	if (sent.length > 0) log(`Sent to the Type Builder: ${sent.join(", ")}`);
+async function sync(
+	adapter: Adapter,
+	release: Release,
+	synced: Synced,
+	report: boolean,
+): Promise<{ local: Models; synced: Synced }> {
+	const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
+	const { pull, push } = planSync(local, remote, synced);
+	const pulled = getIds(pull, ["insert", "update", "delete"]).length > 0;
+	if (pulled) {
+		await adapter.writeModels(pull);
+		await adapter.generateTypes();
+	}
+	if (report) logChanges(pull, "↓ Pulled");
+	await writeRemoteModels(push, release);
+	if (report) logChanges(push, "↑ Pushed");
+	const current = pulled ? await adapter.getModels() : local;
+	return { local: current, synced: { local: fingerprint(current), remote: fingerprint(remote) } };
 }
 
-async function pullTypeBuilderEdits(
-	adapter: Adapter,
-	remote: Models,
+function planSync(
 	local: Models,
-): Promise<void> {
-	const changes = diffModels(remote, local);
-	const written = getChangedIds(changes);
-	if (written.length === 0) return;
-	await adapter.writeModels(changes);
-	await adapter.generateTypes();
-	log(`Written from the Type Builder: ${written.join(", ")}`);
+	remote: Models,
+	synced: Synced,
+): { pull: ModelsDiff; push: ModelsDiff } {
+	const localFingerprints = fingerprint(local);
+	const remoteFingerprints = fingerprint(remote);
+	const localChanges = getChangedIds(localFingerprints, synced.local);
+	const pulled = getChangedIds(remoteFingerprints, synced.remote).filter(
+		(id) => !localChanges.includes(id) || !(id in localFingerprints),
+	);
+	const pushed = localChanges.filter((id) => !pulled.includes(id));
+	return {
+		pull: diffModels(pick(remote, pulled), pick(local, pulled)),
+		push: diffModels(pick(local, pushed), pick(remote, pushed)),
+	};
+}
+
+async function hasUnpulledChanges(
+	adapter: Adapter,
+	release: Release,
+	synced: Synced,
+): Promise<boolean> {
+	const remote = await getRemoteModels(release).catch(() => {});
+	if (!remote) return false;
+	const { pull } = planSync(await adapter.getModels(), remote, synced);
+	return getIds(pull, ["insert", "update", "delete"]).length > 0;
+}
+
+function fingerprint(models: Models): Fingerprints {
+	return Object.fromEntries(
+		[...models.customTypes, ...models.slices].map((model) => [
+			model.id,
+			createHash("sha256").update(JSON.stringify(model)).digest("hex"),
+		]),
+	);
+}
+
+function getChangedIds(current: Fingerprints, synced: Fingerprints): string[] {
+	const ids = new Set([...Object.keys(current), ...Object.keys(synced)]);
+	return [...ids].filter((id) => current[id] !== synced[id]);
 }
 
 function pick(models: Models, ids: string[]): Models {
@@ -177,14 +272,39 @@ function pick(models: Models, ids: string[]): Models {
 	};
 }
 
-function getChangedIds(changes: ModelsDiff): string[] {
-	return [...Object.values(changes.customTypes), ...Object.values(changes.slices)]
-		.flat()
-		.map((model) => model.id);
+function getIds(changes: ModelsDiff, kinds: (keyof ArrayDiff<unknown>)[]): string[] {
+	return [changes.customTypes, changes.slices].flatMap((diff) =>
+		kinds.flatMap((kind) => diff[kind].map((model) => model.id)),
+	);
 }
 
-function log(message: string): void {
-	console.info(`[${new Date().toLocaleTimeString()}] ${message}`);
+function logChanges(changes: ModelsDiff, label: string): void {
+	const updated = getIds(changes, ["insert", "update"]);
+	const deleted = getIds(changes, ["delete"]);
+	if (updated.length > 0) log(`${label} ${updated.join(", ")}`);
+	if (deleted.length > 0) log(`− Deleted ${deleted.join(", ")}`);
+}
+
+function log(message: string, write = console.info): void {
+	const time = new Date().toTimeString().slice(0, 8);
+	write(`${time}  ${message.replaceAll("\n", "\n          ")}`);
+}
+
+function count(n: number, noun: string): string {
+	return `${n} ${noun}${n === 1 ? "" : "s"}`;
+}
+
+function isFatal(error: unknown): boolean {
+	return (
+		error instanceof UnauthorizedRequestError ||
+		error instanceof ForbiddenRequestError ||
+		getErrorCode(error) === "RELEASE_NOT_FOUND"
+	);
+}
+
+function isTemporary(error: unknown): boolean {
+	if (error instanceof RequestError) return error.status >= 500 || error.status === 429;
+	return error instanceof TypeError && error.message === "fetch failed";
 }
 
 const ErrorBodySchema = z.object({ error: z.string() });
@@ -202,7 +322,7 @@ function toCommandError(error: unknown): unknown {
 	switch (getErrorCode(error)) {
 		case "missing_right":
 			return new CommandError(
-				"Local mode needs an Administrator, Owner, or Super User role on this repository.",
+				"To edit models in the Type Builder, you need an Administrator, Owner, or Super User role on this repository.",
 			);
 		case "LEGACY_REPOSITORY":
 			return new CommandError("Local mode doesn't support this repository yet.");
@@ -211,14 +331,14 @@ function toCommandError(error: unknown): unknown {
 				"A type can't switch between repeatable and single in local mode. Restore its `repeatable` value in the local model.",
 			);
 		case "RELEASE_NOT_FOUND":
-			return new CommandError("The hidden release was deleted. Run `prismic dev` again.");
+			return new CommandError("The session ended. Run `prismic dev` to start a new one.");
 	}
 	if (!(error instanceof RequestError)) return error;
 	const details = z.safeParse(BulkErrorBodySchema, error.body).data?.details;
 	if (!details) return error;
 	return new CommandError(
 		[...details.customTypes, ...details.slices]
-			.map(({ id, error }) => `${id}: ${error}`)
+			.map(({ id, error }) => `Couldn't push ${id}: ${error}`)
 			.join("\n"),
 	);
 }
@@ -228,7 +348,14 @@ const BulkErrorBodySchema = z.object({
 	details: z.object({ customTypes: ModelErrorsSchema, slices: ModelErrorsSchema }),
 });
 
-const SessionSchema = z.object({ repo: z.string(), releaseId: z.string(), pid: z.number() });
+const FingerprintsSchema = z.record(z.string(), z.string());
+const SessionSchema = z.object({
+	repo: z.string(),
+	releaseId: z.string(),
+	pid: z.number(),
+	synced: z.object({ local: FingerprintsSchema, remote: FingerprintsSchema }),
+});
+type Session = z.infer<typeof SessionSchema>;
 
 async function getSessionPath(): Promise<URL> {
 	const projectRoot = fileURLToPath(await findProjectRoot());
