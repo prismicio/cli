@@ -83,8 +83,11 @@ export default createCommand(config, async ({ values }) => {
 	};
 
 	trackCommandStart("dev");
+	let stopping = false;
 	for (const signal of ["SIGINT", "SIGTERM"]) {
-		process.once(signal, async () => {
+		process.on(signal, async () => {
+			if (stopping) return;
+			stopping = true;
 			console.info("\nDeleting the hidden release...");
 			await stop();
 			trackCommandEnd("dev");
