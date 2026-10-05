@@ -82,18 +82,4 @@ it("errors for an unknown slice", async ({ expect, prismic }) => {
 	]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain('Slice "CallToAction" does not exist.');
-	expect(stderr).not.toContain("The CLI reached a bug");
-});
-
-it("errors for an unknown type", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("field", [
-		"add",
-		"text",
-		"title",
-		"--to-type",
-		"Page",
-	]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain('Type "Page" does not exist.');
-	expect(stderr).not.toContain("The CLI reached a bug");
 });

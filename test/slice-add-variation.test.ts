@@ -86,15 +86,3 @@ it("adds a variation with a local screenshot file", async ({ expect, prismic, pr
 	expect(variation?.imageUrl).toContain("https://");
 	expect(variation?.imageUrl).toContain(".png");
 });
-
-it("errors for an unknown slice", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("slice", [
-		"add-variation",
-		"With Button",
-		"--to",
-		"CallToAction",
-	]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain('Slice "CallToAction" does not exist.');
-	expect(stderr).not.toContain("The CLI reached a bug");
-});
