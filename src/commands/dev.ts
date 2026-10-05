@@ -76,7 +76,9 @@ export default createCommand(config, async ({ values }) => {
 	const watching = new AbortController();
 	const stop = async (): Promise<void> => {
 		watching.abort();
-		await deleteRelease(releaseId, { repo, token, host }).catch(() => {});
+		await deleteRelease(releaseId, { repo, token, host }).catch(async (error) => {
+			console.error(`Couldn't delete the hidden release: ${await getErrorMessage(error)}`);
+		});
 		await rm(sessionPath, { force: true });
 	};
 
