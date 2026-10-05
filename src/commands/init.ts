@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from "../adapters";
 import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
+import { isInvalidAuthContextError, WRITE_API_TOKEN_MESSAGE } from "../error";
 import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 import {
@@ -126,7 +127,9 @@ export default createCommand(config, async ({ values }) => {
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			if (env.PRISMIC_TOKEN) {
 				throw new CommandError(
-					"PRISMIC_TOKEN is invalid or expired. Unset it to log in with a browser, or replace it with a valid token.",
+					isInvalidAuthContextError(error)
+						? WRITE_API_TOKEN_MESSAGE
+						: "PRISMIC_TOKEN is invalid or expired. Unset it to log in with a browser, or replace it with a valid token.",
 				);
 			}
 			console.info("Not logged in. Starting login...");

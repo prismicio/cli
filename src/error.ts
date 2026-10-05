@@ -1,3 +1,5 @@
+import * as z from "zod/mini";
+
 import { getCredentials } from "./auth";
 import { env } from "./env";
 import {
@@ -8,6 +10,20 @@ import {
 } from "./lib/request";
 import { dedent } from "./lib/string";
 
+const invalidAuthContextBody = z.object({
+	error: z.literal("invalid_auth_context"),
+});
+
+export const WRITE_API_TOKEN_MESSAGE =
+	"This Write API token cannot run administrative commands. Unset PRISMIC_TOKEN and run prismic login.";
+
+export function isInvalidAuthContextError(error: unknown): boolean {
+	if (!(error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError)) {
+		return false;
+	}
+	return z.safeParse(invalidAuthContextBody, error.body).success;
+}
+
 export async function getErrorMessage(error: unknown): Promise<string | undefined> {
 	if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 		const { token } = await getCredentials();
@@ -15,6 +31,9 @@ export async function getErrorMessage(error: unknown): Promise<string | undefine
 			return "Not logged in. Run `prismic login` first.";
 		}
 		if (env.PRISMIC_TOKEN) {
+			if (isInvalidAuthContextError(error)) {
+				return WRITE_API_TOKEN_MESSAGE;
+			}
 			return "PRISMIC_TOKEN is invalid or expired, or doesn't have access to this repository. Unset it to log in with a browser, or replace it with a valid token.";
 		}
 		if (error instanceof UnauthorizedRequestError) {
