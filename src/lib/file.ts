@@ -1,6 +1,7 @@
 import { existsSync, watch } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { relative } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseEnv } from "node:util";
 
 import * as z from "zod/mini";
@@ -96,9 +97,16 @@ export async function readJsonFile<T = unknown>(
 ): Promise<T> {
 	const { schema } = options;
 	const file = await readFile(path, "utf8");
-	const json = JSON.parse(file);
+	let json: unknown;
+	try {
+		json = JSON.parse(file);
+	} catch (cause) {
+		throw new SyntaxError(`${relative(process.cwd(), fileURLToPath(path))} isn't valid JSON.`, {
+			cause,
+		});
+	}
 	if (schema) return z.parse(schema, json);
-	return json;
+	return json as T;
 }
 
 const MIME_TYPES: Record<string, string> = {
