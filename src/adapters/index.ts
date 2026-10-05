@@ -182,7 +182,8 @@ export abstract class Adapter {
 	}
 
 	async getSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
-		const slice = (await this.getSlices()).find((s) => s.model.id === id);
+		const slices = await this.getSlices();
+		const slice = slices.find((s) => s.model.id === id);
 		if (slice) return slice;
 		const customTypes = (await this.getCustomTypes()).map((customType) => customType.model);
 		const legacySlice = getLegacySlices(customTypes).find((s) => s.id === id);
@@ -193,7 +194,13 @@ export abstract class Adapter {
 				`"${id}" is a legacy slice in "${customTypeId}". Upgrade it first: \`prismic slice upgrade-legacy ${id} --from ${customTypeId}${zoneOption}\`.`,
 			);
 		}
-		throw new Error(`No slice found with ID: ${id}`);
+		const named = slices.find(({ model }) => model.name === id || pascalCase(model.name) === id);
+		if (named) {
+			throw new CommandError(
+				`Slice "${id}" not found. Did you mean "${named.model.id}"? Use the slice's ID, not its name.`,
+			);
+		}
+		throw new CommandError(`Slice "${id}" not found. Run \`prismic slice list\` to see slice IDs.`);
 	}
 
 	async createSlice(model: SharedSliceModel): Promise<void> {
@@ -228,9 +235,18 @@ export abstract class Adapter {
 	}
 
 	async getCustomType(id: string): Promise<ModelMeta<DynamicCustomTypeModel>> {
-		const customType = (await this.getCustomTypes()).find((s) => s.model.id === id);
-		if (!customType) throw new Error(`No custom type found with ID: ${id}`);
-		return customType;
+		const customTypes = await this.getCustomTypes();
+		const customType = customTypes.find((s) => s.model.id === id);
+		if (customType) return customType;
+		const named = customTypes.find(
+			({ model }) => model.label && (model.label === id || pascalCase(model.label) === id),
+		);
+		if (named) {
+			throw new CommandError(
+				`Type "${id}" not found. Did you mean "${named.model.id}"? Use the type's ID, not its name.`,
+			);
+		}
+		throw new CommandError(`Type "${id}" not found. Run \`prismic type list\` to see type IDs.`);
 	}
 
 	// Returns a notice for each page file skipped because it already exists.

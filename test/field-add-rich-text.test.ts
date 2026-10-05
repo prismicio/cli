@@ -34,6 +34,22 @@ it("adds a rich text field to a slice", async ({ expect, prismic, project }) => 
 	expect(field).toMatchObject({ type: "StructuredText" });
 });
 
+it("suggests the slice ID when given a slice name", async ({ expect, prismic, project }) => {
+	const slice = buildSlice({ name: "Call to Action" });
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"rich-text",
+		"my_content",
+		"--to-slice",
+		"CallToAction",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`Slice "CallToAction" not found. Did you mean "${slice.id}"?`);
+	expect(stderr).not.toContain("The CLI reached a bug");
+});
+
 it("adds a rich text field with labels", async ({ expect, prismic, project }) => {
 	const customType = buildCustomType();
 	await writeLocalCustomType(project, customType);
