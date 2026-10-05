@@ -80,6 +80,22 @@ export class ModelExistsError extends Error {
 	name = "ModelExistsError";
 }
 
+export class SliceNotFoundError extends Error {
+	name = "SliceNotFoundError";
+
+	constructor(id: string) {
+		super(`Slice "${id}" does not exist. Run \`prismic slice list\` to see available IDs.`);
+	}
+}
+
+export class CustomTypeNotFoundError extends Error {
+	name = "CustomTypeNotFoundError";
+
+	constructor(id: string) {
+		super(`Type "${id}" does not exist. Run \`prismic type list\` to see available IDs.`);
+	}
+}
+
 async function assertModelMissing(
 	kind: string,
 	id: string,
@@ -193,7 +209,7 @@ export abstract class Adapter {
 				`"${id}" is a legacy slice in "${customTypeId}". Upgrade it first: \`prismic slice upgrade-legacy ${id} --from ${customTypeId}${zoneOption}\`.`,
 			);
 		}
-		throw new Error(`No slice found with ID: ${id}`);
+		throw new SliceNotFoundError(id);
 	}
 
 	async createSlice(model: SharedSliceModel): Promise<void> {
@@ -229,7 +245,7 @@ export abstract class Adapter {
 
 	async getCustomType(id: string): Promise<ModelMeta<DynamicCustomTypeModel>> {
 		const customType = (await this.getCustomTypes()).find((s) => s.model.id === id);
-		if (!customType) throw new Error(`No custom type found with ID: ${id}`);
+		if (!customType) throw new CustomTypeNotFoundError(id);
 		return customType;
 	}
 

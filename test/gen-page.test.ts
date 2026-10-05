@@ -51,7 +51,7 @@ it("errors for a non-page type", async ({ expect, project, prismic }) => {
 it("errors for an unknown type", async ({ expect, prismic }) => {
 	const { stderr, exitCode } = await prismic("gen", ["page", "unknown"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("No custom type found with ID: unknown");
+	expect(stderr).toContain('Type "unknown" does not exist.');
 });
 
 it("uses the route from prismic.config.json", async ({ expect, project, prismic, repo }) => {
