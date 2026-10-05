@@ -4,10 +4,11 @@ import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
 import {
+	CustomTypeNotFoundError,
 	getAdapter,
 	ModelExistsError,
-	ModelNotFoundError,
 	NoSupportedFrameworkError,
+	SliceNotFoundError,
 } from "./adapters";
 import { cleanupLegacyAuthFile, getCredentials, spawnTokenRefresh } from "./auth";
 import router from "./commands";
@@ -72,7 +73,8 @@ const KNOWN_ERRORS = [
 	UnsupportedFileTypeError,
 	NoSupportedFrameworkError,
 	ModelExistsError,
-	ModelNotFoundError,
+	SliceNotFoundError,
+	CustomTypeNotFoundError,
 	InvalidEnvironmentError,
 	InvalidPrismicConfigError,
 	MissingPrismicConfigError,
