@@ -121,9 +121,8 @@ function customTypesServiceRequest<T>(
 	config: CustomTypesConfig,
 	options: RequestOptions<T> = {},
 ): Promise<T> {
-	const scopedUrl = new URL(url);
-	if (config.releaseId) scopedUrl.searchParams.set("release", config.releaseId);
-	return request(scopedUrl, {
+	if (config.releaseId) url.searchParams.set("release", config.releaseId);
+	return request(url, {
 		headers: {
 			repository: config.repo,
 			Authorization: `Bearer ${config.token}`,

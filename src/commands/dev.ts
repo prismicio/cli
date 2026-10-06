@@ -22,7 +22,12 @@ import {
 	type Models,
 	writeRemoteModels,
 } from "../lib/prismic/models";
-import { ForbiddenRequestError, RequestError, UnauthorizedRequestError } from "../lib/request";
+import {
+	ForbiddenRequestError,
+	NotFoundRequestError,
+	RequestError,
+	UnauthorizedRequestError,
+} from "../lib/request";
 import { findProjectRoot, getRepositoryName } from "../project";
 
 const POLL_INTERVAL_MS = env.PRISMIC_SYNC_POLL_MS ?? 5000;
@@ -78,15 +83,18 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (previous && !continueSession) {
-		const remote = await getRemoteModels({
-			repo: previous.repo,
-			token,
-			host,
-			releaseId: previous.releaseId,
-		}).catch(() => {});
-		if (!newSession && remote) {
+		if (!newSession) {
+			const remote = await getRemoteModels({
+				repo: previous.repo,
+				token,
+				host,
+				releaseId: previous.releaseId,
+			}).catch(() => {});
 			const local = await adapter.getModels();
-			if (plan(fingerprint(local), fingerprint(remote), previous.synced).pull.length > 0) {
+			if (
+				remote &&
+				plan(fingerprint(local), fingerprint(remote), previous.synced).pull.length > 0
+			) {
 				throw new CommandError(
 					"Your last session has Type Builder changes that were not pulled.\nRun `prismic dev --continue` to continue the session, or `prismic dev --new` to start a new one without them.",
 				);
@@ -228,7 +236,7 @@ export default createCommand(config, async ({ values }) => {
 				if (
 					error instanceof UnauthorizedRequestError ||
 					error instanceof ForbiddenRequestError ||
-					getErrorCode(error) === "RELEASE_NOT_FOUND"
+					error instanceof NotFoundRequestError
 				) {
 					throw error;
 				}
@@ -251,7 +259,10 @@ export default createCommand(config, async ({ values }) => {
 				"Your login expired. Run `prismic login`, then `prismic dev --continue` to continue the session.",
 			);
 		}
-		if (getErrorCode(error) !== "RELEASE_NOT_FOUND") await end();
+		if (error instanceof NotFoundRequestError) {
+			throw new CommandError("The session ended. Run `prismic dev` to start a new one.");
+		}
+		if (!(error instanceof ForbiddenRequestError)) await end();
 		throw toCommandError(error);
 	}
 
@@ -309,23 +320,16 @@ function isRunning(pid: number): boolean {
 	}
 }
 
-function getErrorCode(error: unknown): string | undefined {
-	if (!(error instanceof RequestError)) return;
-	return z.safeParse(z.object({ error: z.string() }), error.body).data?.error;
-}
-
 function toCommandError(error: unknown): unknown {
-	switch (getErrorCode(error)) {
+	if (!(error instanceof RequestError)) return error;
+	switch (z.safeParse(z.object({ error: z.string() }), error.body).data?.error) {
 		case "missing_right":
 			return new CommandError(
 				"To edit models in the Type Builder, you need an Administrator, Owner, or Super User role on this repository.",
 			);
 		case "LEGACY_REPOSITORY":
 			return new CommandError("Local mode does not support this repository yet.");
-		case "RELEASE_NOT_FOUND":
-			return new CommandError("The session ended. Run `prismic dev` to start a new one.");
 	}
-	if (!(error instanceof RequestError)) return error;
 	const details = z.safeParse(BulkErrorBodySchema, error.body).data?.details;
 	if (!details) return error;
 	return new CommandError(
