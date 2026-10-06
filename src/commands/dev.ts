@@ -49,8 +49,6 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-type Fingerprints = Record<string, string>;
-
 export default createCommand(config, async ({ values }) => {
 	exclusiveOptions(values, ["continue", "new"]);
 
@@ -104,25 +102,25 @@ export default createCommand(config, async ({ values }) => {
 
 	const sync = async (push = true): Promise<Models> => {
 		const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
-		const localFingerprints = fingerprint(local);
-		const remoteFingerprints = fingerprint(remote);
-		const changes = plan(localFingerprints, remoteFingerprints, session.synced);
+		const localRecord<string, string> = fingerprint(local);
+		const remoteRecord<string, string> = fingerprint(remote);
+		const changes = plan(localRecord<string, string>, remoteRecord<string, string>, session.synced);
 
 		if (changes.pull.length > 0) {
 			await adapter.writeModels(diffModels(pick(remote, changes.pull), pick(local, changes.pull)));
 			await adapter.generateTypes();
 		}
-		const pulled = changes.pull.filter((id) => id in remoteFingerprints);
+		const pulled = changes.pull.filter((id) => id in remoteRecord<string, string>);
 		if (pulled.length > 0) log(`↓ Pulled ${pulled.join(", ")}`);
 
 		const toPush = push ? changes.push : [];
 		await writeRemoteModels(diffModels(pick(local, toPush), pick(remote, toPush)), release);
-		const pushed = toPush.filter((id) => id in localFingerprints);
+		const pushed = toPush.filter((id) => id in localRecord<string, string>);
 		if (pushed.length > 0) log(`↑ Pushed ${pushed.join(", ")}`);
 
 		const deleted = [
-			...changes.pull.filter((id) => !(id in remoteFingerprints)),
-			...toPush.filter((id) => !(id in localFingerprints)),
+			...changes.pull.filter((id) => !(id in remoteRecord<string, string>)),
+			...toPush.filter((id) => !(id in localRecord<string, string>)),
 		];
 		if (deleted.length > 0) log(`− Deleted ${deleted.join(", ")}`);
 
@@ -234,9 +232,9 @@ export default createCommand(config, async ({ values }) => {
 });
 
 function plan(
-	local: Fingerprints,
-	remote: Fingerprints,
-	synced: Fingerprints,
+	local: Record<string, string>,
+	remote: Record<string, string>,
+	synced: Record<string, string>,
 ): { pull: string[]; push: string[] } {
 	const pull: string[] = [];
 	const push: string[] = [];
@@ -254,7 +252,7 @@ function plan(
 	return { pull, push };
 }
 
-function fingerprint(models: Models): Fingerprints {
+function fingerprint(models: Models): Record<string, string> {
 	const hash = (model: unknown) => createHash("sha256").update(JSON.stringify(model)).digest("hex");
 	return Object.fromEntries([
 		...models.customTypes.map((model) => [model.id, hash(canonicalizeCustomType(model))]),
