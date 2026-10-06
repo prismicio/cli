@@ -1,6 +1,7 @@
 import { existsSync, watch } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { relative } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseEnv } from "node:util";
 
@@ -50,31 +51,18 @@ export function watchFiles(
 	paths: URL[],
 	signal: AbortSignal,
 ): (timeoutMs: number) => Promise<void> {
-	let changed = false;
-	let wake = (): void => {};
+	let change = Promise.withResolvers<void>();
 	let debounce: NodeJS.Timeout | undefined;
-	const onChange = (): void => {
-		clearTimeout(debounce);
-		debounce = setTimeout(() => {
-			changed = true;
-			wake();
-		}, 100);
-	};
 	for (const path of paths) {
 		if (!existsSync(path)) continue;
-		watch(path, { recursive: true, signal }, onChange).on("error", () => {});
+		watch(path, { recursive: true, signal }, () => {
+			clearTimeout(debounce);
+			debounce = setTimeout(() => change.resolve(), 100);
+		}).on("error", () => {});
 	}
 	return async (timeoutMs) => {
-		if (!changed) {
-			await new Promise<void>((resolve) => {
-				const timeout = setTimeout(resolve, timeoutMs);
-				wake = () => {
-					clearTimeout(timeout);
-					resolve();
-				};
-			});
-		}
-		changed = false;
+		await Promise.race([change.promise, sleep(timeoutMs)]);
+		change = Promise.withResolvers<void>();
 	};
 }
 

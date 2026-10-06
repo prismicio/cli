@@ -10,7 +10,7 @@ import { CONFIG_DIR } from "../config";
 import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { openBrowser } from "../lib/browser";
-import { createCommand, type CommandConfig, CommandError } from "../lib/command";
+import { createCommand, type CommandConfig, CommandError, exclusiveOptions } from "../lib/command";
 import { type ArrayDiff, hasChanges } from "../lib/diff";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
@@ -58,9 +58,7 @@ type Fingerprints = Record<string, string>;
 type Synced = { local: Fingerprints; remote: Fingerprints };
 
 export default createCommand(config, async ({ values }) => {
-	if (values.continue && values.new) {
-		throw new CommandError("Use either `--continue` or `--new`, not both.");
-	}
+	exclusiveOptions(values, ["continue", "new"]);
 
 	const adapter = await getAdapter();
 	const repo = values.repo ?? (await adapter.getEnvironment()) ?? (await getRepositoryName());
