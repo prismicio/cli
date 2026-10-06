@@ -14,7 +14,7 @@ export default defineConfig({
 				test: {
 					name: "tests",
 					setupFiles: ["./test/setup.ts"],
-					include: ["./test/**/*.test.ts"],
+					include: ["./test/**/*.test.ts", "./src/**/*.test.ts"],
 					testTimeout: 30_000,
 					retry: 2,
 					typecheck: { enabled: true },
