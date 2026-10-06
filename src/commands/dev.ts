@@ -37,8 +37,6 @@ const config = {
 
 		The command runs until you stop it. Agents should run it in the
 		background and give the user the URL from its "Type Builder:" line.
-
-		Local mode is in closed alpha.
 	`,
 	options: {
 		repo: { type: "string", short: "r", description: "Repository or environment domain" },
