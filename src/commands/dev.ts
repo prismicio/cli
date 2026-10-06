@@ -78,8 +78,12 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (previous && !continueSession) {
-		const previousRelease = { ...previous, token, host };
-		const remote = await getRemoteModels(previousRelease).catch(() => {});
+		const remote = await getRemoteModels({
+			repo: previous.repo,
+			token,
+			host,
+			releaseId: previous.releaseId,
+		}).catch(() => {});
 		if (!newSession && remote) {
 			const local = await adapter.getModels();
 			if (plan(fingerprint(local), fingerprint(remote), previous.synced).pull.length > 0) {
@@ -88,7 +92,7 @@ export default createCommand(config, async ({ values }) => {
 				);
 			}
 		}
-		await deleteRelease(previous.releaseId, previousRelease).catch(() => {});
+		await deleteRelease(previous.releaseId, { repo: previous.repo, token, host }).catch(() => {});
 	}
 
 	let session: z.infer<typeof SessionSchema>;
@@ -97,18 +101,25 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Continuing your session for ${session.repo}...`);
 	} else {
 		console.info(`Preparing your session for ${repo}...`);
-		const releaseId = await createRelease(
-			{ label: "prismic dev", hidden: true },
-			{ repo, token, host },
-		).catch((error) => {
-			throw toCommandError(error);
-		});
-		session = { repo, releaseId, pid: process.pid, synced: {} };
+		session = {
+			repo,
+			releaseId: await createRelease(
+				{ label: "prismic dev", hidden: true },
+				{ repo, token, host },
+			).catch((error) => {
+				throw toCommandError(error);
+			}),
+			pid: process.pid,
+			synced: {},
+		};
 	}
-	const release = { ...session, token, host };
+	const { releaseId } = session;
 
 	const sync = async (push = true): Promise<Models> => {
-		const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
+		const [local, remote] = await Promise.all([
+			adapter.getModels(),
+			getRemoteModels({ repo: session.repo, token, host, releaseId }),
+		]);
 		const localFingerprints = fingerprint(local);
 		const remoteFingerprints = fingerprint(remote);
 		const changes = plan(localFingerprints, remoteFingerprints, session.synced);
@@ -121,7 +132,12 @@ export default createCommand(config, async ({ values }) => {
 		if (pulled.length > 0) log(`↓ Pulled ${pulled.join(", ")}`);
 
 		const toPush = push ? changes.push : [];
-		await writeRemoteModels(diffModels(pick(local, toPush), pick(remote, toPush)), release);
+		await writeRemoteModels(diffModels(pick(local, toPush), pick(remote, toPush)), {
+			repo: session.repo,
+			token,
+			host,
+			releaseId,
+		});
 		const pushed = toPush.filter((id) => id in localFingerprints);
 		if (pushed.length > 0) log(`↑ Pushed ${pushed.join(", ")}`);
 
@@ -140,7 +156,7 @@ export default createCommand(config, async ({ values }) => {
 	const end = async (): Promise<boolean> => {
 		try {
 			await sync(false);
-			await deleteRelease(release.releaseId, release);
+			await deleteRelease(releaseId, { repo: session.repo, token, host });
 			await rm(sessionPath, { force: true });
 			return true;
 		} catch (error) {
@@ -171,7 +187,13 @@ export default createCommand(config, async ({ values }) => {
 			local = await sync();
 		} else {
 			local = await adapter.getModels();
-			await writeRemoteModels(diffModels(local, await getRemoteModels(release)), release);
+			const remote = await getRemoteModels({ repo: session.repo, token, host, releaseId });
+			await writeRemoteModels(diffModels(local, remote), {
+				repo: session.repo,
+				token,
+				host,
+				releaseId,
+			});
 			session.synced = fingerprint(local);
 			await writeFileRecursive(sessionPath, stringify(session));
 		}
@@ -182,7 +204,7 @@ export default createCommand(config, async ({ values }) => {
 		);
 
 		const url = new URL("builder/types", `https://${session.repo}.${host}/`);
-		url.searchParams.set("r", session.releaseId);
+		url.searchParams.set("r", releaseId);
 		console.info(`Type Builder: ${url}`);
 		if (noBrowser) {
 			console.info("Open the URL above to start editing. Changes sync both ways while this runs.");
