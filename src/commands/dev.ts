@@ -53,7 +53,7 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-type Release = { repo: string; token: string; host: string; releaseId: string };
+type Release = { repo: string; token: string | undefined; host: string; releaseId: string };
 type Fingerprints = Record<string, string>;
 type Synced = { local: Fingerprints; remote: Fingerprints };
 
@@ -66,7 +66,6 @@ export default createCommand(config, async ({ values }) => {
 	const repo = values.repo ?? (await adapter.getEnvironment()) ?? (await getRepositoryName());
 
 	const { token, host } = await getCredentials();
-	if (!token) throw new CommandError("Not logged in. Run `prismic login` first.");
 
 	const sessionPath = await getSessionPath();
 	const previous = await readJsonFile(sessionPath, { schema: SessionSchema }).catch(() => {});
