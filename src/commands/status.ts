@@ -3,7 +3,6 @@ import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { decodePayload } from "../lib/jwt";
 import { getProfile } from "../lib/prismic/clients/user";
 import {
 	diffModels,
@@ -11,6 +10,7 @@ import {
 	getRemoteModels,
 	type ModelsDiff,
 } from "../lib/prismic/models";
+import { readWriteApiToken } from "../lib/prismic/write-api-token";
 import { isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
 
@@ -53,7 +53,7 @@ export default createCommand(config, async ({ values }) => {
 
 	let authenticatedAs: string | undefined;
 	let diff: ModelsDiff | undefined;
-	if (token && isWriteApiToken(token)) {
+	if (readWriteApiToken(token)) {
 		// A Write API token has no user. GET /profile fails the comparison even
 		// though the type and slice reads already accept this token.
 		const remote = await getRemoteModels({ repo, token, host });
@@ -153,8 +153,3 @@ export default createCommand(config, async ({ values }) => {
 		for (const line of next) console.info(`  ${line}`);
 	}
 });
-
-function isWriteApiToken(token: string): boolean {
-	const payload = decodePayload(token);
-	return Boolean(payload?.appName && payload.domain);
-}
