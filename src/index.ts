@@ -186,8 +186,8 @@ async function main(): Promise<void> {
 		}
 	}
 
-	// sync and dev run until SIGINT and track themselves.
-	const isTracked = !help && command && command !== "sync" && command !== "dev";
+	// sync runs until SIGINT and tracks itself with watch: true.
+	const isTracked = !help && command && command !== "sync";
 
 	try {
 		if (isTracked) trackCommandStart(command);

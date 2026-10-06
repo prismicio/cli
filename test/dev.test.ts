@@ -38,7 +38,7 @@ it("refuses a second session in the same project", async ({ expect, prismic, pro
 		repo: "unused",
 		releaseId: "unused",
 		pid: process.pid,
-		synced: { local: {}, remote: {} },
+		synced: {},
 	});
 	const { stderr, exitCode } = await prismic("dev");
 	expect(exitCode).toBe(1);
@@ -198,23 +198,6 @@ describe("with an isolated repository", () => {
 		const builderType = buildCustomType();
 		await insertCustomType(builderType, { repo, token, host, releaseId });
 		await expect.poll(output, { timeout: 30_000 }).toContain("Pulled");
-	}, 60_000);
-
-	it("explains that a type cannot change repeatable", async ({
-		expect,
-		prismic,
-		project,
-		repo,
-		token,
-		host,
-	}) => {
-		const customType = buildCustomType({ repeatable: true });
-		await insertCustomType(customType, { repo, token, host });
-		await writeLocalCustomType(project, { ...customType, repeatable: false });
-
-		const { stderr, exitCode } = await prismic("dev");
-		expect(exitCode).toBe(1);
-		expect(stderr).toContain("can't switch between repeatable and single");
 	}, 60_000);
 });
 

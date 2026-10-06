@@ -4,30 +4,28 @@ import { fileURLToPath } from "node:url";
 
 import * as z from "zod/mini";
 
-import { type Adapter, getAdapter } from "../adapters";
+import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CONFIG_DIR } from "../config";
 import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError, exclusiveOptions } from "../lib/command";
-import { type ArrayDiff, hasChanges } from "../lib/diff";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
 import {
+	canonicalizeCustomType,
+	canonicalizeSlice,
 	diffModels,
 	getRemoteModels,
 	type Models,
-	type ModelsDiff,
 	writeRemoteModels,
 } from "../lib/prismic/models";
 import { ForbiddenRequestError, RequestError, UnauthorizedRequestError } from "../lib/request";
 import { findProjectRoot, getRepositoryName } from "../project";
-import { trackCommandEnd, trackCommandStart } from "../tracking";
 
 const POLL_INTERVAL_MS = env.PRISMIC_SYNC_POLL_MS ?? 5000;
-const FAILURES_BEFORE_WARNING = 6;
 
 const config = {
 	name: "prismic dev",
@@ -53,78 +51,92 @@ const config = {
 	},
 } satisfies CommandConfig;
 
-type Release = { repo: string; token: string | undefined; host: string; releaseId: string };
 type Fingerprints = Record<string, string>;
-type Synced = { local: Fingerprints; remote: Fingerprints };
 
 export default createCommand(config, async ({ values }) => {
 	exclusiveOptions(values, ["continue", "new"]);
 
 	const adapter = await getAdapter();
 	const repo = values.repo ?? (await adapter.getEnvironment()) ?? (await getRepositoryName());
-
 	const { token, host } = await getCredentials();
 
-	const sessionPath = await getSessionPath();
+	const projectHash = createHash("sha256")
+		.update(fileURLToPath(await findProjectRoot()))
+		.digest("hex");
+	const sessionPath = new URL(`dev/${projectHash}.json`, CONFIG_DIR);
 	const previous = await readJsonFile(sessionPath, { schema: SessionSchema }).catch(() => {});
 	if (previous && isRunning(previous.pid)) {
 		throw new CommandError(
 			`A session is already running for this project. Press Ctrl+C in its terminal to end it, or run \`kill ${previous.pid}\`.`,
 		);
 	}
+	if (values.continue && !previous) {
+		throw new CommandError("There's no session to continue. Run `prismic dev` to start a new one.");
+	}
 
-	let session: Session;
-	if (values.continue) {
-		if (!previous) {
-			throw new CommandError(
-				"There's no session to continue. Run `prismic dev` to start a new one.",
-			);
-		}
-		session = { ...previous, pid: process.pid };
-		console.info(`Continuing your session for ${session.repo}...`);
-	} else {
-		if (previous) {
-			const previousRelease = { repo: previous.repo, token, host, releaseId: previous.releaseId };
-			if (!values.new && (await hasUnpulledChanges(adapter, previousRelease, previous.synced))) {
+	if (previous && !values.continue) {
+		const previousRelease = { ...previous, token, host };
+		const remote = await getRemoteModels(previousRelease).catch(() => {});
+		if (!values.new && remote) {
+			const local = await adapter.getModels();
+			if (plan(fingerprint(local), fingerprint(remote), previous.synced).pull.length > 0) {
 				throw new CommandError(
 					"Your last session has Type Builder changes that weren't pulled.\nRun `prismic dev --continue` to continue the session, or `prismic dev --new` to start a new one without them.",
 				);
 			}
-			await deleteRelease(previous.releaseId, previousRelease).catch(() => {});
 		}
+		await deleteRelease(previous.releaseId, previousRelease).catch(() => {});
+	}
+
+	let session: z.infer<typeof SessionSchema>;
+	if (previous && values.continue) {
+		session = { ...previous, pid: process.pid };
+		console.info(`Continuing your session for ${session.repo}...`);
+	} else {
 		console.info(`Preparing your session for ${repo}...`);
 		const releaseId = await createRelease(
 			{ label: "prismic dev", hidden: true },
 			{ repo, token, host },
-		).catch(throwCommandError);
-		const remote = fingerprint(
-			await getRemoteModels({ repo, token, host, releaseId }).catch(throwCommandError),
-		);
-		session = { repo, releaseId, pid: process.pid, synced: { local: remote, remote } };
+		).catch((error) => {
+			throw toCommandError(error);
+		});
+		session = { repo, releaseId, pid: process.pid, synced: {} };
 	}
+	const release = { ...session, token, host };
 
-	const release = { repo: session.repo, token, host, releaseId: session.releaseId };
-	let synced = session.synced;
-	const save = async (next: Synced) => {
-		synced = next;
-		await writeFileRecursive(sessionPath, stringify({ ...session, synced }));
+	const sync = async (push = true): Promise<Models> => {
+		const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
+		const localFingerprints = fingerprint(local);
+		const remoteFingerprints = fingerprint(remote);
+		const changes = plan(localFingerprints, remoteFingerprints, session.synced);
+
+		if (changes.pull.length > 0) {
+			await adapter.writeModels(diffModels(pick(remote, changes.pull), pick(local, changes.pull)));
+			await adapter.generateTypes();
+		}
+		const pulled = changes.pull.filter((id) => id in remoteFingerprints);
+		if (pulled.length > 0) log(`↓ Pulled ${pulled.join(", ")}`);
+
+		const toPush = push ? changes.push : [];
+		await writeRemoteModels(diffModels(pick(local, toPush), pick(remote, toPush)), release);
+		const pushed = toPush.filter((id) => id in localFingerprints);
+		if (pushed.length > 0) log(`↑ Pushed ${pushed.join(", ")}`);
+
+		const deleted = [
+			...changes.pull.filter((id) => !(id in remoteFingerprints)),
+			...toPush.filter((id) => !(id in localFingerprints)),
+		];
+		if (deleted.length > 0) log(`− Deleted ${deleted.join(", ")}`);
+
+		const current = changes.pull.length > 0 ? await adapter.getModels() : local;
+		session.synced = fingerprint(current);
+		await writeFileRecursive(sessionPath, stringify(session));
+		return current;
 	};
-	await save(synced);
 
-	let syncing: Promise<unknown> = Promise.resolve();
-	const serially = <T>(task: () => Promise<T>): Promise<T> => {
-		const result = syncing.then(task);
-		syncing = result.catch(() => {});
-		return result;
-	};
-
-	const watching = new AbortController();
 	const end = async (): Promise<boolean> => {
-		watching.abort();
 		try {
-			await serially(async () =>
-				pullChanges(adapter, (await planSync(adapter, release, synced)).pull),
-			);
+			await sync(false);
 			await deleteRelease(release.releaseId, release);
 			await rm(sessionPath, { force: true });
 			return true;
@@ -136,34 +148,38 @@ export default createCommand(config, async ({ values }) => {
 		}
 	};
 
-	trackCommandStart("dev");
-	let ending = false;
+	const stopping = new AbortController();
 	for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"]) {
-		process.on(signal, async () => {
-			if (ending) return;
-			ending = true;
+		process.on(signal, () => {
 			process.stdout.on("error", () => {});
 			process.stderr.on("error", () => {});
-			console.info("\nEnding the session...");
-			if (await end()) console.info("Session ended.");
-			trackCommandEnd("dev");
-			process.exit(0);
+			stopping.abort();
 		});
 	}
 
 	try {
 		const waitForChange = watchFiles(
 			[...(await adapter.getCustomTypeLibraries()), ...(await adapter.getSliceLibraries())],
-			watching.signal,
-		);
-		const first = await sync(adapter, release, synced, Boolean(values.continue));
-		await save(first.synced);
-		console.info(
-			`Ready. Loaded ${count(first.local.customTypes.length, "type")} and ${count(first.local.slices.length, "slice")} from your project.\n`,
+			stopping.signal,
 		);
 
-		const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
-		url.searchParams.set("r", release.releaseId);
+		let local: Models;
+		if (values.continue) {
+			local = await sync();
+		} else {
+			local = await adapter.getModels();
+			await writeRemoteModels(diffModels(local, await getRemoteModels(release)), release);
+			session.synced = fingerprint(local);
+			await writeFileRecursive(sessionPath, stringify(session));
+		}
+		const types = local.customTypes.length;
+		const slices = local.slices.length;
+		console.info(
+			`Ready. Loaded ${types} ${types === 1 ? "type" : "types"} and ${slices} ${slices === 1 ? "slice" : "slices"} from your project.\n`,
+		);
+
+		const url = new URL("builder/types", `https://${session.repo}.${host}/`);
+		url.searchParams.set("r", session.releaseId);
 		console.info(`Type Builder: ${url}`);
 		if (values["no-browser"]) {
 			console.info("Open the URL above to start editing. Changes sync both ways while this runs.");
@@ -173,11 +189,38 @@ export default createCommand(config, async ({ values }) => {
 		}
 		console.info("Press Ctrl+C to end the session.\n");
 
-		await watch(waitForChange, () =>
-			serially(async () => save((await sync(adapter, release, synced, true)).synced)),
-		);
+		let failures = 0;
+		let lastError: string | undefined;
+		while (true) {
+			await waitForChange(POLL_INTERVAL_MS);
+			if (stopping.signal.aborted) break;
+			try {
+				await sync();
+				if (failures >= 6) log("Back in sync.");
+				failures = 0;
+				lastError = undefined;
+			} catch (error) {
+				if (
+					error instanceof UnauthorizedRequestError ||
+					error instanceof ForbiddenRequestError ||
+					getErrorCode(error) === "RELEASE_NOT_FOUND"
+				) {
+					throw error;
+				}
+				const temporary =
+					error instanceof RequestError
+						? error.status >= 500 || error.status === 429
+						: error instanceof TypeError && error.message === "fetch failed";
+				if (temporary && ++failures < 6) continue;
+				const message = temporary
+					? "Can't reach Prismic. Retrying..."
+					: ((await getErrorMessage(toCommandError(error))) ?? "Unknown error");
+				if (message !== lastError) log(`! ${message}`, console.error);
+				lastError = message;
+			}
+		}
 	} catch (error) {
-		watching.abort();
+		stopping.abort();
 		if (error instanceof UnauthorizedRequestError) {
 			throw new CommandError(
 				"Your login expired. Run `prismic login`, then `prismic dev --continue` to continue the session.",
@@ -187,99 +230,38 @@ export default createCommand(config, async ({ values }) => {
 		else await end();
 		throw toCommandError(error);
 	}
+
+	console.info("\nEnding the session...");
+	if (await end()) console.info("Session ended.");
 });
 
-async function watch(
-	waitForChange: (timeoutMs: number) => Promise<void>,
-	syncOnce: () => Promise<void>,
-): Promise<never> {
-	let failures = 0;
-	let lastErrorMessage: string | undefined;
-	while (true) {
-		await waitForChange(POLL_INTERVAL_MS);
-		try {
-			await syncOnce();
-			if (failures >= FAILURES_BEFORE_WARNING) log("Back in sync.");
-			failures = 0;
-			lastErrorMessage = undefined;
-		} catch (error) {
-			if (isFatal(error)) throw error;
-			if (isTemporary(error)) {
-				if (++failures === FAILURES_BEFORE_WARNING) {
-					log("! Can't reach Prismic. Retrying...", console.error);
-				}
-				continue;
-			}
-			const message = (await getErrorMessage(toCommandError(error))) ?? "Unknown error";
-			if (message !== lastErrorMessage) log(`! ${message}`, console.error);
-			lastErrorMessage = message;
-		}
+function plan(
+	local: Fingerprints,
+	remote: Fingerprints,
+	synced: Fingerprints,
+): { pull: string[]; push: string[] } {
+	const pull: string[] = [];
+	const push: string[] = [];
+	for (const id of new Set([
+		...Object.keys(local),
+		...Object.keys(remote),
+		...Object.keys(synced),
+	])) {
+		if (local[id] === remote[id]) continue;
+		const localChanged = local[id] !== synced[id];
+		const remoteChanged = remote[id] !== synced[id];
+		if (!localChanged || (remoteChanged && !(id in local))) pull.push(id);
+		else push.push(id);
 	}
-}
-
-async function sync(
-	adapter: Adapter,
-	release: Release,
-	synced: Synced,
-	reportPushes: boolean,
-): Promise<{ local: Models; synced: Synced }> {
-	const { local, remote, pull, push } = await planSync(adapter, release, synced);
-	const pulled = await pullChanges(adapter, pull);
-	await writeRemoteModels(push, release);
-	if (reportPushes) logChanges(push, "↑ Pushed");
-	const current = pulled ? await adapter.getModels() : local;
-	return { local: current, synced: { local: fingerprint(current), remote: fingerprint(remote) } };
-}
-
-async function planSync(adapter: Adapter, release: Release, synced: Synced) {
-	const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
-	const localFingerprints = fingerprint(local);
-	const localChanges = getChangedIds(localFingerprints, synced.local);
-	const pulled = getChangedIds(fingerprint(remote), synced.remote).filter(
-		(id) => !localChanges.includes(id) || !(id in localFingerprints),
-	);
-	const pushed = localChanges.filter((id) => !pulled.includes(id));
-	return {
-		local,
-		remote,
-		pull: diffModels(pick(remote, pulled), pick(local, pulled)),
-		push: diffModels(pick(local, pushed), pick(remote, pushed)),
-	};
-}
-
-async function pullChanges(adapter: Adapter, pull: ModelsDiff): Promise<boolean> {
-	if (!hasModelChanges(pull)) return false;
-	await adapter.writeModels(pull);
-	await adapter.generateTypes();
-	logChanges(pull, "↓ Pulled");
-	return true;
-}
-
-async function hasUnpulledChanges(
-	adapter: Adapter,
-	release: Release,
-	synced: Synced,
-): Promise<boolean> {
-	const plan = await planSync(adapter, release, synced).catch(() => {});
-	return plan ? hasModelChanges(plan.pull) : false;
-}
-
-function hasModelChanges(changes: ModelsDiff): boolean {
-	return hasChanges(changes.customTypes) || hasChanges(changes.slices);
+	return { pull, push };
 }
 
 function fingerprint(models: Models): Fingerprints {
-	return Object.fromEntries(
-		[...models.customTypes, ...models.slices].map((model) => [
-			model.id,
-			createHash("sha256").update(JSON.stringify(model)).digest("hex"),
-		]),
-	);
-}
-
-function getChangedIds(current: Fingerprints, synced: Fingerprints): string[] {
-	const ids = new Set([...Object.keys(current), ...Object.keys(synced)]);
-	return [...ids].filter((id) => current[id] !== synced[id]);
+	const hash = (model: unknown) => createHash("sha256").update(JSON.stringify(model)).digest("hex");
+	return Object.fromEntries([
+		...models.customTypes.map((model) => [model.id, hash(canonicalizeCustomType(model))]),
+		...models.slices.map((model) => [model.id, hash(canonicalizeSlice(model))]),
+	]);
 }
 
 function pick(models: Models, ids: string[]): Models {
@@ -289,50 +271,23 @@ function pick(models: Models, ids: string[]): Models {
 	};
 }
 
-function getIds(changes: ModelsDiff, kinds: (keyof ArrayDiff<unknown>)[]): string[] {
-	return [changes.customTypes, changes.slices].flatMap((diff) =>
-		kinds.flatMap((kind) => diff[kind].map((model) => model.id)),
-	);
-}
-
-function logChanges(changes: ModelsDiff, label: string): void {
-	const updated = getIds(changes, ["insert", "update"]);
-	const deleted = getIds(changes, ["delete"]);
-	if (updated.length > 0) log(`${label} ${updated.join(", ")}`);
-	if (deleted.length > 0) log(`− Deleted ${deleted.join(", ")}`);
-}
-
 function log(message: string, write = console.info): void {
 	const time = new Date().toTimeString().slice(0, 8);
 	write(`${time}  ${message.replaceAll("\n", "\n          ")}`);
 }
 
-function count(n: number, noun: string): string {
-	return `${n} ${noun}${n === 1 ? "" : "s"}`;
+function isRunning(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch (error) {
+		return (error as NodeJS.ErrnoException).code === "EPERM";
+	}
 }
-
-function isFatal(error: unknown): boolean {
-	return (
-		error instanceof UnauthorizedRequestError ||
-		error instanceof ForbiddenRequestError ||
-		getErrorCode(error) === "RELEASE_NOT_FOUND"
-	);
-}
-
-function isTemporary(error: unknown): boolean {
-	if (error instanceof RequestError) return error.status >= 500 || error.status === 429;
-	return error instanceof TypeError && error.message === "fetch failed";
-}
-
-const ErrorBodySchema = z.object({ error: z.string() });
 
 function getErrorCode(error: unknown): string | undefined {
 	if (!(error instanceof RequestError)) return;
-	return z.safeParse(ErrorBodySchema, error.body).data?.error;
-}
-
-function throwCommandError(error: unknown): never {
-	throw toCommandError(error);
+	return z.safeParse(z.object({ error: z.string() }), error.body).data?.error;
 }
 
 function toCommandError(error: unknown): unknown {
@@ -343,10 +298,6 @@ function toCommandError(error: unknown): unknown {
 			);
 		case "LEGACY_REPOSITORY":
 			return new CommandError("Local mode doesn't support this repository yet.");
-		case "REPEATABLE_MISMATCH":
-			return new CommandError(
-				"A type can't switch between repeatable and single in local mode. Restore its `repeatable` value in the local model.",
-			);
 		case "RELEASE_NOT_FOUND":
 			return new CommandError("The session ended. Run `prismic dev` to start a new one.");
 	}
@@ -365,26 +316,9 @@ const BulkErrorBodySchema = z.object({
 	details: z.object({ customTypes: ModelErrorsSchema, slices: ModelErrorsSchema }),
 });
 
-const FingerprintsSchema = z.record(z.string(), z.string());
 const SessionSchema = z.object({
 	repo: z.string(),
 	releaseId: z.string(),
 	pid: z.number(),
-	synced: z.object({ local: FingerprintsSchema, remote: FingerprintsSchema }),
+	synced: z.record(z.string(), z.string()),
 });
-type Session = z.infer<typeof SessionSchema>;
-
-async function getSessionPath(): Promise<URL> {
-	const projectRoot = fileURLToPath(await findProjectRoot());
-	const projectHash = createHash("sha256").update(projectRoot).digest("hex");
-	return new URL(`dev/${projectHash}.json`, CONFIG_DIR);
-}
-
-function isRunning(pid: number): boolean {
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch (error) {
-		return (error as NodeJS.ErrnoException).code === "EPERM";
-	}
-}

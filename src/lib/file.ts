@@ -61,7 +61,7 @@ export function watchFiles(
 		}).on("error", () => {});
 	}
 	return async (timeoutMs) => {
-		await Promise.race([change.promise, sleep(timeoutMs)]);
+		await Promise.race([change.promise, sleep(timeoutMs, undefined, { signal })]).catch(() => {});
 		change = Promise.withResolvers<void>();
 	};
 }
