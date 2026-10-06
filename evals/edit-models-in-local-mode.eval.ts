@@ -47,7 +47,7 @@ it.for(trials)(
 it.for(trials)(
 	"starts the Type Builder when asked",
 	async (_, { agent, home, expect, onTestFinished }) => {
-		onTestFinished(() => stopSessions(home));
+		onTestFinished(() => stopBackgroundSessions(home));
 
 		const result = await agent(
 			"Open the Type Builder so I can edit this project's models visually.",
@@ -58,8 +58,7 @@ it.for(trials)(
 	},
 );
 
-// The agent leaves `prismic dev` running in the background.
-async function stopSessions(home: URL): Promise<void> {
+async function stopBackgroundSessions(home: URL): Promise<void> {
 	const dir = new URL(".config/prismic/dev/", home);
 	for (const file of await readdir(dir).catch(() => [])) {
 		const { pid } = JSON.parse(await readFile(new URL(file, dir), "utf8"));

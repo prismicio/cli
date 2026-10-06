@@ -46,10 +46,6 @@ export async function exists(path: URL): Promise<boolean> {
 	}
 }
 
-/**
- * Watches files and returns a function that waits until one changes or the
- * timeout passes. A change that happens between waits ends the next wait at once.
- */
 export function watchFiles(
 	paths: URL[],
 	signal: AbortSignal,
