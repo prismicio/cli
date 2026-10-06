@@ -1,19 +1,12 @@
-import * as z from "zod/mini";
-
 import { getCredentials } from "../auth";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { decodePayload } from "../lib/jwt";
 import { getRepository } from "../lib/prismic/clients/repository";
 import { getRepositoryAccess } from "../lib/prismic/clients/wroom";
+import { readWriteApiToken } from "../lib/prismic/write-api-token";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
-
-const WriteApiTokenSchema = z.object({
-	domain: z.string().check(z.minLength(1)),
-	appName: z.string().check(z.minLength(1)),
-});
 
 const config = {
 	name: "prismic repo view",
@@ -45,7 +38,7 @@ export default createCommand(config, async ({ values }) => {
 	// A Write API token has no user, so the display name stays unavailable.
 	// GET /syncState is an admin route and rejects the token; the access level
 	// is left out instead of failing the command. The domain and URL are local.
-	if (isWriteApiToken(token)) {
+	if (readWriteApiToken(token)) {
 		const apiAccess = await readWriteTokenAccess({ repo, token, host });
 		if (json) {
 			console.info(stringify({ domain: repo, name: null, url, apiAccess }));
@@ -79,13 +72,6 @@ export default createCommand(config, async ({ values }) => {
 	console.info(`URL: ${url}`);
 	console.info(`Content API: ${access}`);
 });
-
-// A Write API token is a permanent repository credential. Its JWT carries the
-// repository domain and the app name, and it has no user.
-function isWriteApiToken(token: string | undefined): boolean {
-	if (!token) return false;
-	return z.safeParse(WriteApiTokenSchema, decodePayload(token)).success;
-}
 
 // The route rejects this credential. That rejection is the access level being
 // unavailable, whether the body is the admin error or the current unauthorized
