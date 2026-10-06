@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.22.1](https://github.com/prismicio/cli/compare/v1.22.0...v1.22.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* show a clear error for an unknown slice or type ID ([#402](https://github.com/prismicio/cli/issues/402)) ([b9b0493](https://github.com/prismicio/cli/commit/b9b0493cac15ae060f4644341f57b2915f4e671d))
+
 ## [1.22.0](https://github.com/prismicio/cli/compare/v1.21.0...v1.22.0) (2026-10-01)
 
 
