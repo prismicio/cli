@@ -118,6 +118,22 @@ it("sends local changes as soon as they are saved", async ({
 	expect(releaseTypes.find((m) => m.id === customType.id)?.label).toBe("Edited");
 }, 60_000);
 
+it.skipIf(process.platform === "win32")(
+	"pulls the last changes when the session ends",
+	async ({ expect, prismic, project, repo, token, host }) => {
+		const proc = prismic("dev", [], { nodeOptions: { env: { PRISMIC_SYNC_POLL_MS: "60000" } } });
+		const output = captureOutput(proc);
+		await expect.poll(output, { timeout: 30_000 }).toContain("Type Builder:");
+		const builderType = buildCustomType();
+		await insertCustomType(builderType, { repo, token, host, releaseId: getReleaseId(output()) });
+
+		proc.kill("SIGINT");
+		await proc;
+		expect(await readLocalCustomType(project, builderType.id)).toMatchObject(builderType);
+	},
+	60_000,
+);
+
 describe("with an isolated repository", () => {
 	it.scoped({ isolateRepo: true });
 

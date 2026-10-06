@@ -11,7 +11,7 @@ import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
-import type { ArrayDiff } from "../lib/diff";
+import { type ArrayDiff, hasChanges } from "../lib/diff";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
 import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
@@ -107,28 +107,48 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const release = { repo: session.repo, token, host, releaseId: session.releaseId };
-	const save = (synced: Synced) =>
-		writeFileRecursive(sessionPath, stringify({ ...session, synced }));
-	await save(session.synced);
+	let synced = session.synced;
+	const save = async (next: Synced) => {
+		synced = next;
+		await writeFileRecursive(sessionPath, stringify({ ...session, synced }));
+	};
+	await save(synced);
+
+	let syncing: Promise<unknown> = Promise.resolve();
+	const serially = <T>(task: () => Promise<T>): Promise<T> => {
+		const result = syncing.then(task);
+		syncing = result.catch(() => {});
+		return result;
+	};
 
 	const watching = new AbortController();
+	const end = async (): Promise<boolean> => {
+		watching.abort();
+		try {
+			await serially(async () =>
+				pullChanges(adapter, (await planSync(adapter, release, synced)).pull),
+			);
+			await deleteRelease(release.releaseId, release);
+			await rm(sessionPath, { force: true });
+			return true;
+		} catch (error) {
+			console.error(
+				`Couldn't end the session: ${await getErrorMessage(error)}\nRun \`prismic dev --continue\` to continue it.`,
+			);
+			return false;
+		}
+	};
+
 	trackCommandStart("dev");
 	let ending = false;
 	for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGBREAK"]) {
 		process.on(signal, async () => {
 			if (ending) return;
 			ending = true;
-			watching.abort();
 			process.stdout.on("error", () => {});
 			process.stderr.on("error", () => {});
-			process.stdout.write("\nEnding the session...");
-			try {
-				await deleteRelease(release.releaseId, release);
-				await rm(sessionPath, { force: true });
-				console.info(" done.");
-			} catch (error) {
-				console.error(`\nCouldn't end the session: ${await getErrorMessage(error)}`);
-			}
+			console.info("\nEnding the session...");
+			if (await end()) console.info("Session ended.");
 			trackCommandEnd("dev");
 			process.exit(0);
 		});
@@ -139,7 +159,7 @@ export default createCommand(config, async ({ values }) => {
 			[...(await adapter.getCustomTypeLibraries()), ...(await adapter.getSliceLibraries())],
 			watching.signal,
 		);
-		const first = await sync(adapter, release, session.synced, Boolean(values.continue));
+		const first = await sync(adapter, release, synced, Boolean(values.continue));
 		await save(first.synced);
 		console.info(
 			`Ready. Loaded ${count(first.local.customTypes.length, "type")} and ${count(first.local.slices.length, "slice")} from your project.\n`,
@@ -156,37 +176,35 @@ export default createCommand(config, async ({ values }) => {
 		}
 		console.info("Press Ctrl+C to end the session.\n");
 
-		await watch(adapter, release, first.synced, waitForChange, save);
+		await watch(waitForChange, () =>
+			serially(async () => save((await sync(adapter, release, synced, true)).synced)),
+		);
 	} catch (error) {
 		watching.abort();
-		if (getErrorCode(error) === "RELEASE_NOT_FOUND") await rm(sessionPath, { force: true });
 		if (error instanceof UnauthorizedRequestError) {
 			throw new CommandError(
 				"Your login expired. Run `prismic login`, then `prismic dev --continue` to continue the session.",
 			);
 		}
+		if (getErrorCode(error) === "RELEASE_NOT_FOUND") await rm(sessionPath, { force: true });
+		else await end();
 		throw toCommandError(error);
 	}
 });
 
 async function watch(
-	adapter: Adapter,
-	release: Release,
-	synced: Synced,
 	waitForChange: (timeoutMs: number) => Promise<void>,
-	save: (synced: Synced) => Promise<void>,
+	syncOnce: () => Promise<void>,
 ): Promise<never> {
 	let failures = 0;
 	let lastErrorMessage: string | undefined;
 	while (true) {
 		await waitForChange(POLL_INTERVAL_MS);
 		try {
-			const result = await sync(adapter, release, synced, true);
+			await syncOnce();
 			if (failures >= FAILURES_BEFORE_WARNING) log("Back in sync.");
 			failures = 0;
 			lastErrorMessage = undefined;
-			synced = result.synced;
-			await save(synced);
 		} catch (error) {
 			if (isFatal(error)) throw error;
 			if (isTemporary(error)) {
@@ -206,38 +224,38 @@ async function sync(
 	adapter: Adapter,
 	release: Release,
 	synced: Synced,
-	report: boolean,
+	reportPushes: boolean,
 ): Promise<{ local: Models; synced: Synced }> {
-	const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
-	const { pull, push } = planSync(local, remote, synced);
-	const pulled = getIds(pull, ["insert", "update", "delete"]).length > 0;
-	if (pulled) {
-		await adapter.writeModels(pull);
-		await adapter.generateTypes();
-	}
-	if (report) logChanges(pull, "↓ Pulled");
+	const { local, remote, pull, push } = await planSync(adapter, release, synced);
+	const pulled = await pullChanges(adapter, pull);
 	await writeRemoteModels(push, release);
-	if (report) logChanges(push, "↑ Pushed");
+	if (reportPushes) logChanges(push, "↑ Pushed");
 	const current = pulled ? await adapter.getModels() : local;
 	return { local: current, synced: { local: fingerprint(current), remote: fingerprint(remote) } };
 }
 
-function planSync(
-	local: Models,
-	remote: Models,
-	synced: Synced,
-): { pull: ModelsDiff; push: ModelsDiff } {
+async function planSync(adapter: Adapter, release: Release, synced: Synced) {
+	const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
 	const localFingerprints = fingerprint(local);
-	const remoteFingerprints = fingerprint(remote);
 	const localChanges = getChangedIds(localFingerprints, synced.local);
-	const pulled = getChangedIds(remoteFingerprints, synced.remote).filter(
+	const pulled = getChangedIds(fingerprint(remote), synced.remote).filter(
 		(id) => !localChanges.includes(id) || !(id in localFingerprints),
 	);
 	const pushed = localChanges.filter((id) => !pulled.includes(id));
 	return {
+		local,
+		remote,
 		pull: diffModels(pick(remote, pulled), pick(local, pulled)),
 		push: diffModels(pick(local, pushed), pick(remote, pushed)),
 	};
+}
+
+async function pullChanges(adapter: Adapter, pull: ModelsDiff): Promise<boolean> {
+	if (!hasModelChanges(pull)) return false;
+	await adapter.writeModels(pull);
+	await adapter.generateTypes();
+	logChanges(pull, "↓ Pulled");
+	return true;
 }
 
 async function hasUnpulledChanges(
@@ -245,10 +263,12 @@ async function hasUnpulledChanges(
 	release: Release,
 	synced: Synced,
 ): Promise<boolean> {
-	const remote = await getRemoteModels(release).catch(() => {});
-	if (!remote) return false;
-	const { pull } = planSync(await adapter.getModels(), remote, synced);
-	return getIds(pull, ["insert", "update", "delete"]).length > 0;
+	const plan = await planSync(adapter, release, synced).catch(() => {});
+	return plan ? hasModelChanges(plan.pull) : false;
+}
+
+function hasModelChanges(changes: ModelsDiff): boolean {
+	return hasChanges(changes.customTypes) || hasChanges(changes.slices);
 }
 
 function fingerprint(models: Models): Fingerprints {
