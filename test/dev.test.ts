@@ -193,7 +193,7 @@ describe("with an isolated repository", () => {
 		const { output, releaseId } = await startSession(prismic, expect);
 
 		await writeLocalCustomType(project, { ...customType, repeatable: false });
-		await expect.poll(output, { timeout: 30_000 }).toContain(`Couldn't push ${customType.id}:`);
+		await expect.poll(output, { timeout: 30_000 }).toContain(`Could not push ${customType.id}:`);
 
 		const builderType = buildCustomType();
 		await insertCustomType(builderType, { repo, token, host, releaseId });

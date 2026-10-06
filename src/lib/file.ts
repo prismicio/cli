@@ -85,7 +85,7 @@ export async function readJsonFile<T = unknown>(
 	try {
 		json = JSON.parse(file);
 	} catch (cause) {
-		throw new SyntaxError(`${relative(process.cwd(), fileURLToPath(path))} isn't valid JSON.`, {
+		throw new SyntaxError(`${relative(process.cwd(), fileURLToPath(path))} is not valid JSON.`, {
 			cause,
 		});
 	}

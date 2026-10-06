@@ -53,7 +53,12 @@ export default createCommand(config, async ({ values }) => {
 	exclusiveOptions(values, ["continue", "new"]);
 
 	const adapter = await getAdapter();
-	const repo = values.repo ?? (await adapter.getEnvironment()) ?? (await getRepositoryName());
+	const {
+		repo = (await adapter.getEnvironment()) ?? (await getRepositoryName()),
+		continue: continueSession,
+		new: newSession,
+		"no-browser": noBrowser,
+	} = values;
 	const { token, host } = await getCredentials();
 
 	const projectHash = createHash("sha256")
@@ -66,18 +71,20 @@ export default createCommand(config, async ({ values }) => {
 			`A session is already running for this project. Press Ctrl+C in its terminal to end it, or run \`kill ${previous.pid}\`.`,
 		);
 	}
-	if (values.continue && !previous) {
-		throw new CommandError("There's no session to continue. Run `prismic dev` to start a new one.");
+	if (continueSession && !previous) {
+		throw new CommandError(
+			"There is no session to continue. Run `prismic dev` to start a new one.",
+		);
 	}
 
-	if (previous && !values.continue) {
+	if (previous && !continueSession) {
 		const previousRelease = { ...previous, token, host };
 		const remote = await getRemoteModels(previousRelease).catch(() => {});
-		if (!values.new && remote) {
+		if (!newSession && remote) {
 			const local = await adapter.getModels();
 			if (plan(fingerprint(local), fingerprint(remote), previous.synced).pull.length > 0) {
 				throw new CommandError(
-					"Your last session has Type Builder changes that weren't pulled.\nRun `prismic dev --continue` to continue the session, or `prismic dev --new` to start a new one without them.",
+					"Your last session has Type Builder changes that were not pulled.\nRun `prismic dev --continue` to continue the session, or `prismic dev --new` to start a new one without them.",
 				);
 			}
 		}
@@ -85,7 +92,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	let session: z.infer<typeof SessionSchema>;
-	if (previous && values.continue) {
+	if (previous && continueSession) {
 		session = { ...previous, pid: process.pid };
 		console.info(`Continuing your session for ${session.repo}...`);
 	} else {
@@ -138,7 +145,7 @@ export default createCommand(config, async ({ values }) => {
 			return true;
 		} catch (error) {
 			console.error(
-				`Couldn't end the session: ${await getErrorMessage(error)}\nRun \`prismic dev --continue\` to continue it.`,
+				`Could not end the session: ${await getErrorMessage(error)}\nRun \`prismic dev --continue\` to continue it.`,
 			);
 			return false;
 		}
@@ -160,7 +167,7 @@ export default createCommand(config, async ({ values }) => {
 		);
 
 		let local: Models;
-		if (values.continue) {
+		if (continueSession) {
 			local = await sync();
 		} else {
 			local = await adapter.getModels();
@@ -177,7 +184,7 @@ export default createCommand(config, async ({ values }) => {
 		const url = new URL("builder/types", `https://${session.repo}.${host}/`);
 		url.searchParams.set("r", session.releaseId);
 		console.info(`Type Builder: ${url}`);
-		if (values["no-browser"]) {
+		if (noBrowser) {
 			console.info("Open the URL above to start editing. Changes sync both ways while this runs.");
 		} else {
 			openBrowser(url);
@@ -209,7 +216,7 @@ export default createCommand(config, async ({ values }) => {
 						: error instanceof TypeError && error.message === "fetch failed";
 				if (temporary && ++failures < 6) continue;
 				const message = temporary
-					? "Can't reach Prismic. Retrying..."
+					? "Cannot reach Prismic. Retrying..."
 					: ((await getErrorMessage(toCommandError(error))) ?? "Unknown error");
 				if (message !== lastError) log(`! ${message}`, console.error);
 				lastError = message;
@@ -293,7 +300,7 @@ function toCommandError(error: unknown): unknown {
 				"To edit models in the Type Builder, you need an Administrator, Owner, or Super User role on this repository.",
 			);
 		case "LEGACY_REPOSITORY":
-			return new CommandError("Local mode doesn't support this repository yet.");
+			return new CommandError("Local mode does not support this repository yet.");
 		case "RELEASE_NOT_FOUND":
 			return new CommandError("The session ended. Run `prismic dev` to start a new one.");
 	}
@@ -302,7 +309,7 @@ function toCommandError(error: unknown): unknown {
 	if (!details) return error;
 	return new CommandError(
 		[...details.customTypes, ...details.slices]
-			.map(({ id, error }) => `Couldn't push ${id}: ${error}`)
+			.map(({ id, error }) => `Could not push ${id}: ${error}`)
 			.join("\n"),
 	);
 }
