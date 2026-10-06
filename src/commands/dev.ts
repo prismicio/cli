@@ -102,25 +102,25 @@ export default createCommand(config, async ({ values }) => {
 
 	const sync = async (push = true): Promise<Models> => {
 		const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
-		const localRecord<string, string> = fingerprint(local);
-		const remoteRecord<string, string> = fingerprint(remote);
-		const changes = plan(localRecord<string, string>, remoteRecord<string, string>, session.synced);
+		const localFingerprints = fingerprint(local);
+		const remoteFingerprints = fingerprint(remote);
+		const changes = plan(localFingerprints, remoteFingerprints, session.synced);
 
 		if (changes.pull.length > 0) {
 			await adapter.writeModels(diffModels(pick(remote, changes.pull), pick(local, changes.pull)));
 			await adapter.generateTypes();
 		}
-		const pulled = changes.pull.filter((id) => id in remoteRecord<string, string>);
+		const pulled = changes.pull.filter((id) => id in remoteFingerprints);
 		if (pulled.length > 0) log(`↓ Pulled ${pulled.join(", ")}`);
 
 		const toPush = push ? changes.push : [];
 		await writeRemoteModels(diffModels(pick(local, toPush), pick(remote, toPush)), release);
-		const pushed = toPush.filter((id) => id in localRecord<string, string>);
+		const pushed = toPush.filter((id) => id in localFingerprints);
 		if (pushed.length > 0) log(`↑ Pushed ${pushed.join(", ")}`);
 
 		const deleted = [
-			...changes.pull.filter((id) => !(id in remoteRecord<string, string>)),
-			...toPush.filter((id) => !(id in localRecord<string, string>)),
+			...changes.pull.filter((id) => !(id in remoteFingerprints)),
+			...toPush.filter((id) => !(id in localFingerprints)),
 		];
 		if (deleted.length > 0) log(`− Deleted ${deleted.join(", ")}`);
 
