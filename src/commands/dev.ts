@@ -98,7 +98,7 @@ export default createCommand(config, async ({ values }) => {
 	let session: z.infer<typeof SessionSchema>;
 	if (previous && continueSession) {
 		session = { ...previous, pid: process.pid };
-		console.info(`Continuing your session for ${session.repo}...`);
+		console.info(`Continuing your session for ${repo}...`);
 	} else {
 		console.info(`Preparing your session for ${repo}...`);
 		session = {
@@ -118,7 +118,7 @@ export default createCommand(config, async ({ values }) => {
 	const sync = async (push = true): Promise<Models> => {
 		const [local, remote] = await Promise.all([
 			adapter.getModels(),
-			getRemoteModels({ repo: session.repo, token, host, releaseId }),
+			getRemoteModels({ repo, token, host, releaseId }),
 		]);
 		const localFingerprints = fingerprint(local);
 		const remoteFingerprints = fingerprint(remote);
@@ -133,7 +133,7 @@ export default createCommand(config, async ({ values }) => {
 
 		const toPush = push ? changes.push : [];
 		await writeRemoteModels(diffModels(pick(local, toPush), pick(remote, toPush)), {
-			repo: session.repo,
+			repo,
 			token,
 			host,
 			releaseId,
@@ -156,7 +156,7 @@ export default createCommand(config, async ({ values }) => {
 	const end = async (): Promise<boolean> => {
 		try {
 			await sync(false);
-			await deleteRelease(releaseId, { repo: session.repo, token, host });
+			await deleteRelease(releaseId, { repo, token, host });
 			await rm(sessionPath, { force: true });
 			return true;
 		} catch (error) {
@@ -187,9 +187,9 @@ export default createCommand(config, async ({ values }) => {
 			local = await sync();
 		} else {
 			local = await adapter.getModels();
-			const remote = await getRemoteModels({ repo: session.repo, token, host, releaseId });
+			const remote = await getRemoteModels({ repo, token, host, releaseId });
 			await writeRemoteModels(diffModels(local, remote), {
-				repo: session.repo,
+				repo,
 				token,
 				host,
 				releaseId,
@@ -203,7 +203,7 @@ export default createCommand(config, async ({ values }) => {
 			`Ready. Loaded ${types} ${types === 1 ? "type" : "types"} and ${slices} ${slices === 1 ? "slice" : "slices"} from your project.\n`,
 		);
 
-		const url = new URL("builder/types", `https://${session.repo}.${host}/`);
+		const url = new URL("builder/types", `https://${repo}.${host}/`);
 		url.searchParams.set("r", releaseId);
 		console.info(`Type Builder: ${url}`);
 		if (noBrowser) {
@@ -251,8 +251,7 @@ export default createCommand(config, async ({ values }) => {
 				"Your login expired. Run `prismic login`, then `prismic dev --continue` to continue the session.",
 			);
 		}
-		if (getErrorCode(error) === "RELEASE_NOT_FOUND") await rm(sessionPath, { force: true });
-		else await end();
+		if (getErrorCode(error) !== "RELEASE_NOT_FOUND") await end();
 		throw toCommandError(error);
 	}
 
