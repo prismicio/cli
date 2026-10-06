@@ -15,6 +15,24 @@ it.for(trials)(
 	},
 );
 
+it.for(trials)("initializes Prismic in a Nuxt project", async (_, { project, agent, expect }) => {
+	// The project has no Nuxt CLI installed, so the CLI asks the agent to register the module.
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ name: "my-site", dependencies: { nuxt: "latest" } }),
+	);
+	await rm(new URL("node_modules/next/", project), { recursive: true });
+	await rm(new URL("app/", project), { recursive: true });
+	await rm(new URL("prismic.config.json", project));
+	await writeFile(new URL("nuxt.config.ts", project), "export default defineNuxtConfig({});\n");
+
+	const result = await agent(`Set up Prismic in this Nuxt project.`);
+
+	expect(result).toHaveRun(["init"]);
+	const nuxtConfig = await readFile(new URL("nuxt.config.ts", project), "utf8");
+	expect(nuxtConfig).toContain("@nuxtjs/prismic");
+});
+
 it.for(trials)(
 	"adds Prismic to an existing Next.js app without clobbering it",
 	async (_, { project, agent, expect }) => {
@@ -91,5 +109,36 @@ it.for(trials)(
 		expect(commands).toContainEqual(
 			expect.stringMatching(/^repo create .*(--framework|-f)[ =]nuxt/),
 		);
+	},
+);
+
+it.for(trials)(
+	"finishes Nuxt setup when app.vue has been changed",
+	async (_, { project, agent, expect, repo }) => {
+		await writeFile(
+			new URL("package.json", project),
+			JSON.stringify({ name: "my-site", dependencies: { nuxt: "latest" } }),
+		);
+		await rm(new URL("node_modules/next/", project), { recursive: true });
+		await rm(new URL("prismic.config.json", project));
+		// Registers the module up front, so the only step left is the app.vue change.
+		await writeFile(
+			new URL("nuxt.config.ts", project),
+			'export default defineNuxtConfig({ modules: ["@nuxtjs/prismic"] });\n',
+		);
+		// A changed starter, so setup keeps it. KEEP-ME catches an agent that replaces it.
+		await writeFile(
+			new URL("app/app.vue", project),
+			"<template>\n  <div>\n    <header>KEEP-ME</header>\n    <NuxtWelcome />\n  </div>\n</template>\n",
+		);
+
+		const result = await agent(
+			`Set up Prismic in this Nuxt project using the existing "${repo}" Prismic repository.`,
+		);
+
+		expect(result).toHaveRun(["init"]);
+		const appVue = await readFile(new URL("app/app.vue", project), "utf8");
+		expect(appVue).toContain("<NuxtPage");
+		expect(appVue).toContain("KEEP-ME");
 	},
 );

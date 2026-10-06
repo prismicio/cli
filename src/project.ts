@@ -7,7 +7,6 @@ import * as z from "zod/mini";
 import { exists, findUpward, readJsonFile } from "./lib/file";
 import { stringify } from "./lib/json";
 import { findPackageJson, MissingPackageJson } from "./lib/packageJson";
-import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
 
 const CONFIG_FILENAME = "prismic.config.json";
@@ -113,6 +112,12 @@ export async function removeRoute(id: string): Promise<void> {
 	await updateConfig({ routes: newRoutes });
 }
 
+// A route with a uid serves one document, not every page of the type. Optional or repeated
+// params (`:lang?`, `:path*`) have no folder name that works in every framework.
+export function findPageRoute(routes: Route[], typeId: string): Route | undefined {
+	return routes.find((route) => route.type === typeId && !route.uid && !/[?*+]/.test(route.path));
+}
+
 export function buildRoutePath(pageType: DynamicCustomTypeModel): string {
 	const { id, repeatable } = pageType;
 	const namespace = id.replaceAll("_", "-").toLowerCase();
@@ -209,17 +214,4 @@ export async function getLibraries(): Promise<URL[] | undefined> {
 export async function checkIsTypeScriptProject(): Promise<boolean> {
 	const projectRoot = await findProjectRoot();
 	return exists(new URL("tsconfig.json", projectRoot));
-}
-
-export class TypeBuilderRequiredError extends Error {
-	name = "TypeBuilderRequired";
-	constructor(repo: string) {
-		super(dedent`
-			This command requires the Type Builder, but repository "${repo}" uses the Legacy Builder.
-
-			Contact Prismic support to enable the Type Builder: https://prismic.io/docs/help-center
-
-			Learn more at https://prismic.io/docs/type-builder
-		`);
-	}
 }

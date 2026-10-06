@@ -71,3 +71,15 @@ it("adds a text field to a page type", async ({ expect, prismic, project }) => {
 	const field = updated.json.Main.subtitle;
 	expect(field).toMatchObject({ type: "Text" });
 });
+
+it("errors for an unknown slice", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"text",
+		"subtitle",
+		"--to-slice",
+		"CallToAction",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain('Slice "CallToAction" does not exist.');
+});

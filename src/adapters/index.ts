@@ -1,5 +1,6 @@
 import { readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
+import { sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
@@ -8,6 +9,7 @@ import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
 import { getCredentials } from "../auth";
+import { CommandError } from "../lib/command";
 import {
 	exists,
 	readEnvFile,
@@ -27,22 +29,26 @@ import {
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,
+	getLegacySlices,
 	type Models,
 	type ModelsDiff,
 } from "../lib/prismic/models";
-import { appendTrailingSlash } from "../lib/url";
+import { appendTrailingSlash, relativePathname } from "../lib/url";
 import {
 	addRoute,
 	buildRoutePath,
 	checkIsTypeScriptProject,
+	findPageRoute,
 	findProjectRoot,
 	getLibraries,
 	getRepositoryName,
+	readConfig,
 	removeRoute,
 	updateRoute,
 } from "../project";
 
 type ModelMeta<T> = { model: T; modelPath: URL; directory: URL; library: URL };
+export type PageFile = { path: URL; contents: string };
 
 export const FRAMEWORKS = ["next", "nuxt", "sveltekit"];
 
@@ -68,6 +74,39 @@ export class NoSupportedFrameworkError extends Error {
 	name = "NoSupportedFrameworkError";
 	message =
 		"No supported framework found. Run this command in a Next.js, Nuxt, or SvelteKit project.";
+}
+
+export class ModelExistsError extends Error {
+	name = "ModelExistsError";
+}
+
+export class SliceNotFoundError extends Error {
+	name = "SliceNotFoundError";
+
+	constructor(id: string) {
+		super(`Slice "${id}" does not exist. Run \`prismic slice list\` to see available IDs.`);
+	}
+}
+
+export class CustomTypeNotFoundError extends Error {
+	name = "CustomTypeNotFoundError";
+
+	constructor(id: string) {
+		super(`Type "${id}" does not exist. Run \`prismic type list\` to see available IDs.`);
+	}
+}
+
+async function assertModelMissing(
+	kind: string,
+	id: string,
+	directory: URL,
+	models: ModelMeta<{ id: string }>[],
+): Promise<void> {
+	const existing = models.find((m) => m.model.id === id || m.directory.href === directory.href);
+	if (!existing && !(await exists(directory))) return;
+	const path = relativePathname(await findProjectRoot(), existing?.directory ?? directory);
+	const suffix = existing ? ` (id: ${existing.model.id})` : "";
+	throw new ModelExistsError(`A ${kind} already exists at ${path}${sep}${suffix}.`);
 }
 
 export async function getActiveRepositoryName(): Promise<string> {
@@ -125,14 +164,15 @@ export abstract class Adapter {
 	}
 
 	abstract setupProject(): Promise<void>;
-	abstract getPreviewComponentInstructions(): Promise<string | undefined>;
+	// Steps the CLI cannot do for the developer, such as adding the preview component.
+	abstract getSetupInstructions(): Promise<string | undefined>;
 	abstract createSliceIndexFile(library: URL): Promise<void>;
 	protected abstract getDefaultSliceLibrary(): Promise<URL>;
 	protected abstract createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void>;
-	protected abstract createPageFile(
+	protected abstract getPageFiles(
 		model: DynamicCustomTypeModel,
 		routePath: string,
-	): Promise<void>;
+	): Promise<PageFile[]>;
 
 	async initProject({ setup }: { setup: boolean }): Promise<void> {
 		for (const library of await this.getSliceLibraries()) {
@@ -159,8 +199,17 @@ export abstract class Adapter {
 
 	async getSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
 		const slice = (await this.getSlices()).find((s) => s.model.id === id);
-		if (!slice) throw new Error(`No slice found with ID: ${id}`);
-		return slice;
+		if (slice) return slice;
+		const customTypes = (await this.getCustomTypes()).map((customType) => customType.model);
+		const legacySlice = getLegacySlices(customTypes).find((s) => s.id === id);
+		if (legacySlice) {
+			const { customTypeId, sliceZoneId } = legacySlice;
+			const zoneOption = sliceZoneId === "body" ? "" : ` --slice-zone ${sliceZoneId}`;
+			throw new CommandError(
+				`"${id}" is a legacy slice in "${customTypeId}". Upgrade it first: \`prismic slice upgrade-legacy ${id} --from ${customTypeId}${zoneOption}\`.`,
+			);
+		}
+		throw new SliceNotFoundError(id);
 	}
 
 	async createSlice(model: SharedSliceModel): Promise<void> {
@@ -168,6 +217,7 @@ export abstract class Adapter {
 		const directory = appendTrailingSlash(
 			new URL(pascalCase(model.name), appendTrailingSlash(library)),
 		);
+		await assertModelMissing("slice", model.id, directory, await this.getSlices());
 		await writeFileRecursive(new URL("model.json", directory), stringify(canonicalizeSlice(model)));
 		await this.createSliceIndexFile(library);
 		await this.createSliceComponent(model, directory);
@@ -195,25 +245,43 @@ export abstract class Adapter {
 
 	async getCustomType(id: string): Promise<ModelMeta<DynamicCustomTypeModel>> {
 		const customType = (await this.getCustomTypes()).find((s) => s.model.id === id);
-		if (!customType) throw new Error(`No custom type found with ID: ${id}`);
+		if (!customType) throw new CustomTypeNotFoundError(id);
 		return customType;
 	}
 
-	async createCustomType(model: DynamicCustomTypeModel): Promise<void> {
+	// Returns a notice for each page file skipped because it already exists.
+	async createCustomType(model: DynamicCustomTypeModel): Promise<string[]> {
 		const [library] = await this.getCustomTypeLibraries();
 		const directory = appendTrailingSlash(new URL(model.id, appendTrailingSlash(library)));
+		await assertModelMissing("type", model.id, directory, await this.getCustomTypes());
 		await writeFileRecursive(
 			new URL("index.json", directory),
 			stringify(canonicalizeCustomType(model)),
 		);
-		if (model.format !== "page") return;
+		if (model.format !== "page") return [];
 		await addRoute(model);
-		const routePath = buildRoutePath(model)
+		const projectRoot = await findProjectRoot();
+		return (await this.writePageFiles(model)).map(
+			({ path }) =>
+				`Skipped ${relativePathname(projectRoot, path)} (already exists). Run \`prismic gen page ${model.id}\` to get the code.`,
+		);
+	}
+
+	// Returns the files skipped because they already exist.
+	async writePageFiles(model: DynamicCustomTypeModel): Promise<PageFile[]> {
+		const { routes = [] } = await readConfig();
+		const route = findPageRoute(routes, model.id)?.path ?? buildRoutePath(model);
+		const routePath = route
 			.split("/")
 			.filter(Boolean)
 			.map((segment) => (segment.startsWith(":") ? `[${segment.slice(1)}]` : segment))
 			.join("/");
-		await this.createPageFile(model, routePath);
+		const skipped: PageFile[] = [];
+		for (const file of await this.getPageFiles(model, routePath)) {
+			if (await exists(file.path)) skipped.push(file);
+			else await writeFileRecursive(file.path, file.contents);
+		}
+		return skipped;
 	}
 
 	async updateCustomType(model: DynamicCustomTypeModel): Promise<void> {
@@ -236,13 +304,17 @@ export abstract class Adapter {
 		};
 	}
 
-	async writeModels(diff: ModelsDiff): Promise<void> {
+	async writeModels(diff: ModelsDiff): Promise<string[]> {
 		for (const model of diff.slices.update) await this.updateSlice(model);
 		for (const model of diff.slices.delete) await this.deleteSlice(model.id);
 		for (const model of diff.slices.insert) await this.createSlice(model);
 		for (const model of diff.customTypes.update) await this.updateCustomType(model);
 		for (const model of diff.customTypes.delete) await this.deleteCustomType(model.id);
-		for (const model of diff.customTypes.insert) await this.createCustomType(model);
+		const notices: string[] = [];
+		for (const model of diff.customTypes.insert) {
+			notices.push(...(await this.createCustomType(model)));
+		}
+		return notices;
 	}
 
 	async generateTypes(): Promise<URL> {

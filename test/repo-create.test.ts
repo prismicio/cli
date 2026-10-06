@@ -7,6 +7,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("repo", ["create", "--help"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic repo create [options]");
+	expect(stdout).toContain("generates a random domain");
 });
 
 it("creates a repository", async ({ expect, prismic, token, host, password, onTestFinished }) => {

@@ -1,6 +1,9 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { sep } from "node:path";
+
 import { snakeCase } from "change-case";
 
-import { buildCustomType, it, readLocalCustomType } from "./it";
+import { buildCustomType, it, readLocalCustomType, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("type", ["create", "--help"]);
@@ -65,10 +68,44 @@ it("creates a custom type with a custom id", async ({ expect, prismic, project }
 	expect(created.id).toBe(id);
 });
 
+it("keeps an existing page file", async ({ expect, prismic, project }) => {
+	const { label } = buildCustomType({ format: "page" });
+	const id = snakeCase(label!);
+	const path = `app/${id.replaceAll("_", "-")}/[uid]/page.jsx`;
+	await mkdir(new URL(".", new URL(path, project)), { recursive: true });
+	await writeFile(new URL(path, project), "// existing page");
+
+	const { stdout, stderr, exitCode } = await prismic("type", [
+		"create",
+		label!,
+		"--format",
+		"page",
+	]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(
+		`Skipped ${path.replaceAll("/", sep)} (already exists). Run \`prismic gen page ${id}\` to get the code.`,
+	);
+
+	await expect(project).toHaveFile(path, { contains: "// existing page" });
+});
+
 it("rejects invalid --format", async ({ expect, prismic }) => {
 	const { label } = buildCustomType();
 
 	const { stderr, exitCode } = await prismic("type", ["create", label!, "--format", "invalid"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain('Invalid format: "invalid"');
+});
+
+it("rejects an existing type id", async ({ expect, prismic, project }) => {
+	const existing = buildCustomType();
+	await writeLocalCustomType(project, existing);
+
+	const { stderr, exitCode } = await prismic("type", ["create", "New", "--id", existing.id]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`Type "${existing.id}" already exists`);
+	expect(stderr).toContain(`prismic type edit ${existing.id}`);
+
+	const unchanged = await readLocalCustomType(project, existing.id);
+	expect(unchanged).toEqual(existing);
 });

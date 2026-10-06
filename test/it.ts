@@ -184,6 +184,27 @@ export const it = test.extend<Fixtures>({
 	},
 });
 
+export async function useSvelteKit(project: URL, version = "5.0.0"): Promise<void> {
+	await rm(new URL("node_modules/next/", project), { recursive: true, force: true });
+	await rm(new URL("app/", project), { recursive: true, force: true });
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
+	);
+	await mkdir(new URL("node_modules/svelte/", project), { recursive: true });
+	await writeFile(
+		new URL("node_modules/svelte/package.json", project),
+		JSON.stringify({ version }),
+	);
+}
+
+// Makes the package manager install fail by shadowing npm in node_modules/.bin.
+export async function failInstall(project: URL): Promise<void> {
+	const bin = new URL("node_modules/.bin/", project);
+	await writeFile(new URL("npm", bin), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+	await writeFile(new URL("npm.cmd", bin), "@exit /b 1\r\n");
+}
+
 export function captureOutput(proc: Result): () => string {
 	let output = "";
 	proc.process?.stdout?.on("data", (c: Buffer) => (output += c.toString()));
@@ -204,6 +225,37 @@ export function buildCustomType(
 		json: { Main: {} },
 		...overrides,
 	};
+}
+
+/** A type whose "body" slice zone holds a Slice, a Group, and a field legacy slice. */
+export function buildLegacyCustomType(): DynamicCustomTypeModel {
+	return buildCustomType({
+		json: {
+			Main: {
+				body: {
+					type: "Slices",
+					config: {
+						choices: {
+							hero: {
+								type: "Slice",
+								fieldset: "Hero",
+								"non-repeat": {
+									title: { type: "StructuredText", config: { label: "Title", single: "heading1" } },
+								},
+								repeat: { label: { type: "Text", config: { label: "Label" } } },
+							},
+							gallery: {
+								type: "Group",
+								fieldset: "Gallery",
+								config: { fields: { caption: { type: "Text", config: { label: "Caption" } } } },
+							},
+							quote: { type: "Text", config: { label: "Quote" } },
+						},
+					},
+				},
+			},
+		},
+	});
 }
 
 export function buildSlice(overrides?: Partial<SharedSliceModel>): SharedSliceModel {

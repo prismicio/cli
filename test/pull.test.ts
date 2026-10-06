@@ -12,6 +12,7 @@ import {
 	it,
 	readLocalCustomType,
 	readLocalSlice,
+	readLocalSlices,
 	writeLocalCustomType,
 	writeLocalSlice,
 } from "./it";
@@ -399,6 +400,30 @@ describe("with an isolated repository", () => {
 		expect(JSON.stringify(typeAfter)).toBe(JSON.stringify(writtenType));
 		expect(JSON.stringify(sliceAfter)).toBe(JSON.stringify(writtenSlice));
 	});
+
+	it("refuses to pull a slice into another slice's directory", async ({
+		expect,
+		project,
+		prismic,
+		repo,
+		token,
+		host,
+	}) => {
+		const sliceA = buildSlice();
+		const sliceB = buildSlice({ name: sliceA.name });
+
+		await Promise.all([
+			insertSlice(sliceA, { repo, token, host }),
+			insertSlice(sliceB, { repo, token, host }),
+		]);
+
+		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain(
+			`A slice already exists at ${["slices", sliceA.name, ""].join(sep)} (id: `,
+		);
+		expect(await readLocalSlices(project)).toHaveLength(1);
+	});
 });
 
 it(
@@ -472,8 +497,11 @@ it(
 		await mkdir(new URL(".", pagePath), { recursive: true });
 		await writeFile(pagePath, originalContent);
 
-		const { stderr, exitCode } = await prismic("pull", ["--repo", repo]);
+		const { stdout, stderr, exitCode } = await prismic("pull", ["--repo", repo]);
 		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(
+			`Skipped ${["app", expectedSegment, "page.jsx"].join(sep)} (already exists). Run \`prismic gen page ${customType.id}\` to get the code.`,
+		);
 
 		await expect(project).toHaveFile(`app/${expectedSegment}/page.jsx`, {
 			contains: originalContent,

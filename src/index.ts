@@ -3,7 +3,13 @@
 import { parseArgs } from "node:util";
 
 import packageJson from "../package.json" with { type: "json" };
-import { getAdapter, NoSupportedFrameworkError } from "./adapters";
+import {
+	CustomTypeNotFoundError,
+	getAdapter,
+	ModelExistsError,
+	NoSupportedFrameworkError,
+	SliceNotFoundError,
+} from "./adapters";
 import { cleanupLegacyAuthFile, getCredentials, spawnTokenRefresh } from "./auth";
 import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
@@ -45,7 +51,6 @@ import {
 	InvalidPrismicConfigError,
 	MissingPrismicConfigError,
 	getRepositoryName,
-	TypeBuilderRequiredError,
 	UnknownProjectRootError,
 } from "./project";
 import {
@@ -67,13 +72,15 @@ const KNOWN_ERRORS = [
 	SliceVariationNotFoundError,
 	UnsupportedFileTypeError,
 	NoSupportedFrameworkError,
+	ModelExistsError,
+	SliceNotFoundError,
+	CustomTypeNotFoundError,
 	InvalidEnvironmentError,
 	InvalidPrismicConfigError,
 	MissingPrismicConfigError,
 	InvalidLegacySliceMachineConfigError,
 	MissingPackageJson,
 	UnknownProjectRootError,
-	TypeBuilderRequiredError,
 	NotFoundRequestError,
 	UnauthorizedRequestError,
 	ForbiddenRequestError,
@@ -81,7 +88,7 @@ const KNOWN_ERRORS = [
 	UnknownRequestError,
 ];
 
-const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError, TypeBuilderRequiredError];
+const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError];
 
 await main();
 

@@ -5,6 +5,7 @@ import { describe } from "vitest";
 import {
 	buildCustomType,
 	captureOutput,
+	failInstall,
 	it,
 	readLocalCustomType,
 	writeLocalCustomType,
@@ -33,10 +34,16 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic docs view cli#set-up-a-type-builder-project");
 });
 
-it("fails if prismic.config.json already exists without --repo", async ({ expect, prismic }) => {
+it("fails if prismic.config.json already exists without --repo", async ({
+	expect,
+	prismic,
+	repo,
+}) => {
 	const { exitCode, stderr } = await prismic("init");
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("init --repo");
+	expect(stderr).toContain(`This project is already set up for Prismic (repository: ${repo}).`);
+	expect(stderr).toContain("Run `prismic gen setup`");
+	expect(stderr).toContain("Run `prismic init --repo <domain>`");
 });
 
 it("creates a repo if --repo is not provided and no legacy config exists", async ({
@@ -70,6 +77,33 @@ it("creates a repo if --repo is not provided and no legacy config exists", async
 	const dev = previews.find((p) => p.url === "http://localhost:3000/api/preview");
 	expect(dev?.label).toBe("Development");
 }, 60_000);
+
+it("creates a repo with a display name from --repo-name", async ({
+	expect,
+	project,
+	prismic,
+	token,
+	host,
+	password,
+	onTestFinished,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	const repoName = `Test ${crypto.randomUUID().slice(0, 8)}`;
+	const { stderr, exitCode, stdout } = await prismic("init", ["--repo-name", repoName]);
+	const domain = stdout.match(/^Created repository: ([a-z0-9-]+)$/m)?.[1];
+	if (!domain) throw new Error(`Could not find created repository name in output:\n${stdout}`);
+	onTestFinished(() => deleteRepository(domain, { token, password, host }));
+
+	expect(exitCode, stderr).toBe(0);
+	const repository = await getRepository({ repo: domain, token, host });
+	expect(repository.name).toBe(repoName);
+}, 60_000);
+
+it("fails if --repo and --repo-name are both provided", async ({ expect, prismic, repo }) => {
+	const { exitCode, stderr } = await prismic("init", ["--repo", repo, "--repo-name", "Name"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Only one of --repo or --repo-name can be specified.");
+});
 
 it("preserves existing preview config", async ({
 	expect,
@@ -280,13 +314,18 @@ it("fails with next steps when no supported framework is found", async ({
 	expect(stderr).toContain("prismic repo create --framework");
 });
 
-it("fails when Type Builder is not enabled", async ({ expect, project, prismic, repo }) => {
+it("turns on the Type Builder when it is not enabled", async ({
+	expect,
+	project,
+	prismic,
+	repo,
+}) => {
 	await rm(new URL("prismic.config.json", project));
-	const { exitCode, stderr } = await prismic("init", ["--repo", repo], {
+	const { exitCode, stdout, stderr } = await prismic("init", ["--repo", repo, "--no-setup"], {
 		nodeOptions: { env: { PRISMIC_TYPE_BUILDER_ENABLED: "false" } },
 	});
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Type Builder");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(`Turned on the Type Builder for repository "${repo}".`);
 });
 
 it("installs dependencies", { timeout: 30_000 }, async ({ expect, project, prismic, repo }) => {
@@ -298,6 +337,20 @@ it("installs dependencies", { timeout: 30_000 }, async ({ expect, project, prism
 	// Verify the stubbed npm was invoked (it creates package-lock.json)
 	await expect(access(new URL("package-lock.json", project))).resolves.toBeUndefined();
 });
+
+it(
+	"tells the user how to finish when the install fails",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic, repo }) => {
+		await rm(new URL("prismic.config.json", project));
+		await failInstall(project);
+
+		const { stderr, exitCode } = await prismic("init", ["--repo", repo]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stderr).toContain("Could not install dependencies. Run `npm install` to finish.");
+		expect(stderr).toContain("you don't need to run `prismic init` again");
+	},
+);
 
 it("warns and keeps local models when reconnecting with model differences", async ({
 	expect,

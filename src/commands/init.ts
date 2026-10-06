@@ -4,8 +4,10 @@ import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from 
 import { createLoginSession, getCredentials } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { openBrowser } from "../lib/browser";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 import {
+	getInstallCommand,
+	getMajorDependencyUpdates,
 	installDependencies,
 	MissingPackageJson,
 	readPackageJson,
@@ -18,9 +20,13 @@ import {
 	removePreview,
 	setSimulatorUrl,
 } from "../lib/prismic/clients/core";
-import { getRepository, type Repository } from "../lib/prismic/clients/repository";
+import {
+	enableTypeBuilder,
+	getRepository,
+	type Repository,
+} from "../lib/prismic/clients/repository";
 import { getProfile } from "../lib/prismic/clients/user";
-import { diffModels, getRemoteModels } from "../lib/prismic/models";
+import { diffModels, getLegacySlices, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
@@ -34,7 +40,6 @@ import {
 	MissingPrismicConfigError,
 	readConfig,
 	readLegacySliceMachineConfig,
-	TypeBuilderRequiredError,
 	UnknownProjectRootError,
 	updateConfig,
 } from "../project";
@@ -45,7 +50,8 @@ const config = {
 	description: `
 		Initialize a new Prismic project by creating a repository and
 		prismic.config.json file. Detects the project framework, installs
-		dependencies, and pulls models from Prismic.
+		dependencies, and pulls models from Prismic. The CLI generates a random
+		domain for the new repository. The domain cannot be chosen or changed.
 
 		Use --repo to connect to an existing repository instead. If a
 		slicemachine.config.json exists, its repository and settings will be
@@ -58,6 +64,10 @@ const config = {
 			type: "string",
 			short: "r",
 			description: "Domain of an existing repository to connect to",
+		},
+		"repo-name": {
+			type: "string",
+			description: "Display name for the new repository (its domain is generated)",
 		},
 		lang: {
 			type: "string",
@@ -76,6 +86,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
+	exclusiveOptions(values, ["repo", "repo-name"]);
 	const { repo: explicitRepo, lang, "no-browser": noBrowser, "no-setup": noSetup } = values;
 
 	let existingConfig: Config | undefined;
@@ -85,9 +96,13 @@ export default createCommand(config, async ({ values }) => {
 		if (!(error instanceof MissingPrismicConfigError)) throw error;
 	}
 	if (existingConfig && !explicitRepo) {
-		throw new CommandError(
-			"A prismic.config.json file exists. Use `prismic init --repo <repository>` to connect it to an existing repository.",
-		);
+		throw new CommandError(`
+			This project is already set up for Prismic (repository: ${existingConfig.repositoryName}).
+
+			Do one of the following:
+			  - Run \`prismic gen setup\` to add missing framework files and install dependencies.
+			  - Run \`prismic init --repo <domain>\` to connect the project to a different repository.
+		`);
 	}
 	const isExistingProjectHandoff = existingConfig !== undefined && explicitRepo !== undefined;
 
@@ -143,12 +158,6 @@ export default createCommand(config, async ({ values }) => {
 				`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
 			);
 		});
-
-		const isTypeBuilderEnabled =
-			env.PRISMIC_TYPE_BUILDER_ENABLED ?? connectedRepository.quotas?.sliceMachineEnabled === true;
-		if (!isTypeBuilderEnabled) {
-			throw new TypeBuilderRequiredError(repo);
-		}
 	}
 
 	let adapter: Adapter;
@@ -169,8 +178,39 @@ export default createCommand(config, async ({ values }) => {
 		`);
 	}
 
+	// The editor shows code snippets for the repository's framework.
+	const isTypeBuilderEnabled =
+		env.PRISMIC_TYPE_BUILDER_ENABLED ?? connectedRepository?.quotas?.sliceMachineEnabled;
+	if (
+		repo &&
+		connectedRepository &&
+		(!isTypeBuilderEnabled || connectedRepository.framework !== adapter.id)
+	) {
+		try {
+			await enableTypeBuilder(adapter.id, { repo, token, host });
+			if (!isTypeBuilderEnabled)
+				console.info(`Turned on the Type Builder for repository "${repo}".`);
+		} catch (error) {
+			if (!(error instanceof ForbiddenRequestError)) throw error;
+			if (!isTypeBuilderEnabled) {
+				throw new CommandError(
+					`Repository "${repo}" uses the Legacy Builder. Only a repository administrator can turn on the Type Builder. Ask an administrator to run \`prismic init\`.`,
+				);
+			}
+			console.warn(
+				`Could not set the repository's framework to ${adapter.id}. Ask a repository administrator to run \`prismic init\`.`,
+			);
+		}
+	}
+
 	if (!repo) {
-		repo = await createRepo({ lang, framework: adapter.id, token, host });
+		repo = await createRepo({
+			name: values["repo-name"],
+			lang,
+			framework: adapter.id,
+			token,
+			host,
+		});
 		console.info(`Created repository: ${repo}`);
 	}
 
@@ -216,7 +256,16 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Install dependencies and create framework files
+	const packageJson = await readPackageJson();
 	await adapter.initProject({ setup: !noSetup && !existingConfig });
+	for (const { name, from, to } of getMajorDependencyUpdates(
+		packageJson,
+		await readPackageJson(),
+	)) {
+		console.info(
+			`Updated ${name} from ${from} to ${to}. Check your code for breaking changes in the new version.`,
+		);
+	}
 
 	// Run package manager install
 	if (!noSetup) {
@@ -225,7 +274,7 @@ export default createCommand(config, async ({ values }) => {
 			await installDependencies();
 		} catch {
 			console.warn(
-				"Could not install dependencies automatically. Please install them manually (i.e. `npm install`).",
+				`Could not install dependencies. Run \`${await getInstallCommand()}\` to finish.\nThe rest of the setup is done, so you don't need to run \`prismic init\` again.`,
 			);
 		}
 	}
@@ -250,9 +299,15 @@ export default createCommand(config, async ({ values }) => {
 		isExistingProjectHandoff &&
 		[diff.customTypes, diff.slices].some((ops) => ops.update.length > 0 || ops.delete.length > 0);
 
-	if (!hasStarterModelChanges) await adapter.writeModels(diff);
+	if (!hasStarterModelChanges) {
+		for (const notice of await adapter.writeModels(diff)) console.info(notice);
+	}
 
 	await adapter.generateTypes();
+
+	if (getLegacySlices(remote.customTypes).length > 0) {
+		console.info("\nRun `prismic slice list --legacy` to find legacy slices to upgrade.");
+	}
 
 	if (hasStarterModelChanges) {
 		console.warn(
@@ -288,8 +343,8 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Printed last so it is the step the reader is left with.
-	const previewInstructions = await adapter.getPreviewComponentInstructions();
-	if (previewInstructions) console.info(`\n${previewInstructions}`);
+	const setupInstructions = await adapter.getSetupInstructions();
+	if (setupInstructions) console.info(`\n${setupInstructions}`);
 });
 
 async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Promise<boolean> {
