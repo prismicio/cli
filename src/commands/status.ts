@@ -3,8 +3,7 @@ import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { getProfile } from "../lib/prismic/clients/user";
-import { ignoreInvalidAuthContext } from "../lib/prismic/errors";
+import { validateToken } from "../lib/prismic/clients/auth";
 import {
 	diffModels,
 	getLegacySlices,
@@ -54,11 +53,11 @@ export default createCommand(config, async ({ values }) => {
 	let authenticatedAs: string | undefined;
 	let diff: ModelsDiff | undefined;
 	if (token) {
-		const [profile, remote] = await Promise.all([
-			getProfile({ token, host }).catch(ignoreInvalidAuthContext),
+		const [session, remote] = await Promise.all([
+			validateToken(token, { host }),
 			getRemoteModels({ repo, token, host }),
 		]);
-		authenticatedAs = profile?.email ?? "Write API token";
+		authenticatedAs = session.type === "USER" ? session.email : "Write API token";
 		diff = diffModels(local, remote);
 	}
 

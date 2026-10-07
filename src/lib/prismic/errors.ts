@@ -11,7 +11,3 @@ export function isInvalidAuthContextError(error: unknown): boolean {
 		z.safeParse(InvalidAuthContextSchema, error.body).success
 	);
 }
-
-export function ignoreInvalidAuthContext(error: unknown): undefined {
-	if (!isInvalidAuthContextError(error)) throw error;
-}

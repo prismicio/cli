@@ -1,7 +1,6 @@
 import { dedent } from "../string";
+import { validateToken } from "./clients/auth";
 import { type Environment, getEnvironments } from "./clients/core";
-import { getProfile } from "./clients/user";
-import { ignoreInvalidAuthContext } from "./errors";
 
 export async function getUserEnvironments(config: {
 	repo: string;
@@ -9,14 +8,17 @@ export async function getUserEnvironments(config: {
 	host: string;
 }): Promise<Environment[]> {
 	const { repo, token, host } = config;
-	const [profile, environments] = await Promise.all([
-		getProfile({ token, host }).catch(ignoreInvalidAuthContext),
+	const [session, environments] = await Promise.all([
+		validateToken(token, { host }),
 		getEnvironments({ repo, token, host }),
 	]);
+	if (session.type === "Machine2Machine") {
+		return environments.filter((environment) => environment.domain === session.domain);
+	}
 	return environments.filter(
 		(environment) =>
 			(environment.kind === "prod" || environment.kind === "stage") &&
-			(!profile || environment.users.some((user) => user.id === profile.shortId)),
+			environment.users.some((user) => user.id === session.shortId),
 	);
 }
 

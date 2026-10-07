@@ -1,7 +1,6 @@
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { getProfile } from "../lib/prismic/clients/user";
-import { ignoreInvalidAuthContext } from "../lib/prismic/errors";
+import { validateToken } from "../lib/prismic/clients/auth";
 
 const config = {
 	name: "prismic whoami",
@@ -10,7 +9,13 @@ const config = {
 
 export default createCommand(config, async () => {
 	const { token, host } = await getCredentials();
-	const profile = await getProfile({ token, host }).catch(ignoreInvalidAuthContext);
+	const session = await validateToken(token, { host });
 
-	console.info(profile?.email ?? "Write API token");
+	if (session.type === "USER") {
+		console.info(session.email);
+		return;
+	}
+	console.info("Write API token");
+	console.info(`Repository: ${session.domain}`);
+	console.info(`App: ${session.appName}`);
 });
