@@ -31,9 +31,10 @@ it("views repository details with a Write API token", async ({
 	repo,
 	writeToken,
 }) => {
-	const { stdout, stderr, exitCode } = await prismic("repo", ["view", "--json"], {
+	const { stdout, stderr, exitCode } = await prismic("repo", ["view"], {
 		nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },
 	});
 	expect(exitCode, stderr).toBe(0);
-	expect(JSON.parse(stdout)).toEqual(expect.objectContaining({ domain: repo, apiAccess: null }));
+	expect(stdout).toContain(repo);
+	expect(stdout).toContain("Content API: (unavailable)");
 });
