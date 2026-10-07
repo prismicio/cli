@@ -14,9 +14,6 @@ const invalidAuthContextBody = z.object({
 	error: z.literal("invalid_auth_context"),
 });
 
-export const WRITE_API_TOKEN_MESSAGE =
-	"This Write API token cannot run administrative commands. Unset PRISMIC_TOKEN and run prismic login.";
-
 export function isInvalidAuthContextError(error: unknown): boolean {
 	if (!(error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError)) {
 		return false;
@@ -32,7 +29,7 @@ export async function getErrorMessage(error: unknown): Promise<string | undefine
 		}
 		if (env.PRISMIC_TOKEN) {
 			if (isInvalidAuthContextError(error)) {
-				return WRITE_API_TOKEN_MESSAGE;
+				return "This Write API token cannot run administrative commands. Unset PRISMIC_TOKEN and run prismic login.";
 			}
 			return "PRISMIC_TOKEN is invalid or expired, or doesn't have access to this repository. Unset it to log in with a browser, or replace it with a valid token.";
 		}
