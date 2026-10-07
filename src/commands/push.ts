@@ -6,7 +6,6 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { isInvalidAuthContextError } from "../lib/prismic/auth";
 import { getDocumentTotalByCustomTypes } from "../lib/prismic/clients/core";
 import {
 	type BulkChange,
@@ -200,8 +199,7 @@ async function explainExistingDocuments(
 		let documentCount: number;
 		try {
 			documentCount = await getDocumentTotalByCustomTypes(id, config);
-		} catch (error) {
-			if (isInvalidAuthContextError(error)) return error;
+		} catch {
 			return new CommandError(
 				`Could not check whether type "${id}" has associated pages. ` +
 					"\nPlease try again, or manually delete any associated pages at: " +
