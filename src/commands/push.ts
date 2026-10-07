@@ -6,6 +6,7 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
+import { isInvalidAuthContextError } from "../lib/prismic/clients/auth";
 import { getDocumentTotalByCustomTypes } from "../lib/prismic/clients/core";
 import {
 	type BulkChange,
@@ -13,7 +14,6 @@ import {
 	type CustomTypesConfig,
 	deleteScreenshots,
 } from "../lib/prismic/clients/custom-types";
-import { isInvalidAuthContextError } from "../lib/prismic/errors";
 import { diffModels, getRemoteModels, type ModelsDiff } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError } from "../lib/request";

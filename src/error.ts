@@ -1,6 +1,6 @@
 import { getCredentials } from "./auth";
 import { env } from "./env";
-import { isInvalidAuthContextError } from "./lib/prismic/errors";
+import { isInvalidAuthContextError } from "./lib/prismic/clients/auth";
 import {
 	BadRequestError,
 	ForbiddenRequestError,

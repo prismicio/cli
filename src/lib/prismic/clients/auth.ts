@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { request } from "../../request";
+import { request, UnauthorizedRequestError } from "../../request";
 
 type AuthConfig = { host: string };
 
@@ -22,6 +22,16 @@ export async function validateToken(
 	const url = new URL("validate", getAuthServiceUrl(config.host));
 	url.searchParams.set("token", token ?? "");
 	return request(url, { schema: SessionSchema });
+}
+
+const InvalidAuthContextSchema = z.object({ error: z.literal("invalid_auth_context") });
+
+// The credential is valid, but the route needs a user, e.g. a Write API token on an admin route.
+export function isInvalidAuthContextError(error: unknown): boolean {
+	return (
+		error instanceof UnauthorizedRequestError &&
+		z.safeParse(InvalidAuthContextSchema, error.body).success
+	);
 }
 
 function getAuthServiceUrl(host: string): URL {

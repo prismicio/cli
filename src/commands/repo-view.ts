@@ -2,9 +2,9 @@ import { getCredentials } from "../auth";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
+import { isInvalidAuthContextError } from "../lib/prismic/clients/auth";
 import { getRepository } from "../lib/prismic/clients/repository";
 import { getRepositoryAccess } from "../lib/prismic/clients/wroom";
-import { isInvalidAuthContextError } from "../lib/prismic/errors";
 import { getRepositoryName } from "../project";
 
 const config = {
