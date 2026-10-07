@@ -12,9 +12,7 @@ export default createCommand(config, async () => {
 	const session = await validateToken(token, { host });
 
 	if (session.type === "Machine2Machine") {
-		console.info("Write API token");
-		console.info(`Repository: ${session.domain}`);
-		console.info(`App: ${session.appName}`);
+		console.info(`${session.appName} (Write API token for ${session.domain})`);
 		return;
 	}
 	console.info(session.email);
