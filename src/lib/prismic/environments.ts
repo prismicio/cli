@@ -1,6 +1,7 @@
 import { dedent } from "../string";
 import { type Environment, getEnvironments } from "./clients/core";
 import { getProfile } from "./clients/user";
+import { ignoreInvalidAuthContext } from "./errors";
 
 export async function getUserEnvironments(config: {
 	repo: string;
@@ -9,15 +10,14 @@ export async function getUserEnvironments(config: {
 }): Promise<Environment[]> {
 	const { repo, token, host } = config;
 	const [profile, environments] = await Promise.all([
-		getProfile({ token, host }),
+		getProfile({ token, host }).catch(ignoreInvalidAuthContext),
 		getEnvironments({ repo, token, host }),
 	]);
-	const userEnvironments = environments.filter(
+	return environments.filter(
 		(environment) =>
 			(environment.kind === "prod" || environment.kind === "stage") &&
-			environment.users.some((user) => user.id === profile.shortId),
+			(!profile || environment.users.some((user) => user.id === profile.shortId)),
 	);
-	return userEnvironments;
 }
 
 export class InvalidEnvironmentError extends Error {

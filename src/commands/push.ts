@@ -13,6 +13,7 @@ import {
 	type CustomTypesConfig,
 	deleteScreenshots,
 } from "../lib/prismic/clients/custom-types";
+import { isInvalidAuthContextError } from "../lib/prismic/errors";
 import { diffModels, getRemoteModels, type ModelsDiff } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError } from "../lib/request";
@@ -199,7 +200,8 @@ async function explainExistingDocuments(
 		let documentCount: number;
 		try {
 			documentCount = await getDocumentTotalByCustomTypes(id, config);
-		} catch {
+		} catch (error) {
+			if (isInvalidAuthContextError(error)) return error;
 			return new CommandError(
 				`Could not check whether type "${id}" has associated pages. ` +
 					"\nPlease try again, or manually delete any associated pages at: " +

@@ -182,3 +182,16 @@ describe("with an isolated repository", () => {
 		expect(stdout).not.toContain("--force");
 	});
 });
+
+// Wroom 500s under concurrent same-user write-token creates; keep this sequential.
+it(
+	"compares with remote using a Write API token",
+	{ concurrent: false },
+	async ({ expect, prismic, repo, writeToken }) => {
+		const { stdout, stderr, exitCode } = await prismic("status", ["--repo", repo], {
+			nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },
+		});
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("Authenticated as: Write API token");
+	},
+);

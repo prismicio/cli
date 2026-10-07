@@ -124,11 +124,7 @@ export default createCommand(config, async ({ values }) => {
 		await getProfile({ token, host });
 	} catch (error) {
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
-			if (env.PRISMIC_TOKEN) {
-				throw new CommandError(
-					"PRISMIC_TOKEN is invalid or expired. Unset it to log in with a browser, or replace it with a valid token.",
-				);
-			}
+			if (env.PRISMIC_TOKEN) throw error;
 			console.info("Not logged in. Starting login...");
 			const { email } = await createLoginSession({
 				onReady: (url) => {

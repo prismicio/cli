@@ -4,6 +4,7 @@ import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { getProfile } from "../lib/prismic/clients/user";
+import { ignoreInvalidAuthContext } from "../lib/prismic/errors";
 import {
 	diffModels,
 	getLegacySlices,
@@ -50,14 +51,14 @@ export default createCommand(config, async ({ values }) => {
 		adapter.getModels(),
 	]);
 
-	let userEmail: string | undefined;
+	let authenticatedAs: string | undefined;
 	let diff: ModelsDiff | undefined;
 	if (token) {
 		const [profile, remote] = await Promise.all([
-			getProfile({ token, host }),
+			getProfile({ token, host }).catch(ignoreInvalidAuthContext),
 			getRemoteModels({ repo, token, host }),
 		]);
-		userEmail = profile.email;
+		authenticatedAs = profile?.email ?? "Write API token";
 		diff = diffModels(local, remote);
 	}
 
@@ -79,8 +80,8 @@ export default createCommand(config, async ({ values }) => {
 	if (repo !== repositoryName) {
 		console.info(`Environment: ${repo}`);
 	}
-	if (userEmail) {
-		console.info(`Authenticated as: ${userEmail}`);
+	if (authenticatedAs) {
+		console.info(`Authenticated as: ${authenticatedAs}`);
 	} else {
 		console.info("Not logged in — log in with `prismic login` to compare with remote.");
 	}

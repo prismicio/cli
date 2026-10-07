@@ -4,6 +4,7 @@ import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getRepository } from "../lib/prismic/clients/repository";
 import { getRepositoryAccess } from "../lib/prismic/clients/wroom";
+import { ignoreInvalidAuthContext } from "../lib/prismic/errors";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -35,7 +36,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const [repository, access] = await Promise.all([
 		getRepository({ repo, token, host }),
-		getRepositoryAccess({ repo, token, host }),
+		getRepositoryAccess({ repo, token, host }).catch(ignoreInvalidAuthContext),
 	]);
 
 	if (json) {
@@ -44,7 +45,7 @@ export default createCommand(config, async ({ values }) => {
 				domain: repo,
 				name: repository.name ?? null,
 				url,
-				apiAccess: access,
+				apiAccess: access ?? null,
 			}),
 		);
 		return;
@@ -53,5 +54,5 @@ export default createCommand(config, async ({ values }) => {
 	const name = repository.name || "(no name)";
 	console.info(`Name: ${name}`);
 	console.info(`URL: ${url}`);
-	console.info(`Content API: ${access}`);
+	if (access) console.info(`Content API: ${access}`);
 });

@@ -53,3 +53,12 @@ it("uses PRISMIC_TOKEN env var when set", async ({ expect, prismic, login, logou
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(email);
 });
+
+// Wroom 500s under concurrent same-user write-token creates; keep this sequential.
+it("reports a Write API token", { concurrent: false }, async ({ expect, prismic, writeToken }) => {
+	const { stdout, stderr, exitCode } = await prismic("whoami", [], {
+		nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },
+	});
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain("Write API token");
+});
