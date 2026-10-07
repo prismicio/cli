@@ -48,7 +48,6 @@ export type Fixtures = {
 	 */
 	isolateRepo: boolean;
 	repo: string;
-	/** A Write API token for `repo`, deleted after the test. */
 	writeToken: string;
 };
 

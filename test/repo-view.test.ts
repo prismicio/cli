@@ -25,15 +25,15 @@ it("views repository details as JSON", async ({ expect, prismic, repo }) => {
 	);
 });
 
-// Wroom 500s under concurrent same-user write-token creates; keep this sequential.
-it(
-	"views repository details with a Write API token",
-	{ concurrent: false },
-	async ({ expect, prismic, repo, writeToken }) => {
-		const { stdout, stderr, exitCode } = await prismic("repo", ["view", "--json"], {
-			nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },
-		});
-		expect(exitCode, stderr).toBe(0);
-		expect(JSON.parse(stdout)).toEqual(expect.objectContaining({ domain: repo, apiAccess: null }));
-	},
-);
+it("views repository details with a Write API token", async ({
+	expect,
+	prismic,
+	repo,
+	writeToken,
+}) => {
+	const { stdout, stderr, exitCode } = await prismic("repo", ["view", "--json"], {
+		nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },
+	});
+	expect(exitCode, stderr).toBe(0);
+	expect(JSON.parse(stdout)).toEqual(expect.objectContaining({ domain: repo, apiAccess: null }));
+});

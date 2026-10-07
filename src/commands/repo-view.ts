@@ -2,7 +2,7 @@ import { getCredentials } from "../auth";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { isInvalidAuthContextError } from "../lib/prismic/clients/auth";
+import { isInvalidAuthContextError } from "../lib/prismic/auth";
 import { getRepository } from "../lib/prismic/clients/repository";
 import { getRepositoryAccess } from "../lib/prismic/clients/wroom";
 import { getRepositoryName } from "../project";
@@ -56,5 +56,5 @@ export default createCommand(config, async ({ values }) => {
 	const name = repository.name || "(no name)";
 	console.info(`Name: ${name}`);
 	console.info(`URL: ${url}`);
-	if (access) console.info(`Content API: ${access}`);
+	console.info(`Content API: ${access ?? "(unavailable)"}`);
 });

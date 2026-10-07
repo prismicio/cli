@@ -6,7 +6,7 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { isInvalidAuthContextError } from "../lib/prismic/clients/auth";
+import { isInvalidAuthContextError } from "../lib/prismic/auth";
 import { getDocumentTotalByCustomTypes } from "../lib/prismic/clients/core";
 import {
 	type BulkChange,
