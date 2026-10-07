@@ -1,6 +1,7 @@
 import { dedent } from "../string";
 import { type Environment, getEnvironments } from "./clients/core";
 import { getProfile } from "./clients/user";
+import { readWriteApiToken } from "./write-api-token";
 
 export async function getUserEnvironments(config: {
 	repo: string;
@@ -8,16 +9,22 @@ export async function getUserEnvironments(config: {
 	host: string;
 }): Promise<Environment[]> {
 	const { repo, token, host } = config;
+	// A Write API token has no user id. The environment is the token's domain.
+	const writeApiToken = readWriteApiToken(token);
+	if (writeApiToken) {
+		const environments = await getEnvironments({ repo, token, host });
+		return environments.filter((environment) => environment.domain === writeApiToken.domain);
+	}
+
 	const [profile, environments] = await Promise.all([
 		getProfile({ token, host }),
 		getEnvironments({ repo, token, host }),
 	]);
-	const userEnvironments = environments.filter(
+	return environments.filter(
 		(environment) =>
 			(environment.kind === "prod" || environment.kind === "stage") &&
 			environment.users.some((user) => user.id === profile.shortId),
 	);
-	return userEnvironments;
 }
 
 export class InvalidEnvironmentError extends Error {
