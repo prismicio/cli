@@ -30,3 +30,11 @@ it("lists previews as JSON", async ({ expect, prismic, repo, token, host }) => {
 	);
 	expect(parsed).toHaveProperty("simulatorUrl");
 });
+
+it("rejects a Write API token", async ({ expect, prismic, writeToken }) => {
+	const { stderr, exitCode } = await prismic("preview", ["list"], {
+		nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },
+	});
+	expect(exitCode).not.toBe(0);
+	expect(stderr).toContain("This token cannot run administrative commands.");
+});
