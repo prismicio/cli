@@ -57,7 +57,10 @@ export default createCommand(config, async ({ values }) => {
 			validateToken(token, { host }),
 			getRemoteModels({ repo, token, host }),
 		]);
-		authenticatedAs = session.type === "USER" ? session.email : "Write API token";
+		authenticatedAs =
+			session.type === "USER"
+				? session.email
+				: `${session.appName} (Write API token for ${session.domain})`;
 		diff = diffModels(local, remote);
 	}
 

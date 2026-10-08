@@ -193,5 +193,5 @@ it("compares with remote using a Write API token", async ({
 		nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },
 	});
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("Authenticated as: Write API token");
+	expect(stdout).toContain(`(Write API token for ${repo})`);
 });
