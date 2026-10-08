@@ -105,6 +105,22 @@ export async function insertCustomType(customType: object, config: ReleaseConfig
 	if (!res.ok) throw new Error(`Failed to insert custom type: ${res.status} ${await res.text()}`);
 }
 
+export async function updateCustomType(customType: object, config: ReleaseConfig): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("customtypes/update", `https://customtypes.${host}/`);
+	if (config.releaseId) url.searchParams.set("release", config.releaseId);
+	const res = await fetch(url, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${config.token}`,
+			repository: config.repo,
+		},
+		body: JSON.stringify(customType),
+	});
+	if (!res.ok) throw new Error(`Failed to update custom type: ${res.status} ${await res.text()}`);
+}
+
 export async function deleteCustomType(customTypeId: string, config: RepoConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL(`customtypes/${customTypeId}`, `https://customtypes.${host}/`);

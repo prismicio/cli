@@ -134,12 +134,21 @@ export default createCommand(config, async ({ values }) => {
 		const remoteFingerprints = fingerprint(remote);
 		const changes = plan(localFingerprints, remoteFingerprints, session.synced);
 
+		let current = local;
 		if (changes.pull.length > 0) {
 			await adapter.writeModels(diffModels(pick(remote, changes.pull), pick(local, changes.pull)));
 			await adapter.generateTypes();
+			current = await adapter.getModels();
+			// Save the pulls before pushing, so a rejected push cannot make them look like local edits.
+			const currentFingerprints = fingerprint(current);
+			for (const id of changes.pull) {
+				if (id in currentFingerprints) session.synced[id] = currentFingerprints[id];
+				else delete session.synced[id];
+			}
+			await writeFileRecursive(sessionPath, stringify(session));
 		}
 		const pulled = changes.pull.filter((id) => id in remoteFingerprints);
-		if (pulled.length > 0) log(`↓ Pulled ${pulled.join(", ")}`);
+		if (pulled.length > 0) log(`↓ Pulled ${names(pulled)}`);
 
 		const toPush = push ? changes.push : [];
 		await writeRemoteModels(diffModels(pick(local, toPush), pick(remote, toPush)), {
@@ -149,15 +158,14 @@ export default createCommand(config, async ({ values }) => {
 			releaseId,
 		});
 		const pushed = toPush.filter((id) => id in localFingerprints);
-		if (pushed.length > 0) log(`↑ Pushed ${pushed.join(", ")}`);
+		if (pushed.length > 0) log(`↑ Pushed ${names(pushed)}`);
 
 		const deleted = [
 			...changes.pull.filter((id) => !(id in remoteFingerprints)),
 			...toPush.filter((id) => !(id in localFingerprints)),
 		];
-		if (deleted.length > 0) log(`− Deleted ${deleted.join(", ")}`);
+		if (deleted.length > 0) log(`− Deleted ${names(deleted)}`);
 
-		const current = changes.pull.length > 0 ? await adapter.getModels() : local;
 		session.synced = fingerprint(current);
 		await writeFileRecursive(sessionPath, stringify(session));
 		return current;
@@ -296,16 +304,20 @@ function plan(
 function fingerprint(models: Models): Record<string, string> {
 	const hash = (model: unknown) => createHash("sha256").update(JSON.stringify(model)).digest("hex");
 	return Object.fromEntries([
-		...models.customTypes.map((model) => [model.id, hash(canonicalizeCustomType(model))]),
-		...models.slices.map((model) => [model.id, hash(canonicalizeSlice(model))]),
+		...models.customTypes.map((model) => [`type:${model.id}`, hash(canonicalizeCustomType(model))]),
+		...models.slices.map((model) => [`slice:${model.id}`, hash(canonicalizeSlice(model))]),
 	]);
 }
 
-function pick(models: Models, ids: string[]): Models {
+function pick(models: Models, keys: string[]): Models {
 	return {
-		customTypes: models.customTypes.filter((model) => ids.includes(model.id)),
-		slices: models.slices.filter((model) => ids.includes(model.id)),
+		customTypes: models.customTypes.filter((model) => keys.includes(`type:${model.id}`)),
+		slices: models.slices.filter((model) => keys.includes(`slice:${model.id}`)),
 	};
+}
+
+function names(keys: string[]): string {
+	return keys.map((key) => key.slice(key.indexOf(":") + 1)).join(", ");
 }
 
 function log(message: string, write = console.info): void {

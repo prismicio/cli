@@ -15,7 +15,7 @@ import {
 	writeLocalCustomType,
 	writeLocalSlice,
 } from "./it";
-import { getCustomTypes, getSlices, insertCustomType } from "./prismic";
+import { getCustomTypes, getSlices, insertCustomType, updateCustomType } from "./prismic";
 
 // These tests need hidden releases (Wroom) and release-scoped models (Custom
 // Types API) on the host the tests target.
@@ -89,6 +89,26 @@ it("fails to continue without a session", async ({ expect, prismic }) => {
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("no session to continue");
 });
+
+it("syncs a type and a slice with the same ID", async ({
+	expect,
+	prismic,
+	project,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType();
+	await writeLocalCustomType(project, customType);
+	await writeLocalSlice(project, buildSlice({ id: customType.id }));
+
+	const { output, releaseId } = await startSession(prismic, expect);
+
+	await writeLocalCustomType(project, { ...customType, label: "Edited" });
+	await expect.poll(output, { timeout: 30_000 }).toContain(`Pushed ${customType.id}`);
+	const releaseTypes = await getCustomTypes({ repo, token, host, releaseId });
+	expect(releaseTypes.find((m) => m.id === customType.id)?.label).toBe("Edited");
+}, 60_000);
 
 it("sends local changes as soon as they are saved", async ({
 	expect,
@@ -197,8 +217,14 @@ describe("with an isolated repository", () => {
 
 		const builderType = buildCustomType();
 		await insertCustomType(builderType, { repo, token, host, releaseId });
-		await expect.poll(output, { timeout: 30_000 }).toContain("Pulled");
-	}, 60_000);
+		await expect.poll(output, { timeout: 30_000 }).toContain(`Pulled ${builderType.id}`);
+
+		const editedType = { ...builderType, label: "Edited" };
+		await updateCustomType(editedType, { repo, token, host, releaseId });
+		await expect
+			.poll(() => readLocalCustomType(project, builderType.id), { timeout: 30_000 })
+			.toMatchObject(editedType);
+	}, 90_000);
 });
 
 async function startSession(
