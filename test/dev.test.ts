@@ -75,6 +75,28 @@ it("continues a crashed session with unpulled changes", async ({
 	expect(await readLocalCustomType(project, builderType.id)).toMatchObject(builderType);
 }, 90_000);
 
+it("asks to continue when a model changed in both places", async ({
+	expect,
+	prismic,
+	project,
+	repo,
+	token,
+	host,
+}) => {
+	const customType = buildCustomType();
+	await writeLocalCustomType(project, customType);
+	const releaseId = await startAndCrash(prismic, expect);
+	await writeLocalCustomType(project, { ...customType, label: "Local" });
+	await updateCustomType(
+		{ ...customType, label: "Type Builder" },
+		{ repo, token, host, releaseId },
+	);
+
+	const restart = await prismic("dev");
+	expect(restart.exitCode).toBe(1);
+	expect(restart.stderr).toContain("prismic dev --continue");
+}, 90_000);
+
 it("discards a crashed session with --new", async ({ expect, prismic, repo, token, host }) => {
 	const releaseId = await startAndCrash(prismic, expect);
 	await insertCustomType(buildCustomType(), { repo, token, host, releaseId });
