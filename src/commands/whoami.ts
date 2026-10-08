@@ -1,6 +1,6 @@
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { getProfile } from "../lib/prismic/clients/user";
+import { validateToken } from "../lib/prismic/clients/auth";
 
 const config = {
 	name: "prismic whoami",
@@ -9,7 +9,11 @@ const config = {
 
 export default createCommand(config, async () => {
 	const { token, host } = await getCredentials();
-	const profile = await getProfile({ token, host });
+	const session = await validateToken(token, { host });
 
-	console.info(profile.email);
+	if (session.type === "Machine2Machine") {
+		console.info(`${session.appName} (Write API token for ${session.domain})`);
+		return;
+	}
+	console.info(session.email);
 });

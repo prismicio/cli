@@ -1,6 +1,6 @@
 import { dedent } from "../string";
+import { validateToken } from "./clients/auth";
 import { type Environment, getEnvironments } from "./clients/core";
-import { getProfile } from "./clients/user";
 
 export async function getUserEnvironments(config: {
 	repo: string;
@@ -8,16 +8,18 @@ export async function getUserEnvironments(config: {
 	host: string;
 }): Promise<Environment[]> {
 	const { repo, token, host } = config;
-	const [profile, environments] = await Promise.all([
-		getProfile({ token, host }),
+	const [session, environments] = await Promise.all([
+		validateToken(token, { host }),
 		getEnvironments({ repo, token, host }),
 	]);
-	const userEnvironments = environments.filter(
+	if (session.type === "Machine2Machine") {
+		return environments.filter((environment) => environment.domain === session.domain);
+	}
+	return environments.filter(
 		(environment) =>
 			(environment.kind === "prod" || environment.kind === "stage") &&
-			environment.users.some((user) => user.id === profile.shortId),
+			environment.users.some((user) => user.id === session.shortId),
 	);
-	return userEnvironments;
 }
 
 export class InvalidEnvironmentError extends Error {

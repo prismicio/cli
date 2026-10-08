@@ -9,7 +9,13 @@ import type { Result } from "tinyexec";
 import { x } from "tinyexec";
 import { inject, test } from "vitest";
 
-import { createRepository, deleteRepository, upsertLocale } from "./prismic";
+import {
+	createRepository,
+	createWriteToken,
+	deleteRepository,
+	deleteWriteToken,
+	upsertLocale,
+} from "./prismic";
 
 const BIN = fileURLToPath(new URL("../dist/index.mjs", import.meta.url));
 
@@ -42,6 +48,7 @@ export type Fixtures = {
 	 */
 	isolateRepo: boolean;
 	repo: string;
+	writeToken: string;
 };
 
 export const it = test.extend<Fixtures>({
@@ -181,6 +188,11 @@ export const it = test.extend<Fixtures>({
 		await upsertLocale("en-us", { isMaster: true, repo, token, host });
 		await use(repo);
 		await deleteRepository(repo, { token, password, host });
+	},
+	writeToken: async ({ repo, token, host }, use) => {
+		const { token: writeToken } = await createWriteToken({ repo, token, host });
+		await use(writeToken);
+		await deleteWriteToken(writeToken, { repo, token, host });
 	},
 });
 
