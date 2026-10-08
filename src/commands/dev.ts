@@ -91,12 +91,22 @@ export default createCommand(config, async ({ values }) => {
 				token,
 				host,
 				releaseId: previous.releaseId,
-			}).catch(() => {});
-			const local = await adapter.getModels();
-			if (
-				remote &&
-				plan(fingerprint(local), fingerprint(remote), previous.synced).pull.length > 0
-			) {
+			}).catch((error) => {
+				// A deleted release has nothing left to pull.
+				if (error instanceof NotFoundRequestError) return;
+				throw toCommandError(error);
+			});
+			const local = fingerprint(await adapter.getModels());
+			const remoteFingerprints = remote && fingerprint(remote);
+			// Any Type Builder change counts, including one to a model also edited locally.
+			const unpulled =
+				remoteFingerprints &&
+				Object.keys({ ...remoteFingerprints, ...previous.synced }).some(
+					(key) =>
+						remoteFingerprints[key] !== previous.synced[key] &&
+						remoteFingerprints[key] !== local[key],
+				);
+			if (unpulled) {
 				throw new CommandError(
 					"Your last session has Type Builder changes that were not pulled.\nRun `prismic dev --continue` to continue the session, or `prismic dev --new` to start a new one without them.",
 				);
