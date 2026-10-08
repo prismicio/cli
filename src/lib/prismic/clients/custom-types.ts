@@ -10,6 +10,7 @@ export type CustomTypesConfig = {
 	repo: string;
 	token: string | undefined;
 	host: string;
+	releaseId?: string;
 };
 
 export function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
@@ -120,6 +121,7 @@ function customTypesServiceRequest<T>(
 	config: CustomTypesConfig,
 	options: RequestOptions<T> = {},
 ): Promise<T> {
+	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	return request(url, {
 		headers: {
 			repository: config.repo,
