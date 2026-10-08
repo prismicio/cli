@@ -141,6 +141,7 @@ export async function deleteRelease(id: string, config: CoreConfig): Promise<voi
 	const url = new URL(`core/releases/${encodeURIComponent(id)}`, getCoreServiceUrl(repo, host));
 	await coreServiceRequest(url, config, {
 		method: "DELETE",
+		notFoundMessage: `Release not found: ${id}`,
 		unknownErrorMessage: "Failed to delete the release",
 	});
 }
