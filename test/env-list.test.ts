@@ -12,3 +12,11 @@ it("lists environments including production", async ({ expect, prismic, repo }) 
 	expect(stdout).toContain(repo);
 	expect(stdout).toContain("prod");
 });
+
+it("lists environments with a Write API token", async ({ expect, prismic, repo, writeToken }) => {
+	const { stdout, stderr, exitCode } = await prismic("env", ["list"], {
+		nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },
+	});
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(repo);
+});

@@ -1,5 +1,6 @@
 import { getCredentials } from "./auth";
 import { env } from "./env";
+import { isInvalidAuthContextError } from "./lib/prismic/auth";
 import {
 	BadRequestError,
 	ForbiddenRequestError,
@@ -15,6 +16,9 @@ export async function getErrorMessage(error: unknown): Promise<string | undefine
 			return "Not logged in. Run `prismic login` first.";
 		}
 		if (env.PRISMIC_TOKEN) {
+			if (isInvalidAuthContextError(error)) {
+				return "This token cannot run administrative commands. Unset PRISMIC_TOKEN and run `prismic login`.";
+			}
 			return "PRISMIC_TOKEN is invalid or expired, or doesn't have access to this repository. Unset it to log in with a browser, or replace it with a valid token.";
 		}
 		if (error instanceof UnauthorizedRequestError) {
