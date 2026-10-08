@@ -121,6 +121,31 @@ export async function getDocumentTotalByCustomTypes(
 	return response.total;
 }
 
+export async function createRelease(
+	release: { label: string; hidden?: boolean },
+	config: CoreConfig,
+): Promise<string> {
+	const { repo, host } = config;
+	const url = new URL("core/releases", getCoreServiceUrl(repo, host));
+	const response = await coreServiceRequest(url, config, {
+		method: "POST",
+		json: release,
+		schema: z.looseObject({ id: z.string() }),
+		unknownErrorMessage: "Failed to create a release",
+	});
+	return response.id;
+}
+
+export async function deleteRelease(id: string, config: CoreConfig): Promise<void> {
+	const { repo, host } = config;
+	const url = new URL(`core/releases/${encodeURIComponent(id)}`, getCoreServiceUrl(repo, host));
+	await coreServiceRequest(url, config, {
+		method: "DELETE",
+		notFoundMessage: `Release not found: ${id}`,
+		unknownErrorMessage: "Failed to delete the release",
+	});
+}
+
 function coreServiceRequest<T>(
 	url: URL,
 	config: CoreConfig,

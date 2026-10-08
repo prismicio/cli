@@ -1,5 +1,8 @@
+import { existsSync, watch } from "node:fs";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { relative } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseEnv } from "node:util";
 
 import * as z from "zod/mini";
@@ -44,6 +47,25 @@ export async function exists(path: URL): Promise<boolean> {
 	}
 }
 
+export function watchFiles(
+	paths: URL[],
+	signal: AbortSignal,
+): (timeoutMs: number) => Promise<void> {
+	let change = Promise.withResolvers<void>();
+	let debounce: NodeJS.Timeout | undefined;
+	for (const path of paths) {
+		if (!existsSync(path)) continue;
+		watch(path, { recursive: true, signal }, () => {
+			clearTimeout(debounce);
+			debounce = setTimeout(() => change.resolve(), 100);
+		}).on("error", () => {});
+	}
+	return async (timeoutMs) => {
+		await Promise.race([change.promise, sleep(timeoutMs, undefined, { signal })]).catch(() => {});
+		change = Promise.withResolvers<void>();
+	};
+}
+
 export async function writeFileRecursive(
 	path: URL,
 	data: Parameters<typeof writeFile>[1],
@@ -59,9 +81,16 @@ export async function readJsonFile<T = unknown>(
 ): Promise<T> {
 	const { schema } = options;
 	const file = await readFile(path, "utf8");
-	const json = JSON.parse(file);
+	let json: unknown;
+	try {
+		json = JSON.parse(file);
+	} catch (cause) {
+		throw new SyntaxError(`${relative(process.cwd(), fileURLToPath(path))} is not valid JSON.`, {
+			cause,
+		});
+	}
 	if (schema) return z.parse(schema, json);
-	return json;
+	return json as T;
 }
 
 const MIME_TYPES: Record<string, string> = {
