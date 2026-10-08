@@ -17,9 +17,6 @@ import {
 } from "./it";
 import { getCustomTypes, getSlices, insertCustomType, updateCustomType } from "./prismic";
 
-// These tests need hidden releases (Wroom) and release-scoped models (Custom
-// Types API) on the host the tests target.
-
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("dev", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
