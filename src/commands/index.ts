@@ -83,6 +83,7 @@ export default createCommandRouter({
 		dev: {
 			handler: dev,
 			description: "Edit local models visually in the Type Builder",
+			hidden: true,
 		},
 		status: {
 			handler: status,
