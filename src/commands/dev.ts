@@ -107,7 +107,13 @@ export default createCommand(config, async ({ values }) => {
 		session = await createSession({ repo, token, host });
 	}
 	const release = { repo, token, host, releaseId: session.releaseId };
-	const sync = (push = true) => syncModels(adapter, release, session, sessionPath, push);
+	const sync = (push = true) =>
+		syncModels(adapter, release, session, sessionPath, {
+			push,
+			onPull: (ids) => log(`↓ Pulled ${names(ids)}`),
+			onPush: (ids) => log(`↑ Pushed ${names(ids)}`),
+			onDelete: (ids) => log(`− Deleted ${names(ids)}`),
+		});
 
 	const end = async (): Promise<boolean> => {
 		try {
@@ -132,8 +138,37 @@ export default createCommand(config, async ({ values }) => {
 		const models = continueSession
 			? await sync()
 			: await seedRelease(adapter, release, session, sessionPath);
-		announce(models, release, { noBrowser });
-		await syncUntilStopped(sync, waitForChange, stopping.signal);
+		const types = models.customTypes.length;
+		const slices = models.slices.length;
+		console.info(
+			`Ready. Loaded ${types} ${types === 1 ? "type" : "types"} and ${slices} ${slices === 1 ? "slice" : "slices"} from your project.\n`,
+		);
+
+		const url = new URL("builder/types", `https://${repo}.${host}/`);
+		url.searchParams.set("r", release.releaseId);
+		console.info(`Type Builder: ${url}`);
+		if (noBrowser) {
+			console.info("Open the URL above to start editing. Changes sync both ways while this runs.");
+		} else {
+			openBrowser(url);
+			console.info("Opened in your browser. Changes sync both ways while this runs.");
+		}
+		console.info("Press Ctrl+C to end the session.\n");
+
+		let lastError: string | undefined;
+		const logError = (message: string) => {
+			if (message !== lastError) log(`! ${message}`, console.error);
+			lastError = message;
+		};
+		await syncUntilStopped(sync, waitForChange, stopping.signal, {
+			onSync: () => {
+				lastError = undefined;
+			},
+			onRecover: () => log("Back in sync."),
+			onUnreachable: () => logError("Cannot reach Prismic. Retrying..."),
+			onError: async (error) =>
+				logError((await getErrorMessage(explainRequestError(error))) ?? "Unknown error"),
+		});
 	} catch (error) {
 		stopping.abort();
 		throw await handleFailure(error, end);
@@ -213,8 +248,14 @@ async function syncModels(
 	release: Release,
 	session: Session,
 	sessionPath: URL,
-	push: boolean,
+	options: {
+		push: boolean;
+		onPull: (ids: string[]) => void;
+		onPush: (ids: string[]) => void;
+		onDelete: (ids: string[]) => void;
+	},
 ): Promise<Models> {
+	const { push, onPull, onPush, onDelete } = options;
 	const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
 	const localFingerprints = fingerprint(local);
 	const remoteFingerprints = fingerprint(remote);
@@ -234,58 +275,45 @@ async function syncModels(
 		await writeFileRecursive(sessionPath, stringify(session));
 	}
 	const pulled = changes.pull.filter((id) => id in remoteFingerprints);
-	if (pulled.length > 0) log(`↓ Pulled ${names(pulled)}`);
+	if (pulled.length > 0) onPull(pulled);
 
 	const toPush = push ? changes.push : [];
 	await writeRemoteModels(diffModels(pick(local, toPush), pick(remote, toPush)), release);
 	const pushed = toPush.filter((id) => id in localFingerprints);
-	if (pushed.length > 0) log(`↑ Pushed ${names(pushed)}`);
+	if (pushed.length > 0) onPush(pushed);
 
 	const deleted = [
 		...changes.pull.filter((id) => !(id in remoteFingerprints)),
 		...toPush.filter((id) => !(id in localFingerprints)),
 	];
-	if (deleted.length > 0) log(`− Deleted ${names(deleted)}`);
+	if (deleted.length > 0) onDelete(deleted);
 
 	session.synced = fingerprint(current);
 	await writeFileRecursive(sessionPath, stringify(session));
 	return current;
 }
 
-function announce(models: Models, release: Release, options: { noBrowser?: boolean }): void {
-	const types = models.customTypes.length;
-	const slices = models.slices.length;
-	console.info(
-		`Ready. Loaded ${types} ${types === 1 ? "type" : "types"} and ${slices} ${slices === 1 ? "slice" : "slices"} from your project.\n`,
-	);
-
-	const url = new URL("builder/types", `https://${release.repo}.${release.host}/`);
-	url.searchParams.set("r", release.releaseId);
-	console.info(`Type Builder: ${url}`);
-	if (options.noBrowser) {
-		console.info("Open the URL above to start editing. Changes sync both ways while this runs.");
-	} else {
-		openBrowser(url);
-		console.info("Opened in your browser. Changes sync both ways while this runs.");
-	}
-	console.info("Press Ctrl+C to end the session.\n");
-}
-
 async function syncUntilStopped(
 	sync: () => Promise<unknown>,
 	waitForChange: (timeoutMs: number) => Promise<void>,
 	signal: AbortSignal,
+	callbacks: {
+		onSync: () => void;
+		onRecover: () => void;
+		onUnreachable: () => void;
+		onError: (error: unknown) => Promise<void>;
+	},
 ): Promise<void> {
+	const { onSync, onRecover, onUnreachable, onError } = callbacks;
 	let failures = 0;
-	let lastError: string | undefined;
 	while (true) {
 		await waitForChange(POLL_INTERVAL_MS);
 		if (signal.aborted) return;
 		try {
 			await sync();
-			if (failures >= 6) log("Back in sync.");
+			if (failures >= 6) onRecover();
 			failures = 0;
-			lastError = undefined;
+			onSync();
 		} catch (error) {
 			if (
 				error instanceof UnauthorizedRequestError ||
@@ -299,11 +327,8 @@ async function syncUntilStopped(
 					? error.status >= 500 || error.status === 429
 					: error instanceof TypeError && error.message === "fetch failed";
 			if (temporary && ++failures < 6) continue;
-			const message = temporary
-				? "Cannot reach Prismic. Retrying..."
-				: ((await getErrorMessage(explainRequestError(error))) ?? "Unknown error");
-			if (message !== lastError) log(`! ${message}`, console.error);
-			lastError = message;
+			if (temporary) onUnreachable();
+			else await onError(error);
 		}
 	}
 }
