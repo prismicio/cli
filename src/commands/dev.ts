@@ -70,7 +70,7 @@ export default createCommand(config, async ({ values }) => {
 	const { token, host } = await getCredentials();
 
 	const sessionPath = await getSessionPath();
-	const previous = await readJsonFile(sessionPath, { schema: SessionSchema }).catch(() => {});
+	const previous = await readSession(sessionPath);
 	if (previous && isRunning(previous.pid)) {
 		throw new CommandError(
 			`A session is already running for this project. Press Ctrl+C in its terminal to end it, or run \`kill ${previous.pid}\`.`,
@@ -187,6 +187,14 @@ async function getSessionPath(): Promise<URL> {
 	return new URL(`dev/${projectHash}.json`, CONFIG_DIR);
 }
 
+async function readSession(sessionPath: URL): Promise<Session | undefined> {
+	return readJsonFile(sessionPath, { schema: SessionSchema }).catch(() => undefined);
+}
+
+async function saveSession(sessionPath: URL, session: Session): Promise<void> {
+	await writeFileRecursive(sessionPath, stringify(session));
+}
+
 async function createSession({ repo, token, host }: CustomTypesConfig): Promise<Session> {
 	const releaseId = await createRelease(
 		{ label: "prismic dev", hidden: true },
@@ -243,7 +251,7 @@ async function seedRelease(
 	const remote = await getRemoteModels(release);
 	await writeRemoteModels(diffModels(local, remote), release);
 	session.synced = fingerprint(local);
-	await writeFileRecursive(sessionPath, stringify(session));
+	await saveSession(sessionPath, session);
 	return local;
 }
 
@@ -276,7 +284,7 @@ async function syncModels(
 			if (id in currentFingerprints) session.synced[id] = currentFingerprints[id];
 			else delete session.synced[id];
 		}
-		await writeFileRecursive(sessionPath, stringify(session));
+		await saveSession(sessionPath, session);
 	}
 	const pulled = changes.pull.filter((id) => id in remoteFingerprints);
 	if (pulled.length > 0) onPull(pulled);
@@ -293,7 +301,7 @@ async function syncModels(
 	if (deleted.length > 0) onDelete(deleted);
 
 	session.synced = fingerprint(current);
-	await writeFileRecursive(sessionPath, stringify(session));
+	await saveSession(sessionPath, session);
 	return current;
 }
 
