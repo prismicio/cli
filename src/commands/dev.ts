@@ -118,8 +118,7 @@ export default createCommand(config, async ({ values }) => {
 	const end = async (): Promise<boolean> => {
 		try {
 			await sync(false);
-			await deleteRelease(release.releaseId, { repo, token, host });
-			await rm(sessionPath, { force: true });
+			await endSession(release, sessionPath);
 			return true;
 		} catch (error) {
 			console.error(
@@ -196,6 +195,11 @@ async function createSession({ repo, token, host }: CustomTypesConfig): Promise<
 		throw explainRequestError(error);
 	});
 	return { repo, releaseId, pid: process.pid, synced: {} };
+}
+
+async function endSession({ releaseId, ...config }: Release, sessionPath: URL): Promise<void> {
+	await deleteRelease(releaseId, config);
+	await rm(sessionPath, { force: true });
 }
 
 async function hasUnpulledChanges(
