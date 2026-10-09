@@ -104,17 +104,7 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Continuing your session for ${repo}...`);
 	} else {
 		console.info(`Preparing your session for ${repo}...`);
-		session = {
-			repo,
-			releaseId: await createRelease(
-				{ label: "prismic dev", hidden: true },
-				{ repo, token, host },
-			).catch((error) => {
-				throw toCommandError(error);
-			}),
-			pid: process.pid,
-			synced: {},
-		};
+		session = await createSession({ repo, token, host });
 	}
 	const release = { repo, token, host, releaseId: session.releaseId };
 	const sync = (push = true) => syncModels(adapter, release, session, sessionPath, push);
@@ -161,6 +151,16 @@ async function getSessionPath(): Promise<URL> {
 		.update(fileURLToPath(await findProjectRoot()))
 		.digest("hex");
 	return new URL(`dev/${projectHash}.json`, CONFIG_DIR);
+}
+
+async function createSession({ repo, token, host }: CustomTypesConfig): Promise<Session> {
+	const releaseId = await createRelease(
+		{ label: "prismic dev", hidden: true },
+		{ repo, token, host },
+	).catch((error) => {
+		throw toCommandError(error);
+	});
+	return { repo, releaseId, pid: process.pid, synced: {} };
 }
 
 async function hasUnpulledChanges(
