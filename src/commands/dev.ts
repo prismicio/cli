@@ -70,36 +70,15 @@ export default createCommand(config, async ({ values }) => {
 	const { token, host } = await getCredentials();
 
 	const sessionPath = await getSessionPath();
-	const previous = await readSession(sessionPath);
-	if (previous && isRunning(previous.pid)) {
-		throw new CommandError(
-			`A session is already running for this project. Press Ctrl+C in its terminal to end it, or run \`kill ${previous.pid}\`.`,
-		);
-	}
-	if (continueSession && !previous) {
-		throw new CommandError(
-			"There is no session to continue. Run `prismic dev` to start a new one.",
-		);
-	}
-
-	if (previous && !continueSession) {
-		if (!newSession) {
-			const unpulled = await hasUnpulledChanges(
-				adapter,
-				{ repo: previous.repo, token, host, releaseId: previous.releaseId },
-				previous.synced,
-			);
-			if (unpulled) {
-				throw new CommandError(
-					"Your last session has Type Builder changes that were not pulled.\nRun `prismic dev --continue` to continue the session, or `prismic dev --new` to start a new one without them.",
-				);
-			}
-		}
-		await deleteRelease(previous.releaseId, { repo: previous.repo, token, host }).catch(() => {});
-	}
+	const previous = await resolvePreviousSession(adapter, sessionPath, {
+		token,
+		host,
+		continueSession,
+		newSession,
+	});
 
 	let session: Session;
-	if (previous && continueSession) {
+	if (previous) {
 		session = { ...previous, pid: process.pid };
 		console.info(`Continuing your session for ${repo}...`);
 	} else {
@@ -208,6 +187,48 @@ async function createSession({ repo, token, host }: CustomTypesConfig): Promise<
 async function endSession({ releaseId, ...config }: Release, sessionPath: URL): Promise<void> {
 	await deleteRelease(releaseId, config);
 	await rm(sessionPath, { force: true });
+}
+
+async function resolvePreviousSession(
+	adapter: Adapter,
+	sessionPath: URL,
+	options: {
+		token: string | undefined;
+		host: string;
+		continueSession?: boolean;
+		newSession?: boolean;
+	},
+): Promise<Session | undefined> {
+	const { token, host, continueSession, newSession } = options;
+	const previous = await readSession(sessionPath);
+	if (previous && isRunning(previous.pid)) {
+		throw new CommandError(
+			`A session is already running for this project. Press Ctrl+C in its terminal to end it, or run \`kill ${previous.pid}\`.`,
+		);
+	}
+	if (continueSession) {
+		if (!previous) {
+			throw new CommandError(
+				"There is no session to continue. Run `prismic dev` to start a new one.",
+			);
+		}
+		return previous;
+	}
+	if (!previous) return;
+
+	if (!newSession) {
+		const unpulled = await hasUnpulledChanges(
+			adapter,
+			{ repo: previous.repo, token, host, releaseId: previous.releaseId },
+			previous.synced,
+		);
+		if (unpulled) {
+			throw new CommandError(
+				"Your last session has Type Builder changes that were not pulled.\nRun `prismic dev --continue` to continue the session, or `prismic dev --new` to start a new one without them.",
+			);
+		}
+	}
+	await deleteRelease(previous.releaseId, { repo: previous.repo, token, host }).catch(() => {});
 }
 
 async function hasUnpulledChanges(
