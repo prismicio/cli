@@ -69,10 +69,7 @@ export default createCommand(config, async ({ values }) => {
 	} = values;
 	const { token, host } = await getCredentials();
 
-	const projectHash = createHash("sha256")
-		.update(fileURLToPath(await findProjectRoot()))
-		.digest("hex");
-	const sessionPath = new URL(`dev/${projectHash}.json`, CONFIG_DIR);
+	const sessionPath = await getSessionPath();
 	const previous = await readJsonFile(sessionPath, { schema: SessionSchema }).catch(() => {});
 	if (previous && isRunning(previous.pid)) {
 		throw new CommandError(
@@ -158,6 +155,13 @@ export default createCommand(config, async ({ values }) => {
 
 type Session = z.infer<typeof SessionSchema>;
 type Release = CustomTypesConfig & { releaseId: string };
+
+async function getSessionPath(): Promise<URL> {
+	const projectHash = createHash("sha256")
+		.update(fileURLToPath(await findProjectRoot()))
+		.digest("hex");
+	return new URL(`dev/${projectHash}.json`, CONFIG_DIR);
+}
 
 async function hasUnpulledChanges(
 	adapter: Adapter,
