@@ -158,7 +158,7 @@ async function createSession({ repo, token, host }: CustomTypesConfig): Promise<
 		{ label: "prismic dev", hidden: true },
 		{ repo, token, host },
 	).catch((error) => {
-		throw toCommandError(error);
+		throw explainRequestError(error);
 	});
 	return { repo, releaseId, pid: process.pid, synced: {} };
 }
@@ -171,7 +171,7 @@ async function hasUnpulledChanges(
 	const remote = await getRemoteModels(release).catch((error) => {
 		// A deleted release has nothing left to pull.
 		if (error instanceof NotFoundRequestError) return;
-		throw toCommandError(error);
+		throw explainRequestError(error);
 	});
 	const local = fingerprint(await adapter.getModels());
 	if (!remote) return false;
@@ -301,7 +301,7 @@ async function syncUntilStopped(
 			if (temporary && ++failures < 6) continue;
 			const message = temporary
 				? "Cannot reach Prismic. Retrying..."
-				: ((await getErrorMessage(toCommandError(error))) ?? "Unknown error");
+				: ((await getErrorMessage(explainRequestError(error))) ?? "Unknown error");
 			if (message !== lastError) log(`! ${message}`, console.error);
 			lastError = message;
 		}
@@ -318,7 +318,7 @@ async function handleFailure(error: unknown, end: () => Promise<boolean>): Promi
 		return new CommandError("The session ended. Run `prismic dev` to start a new one.");
 	}
 	if (!(error instanceof ForbiddenRequestError)) await end();
-	return toCommandError(error);
+	return explainRequestError(error);
 }
 
 function plan(
@@ -375,7 +375,7 @@ function isRunning(pid: number): boolean {
 	}
 }
 
-function toCommandError(error: unknown): unknown {
+function explainRequestError(error: unknown): unknown {
 	if (!(error instanceof RequestError)) return error;
 	switch (z.safeParse(z.object({ error: z.string() }), error.body).data?.error) {
 		case "missing_right":
