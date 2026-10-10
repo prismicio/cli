@@ -1,5 +1,6 @@
 import { detectAgent } from "../lib/ai";
 import { createCommandRouter } from "../lib/command";
+import dev from "./dev";
 import docs from "./docs";
 import env from "./env";
 import field from "./field";
@@ -78,6 +79,11 @@ export default createCommandRouter({
 		sync: {
 			handler: sync,
 			description: "Sync types and slices from Prismic",
+		},
+		dev: {
+			handler: dev,
+			description: "Edit local models visually in the Type Builder",
+			hidden: true,
 		},
 		status: {
 			handler: status,

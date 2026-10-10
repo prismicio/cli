@@ -5,6 +5,7 @@ const DEFAULT_HOST = "prismic.io";
 type HostConfig = { host?: string };
 type AuthConfig = { token: string; host?: string };
 type RepoConfig = { repo: string; token: string; host?: string };
+type ReleaseConfig = RepoConfig & { releaseId?: string };
 
 export async function login(email: string, password: string, config?: HostConfig): Promise<string> {
 	const host = config?.host ?? DEFAULT_HOST;
@@ -74,9 +75,10 @@ export async function deleteRepository(
 	}
 }
 
-export async function getCustomTypes(config: RepoConfig): Promise<DynamicCustomTypeModel[]> {
+export async function getCustomTypes(config: ReleaseConfig): Promise<DynamicCustomTypeModel[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("customtypes", `https://customtypes.${host}/`);
+	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	const res = await fetch(url, {
 		headers: {
 			Authorization: `Bearer ${config.token}`,
@@ -87,9 +89,10 @@ export async function getCustomTypes(config: RepoConfig): Promise<DynamicCustomT
 	return await res.json();
 }
 
-export async function insertCustomType(customType: object, config: RepoConfig): Promise<void> {
+export async function insertCustomType(customType: object, config: ReleaseConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("customtypes/insert", `https://customtypes.${host}/`);
+	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	const res = await fetch(url, {
 		method: "POST",
 		headers: {
@@ -100,6 +103,22 @@ export async function insertCustomType(customType: object, config: RepoConfig): 
 		body: JSON.stringify(customType),
 	});
 	if (!res.ok) throw new Error(`Failed to insert custom type: ${res.status} ${await res.text()}`);
+}
+
+export async function updateCustomType(customType: object, config: ReleaseConfig): Promise<void> {
+	const host = config.host ?? DEFAULT_HOST;
+	const url = new URL("customtypes/update", `https://customtypes.${host}/`);
+	if (config.releaseId) url.searchParams.set("release", config.releaseId);
+	const res = await fetch(url, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${config.token}`,
+			repository: config.repo,
+		},
+		body: JSON.stringify(customType),
+	});
+	if (!res.ok) throw new Error(`Failed to update custom type: ${res.status} ${await res.text()}`);
 }
 
 export async function deleteCustomType(customTypeId: string, config: RepoConfig): Promise<void> {
@@ -149,9 +168,10 @@ export async function createDocument(customTypeId: string, config: RepoConfig): 
 	if (!res.ok) throw new Error(`Failed to create document: ${res.status} ${await res.text()}`);
 }
 
-export async function getSlices(config: RepoConfig): Promise<SharedSliceModel[]> {
+export async function getSlices(config: ReleaseConfig): Promise<SharedSliceModel[]> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("slices", `https://customtypes.${host}/`);
+	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	const res = await fetch(url, {
 		headers: {
 			Authorization: `Bearer ${config.token}`,
