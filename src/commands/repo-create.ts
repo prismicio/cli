@@ -3,7 +3,6 @@ import { getCredentials } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { upsertLocale } from "../lib/prismic/clients/locale";
-import { activateMCP } from "../lib/prismic/clients/mcp";
 import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients/wroom";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 
@@ -86,8 +85,6 @@ export async function createRepo(config: {
 		token,
 		host,
 	}).catch(() => {});
-
-	await activateMCP({ repo: domain, token, host }).catch(() => {});
 
 	return domain;
 }
