@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.23.0](https://github.com/prismicio/cli/compare/v1.22.1...v1.23.0) (2026-10-10)
+
+
+### Features
+
+* add `prismic dev` to edit local models in the Type Builder ([#324](https://github.com/prismicio/cli/issues/324)) ([b9d3584](https://github.com/prismicio/cli/commit/b9d3584d32bad8421ee20be6b46a46ec6e221aed))
+* authenticate with a write API token ([#407](https://github.com/prismicio/cli/issues/407)) ([7175ce5](https://github.com/prismicio/cli/commit/7175ce51d67331b41e405621d31a6a54bbb2bbd0))
+
 ## [1.22.1](https://github.com/prismicio/cli/compare/v1.22.0...v1.22.1) (2026-10-05)
 
 
