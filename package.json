@@ -36,10 +36,10 @@
 		"test": "npm run lint && npm run types && npm run unit"
 	},
 	"devDependencies": {
-		"@anthropic-ai/claude-agent-sdk": "^0.3.295",
-		"@openai/codex-sdk": "^0.162.0",
+		"@anthropic-ai/claude-agent-sdk": "^0.3.296",
+		"@openai/codex-sdk": "^0.162.1",
 		"@prismicio/types-internal": "4.7.0",
-		"@types/node": "26.6.4",
+		"@types/node": "26.6.5",
 		"change-case": "5.4.4",
 		"dedent": "^1.7.2",
 		"detect-indent": "^7.0.2",
