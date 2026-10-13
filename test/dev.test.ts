@@ -187,6 +187,7 @@ describe("with an isolated repository", () => {
 
 		const { proc, output, releaseId } = await startSession(prismic, expect);
 		expect(output()).toContain(`https://${repo}.${host}/builder/types?r=`);
+		await expect.poll(output, { timeout: 30_000 }).toContain("Preview:");
 
 		const releaseTypeIds = (await getCustomTypes({ repo, token, host, releaseId })).map(
 			(m) => m.id,

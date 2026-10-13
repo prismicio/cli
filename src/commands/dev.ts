@@ -13,7 +13,13 @@ import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError, exclusiveOptions } from "../lib/command";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
-import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
+import {
+	createRelease,
+	deleteRelease,
+	getPreviews,
+	getReleasePreviewURL,
+	refreshRelease,
+} from "../lib/prismic/clients/core";
 import type { CustomTypesConfig } from "../lib/prismic/clients/custom-types";
 import {
 	canonicalizeCustomType,
@@ -41,8 +47,12 @@ const config = {
 		Type Builder changes are saved to local files, and local file changes
 		appear in the Type Builder.
 
+		The "Preview:" line opens your website with these models, and the
+		preview updates as they change.
+
 		The command runs until you stop it. Agents should run it in the
-		background and give the user the URL from its "Type Builder:" line.
+		background and give the user the URLs from its "Type Builder:" and
+		"Preview:" lines.
 
 		@experimental - This command may change or be removed in any release and does not follow semver.
 	`,
@@ -86,13 +96,32 @@ export default createCommand(config, async ({ values }) => {
 		session = await createSession({ repo, token, host });
 	}
 	const release = { repo, token, host, releaseId: session.releaseId };
-	const sync = (push = true) =>
-		syncModels(adapter, release, session, sessionPath, {
+	// The release preview only shows model changes once rebuilt. A failed rebuild stays pending and is retried on the next sync.
+	let needsRefresh = true;
+	const refresh = async () => {
+		if (!needsRefresh) return;
+		await refreshRelease(release.releaseId, release);
+		needsRefresh = false;
+	};
+	const sync = async (push = true) => {
+		const models = await syncModels(adapter, release, session, sessionPath, {
 			push,
-			onPull: (ids) => log(`↓ Pulled ${names(ids)}`),
-			onPush: (ids) => log(`↑ Pushed ${names(ids)}`),
-			onDelete: (ids) => log(`− Deleted ${names(ids)}`),
+			onPull: (ids) => {
+				needsRefresh = true;
+				log(`↓ Pulled ${names(ids)}`);
+			},
+			onPush: (ids) => {
+				needsRefresh = true;
+				log(`↑ Pushed ${names(ids)}`);
+			},
+			onDelete: (ids) => {
+				needsRefresh = true;
+				log(`− Deleted ${names(ids)}`);
+			},
 		});
+		if (push) await refresh();
+		return models;
+	};
 
 	const end = async (): Promise<boolean> => {
 		try {
@@ -116,6 +145,7 @@ export default createCommand(config, async ({ values }) => {
 		const models = continueSession
 			? await sync()
 			: await seedRelease(adapter, release, session, sessionPath);
+		await refresh().catch(() => {});
 		const types = models.customTypes.length;
 		const slices = models.slices.length;
 		console.info(
@@ -125,8 +155,11 @@ export default createCommand(config, async ({ values }) => {
 		const url = new URL("builder/types", `https://${repo}.${host}/`);
 		url.searchParams.set("r", release.releaseId);
 		console.info(`Type Builder: ${url}`);
+		await printPreviewURL(release);
 		if (noBrowser) {
-			console.info("Open the URL above to start editing. Changes sync both ways while this runs.");
+			console.info(
+				"Open the Type Builder URL above to start editing. Changes sync both ways while this runs.",
+			);
 		} else {
 			openBrowser(url);
 			console.info("Opened in your browser. Changes sync both ways while this runs.");
@@ -182,6 +215,21 @@ async function createSession({ repo, token, host }: CustomTypesConfig): Promise<
 		throw explainRequestError(error);
 	});
 	return { repo, releaseId, pid: process.pid, synced: {} };
+}
+
+async function printPreviewURL({ releaseId, ...config }: Release): Promise<void> {
+	try {
+		const [preview] = await getPreviews(config);
+		if (!preview) {
+			console.info(
+				"Preview: run `prismic preview add <url>` to preview your website with these models.",
+			);
+			return;
+		}
+		console.info(`Preview: ${await getReleasePreviewURL(releaseId, preview.id, config)}`);
+	} catch (error) {
+		console.error(`Could not create a preview link: ${await getErrorMessage(error)}`);
+	}
 }
 
 async function endSession({ releaseId, ...config }: Release, sessionPath: URL): Promise<void> {
