@@ -103,25 +103,17 @@ export default createCommand(config, async ({ values }) => {
 		await refreshRelease(release.releaseId, release);
 		needsRefresh = false;
 	};
-	const sync = async (push = true) => {
-		const models = await syncModels(adapter, release, session, sessionPath, {
-			push,
-			onPull: (ids) => {
-				needsRefresh = true;
-				log(`↓ Pulled ${names(ids)}`);
-			},
-			onPush: (ids) => {
-				needsRefresh = true;
-				log(`↑ Pushed ${names(ids)}`);
-			},
-			onDelete: (ids) => {
-				needsRefresh = true;
-				log(`− Deleted ${names(ids)}`);
-			},
-		});
-		if (push) await refresh();
-		return models;
+	const changed = (message: (ids: string[]) => string) => (ids: string[]) => {
+		needsRefresh = true;
+		log(message(ids));
 	};
+	const sync = (push = true) =>
+		syncModels(adapter, release, session, sessionPath, {
+			push,
+			onPull: changed((ids) => `↓ Pulled ${names(ids)}`),
+			onPush: changed((ids) => `↑ Pushed ${names(ids)}`),
+			onDelete: changed((ids) => `− Deleted ${names(ids)}`),
+		});
 
 	const end = async (): Promise<boolean> => {
 		try {
@@ -171,7 +163,11 @@ export default createCommand(config, async ({ values }) => {
 			if (message !== lastError) log(`! ${message}`, console.error);
 			lastError = message;
 		};
-		await syncUntilStopped(sync, waitForChange, stopping.signal, {
+		const syncAndRefresh = async () => {
+			await sync();
+			await refresh();
+		};
+		await syncUntilStopped(syncAndRefresh, waitForChange, stopping.signal, {
 			onSync: () => {
 				lastError = undefined;
 			},
@@ -221,9 +217,7 @@ async function printPreviewURL({ releaseId, ...config }: Release): Promise<void>
 	try {
 		const [preview] = await getPreviews(config);
 		if (!preview) {
-			console.info(
-				"Preview: run `prismic preview add <url>` to preview your website with these models.",
-			);
+			console.info("To preview your website with these models, run `prismic preview add <url>`.");
 			return;
 		}
 		console.info(`Preview: ${await getReleasePreviewURL(releaseId, preview.id, config)}`);

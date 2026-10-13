@@ -15,7 +15,14 @@ import {
 	writeLocalCustomType,
 	writeLocalSlice,
 } from "./it";
-import { getCustomTypes, getSlices, insertCustomType, updateCustomType } from "./prismic";
+import {
+	addPreview,
+	getCustomTypes,
+	getReleasePreviewToken,
+	getSlices,
+	insertCustomType,
+	updateCustomType,
+} from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("dev", ["--help"]);
@@ -187,7 +194,7 @@ describe("with an isolated repository", () => {
 
 		const { proc, output, releaseId } = await startSession(prismic, expect);
 		expect(output()).toContain(`https://${repo}.${host}/builder/types?r=`);
-		await expect.poll(output, { timeout: 30_000 }).toContain("Preview:");
+		await expect.poll(output, { timeout: 30_000 }).toContain("prismic preview add");
 
 		const releaseTypeIds = (await getCustomTypes({ repo, token, host, releaseId })).map(
 			(m) => m.id,
@@ -217,6 +224,31 @@ describe("with an isolated repository", () => {
 		await expect(getCustomTypes({ repo, token, host, releaseId })).rejects.toThrow();
 		expect(await readdir(new URL(".config/prismic/dev/", home))).toEqual([]);
 	}, 120_000);
+
+	it("rebuilds the release preview when a model changes", async ({
+		expect,
+		prismic,
+		project,
+		repo,
+		token,
+		host,
+	}) => {
+		await addPreview("https://example.com/api/preview", "Test", { repo, token, host });
+		const customType = buildCustomType();
+		await writeLocalCustomType(project, customType);
+
+		const { output, releaseId } = await startSession(prismic, expect);
+		await expect
+			.poll(output, { timeout: 30_000 })
+			.toContain("Preview: https://example.com/api/preview?token=");
+		const before = await getReleasePreviewToken(releaseId, { repo, token, host });
+
+		await writeLocalCustomType(project, { ...customType, label: "Edited" });
+		await expect.poll(output, { timeout: 30_000 }).toContain(`Pushed ${customType.id}`);
+		await expect
+			.poll(() => getReleasePreviewToken(releaseId, { repo, token, host }), { timeout: 30_000 })
+			.not.toBe(before);
+	}, 90_000);
 
 	it("keeps syncing after a rejected change", async ({
 		expect,
