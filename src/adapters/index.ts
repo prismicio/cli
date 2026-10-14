@@ -1,5 +1,4 @@
 import { readFile, rm } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -19,7 +18,7 @@ import {
 	writeFileRecursive,
 } from "../lib/file";
 import { stringify } from "../lib/json";
-import { findPackageJson, readPackageJson } from "../lib/packageJson";
+import { readPackageJson } from "../lib/packageJson";
 import {
 	addPreview,
 	getPreviews,
@@ -136,18 +135,6 @@ export async function writeFileIfMissing(path: URL, contents: string): Promise<v
 
 export async function getJsFileExtension(): Promise<string> {
 	return (await checkIsTypeScriptProject()) ? "ts" : "js";
-}
-
-export async function getInstalledMajor(packageName: string): Promise<number> {
-	const require = createRequire(await findPackageJson());
-	try {
-		const { version } = require(`${packageName}/package.json`);
-		const major = Number.parseInt(version.split(".")[0]);
-		return Number.isNaN(major) ? Infinity : major;
-	} catch {
-		// Not installed yet, so assume the newest major.
-		return Infinity;
-	}
 }
 
 export abstract class Adapter {
