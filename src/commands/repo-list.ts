@@ -1,7 +1,9 @@
 import { getCredentials } from "../auth";
+import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getRepositories } from "../lib/prismic/clients/legacy-user";
+import { getRepositories as getLegacyRepositories } from "../lib/prismic/clients/legacy-user";
+import { getRepositories } from "../lib/prismic/clients/user";
 import { formatTable } from "../lib/string";
 
 const config = {
@@ -17,7 +19,12 @@ export default createCommand(config, async ({ values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const repos = await getRepositories({ token, host });
+	// A saved login stays on user-service, which returns locale-scoped roles.
+	// PRISMIC_TOKEN reads GET /user/repositories. A Write API token gets the one
+	// repository that token can write to.
+	const repos = env.PRISMIC_TOKEN
+		? await getRepositories({ token, host })
+		: await getLegacyRepositories({ token, host });
 
 	if (json) {
 		console.info(
