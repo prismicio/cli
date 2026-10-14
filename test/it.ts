@@ -196,7 +196,11 @@ export const it = test.extend<Fixtures>({
 	},
 });
 
-export async function useSvelteKit(project: URL, version = "5.0.0"): Promise<void> {
+export async function useSvelteKit(
+	project: URL,
+	version = "5.0.0",
+	kitVersion?: string,
+): Promise<void> {
 	await rm(new URL("node_modules/next/", project), { recursive: true, force: true });
 	await rm(new URL("app/", project), { recursive: true, force: true });
 	await writeFile(
@@ -208,6 +212,13 @@ export async function useSvelteKit(project: URL, version = "5.0.0"): Promise<voi
 		new URL("node_modules/svelte/package.json", project),
 		JSON.stringify({ version }),
 	);
+	if (kitVersion) {
+		await mkdir(new URL("node_modules/@sveltejs/kit/", project), { recursive: true });
+		await writeFile(
+			new URL("node_modules/@sveltejs/kit/package.json", project),
+			JSON.stringify({ version: kitVersion }),
+		);
+	}
 }
 
 // Makes the package manager install fail by shadowing npm in node_modules/.bin.

@@ -9,10 +9,12 @@ import {
 	Adapter,
 	checkSourceContains,
 	getInstalledMajor,
+	getInstalledVersion,
 	getJsFileExtension,
 	type PageFile,
 	writeFileIfMissing,
 } from ".";
+import { CommandError } from "../lib/command";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
@@ -46,15 +48,33 @@ export class SvelteKitAdapter extends Adapter {
 	};
 
 	async setupProject(): Promise<void> {
+		const [svelteMajor, svelteMinor] = await getInstalledVersion("svelte");
+		// @prismicio/svelte v1 has no <SliceSimulator>, and the generated files use Svelte 5 APIs.
+		if (svelteMajor < 5) {
+			throw new CommandError(`
+				Prismic needs Svelte 5 or later, but this project uses Svelte ${svelteMajor}.
+
+				Upgrade Svelte, then run \`prismic gen setup\`.
+				See https://svelte.dev/docs/svelte/v5-migration-guide.
+			`);
+		}
+		const [kitMajor, kitMinor] = await getInstalledVersion("@sveltejs/kit");
+		// @prismicio/svelte v3 needs Svelte 5.16 or later and SvelteKit 2.27 or later.
+		const supportsV3 =
+			(svelteMajor > 5 || svelteMinor >= 16) &&
+			(kitMajor > 2 || (kitMajor === 2 && kitMinor >= 27));
+		const prismicSvelteVersion = await getNpmPackageVersion(
+			"@prismicio/svelte",
+			supportsV3 ? 3 : 2,
+		);
 		await addDependencies({
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
-			"@prismicio/svelte": `^${await getNpmPackageVersion("@prismicio/svelte")}`,
+			"@prismicio/svelte": `^${prismicSvelteVersion}`,
 		});
 
 		const projectRoot = await findProjectRoot();
 		const extension = await getJsFileExtension();
 		const typescript = await checkIsTypeScriptProject();
-		const version = await getInstalledMajor("svelte");
 
 		await writeFileIfMissing(
 			new URL(`src/lib/prismicio.${extension}`, projectRoot),
@@ -62,7 +82,9 @@ export class SvelteKitAdapter extends Adapter {
 		);
 		await writeFileIfMissing(
 			new URL("src/routes/slice-simulator/+page.svelte", projectRoot),
-			sliceSimulatorPageTemplate({ version }),
+			sliceSimulatorPageTemplate({
+				prismicSvelteMajor: Number.parseInt(prismicSvelteVersion),
+			}),
 		);
 		await writeFileIfMissing(
 			new URL(`src/params/preview.${extension}`, projectRoot),
@@ -104,7 +126,7 @@ export class SvelteKitAdapter extends Adapter {
 		if (returnsRepositoryName) {
 			await writeFileIfMissing(
 				new URL("src/routes/+layout.svelte", projectRoot),
-				rootLayoutTemplate({ version }),
+				rootLayoutTemplate(),
 			);
 		}
 		await deleteStarterHomePage();

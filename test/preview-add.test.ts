@@ -77,3 +77,21 @@ it("asks for a SvelteKit server layout when the project has none", async ({
 	expect(stdout).toContain('export const prerender = "auto";');
 	expect(stdout).toContain("return { repositoryName };");
 });
+
+it("prints Svelte 4 syntax in the instructions for a Svelte 4 project", async ({
+	expect,
+	project,
+	prismic,
+}) => {
+	await useSvelteKit(project, "4.2.19");
+	await mkdir(new URL("src/routes/", project), { recursive: true });
+	await writeFile(new URL("src/routes/+layout.svelte", project), "<slot />");
+	const previewUrl = `https://test-${crypto.randomUUID()}.example.com/api/preview`;
+
+	const { stdout, stderr, exitCode } = await prismic("preview", ["add", previewUrl]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain("+   export let data;");
+	expect(stdout).toContain("<slot />");
+	expect(stdout).not.toContain("{@render children()}");
+	expect(stdout).not.toContain("$props()");
+});

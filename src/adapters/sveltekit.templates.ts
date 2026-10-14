@@ -67,31 +67,37 @@ export function prismicIOFileTemplate({ typescript }: { typescript: boolean }): 
 	`;
 }
 
-export function sliceSimulatorPageTemplate({ version }: { version: number }): string {
-	const v5 = dedent`
+export function sliceSimulatorPageTemplate({
+	prismicSvelteMajor,
+}: {
+	prismicSvelteMajor: number;
+}): string {
+	if (prismicSvelteMajor >= 3) {
+		return dedent`
+			<script>
+				import { SliceSimulator, SliceZone } from '@prismicio/svelte';
+				import { components } from '$lib/slices';
+			</script>
+
+			<SliceSimulator>
+				{#snippet children({ slices })}
+					<SliceZone {slices} {components} />
+				{/snippet}
+			</SliceSimulator>
+		`;
+	}
+
+	// @prismicio/svelte v2 and older pass slices through a slot.
+	return dedent`
 		<script>
 			import { SliceSimulator, SliceZone } from '@prismicio/svelte';
 			import { components } from '$lib/slices';
 		</script>
 
-		<!-- Slot syntax is used for backward compatibility with Svelte <=4. -->
 		<SliceSimulator let:slices>
 			<SliceZone {slices} {components} />
 		</SliceSimulator>
 	`;
-
-	const v4 = dedent`
-		<script>
-			import { SliceSimulator, SliceZone } from '@prismicio/svelte';
-			import { components } from '$lib/slices';
-		</script>
-
-		<SliceSimulator let:slices>
-			<SliceZone {slices} {components} />
-		</SliceSimulator>
-	`;
-
-	return version <= 4 ? v4 : v5;
 }
 
 export function previewAPIRouteTemplate({ typescript }: { typescript: boolean }): string {
@@ -148,8 +154,8 @@ export function layoutServerTemplate(): string {
 	`;
 }
 
-export function rootLayoutTemplate({ version }: { version: number }): string {
-	const v5 = dedent`
+export function rootLayoutTemplate(): string {
+	return dedent`
 		<script>
 			import { isFilled, asImageSrc } from '@prismicio/client';
 			import { PrismicPreview } from '@prismicio/svelte/kit';
@@ -162,22 +168,6 @@ export function rootLayoutTemplate({ version }: { version: number }): string {
 		{@render children()}
 		<PrismicPreview repositoryName={data.repositoryName} />
 	`;
-
-	const v4 = dedent`
-		<script>
-			import { isFilled, asImageSrc } from '@prismicio/client';
-			import { PrismicPreview } from '@prismicio/svelte/kit';
-			import { page } from '$app/state';
-
-			export let data;
-		</script>
-
-		${HEAD_MARKUP}
-		<slot />
-		<PrismicPreview repositoryName={data.repositoryName} />
-	`;
-
-	return version <= 4 ? v4 : v5;
 }
 
 export function pageTemplate({ typescript }: { typescript: boolean }): string {

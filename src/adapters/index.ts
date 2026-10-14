@@ -139,14 +139,21 @@ export async function getJsFileExtension(): Promise<string> {
 }
 
 export async function getInstalledMajor(packageName: string): Promise<number> {
+	const [major] = await getInstalledVersion(packageName);
+	return major;
+}
+
+export async function getInstalledVersion(
+	packageName: string,
+): Promise<[major: number, minor: number]> {
 	const require = createRequire(await findPackageJson());
 	try {
 		const { version } = require(`${packageName}/package.json`);
-		const major = Number.parseInt(version.split(".")[0]);
-		return Number.isNaN(major) ? Infinity : major;
+		const [major, minor] = version.split(".").map((part: string) => Number.parseInt(part));
+		return Number.isNaN(major) ? [Infinity, Infinity] : [major, Number.isNaN(minor) ? 0 : minor];
 	} catch {
-		// Not installed yet, so assume the newest major.
-		return Infinity;
+		// Not installed yet, so assume the newest version.
+		return [Infinity, Infinity];
 	}
 }
 
