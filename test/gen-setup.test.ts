@@ -36,23 +36,6 @@ it("skips existing files", { timeout: 30_000 }, async ({ expect, project, prismi
 	await expect(project).toHaveFile("prismicio.js", { contains: "// custom client file" });
 });
 
-it(
-	"generates valid script tags for SvelteKit",
-	{ timeout: 30_000 },
-	async ({ expect, project, prismic }) => {
-		// A SvelteKit project generates a file with a <script> block (the simulator page).
-		await useSvelteKit(project);
-
-		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
-		expect(exitCode, stderr).toBe(0);
-
-		// The closing tag must be "</script>", not the bundler-escaped "<\/script>".
-		await expect(project).toHaveFile("src/routes/slice-simulator/+page.svelte", {
-			contains: "</script>",
-		});
-	},
-);
-
 it("skips installation with --no-install", async ({ expect, project, prismic }) => {
 	const { stderr, exitCode, stdout } = await prismic("gen", ["setup", "--no-install"]);
 	expect(exitCode, stderr).toBe(0);
@@ -166,7 +149,104 @@ it(
 		const layout = await readFile(new URL("src/routes/+layout.svelte", project), "utf8");
 		expect(layout).toContain("const { data, children } = $props();");
 		expect(layout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
-		expect(layout).not.toContain("$lib/prismicio");
+		expect(layout).not.toContain("#lib/prismicio");
+	},
+);
+
+it(
+	"generates a slice simulator page with a snippet",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		const page = await readFile(
+			new URL("src/routes/slice-simulator/+page.svelte", project),
+			"utf8",
+		);
+		// The closing tag must be "</script>", not the bundler-escaped "<\/script>".
+		expect(page).toContain("</script>");
+		expect(page).toContain("import { components } from '#lib/slices/index.js';");
+		expect(page).toContain("{#snippet children({ slices })}");
+		expect(page).not.toContain("let:slices");
+	},
+);
+
+it(
+	"declares the Prismic environment variable in a new SvelteKit env file",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		const env = await readFile(new URL("src/env.js", project), "utf8");
+		expect(env).toContain("PUBLIC_PRISMIC_ENVIRONMENT: {");
+		expect(env).toContain("public: true,");
+		const client = await readFile(new URL("src/lib/prismicio.js", project), "utf8");
+		expect(client).toContain("import { PUBLIC_PRISMIC_ENVIRONMENT } from '$app/env/public';");
+		expect(stdout).not.toContain("PUBLIC_PRISMIC_ENVIRONMENT");
+	},
+);
+
+it(
+	"asks for the Prismic environment variable in an existing SvelteKit env file",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		const env =
+			'import { defineEnvVars } from "@sveltejs/kit/env";\n' +
+			"export const variables = defineEnvVars({ API_KEY: {} });\n";
+		await mkdir(new URL("src/", project), { recursive: true });
+		await writeFile(new URL("src/env.ts", project), env);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(await readFile(new URL("src/env.ts", project), "utf8")).toBe(env);
+		await expect(project).not.toHaveFile("src/env.js");
+		expect(stdout).toContain("Action required: add PUBLIC_PRISMIC_ENVIRONMENT to src/env.ts.");
+		expect(stdout).toContain("  PUBLIC_PRISMIC_ENVIRONMENT: {");
+	},
+);
+
+it(
+	"does not ask for the Prismic environment variable when the env file declares it",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/", project), { recursive: true });
+		await writeFile(
+			new URL("src/env.js", project),
+			"export const variables = { PUBLIC_PRISMIC_ENVIRONMENT: { public: true } };\n",
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).not.toContain("PUBLIC_PRISMIC_ENVIRONMENT");
+	},
+);
+
+it(
+	"sets up a SvelteKit 2 project with @prismicio/svelte v2",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "^2.27.0");
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		const packageJson = JSON.parse(await readFile(new URL("package.json", project), "utf8"));
+		expect(packageJson.dependencies["@prismicio/svelte"]).toBe("^2");
+		await expect(project).toHaveFile("src/lib/prismicio.js", {
+			contains: "import { env } from '$env/dynamic/public';",
+		});
+		await expect(project).toHaveFile("src/routes/slice-simulator/+page.svelte", {
+			contains: "<SliceSimulator let:slices>",
+		});
+		await expect(project).toHaveFile("src/routes/+layout.server.js", {
+			contains: 'import { repositoryName } from "$lib/prismicio";',
+		});
+		await expect(project).not.toHaveFile("src/env.js");
 	},
 );
 
@@ -179,7 +259,7 @@ it(
 		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
 		const serverLayout = await readFile(new URL("src/routes/+layout.server.js", project), "utf8");
-		expect(serverLayout).toContain('import { repositoryName } from "$lib/prismicio";');
+		expect(serverLayout).toContain('import { repositoryName } from "#lib/prismicio.js";');
 		expect(serverLayout).toContain('export const prerender = "auto";');
 		expect(serverLayout).toContain("return { repositoryName };");
 	},
@@ -269,7 +349,7 @@ it(
 		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
 		await writeFile(
 			new URL("src/routes/+layout.server.js", project),
-			'import { repositoryName } from "$lib/prismicio";\nexport const load = () => ({ repositoryName });',
+			'import { repositoryName } from "#lib/prismicio.js";\nexport const load = () => ({ repositoryName });',
 		);
 
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
@@ -556,5 +636,69 @@ it(
 		expect(exitCode, stderr).toBe(0);
 		await expect(project).toHaveFile("src/routes/+page.svelte");
 		expect(stdout).not.toContain("delete src/routes/+page.svelte");
+	},
+);
+
+// SvelteKit 2 projects use their own adapter, which copies this setup logic.
+
+it(
+	"deletes the SvelteKit starter home page in a SvelteKit 2 project",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "^2.27.0");
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+page.svelte", project), SVELTEKIT_STARTER_HOME_PAGE);
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("src/routes/+page.svelte");
+	},
+);
+
+it(
+	"asks to delete a changed home page in a SvelteKit 2 project",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "^2.27.0");
+		await mkdir(new URL("src/routes/[[preview=preview]]/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+page.svelte", project), "<h1>My site</h1>\n");
+		await writeFile(new URL("src/routes/[[preview=preview]]/+page.svelte", project), "");
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("Action required: delete src/routes/+page.svelte.");
+	},
+);
+
+it(
+	"does not generate a SvelteKit 2 layout next to a server layout without the repository name",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "^2.27.0");
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(
+			new URL("src/routes/+layout.server.js", project),
+			'export const load = () => ({ user: "x" });',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("src/routes/+layout.svelte");
+		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
+		expect(stdout).toContain('import { repositoryName } from "$lib/prismicio";');
+	},
+);
+
+it(
+	"does not ask for the Prismic environment variable in a SvelteKit 2 project with its own src/env",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "^2.27.0");
+		await mkdir(new URL("src/", project), { recursive: true });
+		await writeFile(new URL("src/env.ts", project), "export const apiKey = process.env.API_KEY;\n");
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).not.toContain("PUBLIC_PRISMIC_ENVIRONMENT");
 	},
 );

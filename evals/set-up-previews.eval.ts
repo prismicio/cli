@@ -37,7 +37,7 @@ it.for(trials)(
 		await mkdir(new URL("src/routes/", project), { recursive: true });
 		await writeFile(
 			new URL("src/routes/+layout.svelte", project),
-			"<script>\n\timport favicon from '$lib/assets/favicon.svg';\n\n" +
+			"<script>\n\timport favicon from '#lib/assets/favicon.svg';\n\n" +
 				"\tlet { children } = $props();\n</script>\n\n" +
 				'<svelte:head>\n\t<link rel="icon" href={favicon} />\n</svelte:head>\n\n' +
 				"<p>KEEP-ME</p>\n{@render children()}\n",
