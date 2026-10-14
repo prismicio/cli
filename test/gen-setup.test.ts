@@ -40,17 +40,8 @@ it(
 	"generates valid script tags for SvelteKit",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
-		// Reconfigure the fixture as a SvelteKit project so a file with a <script>
-		// block is generated (the simulator page).
-		await writeFile(
-			new URL("package.json", project),
-			JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
-		);
-		await mkdir(new URL("node_modules/svelte/", project), { recursive: true });
-		await writeFile(
-			new URL("node_modules/svelte/package.json", project),
-			JSON.stringify({ version: "5.0.0" }),
-		);
+		// A SvelteKit project generates a file with a <script> block (the simulator page).
+		await useSvelteKit(project);
 
 		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
@@ -180,21 +171,6 @@ it(
 );
 
 it(
-	"passes the repository name to a Svelte 4 layout it generated itself",
-	{ timeout: 30_000 },
-	async ({ expect, project, prismic }) => {
-		await useSvelteKit(project, "4.2.19");
-
-		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
-		expect(exitCode, stderr).toBe(0);
-		const layout = await readFile(new URL("src/routes/+layout.svelte", project), "utf8");
-		expect(layout).toContain("export let data;");
-		expect(layout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
-		expect(layout).not.toContain("$lib/prismicio");
-	},
-);
-
-it(
 	"returns the repository name from a SvelteKit server layout",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
@@ -312,41 +288,6 @@ it("works when Next.js is declared but not installed", async ({ expect, project,
 
 	await expect(project).toHaveFile("app/api/revalidate/route.js");
 });
-
-it(
-	"works when Svelte is declared but not installed",
-	{ timeout: 30_000 },
-	async ({ expect, project, prismic }) => {
-		// node_modules is absent, so the Svelte version cannot be read.
-		await writeFile(
-			new URL("package.json", project),
-			JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
-		);
-		await mkdir(new URL("src/routes/", project), { recursive: true });
-		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
-
-		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
-		expect(exitCode, stderr).toBe(0);
-		expect(stdout).toContain("add <PrismicPreview> to your root layout");
-	},
-);
-
-it(
-	"prints Svelte 4 syntax in the instructions for a Svelte 4 project",
-	{ timeout: 30_000 },
-	async ({ expect, project, prismic }) => {
-		await useSvelteKit(project, "4.2.19");
-		await mkdir(new URL("src/routes/", project), { recursive: true });
-		await writeFile(new URL("src/routes/+layout.svelte", project), "<slot />");
-
-		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
-		expect(exitCode, stderr).toBe(0);
-		expect(stdout).toContain("+   export let data;");
-		expect(stdout).toContain("<slot />");
-		expect(stdout).not.toContain("{@render children()}");
-		expect(stdout).not.toContain("$props()");
-	},
-);
 
 it(
 	"prints SvelteKit instructions when the project already has a root layout",

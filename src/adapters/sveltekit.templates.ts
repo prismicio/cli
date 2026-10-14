@@ -67,20 +67,8 @@ export function prismicIOFileTemplate({ typescript }: { typescript: boolean }): 
 	`;
 }
 
-export function sliceSimulatorPageTemplate({ version }: { version: number }): string {
-	const v5 = dedent`
-		<script>
-			import { SliceSimulator, SliceZone } from '@prismicio/svelte';
-			import { components } from '$lib/slices';
-		</script>
-
-		<!-- Slot syntax is used for backward compatibility with Svelte <=4. -->
-		<SliceSimulator let:slices>
-			<SliceZone {slices} {components} />
-		</SliceSimulator>
-	`;
-
-	const v4 = dedent`
+export function sliceSimulatorPageTemplate(): string {
+	return dedent`
 		<script>
 			import { SliceSimulator, SliceZone } from '@prismicio/svelte';
 			import { components } from '$lib/slices';
@@ -90,8 +78,6 @@ export function sliceSimulatorPageTemplate({ version }: { version: number }): st
 			<SliceZone {slices} {components} />
 		</SliceSimulator>
 	`;
-
-	return version <= 4 ? v4 : v5;
 }
 
 export function previewAPIRouteTemplate({ typescript }: { typescript: boolean }): string {
@@ -122,20 +108,6 @@ export function previewAPIRouteTemplate({ typescript }: { typescript: boolean })
 	`;
 }
 
-const HEAD_MARKUP = dedent`
-	<svelte:head>
-		<title>{page.data.page?.data.meta_title}</title>
-		<meta property="og:title" content={page.data.page?.data.meta_title} />
-		{#if isFilled.keyText(page.data.page?.data.meta_description)}
-			<meta name="description" content={page.data.page.data.meta_description} />
-			<meta property="og:description" content={page.data.page.data.meta_description} />
-		{/if}
-		{#if isFilled.image(page.data.page?.data.meta_image)}
-			<meta property="og:image" content={asImageSrc(page.data.page.data.meta_image)} />
-		{/if}
-	</svelte:head>
-`;
-
 export function layoutServerTemplate(): string {
 	return dedent`
 		import { repositoryName } from "$lib/prismicio";
@@ -148,8 +120,8 @@ export function layoutServerTemplate(): string {
 	`;
 }
 
-export function rootLayoutTemplate({ version }: { version: number }): string {
-	const v5 = dedent`
+export function rootLayoutTemplate(): string {
+	return dedent`
 		<script>
 			import { isFilled, asImageSrc } from '@prismicio/client';
 			import { PrismicPreview } from '@prismicio/svelte/kit';
@@ -158,26 +130,20 @@ export function rootLayoutTemplate({ version }: { version: number }): string {
 			const { data, children } = $props();
 		</script>
 
-		${HEAD_MARKUP}
+		<svelte:head>
+			<title>{page.data.page?.data.meta_title}</title>
+			<meta property="og:title" content={page.data.page?.data.meta_title} />
+			{#if isFilled.keyText(page.data.page?.data.meta_description)}
+				<meta name="description" content={page.data.page.data.meta_description} />
+				<meta property="og:description" content={page.data.page.data.meta_description} />
+			{/if}
+			{#if isFilled.image(page.data.page?.data.meta_image)}
+				<meta property="og:image" content={asImageSrc(page.data.page.data.meta_image)} />
+			{/if}
+		</svelte:head>
 		{@render children()}
 		<PrismicPreview repositoryName={data.repositoryName} />
 	`;
-
-	const v4 = dedent`
-		<script>
-			import { isFilled, asImageSrc } from '@prismicio/client';
-			import { PrismicPreview } from '@prismicio/svelte/kit';
-			import { page } from '$app/state';
-
-			export let data;
-		</script>
-
-		${HEAD_MARKUP}
-		<slot />
-		<PrismicPreview repositoryName={data.repositoryName} />
-	`;
-
-	return version <= 4 ? v4 : v5;
 }
 
 export function pageTemplate({ typescript }: { typescript: boolean }): string {
@@ -277,31 +243,25 @@ const SLICE_MARKUP = dedent`
 </section>
 `;
 
-export function sliceTemplate({
-	name,
-	typescript,
-	version,
-}: {
-	name: string;
-	typescript: boolean;
-	version: number;
-}): string {
+export function sliceTemplate({ name, typescript }: { name: string; typescript: boolean }): string {
 	const pascalName = pascalCase(name);
 
-	const v5TS = dedent`
-		<script lang="ts">
-			import type { Content } from '@prismicio/client';
-			import type { SliceComponentProps } from '@prismicio/svelte';
+	if (typescript) {
+		return dedent`
+			<script lang="ts">
+				import type { Content } from '@prismicio/client';
+				import type { SliceComponentProps } from '@prismicio/svelte';
 
-			type Props = SliceComponentProps<Content.${pascalName}Slice>;
+				type Props = SliceComponentProps<Content.${pascalName}Slice>;
 
-			const { slice }: Props = $props();
-		</script>
+				const { slice }: Props = $props();
+			</script>
 
-		${SLICE_MARKUP}
-	`;
+			${SLICE_MARKUP}
+		`;
+	}
 
-	const v5JS = dedent`
+	return dedent`
 		<script>
 			/* @typedef {import("@prismicio/client").Content} Content */
 			/* @typedef {import("@prismicio/svelte").SliceComponentProps} SliceComponentProps */
@@ -312,29 +272,4 @@ export function sliceTemplate({
 
 		${SLICE_MARKUP}
 	`;
-
-	const v4TS = dedent`
-		<script lang="ts">
-			import type { Content } from '@prismicio/client';
-
-			export let slice: Content.${pascalName}Slice;
-		</script>
-
-		${SLICE_MARKUP}
-	`;
-
-	const v4JS = dedent`
-		<script>
-			/** @type {import("@prismicio/client").Content.${pascalName}Slice} */
-			export let slice;
-		</script>
-
-		${SLICE_MARKUP}
-	`;
-
-	if (typescript) {
-		return version <= 4 ? v4TS : v5TS;
-	}
-
-	return version <= 4 ? v4JS : v5JS;
 }
