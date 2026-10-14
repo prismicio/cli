@@ -247,7 +247,7 @@ export class SvelteKitAdapter extends Adapter {
 	}
 }
 
-async function deleteStarterHomePage(): Promise<void> {
+export async function deleteStarterHomePage(): Promise<void> {
 	const path = new URL("src/routes/+page.svelte", await findProjectRoot());
 	const contents = await readFile(path, "utf8").catch(() => undefined);
 	if (!STARTER_HOME_PAGES.includes(contents?.replace(/\s/g, "") ?? "")) return;
@@ -255,7 +255,7 @@ async function deleteStarterHomePage(): Promise<void> {
 	await rm(path);
 }
 
-async function findSourceFile(path: string): Promise<string | undefined> {
+export async function findSourceFile(path: string): Promise<string | undefined> {
 	const projectRoot = await findProjectRoot();
 	for (const extension of ["js", "ts"]) {
 		if (await exists(new URL(`${path}.${extension}`, projectRoot))) return `${path}.${extension}`;

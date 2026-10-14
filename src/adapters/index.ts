@@ -64,6 +64,10 @@ export async function getAdapter(): Promise<Adapter> {
 		return new NuxtAdapter();
 	}
 	if ("@sveltejs/kit" in allDependencies) {
+		if ((await getInstalledMajor("@sveltejs/kit")) < 3) {
+			const { SvelteKit2Adapter } = await import("./sveltekit2");
+			return new SvelteKit2Adapter();
+		}
 		const { SvelteKitAdapter } = await import("./sveltekit");
 		return new SvelteKitAdapter();
 	}

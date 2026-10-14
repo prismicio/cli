@@ -46,7 +46,9 @@ console output.
 ## `src/adapters/`
 
 Framework-specific integrations. One file per framework, with a sibling
-`*.templates.ts` file for generated file content.
+`*.templates.ts` file for generated file content. When an older framework major
+needs different generated code, it gets its own adapter that extends the current
+one, such as `sveltekit2.ts`. Delete it when support for that major ends.
 
 ## `src/subprocesses/`
 
