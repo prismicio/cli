@@ -279,11 +279,7 @@ it(
 	},
 );
 
-it("reads the Next.js version from package.json when it is not installed", async ({
-	expect,
-	project,
-	prismic,
-}) => {
+it("works when Next.js is declared but not installed", async ({ expect, project, prismic }) => {
 	await rm(new URL("node_modules/next/", project), { recursive: true });
 	await writeFile(
 		new URL("package.json", project),
