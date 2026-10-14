@@ -647,3 +647,66 @@ it(
 		expect(stdout).not.toContain("delete src/routes/+page.svelte");
 	},
 );
+
+// SvelteKit 2 projects use their own adapter, which copies this setup logic.
+
+it(
+	"deletes the SvelteKit starter home page in a SvelteKit 2 project",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "^2.27.0");
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+page.svelte", project), SVELTEKIT_STARTER_HOME_PAGE);
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("src/routes/+page.svelte");
+	},
+);
+
+it(
+	"asks to delete a changed home page in a SvelteKit 2 project",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "^2.27.0");
+		await mkdir(new URL("src/routes/[[preview=preview]]/", project), { recursive: true });
+		await writeFile(new URL("src/routes/+page.svelte", project), "<h1>My site</h1>\n");
+		await writeFile(new URL("src/routes/[[preview=preview]]/+page.svelte", project), "");
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("Action required: delete src/routes/+page.svelte.");
+	},
+);
+
+it(
+	"does not generate a SvelteKit 2 layout next to a server layout without the repository name",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "^2.27.0");
+		await mkdir(new URL("src/routes/", project), { recursive: true });
+		await writeFile(
+			new URL("src/routes/+layout.server.js", project),
+			'export const load = () => ({ user: "x" });',
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).not.toHaveFile("src/routes/+layout.svelte");
+		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
+	},
+);
+
+it(
+	"does not ask for the Prismic environment variable in a SvelteKit 2 project with its own src/env",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project, "^2.27.0");
+		await mkdir(new URL("src/", project), { recursive: true });
+		await writeFile(new URL("src/env.ts", project), "export const apiKey = process.env.API_KEY;\n");
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).not.toContain("PUBLIC_PRISMIC_ENVIRONMENT");
+	},
+);
