@@ -49,15 +49,15 @@ it("lists the one repository a Write API token can write to", async ({
 	expect(urls).not.toContain(`https://user-service.${host}/repositories`);
 });
 
-it("requests the legacy user service when signed in", async ({ expect, prismic, host, home }) => {
+it("requests the user API when signed in", async ({ expect, prismic, host, home }) => {
 	const fetches = await recordFetches(home);
 	const { stderr, exitCode } = await prismic("repo", ["list"], {
 		nodeOptions: { env: fetches.env },
 	});
 	expect(exitCode, stderr).toBe(0);
 	const urls = await fetches.urls();
-	expect(urls).toContain(`https://user-service.${host}/repositories`);
-	expect(urls).not.toContain(`https://api.internal.${host}/user/repositories`);
+	expect(urls).toContain(`https://api.internal.${host}/user/repositories`);
+	expect(urls).not.toContain(`https://user-service.${host}/repositories`);
 });
 
 async function recordFetches(home: URL): Promise<{
