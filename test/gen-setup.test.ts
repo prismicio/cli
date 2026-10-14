@@ -289,6 +289,25 @@ it("works when Next.js is declared but not installed", async ({ expect, project,
 	await expect(project).toHaveFile("app/api/revalidate/route.js");
 });
 
+it("generates a Next.js 15 revalidate route before Next.js is installed", async ({
+	expect,
+	project,
+	prismic,
+}) => {
+	await rm(new URL("node_modules/next/", project), { recursive: true });
+	await writeFile(
+		new URL("package.json", project),
+		JSON.stringify({ dependencies: { next: "^15.0.0" } }),
+	);
+
+	const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+	expect(exitCode, stderr).toBe(0);
+
+	await expect(project).toHaveFile("app/api/revalidate/route.js", {
+		contains: 'revalidateTag("prismic");',
+	});
+});
+
 it(
 	"prints SvelteKit instructions when the project already has a root layout",
 	{ timeout: 30_000 },
