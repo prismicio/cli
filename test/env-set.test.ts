@@ -30,7 +30,7 @@ it("clears the active environment when setting to production", async ({
 	expect(after).not.toContain("my-stage-env");
 });
 
-it("prints the open setup steps", async ({ expect, prismic, repo }) => {
+it("prints setup instructions", async ({ expect, prismic, repo }) => {
 	const { stdout, exitCode } = await prismic("env", ["set", repo]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Action required: add <PrismicPreview> to your root layout.");

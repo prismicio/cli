@@ -32,7 +32,6 @@ export default createCommand(config, async ({ positionals }) => {
 		console.info(`Set the active environment to "${environment}".`);
 	}
 
-	// The website only reads the environment once setup is finished.
 	const setupInstructions = await adapter.getSetupInstructions();
 	if (setupInstructions) console.info(`\n${setupInstructions}`);
 });
