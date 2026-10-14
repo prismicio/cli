@@ -303,7 +303,6 @@ it("generates a Next.js 15 revalidate route before Next.js is installed", async 
 	const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 	expect(exitCode, stderr).toBe(0);
 
-	// Next.js 15 does not support cache life profiles in revalidateTag().
 	await expect(project).toHaveFile("app/api/revalidate/route.js", {
 		contains: 'revalidateTag("prismic");',
 	});
