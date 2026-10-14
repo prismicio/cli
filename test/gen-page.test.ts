@@ -36,7 +36,7 @@ it("writes SvelteKit 3 pages that import from #lib", async ({ expect, project, p
 });
 
 it("writes SvelteKit 2 pages that import from $lib", async ({ expect, project, prismic }) => {
-	await useSvelteKit(project, "2.27.0");
+	await useSvelteKit(project, "^2.27.0");
 	const customType = buildCustomType({ format: "page", repeatable: false });
 	await writeLocalCustomType(project, customType);
 

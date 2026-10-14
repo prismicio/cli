@@ -231,7 +231,7 @@ it(
 	"sets up a SvelteKit 2 project with @prismicio/svelte v2",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
-		await useSvelteKit(project, "2.27.0");
+		await useSvelteKit(project, "^2.27.0");
 
 		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
@@ -254,7 +254,7 @@ it(
 	"prints SvelteKit 2 instructions for an existing server layout",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
-		await useSvelteKit(project, "2.27.0");
+		await useSvelteKit(project, "^2.27.0");
 		await mkdir(new URL("src/routes/", project), { recursive: true });
 		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
 		await writeFile(
