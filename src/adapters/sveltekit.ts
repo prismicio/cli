@@ -17,6 +17,8 @@ import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import {
+	envFileTemplate,
+	envVarTemplate,
 	layoutServerTemplate,
 	pageServerTemplate,
 	pageTemplate,
@@ -58,6 +60,9 @@ export class SvelteKitAdapter extends Adapter {
 			new URL(`src/lib/prismicio.${extension}`, projectRoot),
 			prismicIOFileTemplate({ typescript }),
 		);
+		if (!(await findSourceFile("src/env"))) {
+			await writeFileRecursive(new URL(`src/env.${extension}`, projectRoot), envFileTemplate());
+		}
 		await writeFileIfMissing(
 			new URL("src/routes/slice-simulator/+page.svelte", projectRoot),
 			sliceSimulatorPageTemplate({ typescript }),
@@ -87,7 +92,7 @@ export class SvelteKitAdapter extends Adapter {
 				See <https://prismic.io/docs/svelte-preview> for more information.
 			`,
 		);
-		const serverLayout = await findServerLayout();
+		const serverLayout = await findSourceFile("src/routes/+layout.server");
 		if (!serverLayout) {
 			await writeFileRecursive(
 				new URL(`src/routes/+layout.server.${extension}`, projectRoot),
@@ -124,7 +129,29 @@ export class SvelteKitAdapter extends Adapter {
 				from it first.
 			`;
 
-		return [await this.getPreviewStep(), homePageStep].filter(Boolean).join("\n\n") || undefined;
+		return (
+			[await this.getEnvStep(), await this.getPreviewStep(), homePageStep]
+				.filter(Boolean)
+				.join("\n\n") || undefined
+		);
+	}
+
+	// The generated Prismic client imports PUBLIC_PRISMIC_ENVIRONMENT, which SvelteKit only
+	// provides when the project's env file declares it.
+	private async getEnvStep(): Promise<string | undefined> {
+		const envFile = await findSourceFile("src/env");
+		if (!envFile) return;
+		const contents = await readFile(new URL(envFile, await findProjectRoot()), "utf8");
+		if (contents.includes("PUBLIC_PRISMIC_ENVIRONMENT")) return;
+
+		return dedent`
+			Action required: add PUBLIC_PRISMIC_ENVIRONMENT to ${envFile}.
+
+			Your project does not build until you do this. Add these lines to
+			defineEnvVars({ ... }):
+
+			${envVarTemplate().replace(/^/gm, "  ")}
+		`;
 	}
 
 	private async getPreviewStep(): Promise<string | undefined> {
@@ -132,7 +159,8 @@ export class SvelteKitAdapter extends Adapter {
 
 		// The layout reads repositoryName from the server layout's data.
 		const serverLayoutPath =
-			(await findServerLayout()) ?? `src/routes/+layout.server.${await getJsFileExtension()}`;
+			(await findSourceFile("src/routes/+layout.server")) ??
+			`src/routes/+layout.server.${await getJsFileExtension()}`;
 		const serverLayout = await readFile(
 			new URL(serverLayoutPath, await findProjectRoot()),
 			"utf8",
@@ -227,9 +255,10 @@ async function deleteStarterHomePage(): Promise<void> {
 	await rm(path);
 }
 
-async function findServerLayout(): Promise<string | undefined> {
+// Finds a JavaScript or TypeScript file by its path without an extension.
+async function findSourceFile(path: string): Promise<string | undefined> {
 	const projectRoot = await findProjectRoot();
-	for (const path of ["src/routes/+layout.server.js", "src/routes/+layout.server.ts"]) {
-		if (await exists(new URL(path, projectRoot))) return path;
+	for (const extension of ["js", "ts"]) {
+		if (await exists(new URL(`${path}.${extension}`, projectRoot))) return `${path}.${extension}`;
 	}
 }

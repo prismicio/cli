@@ -174,6 +174,60 @@ it(
 );
 
 it(
+	"declares the Prismic environment variable in a new SvelteKit env file",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		const env = await readFile(new URL("src/env.js", project), "utf8");
+		expect(env).toContain("PUBLIC_PRISMIC_ENVIRONMENT: {");
+		expect(env).toContain("public: true,");
+		const client = await readFile(new URL("src/lib/prismicio.js", project), "utf8");
+		expect(client).toContain("import { PUBLIC_PRISMIC_ENVIRONMENT } from '$app/env/public';");
+		expect(stdout).not.toContain("PUBLIC_PRISMIC_ENVIRONMENT");
+	},
+);
+
+it(
+	"asks for the Prismic environment variable in an existing SvelteKit env file",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		const env =
+			'import { defineEnvVars } from "@sveltejs/kit/env";\n' +
+			"export const variables = defineEnvVars({ API_KEY: {} });\n";
+		await mkdir(new URL("src/", project), { recursive: true });
+		await writeFile(new URL("src/env.ts", project), env);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(await readFile(new URL("src/env.ts", project), "utf8")).toBe(env);
+		await expect(project).not.toHaveFile("src/env.js");
+		expect(stdout).toContain("Action required: add PUBLIC_PRISMIC_ENVIRONMENT to src/env.ts.");
+		expect(stdout).toContain("  PUBLIC_PRISMIC_ENVIRONMENT: {");
+	},
+);
+
+it(
+	"does not ask for the Prismic environment variable when the env file declares it",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		await mkdir(new URL("src/", project), { recursive: true });
+		await writeFile(
+			new URL("src/env.js", project),
+			"export const variables = { PUBLIC_PRISMIC_ENVIRONMENT: { public: true } };\n",
+		);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).not.toContain("PUBLIC_PRISMIC_ENVIRONMENT");
+	},
+);
+
+it(
 	"returns the repository name from a SvelteKit server layout",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {

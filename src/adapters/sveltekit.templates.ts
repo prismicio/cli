@@ -8,14 +8,14 @@ export function prismicIOFileTemplate({ typescript }: { typescript: boolean }): 
 		return dedent`
 			import { createClient as baseCreateClient } from "@prismicio/client";
 			import { type CreateClientConfig, enableAutoPreviews } from '@prismicio/svelte/kit';
-			import { env } from '$env/dynamic/public';
+			import { PUBLIC_PRISMIC_ENVIRONMENT } from '$app/env/public';
 			import prismicConfig from "../../prismic.config.json";
 
 			/**
 			 * The project's Prismic repository name.
 			 */
 			export const repositoryName =
-				env.PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
+				PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 
 			/**
 			 * Creates a Prismic client for the project's repository. The client is used to
@@ -39,14 +39,14 @@ export function prismicIOFileTemplate({ typescript }: { typescript: boolean }): 
 	return dedent`
 		import { createClient as baseCreateClient } from "@prismicio/client";
 		import { enableAutoPreviews } from '@prismicio/svelte/kit';
-		import { env } from '$env/dynamic/public';
+		import { PUBLIC_PRISMIC_ENVIRONMENT } from '$app/env/public';
 		import prismicConfig from "../../prismic.config.json";
 
 		/**
 		 * The project's Prismic repository name.
 		 */
 		export const repositoryName =
-			env.PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
+			PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 
 		/**
 		 * Creates a Prismic client for the project's repository. The client is used to
@@ -64,6 +64,26 @@ export function prismicIOFileTemplate({ typescript }: { typescript: boolean }): 
 
 			return client;
 		};
+	`;
+}
+
+export function envVarTemplate(): string {
+	return dedent`
+		PUBLIC_PRISMIC_ENVIRONMENT: {
+			public: true,
+			schema: (value) => value,
+			description: "The Prismic environment to use instead of the production repository.",
+		},
+	`;
+}
+
+export function envFileTemplate(): string {
+	return dedent`
+		import { defineEnvVars } from "@sveltejs/kit/env";
+
+		export const variables = defineEnvVars({
+			${envVarTemplate()}
+		});
 	`;
 }
 
