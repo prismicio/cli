@@ -64,9 +64,7 @@ export async function getAdapter(): Promise<Adapter> {
 		return new NuxtAdapter();
 	}
 	if ("@sveltejs/kit" in allDependencies) {
-		// The declared range works before dependencies are installed.
-		const kitMajor = Number(/\d+/.exec(allDependencies["@sveltejs/kit"])?.[0]);
-		if (kitMajor < 3) {
+		if ((await getInstalledMajor("@sveltejs/kit")) < 3) {
 			const { SvelteKit2Adapter } = await import("./sveltekit2");
 			return new SvelteKit2Adapter();
 		}
@@ -151,8 +149,12 @@ export async function getInstalledMajor(packageName: string): Promise<number> {
 		const major = Number.parseInt(version.split(".")[0]);
 		return Number.isNaN(major) ? Infinity : major;
 	} catch {
-		// Not installed yet, so assume the newest major.
-		return Infinity;
+		// Not installed yet, so read a simple range like "^2.27.0" from package.json. Other
+		// ranges, like "latest" or a Git URL, mean the newest major.
+		const { dependencies, devDependencies } = await readPackageJson();
+		const range = { ...dependencies, ...devDependencies }[packageName] ?? "";
+		const major = /^[\^~]?(\d+)/.exec(range)?.[1];
+		return major ? Number(major) : Infinity;
 	}
 }
 
