@@ -45,7 +45,7 @@ it("asks for the Prismic environment variable in a SvelteKit env file", async ({
 	expect(stdout).toContain("Action required: add PUBLIC_PRISMIC_ENVIRONMENT to src/env.ts.");
 });
 
-it("prints the open setup steps", async ({ expect, prismic, repo }) => {
+it("prints setup instructions", async ({ expect, prismic, repo }) => {
 	const { stdout, exitCode } = await prismic("env", ["set", repo]);
 	expect(exitCode).toBe(0);
 	expect(stdout).toContain("Action required: add <PrismicPreview> to your root layout.");
