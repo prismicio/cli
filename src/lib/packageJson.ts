@@ -67,7 +67,6 @@ export async function getInstalledMajor(packageName: string): Promise<number> {
 		const major = Number.parseInt(version.split(".")[0]);
 		return Number.isNaN(major) ? Infinity : major;
 	} catch {
-		// Not installed yet. Read the major and fall back to latest.
 		const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
 		const range = { ...peerDependencies, ...dependencies, ...devDependencies }[packageName] ?? "";
 		const major = /^[\^~]?(\d+)/.exec(range)?.[1];
