@@ -67,10 +67,9 @@ export async function getInstalledMajor(packageName: string): Promise<number> {
 		const major = Number.parseInt(version.split(".")[0]);
 		return Number.isNaN(major) ? Infinity : major;
 	} catch {
-		// Not installed yet, so read a simple range like "^2.27.0" from package.json. Other
-		// ranges, like "latest" or a Git URL, mean the newest major.
-		const { dependencies, devDependencies } = await readPackageJson();
-		const range = { ...dependencies, ...devDependencies }[packageName] ?? "";
+		// Not installed yet. Read the major and fall back to latest.
+		const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
+		const range = { ...peerDependencies, ...dependencies, ...devDependencies }[packageName] ?? "";
 		const major = /^[\^~]?(\d+)/.exec(range)?.[1];
 		return major ? Number(major) : Infinity;
 	}
