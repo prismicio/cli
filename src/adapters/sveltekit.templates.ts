@@ -87,11 +87,11 @@ export function envFileTemplate(): string {
 	`;
 }
 
-export function sliceSimulatorPageTemplate({ typescript }: { typescript: boolean }): string {
+export function sliceSimulatorPageTemplate({ extension }: { extension: string }): string {
 	return dedent`
 		<script>
 			import { SliceSimulator, SliceZone } from '@prismicio/svelte';
-			import { components } from '#lib/slices/index.${typescript ? "ts" : "js"}';
+			import { components } from '#lib/slices/index.${extension}';
 		</script>
 
 		<SliceSimulator>
@@ -130,9 +130,9 @@ export function previewAPIRouteTemplate({ typescript }: { typescript: boolean })
 	`;
 }
 
-export function layoutServerTemplate({ typescript }: { typescript: boolean }): string {
+export function layoutServerTemplate({ extension }: { extension: string }): string {
 	return dedent`
-		import { repositoryName } from "#lib/prismicio.${typescript ? "ts" : "js"}";
+		import { repositoryName } from "#lib/prismicio.${extension}";
 
 		export const prerender = "auto";
 

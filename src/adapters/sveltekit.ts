@@ -65,7 +65,7 @@ export class SvelteKitAdapter extends Adapter {
 		}
 		await writeFileIfMissing(
 			new URL("src/routes/slice-simulator/+page.svelte", projectRoot),
-			sliceSimulatorPageTemplate({ typescript }),
+			sliceSimulatorPageTemplate({ extension }),
 		);
 		await writeFileIfMissing(
 			new URL(`src/params/preview.${extension}`, projectRoot),
@@ -96,7 +96,7 @@ export class SvelteKitAdapter extends Adapter {
 		if (!serverLayout) {
 			await writeFileRecursive(
 				new URL(`src/routes/+layout.server.${extension}`, projectRoot),
-				layoutServerTemplate({ typescript }),
+				layoutServerTemplate({ extension }),
 			);
 		}
 		// The generated layout reads repositoryName from the server layout. When an existing
@@ -167,7 +167,7 @@ export class SvelteKitAdapter extends Adapter {
 		).catch(() => "");
 		const serverLayoutStep =
 			!serverLayout.includes("repositoryName") &&
-			`Return repositoryName from load in ${serverLayoutPath}, creating the file if needed:\n\n${layoutServerTemplate({ typescript: serverLayoutPath.endsWith(".ts") }).replace(/^/gm, "  ")}`;
+			`Return repositoryName from load in ${serverLayoutPath}, creating the file if needed:\n\n${layoutServerTemplate({ extension: serverLayoutPath.split(".").pop()! }).replace(/^/gm, "  ")}`;
 
 		return [
 			dedent`
@@ -255,7 +255,6 @@ async function deleteStarterHomePage(): Promise<void> {
 	await rm(path);
 }
 
-// Finds a JavaScript or TypeScript file by its path without an extension.
 async function findSourceFile(path: string): Promise<string | undefined> {
 	const projectRoot = await findProjectRoot();
 	for (const extension of ["js", "ts"]) {
