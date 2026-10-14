@@ -7,13 +7,12 @@ import { pascalCase } from "change-case";
 import {
 	Adapter,
 	checkSourceContains,
-	getInstalledMajor,
 	getJsFileExtension,
 	type PageFile,
 	writeFileIfMissing,
 } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
-import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
+import { addDependencies, getInstalledMajor, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import {
