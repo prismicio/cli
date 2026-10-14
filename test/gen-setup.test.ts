@@ -251,25 +251,6 @@ it(
 );
 
 it(
-	"prints SvelteKit 2 instructions for an existing server layout",
-	{ timeout: 30_000 },
-	async ({ expect, project, prismic }) => {
-		await useSvelteKit(project, "^2.27.0");
-		await mkdir(new URL("src/routes/", project), { recursive: true });
-		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
-		await writeFile(
-			new URL("src/routes/+layout.server.js", project),
-			'export const load = () => ({ user: "x" });',
-		);
-
-		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
-		expect(exitCode, stderr).toBe(0);
-		expect(stdout).toContain('import { repositoryName } from "$lib/prismicio";');
-		expect(stdout).not.toContain("PUBLIC_PRISMIC_ENVIRONMENT");
-	},
-);
-
-it(
 	"returns the repository name from a SvelteKit server layout",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
@@ -694,6 +675,7 @@ it(
 		expect(exitCode, stderr).toBe(0);
 		await expect(project).not.toHaveFile("src/routes/+layout.svelte");
 		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
+		expect(stdout).toContain('import { repositoryName } from "$lib/prismicio";');
 	},
 );
 
