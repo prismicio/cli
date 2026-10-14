@@ -130,20 +130,6 @@ export class SvelteKitAdapter extends Adapter {
 	private async getPreviewStep(): Promise<string | undefined> {
 		if (await checkSourceContains("PrismicPreview")) return;
 
-		const layoutStep = dedent`
-			Change the lines marked - and + in src/routes/+layout.svelte:
-
-			  <script>
-			+   import { PrismicPreview } from "@prismicio/svelte/kit";
-
-			-   let { children } = $props();
-			+   let { data, children } = $props();
-			  </script>
-
-			  {@render children()}
-			+ <PrismicPreview repositoryName={data.repositoryName} />
-		`;
-
 		// The layout reads repositoryName from the server layout's data.
 		const serverLayoutPath =
 			(await findServerLayout()) ?? `src/routes/+layout.server.${await getJsFileExtension()}`;
@@ -161,8 +147,19 @@ export class SvelteKitAdapter extends Adapter {
 
 				Previews do not work until you do this, and the CLI cannot edit your
 				layout for you. Make the change now.
+
+				Change the lines marked - and + in src/routes/+layout.svelte:
+
+				  <script>
+				+   import { PrismicPreview } from "@prismicio/svelte/kit";
+
+				-   let { children } = $props();
+				+   let { data, children } = $props();
+				  </script>
+
+				  {@render children()}
+				+ <PrismicPreview repositoryName={data.repositoryName} />
 			`,
-			layoutStep,
 			serverLayoutStep,
 			"Run `prismic docs view sveltekit` for details.",
 		]
