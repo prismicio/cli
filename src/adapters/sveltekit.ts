@@ -60,7 +60,7 @@ export class SvelteKitAdapter extends Adapter {
 		);
 		await writeFileIfMissing(
 			new URL("src/routes/slice-simulator/+page.svelte", projectRoot),
-			sliceSimulatorPageTemplate(),
+			sliceSimulatorPageTemplate({ typescript }),
 		);
 		await writeFileIfMissing(
 			new URL(`src/params/preview.${extension}`, projectRoot),
@@ -91,7 +91,7 @@ export class SvelteKitAdapter extends Adapter {
 		if (!serverLayout) {
 			await writeFileRecursive(
 				new URL(`src/routes/+layout.server.${extension}`, projectRoot),
-				layoutServerTemplate(),
+				layoutServerTemplate({ typescript }),
 			);
 		}
 		// The generated layout reads repositoryName from the server layout. When an existing
@@ -139,7 +139,7 @@ export class SvelteKitAdapter extends Adapter {
 		).catch(() => "");
 		const serverLayoutStep =
 			!serverLayout.includes("repositoryName") &&
-			`Return repositoryName from load in ${serverLayoutPath}, creating the file if needed:\n\n${layoutServerTemplate().replace(/^/gm, "  ")}`;
+			`Return repositoryName from load in ${serverLayoutPath}, creating the file if needed:\n\n${layoutServerTemplate({ typescript: serverLayoutPath.endsWith(".ts") }).replace(/^/gm, "  ")}`;
 
 		return [
 			dedent`

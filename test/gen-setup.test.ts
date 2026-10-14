@@ -149,7 +149,7 @@ it(
 		const layout = await readFile(new URL("src/routes/+layout.svelte", project), "utf8");
 		expect(layout).toContain("const { data, children } = $props();");
 		expect(layout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
-		expect(layout).not.toContain("$lib/prismicio");
+		expect(layout).not.toContain("#lib/prismicio");
 	},
 );
 
@@ -167,6 +167,7 @@ it(
 		);
 		// The closing tag must be "</script>", not the bundler-escaped "<\/script>".
 		expect(page).toContain("</script>");
+		expect(page).toContain("import { components } from '#lib/slices/index.js';");
 		expect(page).toContain("{#snippet children({ slices })}");
 		expect(page).not.toContain("let:slices");
 	},
@@ -181,7 +182,7 @@ it(
 		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
 		const serverLayout = await readFile(new URL("src/routes/+layout.server.js", project), "utf8");
-		expect(serverLayout).toContain('import { repositoryName } from "$lib/prismicio";');
+		expect(serverLayout).toContain('import { repositoryName } from "#lib/prismicio.js";');
 		expect(serverLayout).toContain('export const prerender = "auto";');
 		expect(serverLayout).toContain("return { repositoryName };");
 	},
@@ -271,7 +272,7 @@ it(
 		await writeFile(new URL("src/routes/+layout.svelte", project), "{@render children()}");
 		await writeFile(
 			new URL("src/routes/+layout.server.js", project),
-			'import { repositoryName } from "$lib/prismicio";\nexport const load = () => ({ repositoryName });',
+			'import { repositoryName } from "#lib/prismicio.js";\nexport const load = () => ({ repositoryName });',
 		);
 
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);

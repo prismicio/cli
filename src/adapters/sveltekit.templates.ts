@@ -67,11 +67,11 @@ export function prismicIOFileTemplate({ typescript }: { typescript: boolean }): 
 	`;
 }
 
-export function sliceSimulatorPageTemplate(): string {
+export function sliceSimulatorPageTemplate({ typescript }: { typescript: boolean }): string {
 	return dedent`
 		<script>
 			import { SliceSimulator, SliceZone } from '@prismicio/svelte';
-			import { components } from '$lib/slices';
+			import { components } from '#lib/slices/index.${typescript ? "ts" : "js"}';
 		</script>
 
 		<SliceSimulator>
@@ -86,7 +86,7 @@ export function previewAPIRouteTemplate({ typescript }: { typescript: boolean })
 	if (typescript) {
 		return dedent`
 			import { redirectToPreviewURL } from '@prismicio/svelte/kit';
-			import { createClient } from '$lib/prismicio';
+			import { createClient } from '#lib/prismicio.ts';
 			import type { RequestHandler } from "./$types";
 
 			export const GET: RequestHandler = async ({ fetch, request, cookies }) => {
@@ -99,7 +99,7 @@ export function previewAPIRouteTemplate({ typescript }: { typescript: boolean })
 
 	return dedent`
 		import { redirectToPreviewURL } from '@prismicio/svelte/kit';
-		import { createClient } from '$lib/prismicio';
+		import { createClient } from '#lib/prismicio.js';
 
 		/* @type {import("./$types").RequestHandler} */
 		export async function GET({ fetch, request, cookies }) {
@@ -110,9 +110,9 @@ export function previewAPIRouteTemplate({ typescript }: { typescript: boolean })
 	`;
 }
 
-export function layoutServerTemplate(): string {
+export function layoutServerTemplate({ typescript }: { typescript: boolean }): string {
 	return dedent`
-		import { repositoryName } from "$lib/prismicio";
+		import { repositoryName } from "#lib/prismicio.${typescript ? "ts" : "js"}";
 
 		export const prerender = "auto";
 
@@ -153,7 +153,7 @@ export function pageTemplate({ typescript }: { typescript: boolean }): string {
 		return dedent`
 			<script lang="ts">
 				import { SliceZone } from "@prismicio/svelte";
-				import { components } from "$lib/slices";
+				import { components } from "#lib/slices/index.ts";
 				import type { PageProps } from "./$types";
 
 				const { data }: PageProps = $props();
@@ -166,7 +166,7 @@ export function pageTemplate({ typescript }: { typescript: boolean }): string {
 	return dedent`
 		<script>
 			import { SliceZone } from "@prismicio/svelte";
-			import { components } from "$lib/slices";
+			import { components } from "#lib/slices/index.js";
 
 			const { data } = $props();
 		</script>
@@ -186,7 +186,7 @@ export function pageServerTemplate({
 		if (typescript) {
 			return dedent`
 				import type { PageServerLoad } from "./$types";
-				import { createClient } from "$lib/prismicio";
+				import { createClient } from "#lib/prismicio.ts";
 
 				export const load: PageServerLoad = async ({ params, fetch, cookies }) => {
 					const client = createClient({ fetch, cookies });
@@ -198,7 +198,7 @@ export function pageServerTemplate({
 		}
 
 		return dedent`
-			import { createClient } from "$lib/prismicio";
+			import { createClient } from "#lib/prismicio.js";
 
 			/** @type {import("./$types").PageServerLoad} */
 			export async function load({ params, fetch, cookies }) {
@@ -213,7 +213,7 @@ export function pageServerTemplate({
 	if (typescript) {
 		return dedent`
 			import type { PageServerLoad } from "./$types";
-			import { createClient } from "$lib/prismicio";
+			import { createClient } from "#lib/prismicio.ts";
 
 			export const load: PageServerLoad = async ({ fetch, cookies }) => {
 				const client = createClient({ fetch, cookies });
@@ -225,7 +225,7 @@ export function pageServerTemplate({
 	}
 
 	return dedent`
-		import { createClient } from "$lib/prismicio";
+		import { createClient } from "#lib/prismicio.js";
 
 		/* @type {import("./$types").PageServerLoad} */
 		export async function load({ fetch, cookies }) {
