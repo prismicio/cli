@@ -67,35 +67,17 @@ export function prismicIOFileTemplate({ typescript }: { typescript: boolean }): 
 	`;
 }
 
-export function sliceSimulatorPageTemplate({
-	prismicSvelteMajor,
-}: {
-	prismicSvelteMajor: number;
-}): string {
-	if (prismicSvelteMajor >= 3) {
-		return dedent`
-			<script>
-				import { SliceSimulator, SliceZone } from '@prismicio/svelte';
-				import { components } from '$lib/slices';
-			</script>
-
-			<SliceSimulator>
-				{#snippet children({ slices })}
-					<SliceZone {slices} {components} />
-				{/snippet}
-			</SliceSimulator>
-		`;
-	}
-
-	// @prismicio/svelte v2 and older pass slices through a slot.
+export function sliceSimulatorPageTemplate(): string {
 	return dedent`
 		<script>
 			import { SliceSimulator, SliceZone } from '@prismicio/svelte';
 			import { components } from '$lib/slices';
 		</script>
 
-		<SliceSimulator let:slices>
-			<SliceZone {slices} {components} />
+		<SliceSimulator>
+			{#snippet children({ slices })}
+				<SliceZone {slices} {components} />
+			{/snippet}
 		</SliceSimulator>
 	`;
 }
@@ -267,31 +249,25 @@ const SLICE_MARKUP = dedent`
 </section>
 `;
 
-export function sliceTemplate({
-	name,
-	typescript,
-	version,
-}: {
-	name: string;
-	typescript: boolean;
-	version: number;
-}): string {
+export function sliceTemplate({ name, typescript }: { name: string; typescript: boolean }): string {
 	const pascalName = pascalCase(name);
 
-	const v5TS = dedent`
-		<script lang="ts">
-			import type { Content } from '@prismicio/client';
-			import type { SliceComponentProps } from '@prismicio/svelte';
+	if (typescript) {
+		return dedent`
+			<script lang="ts">
+				import type { Content } from '@prismicio/client';
+				import type { SliceComponentProps } from '@prismicio/svelte';
 
-			type Props = SliceComponentProps<Content.${pascalName}Slice>;
+				type Props = SliceComponentProps<Content.${pascalName}Slice>;
 
-			const { slice }: Props = $props();
-		</script>
+				const { slice }: Props = $props();
+			</script>
 
-		${SLICE_MARKUP}
-	`;
+			${SLICE_MARKUP}
+		`;
+	}
 
-	const v5JS = dedent`
+	return dedent`
 		<script>
 			/* @typedef {import("@prismicio/client").Content} Content */
 			/* @typedef {import("@prismicio/svelte").SliceComponentProps} SliceComponentProps */
@@ -302,29 +278,4 @@ export function sliceTemplate({
 
 		${SLICE_MARKUP}
 	`;
-
-	const v4TS = dedent`
-		<script lang="ts">
-			import type { Content } from '@prismicio/client';
-
-			export let slice: Content.${pascalName}Slice;
-		</script>
-
-		${SLICE_MARKUP}
-	`;
-
-	const v4JS = dedent`
-		<script>
-			/** @type {import("@prismicio/client").Content.${pascalName}Slice} */
-			export let slice;
-		</script>
-
-		${SLICE_MARKUP}
-	`;
-
-	if (typescript) {
-		return version <= 4 ? v4TS : v5TS;
-	}
-
-	return version <= 4 ? v4JS : v5JS;
 }

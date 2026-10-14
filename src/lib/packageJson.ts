@@ -92,27 +92,12 @@ export async function updatePackageJsonName(name: string): Promise<void> {
 	});
 }
 
-// Returns the newest version, or with maxMajor, the newest stable version up to that major.
-export async function getNpmPackageVersion(name: string, maxMajor?: number): Promise<string> {
-	if (maxMajor === undefined) {
-		const url = new URL(`${name}/latest`, "https://registry.npmjs.org/");
-		const { version } = await request(url, {
-			schema: z.object({ version: z.string() }),
-		});
-		return version;
-	}
-
-	const { versions } = await request(new URL(name, "https://registry.npmjs.org/"), {
-		headers: { Accept: "application/vnd.npm.install-v1+json" },
-		schema: z.object({ versions: z.record(z.string(), z.unknown()) }),
+export async function getNpmPackageVersion(name: string): Promise<string> {
+	const url = new URL(`${name}/latest`, "https://registry.npmjs.org/");
+	const { version } = await request(url, {
+		schema: z.object({ version: z.string() }),
 	});
-	const [newest] = Object.keys(versions)
-		.filter((version) => /^\d+\.\d+\.\d+$/.test(version))
-		.map((version) => version.split(".").map(Number))
-		.filter(([major]) => major <= maxMajor)
-		.sort((a, b) => b[0] - a[0] || b[1] - a[1] || b[2] - a[2]);
-	if (!newest) throw new Error(`No version of ${name} up to major ${maxMajor} found on npm.`);
-	return newest.join(".");
+	return version;
 }
 
 const INSTALL_COMMANDS = {

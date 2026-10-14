@@ -8,13 +8,10 @@ import { pascalCase } from "change-case";
 import {
 	Adapter,
 	checkSourceContains,
-	getInstalledMajor,
-	getInstalledVersion,
 	getJsFileExtension,
 	type PageFile,
 	writeFileIfMissing,
 } from ".";
-import { CommandError } from "../lib/command";
 import { exists, writeFileRecursive } from "../lib/file";
 import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
@@ -48,28 +45,9 @@ export class SvelteKitAdapter extends Adapter {
 	};
 
 	async setupProject(): Promise<void> {
-		const [svelteMajor, svelteMinor] = await getInstalledVersion("svelte");
-		// @prismicio/svelte v1 has no <SliceSimulator>, and the generated files use Svelte 5 APIs.
-		if (svelteMajor < 5) {
-			throw new CommandError(`
-				Prismic needs Svelte 5 or later, but this project uses Svelte ${svelteMajor}.
-
-				Upgrade Svelte, then run \`prismic gen setup\`.
-				See https://svelte.dev/docs/svelte/v5-migration-guide.
-			`);
-		}
-		const [kitMajor, kitMinor] = await getInstalledVersion("@sveltejs/kit");
-		// @prismicio/svelte v3 needs Svelte 5.16 or later and SvelteKit 2.27 or later.
-		const supportsV3 =
-			(svelteMajor > 5 || svelteMinor >= 16) &&
-			(kitMajor > 2 || (kitMajor === 2 && kitMinor >= 27));
-		const prismicSvelteVersion = await getNpmPackageVersion(
-			"@prismicio/svelte",
-			supportsV3 ? 3 : 2,
-		);
 		await addDependencies({
 			"@prismicio/client": `^${await getNpmPackageVersion("@prismicio/client")}`,
-			"@prismicio/svelte": `^${prismicSvelteVersion}`,
+			"@prismicio/svelte": `^${await getNpmPackageVersion("@prismicio/svelte")}`,
 		});
 
 		const projectRoot = await findProjectRoot();
@@ -82,9 +60,7 @@ export class SvelteKitAdapter extends Adapter {
 		);
 		await writeFileIfMissing(
 			new URL("src/routes/slice-simulator/+page.svelte", projectRoot),
-			sliceSimulatorPageTemplate({
-				prismicSvelteMajor: Number.parseInt(prismicSvelteVersion),
-			}),
+			sliceSimulatorPageTemplate(),
 		);
 		await writeFileIfMissing(
 			new URL(`src/params/preview.${extension}`, projectRoot),
@@ -154,33 +130,19 @@ export class SvelteKitAdapter extends Adapter {
 	private async getPreviewStep(): Promise<string | undefined> {
 		if (await checkSourceContains("PrismicPreview")) return;
 
-		const layoutStep =
-			(await getInstalledMajor("svelte")) <= 4
-				? dedent`
-					Add the lines marked + to src/routes/+layout.svelte:
+		const layoutStep = dedent`
+			Change the lines marked - and + in src/routes/+layout.svelte:
 
-					  <script>
-					+   import { PrismicPreview } from "@prismicio/svelte/kit";
-					+
-					+   export let data;
-					  </script>
+			  <script>
+			+   import { PrismicPreview } from "@prismicio/svelte/kit";
 
-					  <slot />
-					+ <PrismicPreview repositoryName={data.repositoryName} />
-				`
-				: dedent`
-					Change the lines marked - and + in src/routes/+layout.svelte:
+			-   let { children } = $props();
+			+   let { data, children } = $props();
+			  </script>
 
-					  <script>
-					+   import { PrismicPreview } from "@prismicio/svelte/kit";
-
-					-   let { children } = $props();
-					+   let { data, children } = $props();
-					  </script>
-
-					  {@render children()}
-					+ <PrismicPreview repositoryName={data.repositoryName} />
-				`;
+			  {@render children()}
+			+ <PrismicPreview repositoryName={data.repositoryName} />
+		`;
 
 		// The layout reads repositoryName from the server layout's data.
 		const serverLayoutPath =
@@ -237,7 +199,6 @@ export class SvelteKitAdapter extends Adapter {
 		const contents = sliceTemplate({
 			name: model.name,
 			typescript: await checkIsTypeScriptProject(),
-			version: await getInstalledMajor("svelte"),
 		});
 		await writeFileRecursive(new URL("index.svelte", directory), contents);
 	}
