@@ -1,3 +1,5 @@
+import { setTimeout } from "node:timers/promises";
+
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 
 const DEFAULT_HOST = "prismic.io";
@@ -22,16 +24,22 @@ export async function login(email: string, password: string, config?: HostConfig
 export async function createRepository(domain: string, config: AuthConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("app/dashboard/repositories", `https://${host}/`);
-	const res = await fetch(url, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			Cookie: `prismic-auth=${config.token}`,
-		},
-		body: JSON.stringify({ domain, framework: "next", plan: "personal" }),
-	});
-	if (!res.ok)
-		throw new Error(`Failed to create repository ${domain}: ${res.status} ${await res.text()}`);
+	// Rate limits answer with a 500. Vitest's retries do not rerun a failed
+	// fixture, so retry here instead.
+	for (let attempt = 1; ; attempt++) {
+		const res = await fetch(url, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Cookie: `prismic-auth=${config.token}`,
+			},
+			body: JSON.stringify({ domain, framework: "next", plan: "personal" }),
+		});
+		if (res.ok) return;
+		if (res.status < 500 || attempt === 4)
+			throw new Error(`Failed to create repository ${domain}: ${res.status} ${await res.text()}`);
+		await setTimeout(1000 * 2 ** attempt);
+	}
 }
 
 export async function createInstantStartRepository(config: AuthConfig): Promise<string> {

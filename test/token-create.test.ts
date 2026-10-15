@@ -7,42 +7,45 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic token create [options]");
 });
 
-it("creates an access token", async ({ expect, prismic, repo, token, host }) => {
-	const { stdout, stderr, exitCode } = await prismic("token", ["create"]);
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("Token created:");
+// Wroom 500s under concurrent same-user access-token creates; keep these sequential.
+it(
+	"creates an access token",
+	{ concurrent: false },
+	async ({ expect, prismic, repo, token, host }) => {
+		const { stdout, stderr, exitCode } = await prismic("token", ["create"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("Token created:");
 
-	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
-	expect(createdToken).toBeDefined();
+		const createdToken = stdout.match(/Token created: (.+)/)?.[1];
+		expect(createdToken).toBeDefined();
 
-	const apps = await getAccessTokens({ repo, token, host });
-	const app = apps.find((a) => a.name === "Prismic CLI");
-	expect(app).toBeDefined();
-	const auth = app!.wroom_auths.find((a) => a.token === createdToken);
-	expect(auth).toBeDefined();
-});
+		const apps = await getAccessTokens({ repo, token, host });
+		const app = apps.find((a) => a.name === "Prismic CLI");
+		expect(app).toBeDefined();
+		const auth = app!.wroom_auths.find((a) => a.token === createdToken);
+		expect(auth).toBeDefined();
+	},
+);
 
-it("creates an access token with --allow-releases", async ({
-	expect,
-	prismic,
-	repo,
-	token,
-	host,
-}) => {
-	const { stdout, stderr, exitCode } = await prismic("token", ["create", "--allow-releases"]);
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("Token created:");
+it(
+	"creates an access token with --allow-releases",
+	{ concurrent: false },
+	async ({ expect, prismic, repo, token, host }) => {
+		const { stdout, stderr, exitCode } = await prismic("token", ["create", "--allow-releases"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain("Token created:");
 
-	const createdToken = stdout.match(/Token created: (.+)/)?.[1];
-	expect(createdToken).toBeDefined();
+		const createdToken = stdout.match(/Token created: (.+)/)?.[1];
+		expect(createdToken).toBeDefined();
 
-	const apps = await getAccessTokens({ repo, token, host });
-	const app = apps.find((a) => a.name === "Prismic CLI");
-	expect(app).toBeDefined();
-	const auth = app!.wroom_auths.find((a) => a.token === createdToken);
-	expect(auth).toBeDefined();
-	expect(auth!.scope).toBe("master+releases");
-});
+		const apps = await getAccessTokens({ repo, token, host });
+		const app = apps.find((a) => a.name === "Prismic CLI");
+		expect(app).toBeDefined();
+		const auth = app!.wroom_auths.find((a) => a.token === createdToken);
+		expect(auth).toBeDefined();
+		expect(auth!.scope).toBe("master+releases");
+	},
+);
 
 // Wroom 500s under concurrent same-user write-token creates; keep this sequential.
 it(
