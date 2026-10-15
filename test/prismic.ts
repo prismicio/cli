@@ -24,12 +24,7 @@ export async function login(email: string, password: string, config?: HostConfig
 export async function createRepository(domain: string, config: AuthConfig): Promise<void> {
 	const host = config.host ?? DEFAULT_HOST;
 	const url = new URL("app/dashboard/repositories", `https://${host}/`);
-	// Rate limits answer with a 500, and a 500 can also come after the
-	// repository was created. Vitest's retries do not rerun a failed fixture,
-	// so retry here instead.
 	for (let attempt = 1; ; attempt++) {
-		if (attempt > 1 && (await getRepository({ repo: domain, ...config }).catch(() => undefined)))
-			return;
 		const res = await fetch(url, {
 			method: "POST",
 			headers: {
@@ -42,6 +37,7 @@ export async function createRepository(domain: string, config: AuthConfig): Prom
 		if (res.status < 500 || attempt === 4)
 			throw new Error(`Failed to create repository ${domain}: ${res.status} ${await res.text()}`);
 		await setTimeout(1000 * 2 ** attempt);
+		if (await getRepository({ repo: domain, ...config }).catch(() => undefined)) return;
 	}
 }
 

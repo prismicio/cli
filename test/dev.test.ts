@@ -257,7 +257,6 @@ async function startSession(
 	const output = captureOutput(proc);
 	const deadline = Date.now() + 30_000;
 	while (!output().includes("Type Builder:")) {
-		// Fail as soon as the session exits instead of waiting for the deadline.
 		expect(proc.exitCode, `prismic dev exited early:\n${output()}`).toBeUndefined();
 		expect(Date.now(), `prismic dev did not start:\n${output()}`).toBeLessThan(deadline);
 		await sleep(100);

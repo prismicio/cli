@@ -7,7 +7,6 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic token create [options]");
 });
 
-// Wroom 500s under concurrent same-user access-token creates; keep these sequential.
 it(
 	"creates an access token",
 	{ concurrent: false },
