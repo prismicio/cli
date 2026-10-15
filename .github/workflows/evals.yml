@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   evals:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       # The agent under test runs in this workspace with Bash; keep the
