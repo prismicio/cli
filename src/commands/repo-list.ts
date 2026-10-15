@@ -1,7 +1,7 @@
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getRepositories } from "../lib/prismic/clients/legacy-user";
+import { getRepositories } from "../lib/prismic/clients/user";
 import { formatTable } from "../lib/string";
 
 const config = {
