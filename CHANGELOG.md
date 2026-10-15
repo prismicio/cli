@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.24.0](https://github.com/prismicio/cli/compare/v1.23.0...v1.24.0) (2026-10-15)
+
+
+### Features
+
+* **env:** print setup instructions after prismic env set ([#424](https://github.com/prismicio/cli/issues/424)) ([26c9426](https://github.com/prismicio/cli/commit/26c94264cc12abb983477e390d7babcdfeaa75d2))
+* list repositories from the user API ([#419](https://github.com/prismicio/cli/issues/419)) ([036e781](https://github.com/prismicio/cli/commit/036e7814d76841a5227c3dc549d7cdb07eb38901))
+* **sveltekit:** support SvelteKit 3 and @prismicio/svelte v3 ([#418](https://github.com/prismicio/cli/issues/418)) ([f0b89aa](https://github.com/prismicio/cli/commit/f0b89aad8a344f661acd9ca74ea73bb661065848))
+
+
+### Bug Fixes
+
+* use the declared version of packages that are not installed ([#423](https://github.com/prismicio/cli/issues/423)) ([0c29106](https://github.com/prismicio/cli/commit/0c29106e2574aaddab013f750c2d99a42d23c2fc))
+
 ## [1.23.0](https://github.com/prismicio/cli/compare/v1.22.1...v1.23.0) (2026-10-10)
 
 
