@@ -8,7 +8,7 @@ concurrency:
 
 jobs:
   format:
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -24,7 +24,7 @@ jobs:
         run: echo "::warning::Code is not formatted. Run \`npm run format\` locally."
 
   lint:
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -35,7 +35,7 @@ jobs:
       - run: npm run lint
 
   build:
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-latest
     env:
       MODE: production
     steps:
@@ -49,7 +49,7 @@ jobs:
 
   test:
     name: test (Node.js ${{ matrix.node }})
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         node: [22, 24, 26]
@@ -88,7 +88,7 @@ jobs:
 
   types:
     name: "types (TypeScript ${{ matrix.typescript }})"
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         typescript: ["5", "6", "7"]
