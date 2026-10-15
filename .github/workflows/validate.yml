@@ -2,7 +2,6 @@ name: validate
 
 on: push
 
-# A new push to a branch cancels its earlier, now outdated run.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
@@ -69,7 +68,6 @@ jobs:
 
   test-win32:
     name: test windows (Node.js ${{ matrix.node }}, shard ${{ matrix.shard }}/2)
-    # GitHub-hosted Windows runners start in seconds; Blacksmith's often wait minutes.
     runs-on: windows-latest
     strategy:
       matrix:
