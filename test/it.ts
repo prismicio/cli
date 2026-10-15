@@ -196,12 +196,12 @@ export const it = test.extend<Fixtures>({
 	},
 });
 
-export async function useSvelteKit(project: URL): Promise<void> {
+export async function useSvelteKit(project: URL, kitVersion = "latest"): Promise<void> {
 	await rm(new URL("node_modules/next/", project), { recursive: true, force: true });
 	await rm(new URL("app/", project), { recursive: true, force: true });
 	await writeFile(
 		new URL("package.json", project),
-		JSON.stringify({ dependencies: { "@sveltejs/kit": "latest", svelte: "latest" } }),
+		JSON.stringify({ dependencies: { "@sveltejs/kit": kitVersion, svelte: "latest" } }),
 	);
 }
 
