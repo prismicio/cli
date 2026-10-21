@@ -339,7 +339,9 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	// Progress reporting must not turn a successful project setup into a failure.
-	await completeOnboardingSteps(["connectPrismic"], { repo, token, host }).catch(sentryCaptureError);
+	await completeOnboardingSteps(["connectPrismic"], { repo, token, host }).catch(
+		sentryCaptureError,
+	);
 
 	// Printed last so it is the step the reader is left with.
 	const setupInstructions = await adapter.getSetupInstructions();

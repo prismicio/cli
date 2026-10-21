@@ -1,7 +1,8 @@
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 
-import { describe } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
+import { completeOnboardingSteps } from "../src/lib/prismic/onboarding";
 import {
 	buildCustomType,
 	captureOutput,
@@ -34,7 +35,56 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic docs view cli#set-up-a-type-builder-project");
 });
 
-it("completes app connection after repeated successful init", async ({ expect, prismic, repo, token, host }) => {
+describe("onboarding completion reporting", () => {
+	test("uses atomic completion for repeated and concurrent reports", async () => {
+		const steps = new Set<string>();
+		const requests: string[] = [];
+		const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, options) => {
+			const url = new URL(String(input));
+			requests.push(`${options?.method} ${url.pathname}`);
+			steps.add(url.pathname.split("/").at(-2)!);
+			return new Response(JSON.stringify({ completedSteps: [...steps] }));
+		});
+		try {
+			const config = { repo: "test", token: "test-token", host: "example.com" };
+			await Promise.all([
+				completeOnboardingSteps(["connectPrismic"], config),
+				completeOnboardingSteps(["connectPrismic", "instantStart_continueBuildingLocally"], config),
+			]);
+			expect([...steps]).toEqual(["connectPrismic", "instantStart_continueBuildingLocally"]);
+			expect(
+				requests.every((request) => request.startsWith("PATCH ") && request.endsWith("/complete")),
+			).toBe(true);
+		} finally {
+			fetch.mockRestore();
+		}
+	});
+
+	test("surfaces reporting failures to the command's nonfatal handler", async () => {
+		const fetch = vi
+			.spyOn(globalThis, "fetch")
+			.mockResolvedValue(new Response("Unavailable", { status: 503 }));
+		try {
+			await expect(
+				completeOnboardingSteps(["connectPrismic"], {
+					repo: "test",
+					token: "test-token",
+					host: "example.com",
+				}),
+			).rejects.toThrow();
+		} finally {
+			fetch.mockRestore();
+		}
+	});
+});
+
+it("completes app connection after repeated successful init", async ({
+	expect,
+	prismic,
+	repo,
+	token,
+	host,
+}) => {
 	for (let attempt = 0; attempt < 2; attempt++) {
 		const { exitCode, stderr } = await prismic("init", ["--repo", repo, "--no-setup"]);
 		expect(exitCode, stderr).toBe(0);
