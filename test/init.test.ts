@@ -34,6 +34,15 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic docs view cli#set-up-a-type-builder-project");
 });
 
+it("completes app connection after repeated successful init", async ({ expect, prismic, repo, token, host }) => {
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const { exitCode, stderr } = await prismic("init", ["--repo", repo, "--no-setup"]);
+		expect(exitCode, stderr).toBe(0);
+	}
+	const completedSteps = await getOnboardingCompletedSteps({ repo, token, host });
+	expect(completedSteps.filter((step) => step === "connectPrismic")).toHaveLength(1);
+});
+
 it("fails if prismic.config.json already exists without --repo", async ({
 	expect,
 	prismic,
@@ -439,6 +448,7 @@ it("completes the handoff for a starter project", async ({
 
 		const completedSteps = await getOnboardingCompletedSteps({ repo, token, host });
 		expect(completedSteps).toContain("instantStart_continueBuildingLocally");
+		expect(completedSteps).toContain("connectPrismic");
 	} finally {
 		await deleteRepository(repo, { token, password, host });
 	}

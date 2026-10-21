@@ -67,6 +67,20 @@ export async function toggleOnboardingStep(
 	});
 }
 
+export async function completeOnboardingStep(
+	stepId: string,
+	config: RepositoryConfig,
+): Promise<OnboardingState> {
+	const url = new URL(
+		`onboarding/${encodeURIComponent(stepId)}/complete`,
+		getRepositoryServiceUrl(config.host),
+	);
+	return onboardingServiceRequest(url, config, {
+		method: "PATCH",
+		schema: OnboardingStateSchema,
+	});
+}
+
 function repositoryServiceRequest<T>(
 	url: URL,
 	config: RepositoryConfig,
