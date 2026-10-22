@@ -301,7 +301,7 @@ async function startSession(
 	args: string[] = [],
 	env?: Record<string, string>,
 ) {
-	const proc = prismic("dev", args, { nodeOptions: { env } });
+	const proc = prismic("dev", [...args, "--no-browser"], { nodeOptions: { env } });
 	const output = captureOutput(proc);
 	const deadline = Date.now() + 30_000;
 	while (!output().includes("Type Builder:")) {
