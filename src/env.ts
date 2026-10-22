@@ -17,6 +17,7 @@ const Env = z.object({
 	PRISMIC_CONFIG_DIR: z.optional(z.string()),
 	PRISMIC_TYPE_BUILDER_ENABLED: z.optional(z.stringbool()),
 	PRISMIC_SYNC_POLL_MS: z.optional(z.coerce.number().check(z.gte(100))),
+	PRISMIC_STAGE: z.optional(z.string()),
 });
 
 export const env = z.parse(Env, {
