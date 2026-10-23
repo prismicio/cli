@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { sep } from "node:path";
 
-import { buildCustomType, it, writeLocalCustomType } from "./it";
+import { buildCustomType, it, useSvelteKit, writeLocalCustomType } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("gen", ["page", "--help"]);
@@ -20,6 +20,32 @@ it("writes a missing page", async ({ expect, project, prismic }) => {
 	await expect(project).toHaveFile(`app/${customType.id.toLowerCase()}/page.jsx`, {
 		contains: `getSingle("${customType.id}"`,
 	});
+});
+
+it("writes SvelteKit 3 pages that import from #lib", async ({ expect, project, prismic }) => {
+	await useSvelteKit(project);
+	const customType = buildCustomType({ format: "page", repeatable: false });
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("gen", ["page", customType.id]);
+	expect(exitCode, stderr).toBe(0);
+	await expect(project).toHaveFile(
+		`src/routes/[[preview=preview]]/${customType.id.toLowerCase()}/+page.server.js`,
+		{ contains: 'import { createClient } from "#lib/prismicio.js";' },
+	);
+});
+
+it("writes SvelteKit 2 pages that import from $lib", async ({ expect, project, prismic }) => {
+	await useSvelteKit(project, "^2.27.0");
+	const customType = buildCustomType({ format: "page", repeatable: false });
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("gen", ["page", customType.id]);
+	expect(exitCode, stderr).toBe(0);
+	await expect(project).toHaveFile(
+		`src/routes/[[preview=preview]]/${customType.id.toLowerCase()}/+page.server.js`,
+		{ contains: 'import { createClient } from "$lib/prismicio";' },
+	);
 });
 
 it("prints the code for an existing page", async ({ expect, project, prismic }) => {

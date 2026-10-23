@@ -1,4 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import detectIndent from "detect-indent";
@@ -57,6 +58,20 @@ export async function addDependencies(dependencies: Record<string, string>): Pro
 			Object.entries(updated).sort(([a], [b]) => a.localeCompare(b)),
 		);
 	});
+}
+
+export async function getInstalledMajor(packageName: string): Promise<number> {
+	const require = createRequire(await findPackageJson());
+	try {
+		const { version } = require(`${packageName}/package.json`);
+		const major = Number.parseInt(version.split(".")[0]);
+		return Number.isNaN(major) ? Infinity : major;
+	} catch {
+		const { dependencies, devDependencies, peerDependencies } = await readPackageJson();
+		const range = { ...peerDependencies, ...dependencies, ...devDependencies }[packageName] ?? "";
+		const major = /^[\^~]?(\d+)/.exec(range)?.[1];
+		return major ? Number(major) : Infinity;
+	}
 }
 
 // Returns the packages whose major version changed between two reads of package.json.

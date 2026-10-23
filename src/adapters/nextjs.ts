@@ -7,13 +7,12 @@ import { pascalCase } from "change-case";
 import {
 	Adapter,
 	checkSourceContains,
-	getInstalledMajor,
 	getJsFileExtension,
 	type PageFile,
 	writeFileIfMissing,
 } from ".";
 import { exists, writeFileRecursive } from "../lib/file";
-import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
+import { addDependencies, getInstalledMajor, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import {
@@ -48,6 +47,7 @@ export class NextJsAdapter extends Adapter {
 		const extension = await getJsFileExtension();
 		const typescript = await checkIsTypeScriptProject();
 		const appRouter = await checkUsesAppRouter();
+		const supportsCacheLife = (await getInstalledMajor("next")) >= 16;
 
 		await writeFileIfMissing(
 			new URL(`prismicio.${extension}`, sourceRoot),
@@ -81,7 +81,7 @@ export class NextJsAdapter extends Adapter {
 		if (appRouter) {
 			await writeFileIfMissing(
 				new URL(`app/api/revalidate/route.${extension}`, sourceRoot),
-				revalidateRouteTemplate({ supportsCacheLife: (await getInstalledMajor("next")) >= 16 }),
+				revalidateRouteTemplate({ supportsCacheLife }),
 			);
 		}
 	}

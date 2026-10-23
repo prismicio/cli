@@ -8,7 +8,6 @@ import { pascalCase } from "change-case";
 import {
 	Adapter,
 	checkSourceContains,
-	getInstalledMajor,
 	getJsFileExtension,
 	type PageFile,
 	writeFileIfMissing,
@@ -18,6 +17,8 @@ import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent, formatObjectKey } from "../lib/string";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import {
+	envFileTemplate,
+	envVarTemplate,
 	layoutServerTemplate,
 	pageServerTemplate,
 	pageTemplate,
@@ -54,15 +55,17 @@ export class SvelteKitAdapter extends Adapter {
 		const projectRoot = await findProjectRoot();
 		const extension = await getJsFileExtension();
 		const typescript = await checkIsTypeScriptProject();
-		const version = await getInstalledMajor("svelte");
 
 		await writeFileIfMissing(
 			new URL(`src/lib/prismicio.${extension}`, projectRoot),
 			prismicIOFileTemplate({ typescript }),
 		);
+		if (!(await findSourceFile("src/env"))) {
+			await writeFileRecursive(new URL(`src/env.${extension}`, projectRoot), envFileTemplate());
+		}
 		await writeFileIfMissing(
 			new URL("src/routes/slice-simulator/+page.svelte", projectRoot),
-			sliceSimulatorPageTemplate({ version }),
+			sliceSimulatorPageTemplate({ extension }),
 		);
 		await writeFileIfMissing(
 			new URL(`src/params/preview.${extension}`, projectRoot),
@@ -89,11 +92,11 @@ export class SvelteKitAdapter extends Adapter {
 				See <https://prismic.io/docs/svelte-preview> for more information.
 			`,
 		);
-		const serverLayout = await findServerLayout();
+		const serverLayout = await findSourceFile("src/routes/+layout.server");
 		if (!serverLayout) {
 			await writeFileRecursive(
 				new URL(`src/routes/+layout.server.${extension}`, projectRoot),
-				layoutServerTemplate(),
+				layoutServerTemplate({ extension }),
 			);
 		}
 		// The generated layout reads repositoryName from the server layout. When an existing
@@ -104,7 +107,7 @@ export class SvelteKitAdapter extends Adapter {
 		if (returnsRepositoryName) {
 			await writeFileIfMissing(
 				new URL("src/routes/+layout.svelte", projectRoot),
-				rootLayoutTemplate({ version }),
+				rootLayoutTemplate(),
 			);
 		}
 		await deleteStarterHomePage();
@@ -126,50 +129,45 @@ export class SvelteKitAdapter extends Adapter {
 				from it first.
 			`;
 
-		return [await this.getPreviewStep(), homePageStep].filter(Boolean).join("\n\n") || undefined;
+		return (
+			[await this.getEnvStep(), await this.getPreviewStep(), homePageStep]
+				.filter(Boolean)
+				.join("\n\n") || undefined
+		);
+	}
+
+	// The generated Prismic client imports PUBLIC_PRISMIC_ENVIRONMENT, which SvelteKit only
+	// provides when the project's env file declares it.
+	private async getEnvStep(): Promise<string | undefined> {
+		const envFile = await findSourceFile("src/env");
+		if (!envFile) return;
+		const contents = await readFile(new URL(envFile, await findProjectRoot()), "utf8");
+		if (contents.includes("PUBLIC_PRISMIC_ENVIRONMENT")) return;
+
+		return dedent`
+			Action required: add PUBLIC_PRISMIC_ENVIRONMENT to ${envFile}.
+
+			Your project does not build until you do this. Add these lines to
+			defineEnvVars({ ... }):
+
+			${envVarTemplate().replace(/^/gm, "  ")}
+		`;
 	}
 
 	private async getPreviewStep(): Promise<string | undefined> {
 		if (await checkSourceContains("PrismicPreview")) return;
 
-		const layoutStep =
-			(await getInstalledMajor("svelte")) <= 4
-				? dedent`
-					Add the lines marked + to src/routes/+layout.svelte:
-
-					  <script>
-					+   import { PrismicPreview } from "@prismicio/svelte/kit";
-					+
-					+   export let data;
-					  </script>
-
-					  <slot />
-					+ <PrismicPreview repositoryName={data.repositoryName} />
-				`
-				: dedent`
-					Change the lines marked - and + in src/routes/+layout.svelte:
-
-					  <script>
-					+   import { PrismicPreview } from "@prismicio/svelte/kit";
-
-					-   let { children } = $props();
-					+   let { data, children } = $props();
-					  </script>
-
-					  {@render children()}
-					+ <PrismicPreview repositoryName={data.repositoryName} />
-				`;
-
 		// The layout reads repositoryName from the server layout's data.
 		const serverLayoutPath =
-			(await findServerLayout()) ?? `src/routes/+layout.server.${await getJsFileExtension()}`;
+			(await findSourceFile("src/routes/+layout.server")) ??
+			`src/routes/+layout.server.${await getJsFileExtension()}`;
 		const serverLayout = await readFile(
 			new URL(serverLayoutPath, await findProjectRoot()),
 			"utf8",
 		).catch(() => "");
 		const serverLayoutStep =
 			!serverLayout.includes("repositoryName") &&
-			`Return repositoryName from load in ${serverLayoutPath}, creating the file if needed:\n\n${layoutServerTemplate().replace(/^/gm, "  ")}`;
+			`Return repositoryName from load in ${serverLayoutPath}, creating the file if needed:\n\n${layoutServerTemplate({ extension: serverLayoutPath.split(".").pop()! }).replace(/^/gm, "  ")}`;
 
 		return [
 			dedent`
@@ -177,8 +175,19 @@ export class SvelteKitAdapter extends Adapter {
 
 				Previews do not work until you do this, and the CLI cannot edit your
 				layout for you. Make the change now.
+
+				Change the lines marked - and + in src/routes/+layout.svelte:
+
+				  <script>
+				+   import { PrismicPreview } from "@prismicio/svelte/kit";
+
+				-   let { children } = $props();
+				+   let { data, children } = $props();
+				  </script>
+
+				  {@render children()}
+				+ <PrismicPreview repositoryName={data.repositoryName} />
 			`,
-			layoutStep,
 			serverLayoutStep,
 			"Run `prismic docs view sveltekit` for details.",
 		]
@@ -215,7 +224,6 @@ export class SvelteKitAdapter extends Adapter {
 		const contents = sliceTemplate({
 			name: model.name,
 			typescript: await checkIsTypeScriptProject(),
-			version: await getInstalledMajor("svelte"),
 		});
 		await writeFileRecursive(new URL("index.svelte", directory), contents);
 	}
@@ -239,7 +247,7 @@ export class SvelteKitAdapter extends Adapter {
 	}
 }
 
-async function deleteStarterHomePage(): Promise<void> {
+export async function deleteStarterHomePage(): Promise<void> {
 	const path = new URL("src/routes/+page.svelte", await findProjectRoot());
 	const contents = await readFile(path, "utf8").catch(() => undefined);
 	if (!STARTER_HOME_PAGES.includes(contents?.replace(/\s/g, "") ?? "")) return;
@@ -247,9 +255,9 @@ async function deleteStarterHomePage(): Promise<void> {
 	await rm(path);
 }
 
-async function findServerLayout(): Promise<string | undefined> {
+export async function findSourceFile(path: string): Promise<string | undefined> {
 	const projectRoot = await findProjectRoot();
-	for (const path of ["src/routes/+layout.server.js", "src/routes/+layout.server.ts"]) {
-		if (await exists(new URL(path, projectRoot))) return path;
+	for (const extension of ["js", "ts"]) {
+		if (await exists(new URL(`${path}.${extension}`, projectRoot))) return `${path}.${extension}`;
 	}
 }

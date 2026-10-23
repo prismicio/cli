@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
 import { sep } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { describe, type ExpectStatic } from "vitest";
@@ -48,36 +49,6 @@ it("refuses a second session in the same project", async ({ expect, prismic, pro
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("already running for this project");
 });
-
-it("deletes the release of a crashed session", async ({ expect, prismic, repo, token, host }) => {
-	const crashed = await startAndCrash(prismic, expect);
-
-	const { releaseId } = await startSession(prismic, expect);
-	expect(releaseId).not.toBe(crashed);
-	await expect(getCustomTypes({ repo, token, host, releaseId: crashed })).rejects.toThrow();
-}, 60_000);
-
-it("continues a crashed session with unpulled changes", async ({
-	expect,
-	prismic,
-	project,
-	repo,
-	token,
-	host,
-}) => {
-	const releaseId = await startAndCrash(prismic, expect);
-	const builderType = buildCustomType();
-	await insertCustomType(builderType, { repo, token, host, releaseId });
-
-	const restart = await prismic("dev");
-	expect(restart.exitCode).toBe(1);
-	expect(restart.stderr).toContain("prismic dev --continue");
-
-	const continued = await startSession(prismic, expect, ["--continue"]);
-	expect(continued.releaseId).toBe(releaseId);
-	expect(continued.output()).toContain(`Pulled ${builderType.id}`);
-	expect(await readLocalCustomType(project, builderType.id)).toMatchObject(builderType);
-}, 90_000);
 
 it("asks to continue when a model changed in both places", async ({
 	expect,
@@ -175,6 +146,36 @@ it.skipIf(process.platform === "win32")(
 
 describe("with an isolated repository", () => {
 	it.scoped({ isolateRepo: true });
+
+	it("deletes the release of a crashed session", async ({ expect, prismic, repo, token, host }) => {
+		const crashed = await startAndCrash(prismic, expect);
+
+		const { releaseId } = await startSession(prismic, expect);
+		expect(releaseId).not.toBe(crashed);
+		await expect(getCustomTypes({ repo, token, host, releaseId: crashed })).rejects.toThrow();
+	}, 60_000);
+
+	it("continues a crashed session with unpulled changes", async ({
+		expect,
+		prismic,
+		project,
+		repo,
+		token,
+		host,
+	}) => {
+		const releaseId = await startAndCrash(prismic, expect);
+		const builderType = buildCustomType();
+		await insertCustomType(builderType, { repo, token, host, releaseId });
+
+		const restart = await prismic("dev");
+		expect(restart.exitCode).toBe(1);
+		expect(restart.stderr).toContain("prismic dev --continue");
+
+		const continued = await startSession(prismic, expect, ["--continue"]);
+		expect(continued.releaseId).toBe(releaseId);
+		expect(continued.output()).toContain(`Pulled ${builderType.id}`);
+		expect(await readLocalCustomType(project, builderType.id)).toMatchObject(builderType);
+	}, 90_000);
 
 	it("syncs local models with the Type Builder", async ({
 		expect,
@@ -283,7 +284,12 @@ async function startSession(
 ) {
 	const proc = prismic("dev", args, { nodeOptions: { env } });
 	const output = captureOutput(proc);
-	await expect.poll(output, { timeout: 30_000 }).toContain("Type Builder:");
+	const deadline = Date.now() + 30_000;
+	while (!output().includes("Type Builder:")) {
+		expect(proc.exitCode, `prismic dev exited early:\n${output()}`).toBeUndefined();
+		expect(Date.now(), `prismic dev did not start:\n${output()}`).toBeLessThan(deadline);
+		await sleep(100);
+	}
 	const releaseId = output().match(/\?r=(\S+)/)?.[1];
 	if (!releaseId) throw new Error("No release in output");
 	return { proc, output, releaseId };

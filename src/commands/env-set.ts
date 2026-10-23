@@ -27,9 +27,11 @@ export default createCommand(config, async ({ positionals }) => {
 	if (environment === repo) {
 		await adapter.unsetEnvironment();
 		console.info(`Reset to the production environment "${repo}".`);
-		return;
+	} else {
+		await adapter.setEnvironment(environment);
+		console.info(`Set the active environment to "${environment}".`);
 	}
 
-	await adapter.setEnvironment(environment);
-	console.info(`Set the active environment to "${environment}".`);
+	const setupInstructions = await adapter.getSetupInstructions();
+	if (setupInstructions) console.info(`\n${setupInstructions}`);
 });

@@ -2,9 +2,16 @@ name: validate
 
 on: push
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   format:
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -20,7 +27,7 @@ jobs:
         run: echo "::warning::Code is not formatted. Run \`npm run format\` locally."
 
   lint:
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -31,7 +38,7 @@ jobs:
       - run: npm run lint
 
   build:
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-latest
     env:
       MODE: production
     steps:
@@ -45,7 +52,7 @@ jobs:
 
   test:
     name: test (Node.js ${{ matrix.node }})
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         node: [22, 24, 26]
@@ -63,11 +70,12 @@ jobs:
           E2E_PRISMIC_PASSWORD: ${{ secrets.E2E_PRISMIC_PASSWORD }}
 
   test-win32:
-    name: test windows (Node.js ${{ matrix.node }})
-    runs-on: blacksmith-4vcpu-windows-2025
+    name: test windows (Node.js ${{ matrix.node }}, shard ${{ matrix.shard }}/2)
+    runs-on: windows-latest
     strategy:
       matrix:
-        node: [24]
+        node: [26]
+        shard: [1, 2]
       fail-fast: false
     steps:
       - uses: actions/checkout@v7
@@ -76,14 +84,14 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - run: npm run unit
+      - run: npm run unit -- --shard=${{ matrix.shard }}/2
         env:
           E2E_PRISMIC_EMAIL: ${{ secrets.E2E_PRISMIC_EMAIL }}
           E2E_PRISMIC_PASSWORD: ${{ secrets.E2E_PRISMIC_PASSWORD }}
 
   types:
     name: "types (TypeScript ${{ matrix.typescript }})"
-    runs-on: blacksmith-2vcpu-ubuntu-2404-arm
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         typescript: ["5", "6", "7"]
