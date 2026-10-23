@@ -159,6 +159,25 @@ export async function refreshRelease(id: string, config: CoreConfig): Promise<vo
 	});
 }
 
+export async function getReleasePreviewURL(
+	releaseId: string,
+	previewId: string,
+	config: CoreConfig,
+): Promise<string> {
+	const { repo, host } = config;
+	const url = new URL(
+		`core/previews/session/releases/${encodeURIComponent(releaseId)}`,
+		getCoreServiceUrl(repo, host),
+	);
+	url.searchParams.set("previewId", previewId);
+	const response = await coreServiceRequest(url, config, {
+		schema: z.looseObject({ preview_url: z.string() }),
+		notFoundMessage: `Release not found: ${releaseId}`,
+		unknownErrorMessage: "Failed to create a preview link",
+	});
+	return response.preview_url;
+}
+
 function coreServiceRequest<T>(
 	url: URL,
 	config: CoreConfig,

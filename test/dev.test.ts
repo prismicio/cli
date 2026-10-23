@@ -195,6 +195,7 @@ describe("with an isolated repository", () => {
 
 		const { proc, output, releaseId } = await startSession(prismic, expect);
 		expect(output()).toContain(`https://${repo}.${host}/builder/types?r=`);
+		await expect.poll(output, { timeout: 30_000 }).toContain("prismic preview add");
 
 		const releaseTypeIds = (await getCustomTypes({ repo, token, host, releaseId })).map(
 			(m) => m.id,
@@ -238,6 +239,9 @@ describe("with an isolated repository", () => {
 		await writeLocalCustomType(project, customType);
 
 		const { output, releaseId } = await startSession(prismic, expect);
+		await expect
+			.poll(output, { timeout: 30_000 })
+			.toContain("Preview: https://example.com/api/preview?token=");
 		const before = await getReleasePreviewToken(releaseId, { repo, token, host });
 
 		await writeLocalCustomType(project, { ...customType, label: "Edited" });
