@@ -49,6 +49,7 @@ it.for(trials)(
 		const layout = await readFile(new URL("+layout.svelte", routesDirectory), "utf8");
 		expect(layout).toContain("PrismicPreview");
 		expect(layout).toContain("data.repositoryName");
+		expect(layout).toContain('previewURL="/api/preview"');
 		expect(layout).toContain("KEEP-ME");
 		const serverLayout = await readServerLayout(routesDirectory);
 		expect(serverLayout).toContain("load");

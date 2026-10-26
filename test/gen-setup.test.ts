@@ -148,7 +148,9 @@ it(
 		expect(stdout).not.toContain("add <PrismicPreview>");
 		const layout = await readFile(new URL("src/routes/+layout.svelte", project), "utf8");
 		expect(layout).toContain("const { data, children } = $props();");
-		expect(layout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(layout).toContain(
+			'<PrismicPreview repositoryName={data.repositoryName} previewURL="/api/preview" />',
+		);
 		expect(layout).not.toContain("#lib/prismicio");
 	},
 );
@@ -246,6 +248,9 @@ it(
 		await expect(project).toHaveFile("src/routes/+layout.server.js", {
 			contains: 'import { repositoryName } from "$lib/prismicio";',
 		});
+		await expect(project).toHaveFile("src/routes/+layout.svelte", {
+			contains: "<PrismicPreview repositoryName={data.repositoryName} />",
+		});
 		await expect(project).not.toHaveFile("src/env.js");
 	},
 );
@@ -297,7 +302,9 @@ it(
 		expect(await readFile(new URL("src/routes/+layout.server.js", project), "utf8")).toBe(
 			serverLayout,
 		);
-		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain(
+			'<PrismicPreview repositoryName={data.repositoryName} previewURL="/api/preview" />',
+		);
 		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
 	},
 );
@@ -335,7 +342,9 @@ it(
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
 		await expect(project).not.toHaveFile("src/routes/+layout.svelte");
-		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain(
+			'<PrismicPreview repositoryName={data.repositoryName} previewURL="/api/preview" />',
+		);
 		expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
 	},
 );
@@ -354,7 +363,9 @@ it(
 
 		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 		expect(exitCode, stderr).toBe(0);
-		expect(stdout).toContain("<PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain(
+			'<PrismicPreview repositoryName={data.repositoryName} previewURL="/api/preview" />',
+		);
 		expect(stdout).not.toContain("+layout.server");
 	},
 );
@@ -402,7 +413,9 @@ it(
 		expect(stdout).toContain('import { PrismicPreview } from "@prismicio/svelte/kit";');
 		expect(stdout).toContain("-   let { children } = $props();");
 		expect(stdout).toContain("+   let { data, children } = $props();");
-		expect(stdout).toContain("+ <PrismicPreview repositoryName={data.repositoryName} />");
+		expect(stdout).toContain(
+			'+ <PrismicPreview repositoryName={data.repositoryName} previewURL="/api/preview" />',
+		);
 		expect(stdout).toContain("prismic docs view sveltekit");
 	},
 );

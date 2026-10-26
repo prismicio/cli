@@ -107,7 +107,7 @@ export class SvelteKitAdapter extends Adapter {
 		if (returnsRepositoryName) {
 			await writeFileIfMissing(
 				new URL("src/routes/+layout.svelte", projectRoot),
-				rootLayoutTemplate(),
+				rootLayoutTemplate({ previewURL: this.localPreviewConfig.resolverPath }),
 			);
 		}
 		await deleteStarterHomePage();
@@ -186,7 +186,7 @@ export class SvelteKitAdapter extends Adapter {
 				  </script>
 
 				  {@render children()}
-				+ <PrismicPreview repositoryName={data.repositoryName} />
+				+ <PrismicPreview repositoryName={data.repositoryName} previewURL="${this.localPreviewConfig.resolverPath}" />
 			`,
 			serverLayoutStep,
 			"Run `prismic docs view sveltekit` for details.",

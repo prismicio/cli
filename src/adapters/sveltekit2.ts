@@ -8,13 +8,13 @@ import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import { deleteStarterHomePage, findSourceFile, SvelteKitAdapter } from "./sveltekit";
-import { rootLayoutTemplate } from "./sveltekit.templates";
 import {
 	layoutServerTemplate,
 	pageServerTemplate,
 	pageTemplate,
 	previewAPIRouteTemplate,
 	prismicIOFileTemplate,
+	rootLayoutTemplate,
 	sliceSimulatorPageTemplate,
 } from "./sveltekit2.templates";
 

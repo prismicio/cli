@@ -37,6 +37,11 @@ export function previewAPIRouteTemplate({ typescript }: { typescript: boolean })
 	return useLib(sveltekit.previewAPIRouteTemplate({ typescript }));
 }
 
+// @prismicio/svelte v2's <PrismicPreview> has no previewURL prop.
+export function rootLayoutTemplate(): string {
+	return sveltekit.rootLayoutTemplate({ previewURL: "" }).replace(' previewURL=""', "");
+}
+
 export function layoutServerTemplate(): string {
 	return useLib(sveltekit.layoutServerTemplate({ extension: "js" }));
 }
