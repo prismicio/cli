@@ -142,7 +142,7 @@ export function layoutServerTemplate({ extension }: { extension: string }): stri
 	`;
 }
 
-export function rootLayoutTemplate({ previewURL }: { previewURL: string }): string {
+export function rootLayoutTemplate({ previewURL }: { previewURL?: string } = {}): string {
 	return dedent`
 		<script>
 			import { isFilled, asImageSrc } from '@prismicio/client';
@@ -164,7 +164,7 @@ export function rootLayoutTemplate({ previewURL }: { previewURL: string }): stri
 			{/if}
 		</svelte:head>
 		{@render children()}
-		<PrismicPreview repositoryName={data.repositoryName} previewURL="${previewURL}" />
+		<PrismicPreview repositoryName={data.repositoryName}${previewURL ? ` previewURL="${previewURL}"` : ""} />
 	`;
 }
 

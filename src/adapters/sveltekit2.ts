@@ -8,13 +8,13 @@ import { addDependencies, getNpmPackageVersion } from "../lib/packageJson";
 import { dedent } from "../lib/string";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import { deleteStarterHomePage, findSourceFile, SvelteKitAdapter } from "./sveltekit";
+import { rootLayoutTemplate } from "./sveltekit.templates";
 import {
 	layoutServerTemplate,
 	pageServerTemplate,
 	pageTemplate,
 	previewAPIRouteTemplate,
 	prismicIOFileTemplate,
-	rootLayoutTemplate,
 	sliceSimulatorPageTemplate,
 } from "./sveltekit2.templates";
 
@@ -79,6 +79,7 @@ export class SvelteKit2Adapter extends SvelteKitAdapter {
 		if (returnsRepositoryName) {
 			await writeFileIfMissing(
 				new URL("src/routes/+layout.svelte", projectRoot),
+				// @prismicio/svelte v2's <PrismicPreview> has no previewURL prop.
 				rootLayoutTemplate(),
 			);
 		}
