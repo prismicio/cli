@@ -6,7 +6,7 @@ import {
 	deleteWriteToken,
 	getOAuthApps,
 	getWriteTokens,
-} from "../lib/prismic/clients/wroom";
+} from "../lib/prismic/client";
 
 const config = {
 	name: "prismic token delete",

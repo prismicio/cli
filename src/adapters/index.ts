@@ -19,12 +19,7 @@ import {
 } from "../lib/file";
 import { stringify } from "../lib/json";
 import { getInstalledMajor, readPackageJson } from "../lib/packageJson";
-import {
-	addPreview,
-	getPreviews,
-	getSimulatorUrl,
-	setSimulatorUrl,
-} from "../lib/prismic/clients/core";
+import { addPreview, getPreviews, getSimulatorUrl, setSimulatorUrl } from "../lib/prismic/client";
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,

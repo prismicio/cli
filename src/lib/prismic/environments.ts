@@ -1,6 +1,5 @@
 import { dedent } from "../string";
-import { validateToken } from "./clients/auth";
-import { type Environment, getEnvironments } from "./clients/core";
+import { type Environment, getEnvironments, validateToken } from "./client";
 
 export async function getUserEnvironments(config: {
 	repo: string;

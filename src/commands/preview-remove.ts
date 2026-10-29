@@ -1,7 +1,7 @@
 import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { getPreviews, removePreview } from "../lib/prismic/clients/core";
+import { getPreviews, removePreview } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic preview remove",

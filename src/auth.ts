@@ -10,7 +10,7 @@ import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
-import { refreshToken as baseRefreshToken } from "./lib/prismic/clients/auth";
+import { refreshToken as baseRefreshToken } from "./lib/prismic/client";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 

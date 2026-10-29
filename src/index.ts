@@ -19,8 +19,7 @@ import { detectAgent } from "./lib/ai";
 import { CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
-import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
-import { getProfile } from "./lib/prismic/clients/user";
+import { getProfile, UnsupportedFileTypeError } from "./lib/prismic/client";
 import { InvalidEnvironmentError } from "./lib/prismic/environments";
 import {
 	FieldExistsError,

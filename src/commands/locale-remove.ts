@@ -1,7 +1,7 @@
 import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { removeLocale } from "../lib/prismic/clients/locale";
+import { removeLocale } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic locale remove",

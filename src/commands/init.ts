@@ -16,16 +16,14 @@ import {
 } from "../lib/packageJson";
 import {
 	addPreview,
-	getPreviews,
-	removePreview,
-	setSimulatorUrl,
-} from "../lib/prismic/clients/core";
-import {
 	enableTypeBuilder,
+	getPreviews,
+	getProfile,
 	getRepository,
+	removePreview,
 	type Repository,
-} from "../lib/prismic/clients/repository";
-import { getProfile } from "../lib/prismic/clients/user";
+	setSimulatorUrl,
+} from "../lib/prismic/client";
 import { diffModels, getLegacySlices, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";

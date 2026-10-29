@@ -37,11 +37,11 @@ or app state; callers pass in what it needs.
 
 Prismic-domain logic shared by multiple commands. Still application-unaware.
 
-### `src/lib/prismic/clients/`
+### `src/lib/prismic/client.ts`
 
-One file per backend service. Network calls only: build the request, validate
-the response, return typed data. No orchestration, no business decisions, no
-console output.
+Every request to a Prismic backend service, in one file grouped by service.
+Network calls only: build the request, validate the response, return typed
+data. No orchestration, no business decisions, no console output.
 
 ## `src/adapters/`
 

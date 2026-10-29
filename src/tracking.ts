@@ -8,7 +8,7 @@ import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { detectAgent } from "./lib/ai";
 import { readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
-import type { Profile } from "./lib/prismic/clients/user";
+import type { Profile } from "./lib/prismic/client";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
 

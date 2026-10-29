@@ -1,6 +1,6 @@
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { setRepositoryName } from "../lib/prismic/clients/wroom";
+import { setRepositoryName } from "../lib/prismic/client";
 import { getRepositoryName } from "../project";
 
 const config = {
