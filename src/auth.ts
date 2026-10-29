@@ -64,7 +64,7 @@ async function saveCredentials(credentials: Credentials): Promise<void> {
 
 export async function createLoginSession(options: {
 	onReady: (url: URL) => void;
-}): Promise<{ email: string }> {
+}): Promise<{ email: string; token: string }> {
 	const { host } = await getCredentials();
 	const corsOrigin = `https://${host}`;
 
@@ -116,7 +116,7 @@ export async function createLoginSession(options: {
 
 						clearTimeout(timeoutId);
 						server.close();
-						resolve({ email });
+						resolve({ email, token });
 					} catch {
 						respond(400, { error: "Invalid request" });
 					}

@@ -2,15 +2,19 @@ import * as z from "zod/mini";
 
 const USER_AGENT = "prismic-cli";
 
-type CustomRequestInit = Omit<RequestInit, "body" | "credentials"> & {
+type CustomRequestInit<T = unknown> = Omit<RequestInit, "body" | "credentials"> & {
 	credentials?: Record<string, string | undefined>;
 	notFoundMessage?: string;
 	unknownErrorMessage?: string;
+	onAuthError?: (
+		response: Response,
+		retry: (initOverrides: Omit<Partial<RequestOptions<T>>, "onAuthError">) => Promise<T>,
+	) => Promise<void | T>;
 };
 
 type RequestBody = { body?: BodyInit | null; json?: never } | { body?: never; json?: unknown };
 
-export type RequestOptions<T = unknown> = CustomRequestInit &
+export type RequestOptions<T = unknown> = CustomRequestInit<T> &
 	RequestBody & {
 		schema?: z.ZodMiniType<T>;
 	};
@@ -19,7 +23,15 @@ export async function request<T = unknown>(
 	input: RequestInfo | URL,
 	init: RequestOptions<T> = {},
 ): Promise<T> {
-	const { credentials, json, notFoundMessage, unknownErrorMessage, schema, ...requestInit } = init;
+	const {
+		credentials,
+		json,
+		notFoundMessage,
+		unknownErrorMessage,
+		onAuthError,
+		schema,
+		...requestInit
+	} = init;
 
 	const headers = new Headers(init.headers);
 	if (!headers.has("Accept")) {
@@ -60,10 +72,20 @@ export async function request<T = unknown>(
 	switch (response.status) {
 		case 400:
 			throw new BadRequestError(response, value);
-		case 401:
+		case 401: {
+			if (onAuthError) {
+				const x = await onAuthError(response, async (initOverrides) => {
+					return await request<T>(input, {
+						...requestInit,
+						...initOverrides,
+					});
+				});
+			}
 			throw new UnauthorizedRequestError(response, value);
-		case 403:
+		}
+		case 403: {
 			throw new ForbiddenRequestError(response, value);
+		}
 		case 404:
 			throw new NotFoundRequestError(response, value, notFoundMessage);
 		default:

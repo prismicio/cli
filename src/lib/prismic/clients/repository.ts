@@ -1,5 +1,6 @@
 import * as z from "zod/mini";
 
+import { createLoginSession } from "../../../auth";
 import { request, type RequestOptions } from "../../request";
 
 type RepositoryConfig = {
@@ -80,6 +81,12 @@ function repositoryServiceRequest<T>(
 			repository: config.repo,
 		},
 		notFoundMessage: `Repository not found: ${config.repo}`,
+		onAuthError: async (_response, retry) => {
+			const { token } = await createLoginSession({
+				onReady: (url) => console.info(`Open this URL to log in: ${url}`),
+			});
+			return await retry({ headers: { Authorization: `Bearer ${token}` } });
+		},
 		...options,
 	});
 }
