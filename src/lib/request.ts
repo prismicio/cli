@@ -74,7 +74,9 @@ export async function request<T = unknown>(
 			throw new BadRequestError(response, value);
 		case 401: {
 			if (onAuthError) {
-				const x = await onAuthError(response, async (initOverrides) => {
+				let retried = false;
+				const result = await onAuthError(response, async (initOverrides) => {
+					retried = true;
 					const retryHeaders = new Headers(init.headers);
 					new Headers(initOverrides.headers).forEach((value, key) => {
 						retryHeaders.set(key, value);
@@ -89,6 +91,7 @@ export async function request<T = unknown>(
 						onAuthError: undefined,
 					});
 				});
+				if (retried) return result as T;
 			}
 			throw new UnauthorizedRequestError(response, value);
 		}
