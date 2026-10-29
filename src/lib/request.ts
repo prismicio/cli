@@ -8,7 +8,7 @@ type CustomRequestInit<T = unknown> = Omit<RequestInit, "body" | "credentials"> 
 	unknownErrorMessage?: string;
 	onAuthError?: (
 		response: Response,
-		retry: (initOverrides: Omit<Partial<RequestOptions<T>>, "onAuthError">) => Promise<T>,
+		retry: (initOverrides: Omit<CustomRequestInit<T>, "onAuthError">) => Promise<T>,
 	) => Promise<void | T>;
 };
 
@@ -75,9 +75,18 @@ export async function request<T = unknown>(
 		case 401: {
 			if (onAuthError) {
 				const x = await onAuthError(response, async (initOverrides) => {
+					const retryHeaders = new Headers(init.headers);
+					new Headers(initOverrides.headers).forEach((value, key) => {
+						retryHeaders.set(key, value);
+					});
 					return await request<T>(input, {
-						...requestInit,
+						...init,
 						...initOverrides,
+						headers: retryHeaders,
+						credentials: initOverrides.credentials
+							? { ...credentials, ...initOverrides.credentials }
+							: credentials,
+						onAuthError: undefined,
 					});
 				});
 			}
