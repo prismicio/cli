@@ -30,7 +30,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const locales = await getLocales({ repo, token, host });
+	const { results: locales } = await getLocales({ repo, token, host });
 
 	if (json) {
 		console.info(stringify(locales));

@@ -68,14 +68,13 @@ export async function getProfile(config: Config): Promise<Profile> {
 
 export async function getRepositories(
 	config: Config,
-): Promise<z.infer<typeof UserRepositorySchema>[]> {
+): Promise<{ repositories: z.infer<typeof UserRepositorySchema>[] }> {
 	const url = new URL("user/repositories", getUserServiceUrl(config.host));
-	const response = await request(url, {
+	return request(url, {
 		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ repositories: z.array(UserRepositorySchema) }),
 		unknownErrorMessage: "Failed to load your repositories",
 	});
-	return response.repositories;
 }
 
 function getUserServiceUrl(host: string): URL {
@@ -240,12 +239,7 @@ export async function uploadScreenshot(
 		throw new UnsupportedFileTypeError(type);
 	}
 
-	const presignedUrl = new URL("presigned-url", getScreenshotServiceUrl(config.host));
-	presignedUrl.searchParams.set("repository", config.repo);
-	const presigned = await request(presignedUrl, {
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
-		schema: ScreenshotPresignedUrlResponseSchema,
-	});
+	const presigned = await getScreenshotUploadForm(config);
 
 	const extension = SUPPORTED_IMAGE_MIME_TYPES[type];
 	const digest = createHash("sha1")
@@ -267,6 +261,17 @@ export async function uploadScreenshot(
 	url.searchParams.set("auto", "compress,format");
 
 	return url;
+}
+
+function getScreenshotUploadForm(
+	config: RepositoryConfig,
+): Promise<z.infer<typeof ScreenshotPresignedUrlResponseSchema>> {
+	const url = new URL("presigned-url", getScreenshotServiceUrl(config.host));
+	url.searchParams.set("repository", config.repo);
+	return request(url, {
+		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		schema: ScreenshotPresignedUrlResponseSchema,
+	});
 }
 
 export class UnsupportedFileTypeError extends Error {
@@ -295,16 +300,15 @@ const LocaleSchema = z.object({
 
 export type Locale = z.infer<typeof LocaleSchema>;
 
-export async function getLocales(config: RepositoryConfig): Promise<Locale[]> {
+export async function getLocales(config: RepositoryConfig): Promise<{ results: Locale[] }> {
 	const url = new URL("repository/locales", getLocaleServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
-	const response = await request(url, {
+	return request(url, {
 		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ results: z.array(LocaleSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load locales",
 	});
-	return response.results;
 }
 
 export async function upsertLocale(
@@ -355,18 +359,17 @@ const PreviewSchema = z.object({
 
 export type Preview = z.infer<typeof PreviewSchema>;
 
-export async function getPreviews(config: RepositoryConfig): Promise<Preview[]> {
+export async function getPreviews(config: RepositoryConfig): Promise<{ results: Preview[] }> {
 	const url = new URL(
 		"core/repository/preview_configs",
 		getRepositoryDomainUrl(config.repo, config.host),
 	);
-	const response = await request(url, {
+	return request(url, {
 		credentials: { "prismic-auth": config.token },
 		schema: z.object({ results: z.array(PreviewSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load previews",
 	});
-	return response.results;
 }
 
 export async function addPreview(
@@ -413,25 +416,27 @@ const EnvironmentSchema = z.object({
 });
 export type Environment = z.infer<typeof EnvironmentSchema>;
 
-export async function getEnvironments(config: RepositoryConfig): Promise<Environment[]> {
+export async function getEnvironments(
+	config: RepositoryConfig,
+): Promise<{ results: Environment[] }> {
 	const url = new URL("core/environments", getRepositoryDomainUrl(config.repo, config.host));
-	const response = await request(url, {
+	return request(url, {
 		credentials: { "prismic-auth": config.token },
 		schema: z.object({ results: z.array(EnvironmentSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
-	return response.results;
 }
 
-export async function getSimulatorUrl(config: RepositoryConfig): Promise<string | undefined> {
+export async function getSimulatorUrl(
+	config: RepositoryConfig,
+): Promise<{ simulator_url?: string }> {
 	const url = new URL("core/repository", getRepositoryDomainUrl(config.repo, config.host));
-	const response = await request(url, {
+	return request(url, {
 		credentials: { "prismic-auth": config.token },
 		schema: z.object({ simulator_url: z.optional(z.string()) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load simulator URL",
 	});
-	return response.simulator_url;
 }
 
 export async function setSimulatorUrl(
@@ -451,24 +456,23 @@ export async function setSimulatorUrl(
 export async function getDocumentTotalByCustomTypes(
 	customTypeId: string,
 	config: RepositoryConfig,
-): Promise<number> {
+): Promise<{ total: number }> {
 	const url = new URL("core/documents/search", getRepositoryDomainUrl(config.repo, config.host));
-	const response = await request(url, {
+	return request(url, {
 		method: "POST",
 		json: { customTypes: [customTypeId], limit: 0 },
 		credentials: { "prismic-auth": config.token },
 		schema: z.object({ total: z.number() }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
-	return response.total;
 }
 
 export async function createRelease(
 	release: { label: string; hidden?: boolean },
 	config: RepositoryConfig,
-): Promise<string> {
+): Promise<{ id: string }> {
 	const url = new URL("core/releases", getRepositoryDomainUrl(config.repo, config.host));
-	const response = await request(url, {
+	return request(url, {
 		method: "POST",
 		json: release,
 		credentials: { "prismic-auth": config.token },
@@ -476,7 +480,6 @@ export async function createRelease(
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create a release",
 	});
-	return response.id;
 }
 
 export async function deleteRelease(id: string, config: RepositoryConfig): Promise<void> {
@@ -726,15 +729,16 @@ export async function deleteWriteToken(
 	});
 }
 
-export async function getRepositoryAccess(config: RepositoryConfig): Promise<string> {
+export async function getRepositoryAccess(
+	config: RepositoryConfig,
+): Promise<{ repository: { api_access: string } }> {
 	const url = new URL("syncState", getRepositoryDomainUrl(config.repo, config.host));
-	const response = await request(url, {
+	return request(url, {
 		credentials: { "prismic-auth": config.token },
 		schema: z.object({ repository: z.object({ api_access: z.string() }) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load repository access",
 	});
-	return response.repository.api_access;
 }
 
 export type RepositoryAccessLevel = "private" | "public" | "open";
@@ -756,11 +760,14 @@ export async function setRepositoryAccess(
 	});
 }
 
-export async function setRepositoryName(name: string, config: RepositoryConfig): Promise<string> {
+export async function setRepositoryName(
+	name: string,
+	config: RepositoryConfig,
+): Promise<{ repository: { name: string } }> {
 	const formData = new FormData();
 	formData.set("displayname", name);
 	const url = new URL("app/settings/repository", getRepositoryDomainUrl(config.repo, config.host));
-	const response = await request(url, {
+	return request(url, {
 		method: "POST",
 		body: formData,
 		credentials: { "prismic-auth": config.token },
@@ -768,7 +775,6 @@ export async function setRepositoryName(name: string, config: RepositoryConfig):
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to set repository name",
 	});
-	return response.repository.name;
 }
 
 function getRepositoryDomainUrl(repo: string, host: string): URL {

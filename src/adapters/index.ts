@@ -167,10 +167,10 @@ export abstract class Adapter {
 		if (setup) await this.setupProject();
 
 		const config = { repo: await getRepositoryName(), ...(await getCredentials()) };
-		if (!(await getSimulatorUrl(config))) {
+		if (!(await getSimulatorUrl(config)).simulator_url) {
 			await setSimulatorUrl(this.localSimulatorUrl, config);
 		}
-		if ((await getPreviews(config)).length === 0) {
+		if ((await getPreviews(config)).results.length === 0) {
 			await addPreview(this.localPreviewConfig, config);
 		}
 	}

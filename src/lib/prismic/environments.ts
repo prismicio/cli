@@ -7,7 +7,7 @@ export async function getUserEnvironments(config: {
 	host: string;
 }): Promise<Environment[]> {
 	const { repo, token, host } = config;
-	const [session, environments] = await Promise.all([
+	const [session, { results: environments }] = await Promise.all([
 		validateToken(token, { host }),
 		getEnvironments({ repo, token, host }),
 	]);
