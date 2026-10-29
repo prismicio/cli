@@ -33,8 +33,11 @@ type StoredCredentials = z.infer<typeof CredentialsSchema>;
 
 // When a request fails because the login is missing or expired, a new login
 // starts and the request retries. The token then updates, so later requests
-// use the new login.
-export async function getCredentials(options: { noBrowser?: boolean } = {}): Promise<Credentials> {
+// use the new login. The login prints its URL and opens no browser, unless
+// the command asks for one.
+export async function getCredentials(
+	options: { openBrowser?: boolean } = {},
+): Promise<Credentials> {
 	const stored = await readCredentials();
 	const credentials: Credentials = {
 		token: env.PRISMIC_TOKEN || stored?.token,
@@ -48,15 +51,15 @@ export async function getCredentials(options: { noBrowser?: boolean } = {}): Pro
 	return credentials;
 }
 
-export async function logIn(options: { noBrowser?: boolean } = {}): Promise<string> {
+export async function logIn(options: { openBrowser?: boolean } = {}): Promise<string> {
 	const { email, token } = await createLoginSession({
 		onReady: (url) => {
-			if (options.noBrowser) {
-				console.info(`Open this URL to log in: ${url}`);
-			} else {
+			if (options.openBrowser) {
 				console.info("Opening browser to complete login...");
 				console.info(`If the browser doesn't open, visit: ${url}`);
 				openBrowser(url);
+			} else {
+				console.info(`Open this URL to log in: ${url}`);
 			}
 		},
 	});
@@ -70,7 +73,7 @@ async function logInAgain(
 	error: RequestError,
 	rejectedToken: string | undefined,
 	credentials: Credentials,
-	options: { noBrowser?: boolean },
+	options: { openBrowser?: boolean },
 ): Promise<string | undefined> {
 	// Another request already logged in again.
 	if (credentials.token !== rejectedToken) return credentials.token;

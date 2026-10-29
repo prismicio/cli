@@ -45,22 +45,15 @@ it("lists the one repository a Write API token can write to", async ({
 	]);
 });
 
-it("logs in and continues when not logged in", async ({
-	expect,
-	prismic,
-	logout,
-	bin,
-	token,
-	repo,
-}) => {
+it("logs in and continues when not logged in", async ({ expect, prismic, logout, token, repo }) => {
 	await logout();
-	await stubBrowser(bin);
 	const proc = prismic("repo", ["list"], { nodeOptions: { env: { CI: "" } } });
 	const output = captureOutput(proc);
 	await completeLogin(expect, output, token);
 	const { exitCode } = await proc;
 	expect(exitCode, output()).toBe(0);
 	expect(output()).toContain("You are not logged in.");
+	expect(output()).toContain("Open this URL to log in:");
 	expect(output()).toContain(repo);
 });
 
@@ -69,7 +62,6 @@ it("logs in again and continues when the login expired", async ({
 	prismic,
 	home,
 	host,
-	bin,
 	token,
 	repo,
 }) => {
@@ -77,7 +69,6 @@ it("logs in again and continues when the login expired", async ({
 		new URL(".config/prismic/credentials.json", home),
 		JSON.stringify({ token: "expired-token", host }),
 	);
-	await stubBrowser(bin);
 	const proc = prismic("repo", ["list"], { nodeOptions: { env: { CI: "" } } });
 	const output = captureOutput(proc);
 	await completeLogin(expect, output, token);
@@ -98,11 +89,4 @@ async function completeLogin(expect: ExpectStatic, output: () => string, token: 
 			email: "test@example.com",
 		}),
 	});
-}
-
-// Keeps the login from opening a real browser.
-async function stubBrowser(bin: URL) {
-	for (const name of ["open", "xdg-open"]) {
-		await writeFile(new URL(name, bin), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
-	}
 }

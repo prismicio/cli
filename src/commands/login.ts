@@ -10,5 +10,5 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	await logIn({ noBrowser: values["no-browser"] });
+	await logIn({ openBrowser: !values["no-browser"] });
 });
