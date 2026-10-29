@@ -1,15 +1,10 @@
 import { dedent } from "../string";
-import { type Environment, getEnvironments, validateToken } from "./client";
+import { type Environment, getEnvironments, type RepositoryConfig, validateToken } from "./client";
 
-export async function getUserEnvironments(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<Environment[]> {
-	const { repo, token, host } = config;
+export async function getUserEnvironments(config: RepositoryConfig): Promise<Environment[]> {
 	const [session, { results: environments }] = await Promise.all([
-		validateToken(token, { host }),
-		getEnvironments({ repo, token, host }),
+		validateToken(config),
+		getEnvironments(config),
 	]);
 	if (session.type === "Machine2Machine") {
 		return environments.filter((environment) => environment.domain === session.domain);

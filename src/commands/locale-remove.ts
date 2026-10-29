@@ -29,9 +29,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [code] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
-	const { token, host } = await getCredentials();
+	const credentials = await getCredentials();
 
-	await deleteLocale(code, { repo, token, host });
+	await deleteLocale(code, { repo, ...credentials });
 
 	console.info(`Locale removed: ${code}`);
 });

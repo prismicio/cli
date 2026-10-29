@@ -24,9 +24,17 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic dev [options]");
 });
 
-it("fails when not logged in", async ({ expect, prismic, logout }) => {
+it("starts a login when not logged in", async ({ expect, prismic, logout }) => {
 	await logout();
-	const { stderr, exitCode } = await prismic("dev");
+	const proc = prismic("dev", ["--no-browser"], { nodeOptions: { env: { CI: "" } } });
+	const output = captureOutput(proc);
+	await expect.poll(output, { timeout: 15_000 }).toMatch(/port=(\d+)/);
+	proc.kill();
+});
+
+it("fails when not logged in on CI", async ({ expect, prismic, logout }) => {
+	await logout();
+	const { stderr, exitCode } = await prismic("dev", [], { nodeOptions: { env: { CI: "true" } } });
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Not logged in");
 });

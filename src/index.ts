@@ -174,7 +174,8 @@ async function main(): Promise<void> {
 				if (knownUserId) {
 					sentrySetUser({ id: knownUserId });
 				} else if (!exp || exp > now) {
-					getUserProfile({ token, host })
+					// Telemetry never starts a login.
+					getUserProfile({ token, host, onAuthError: undefined })
 						.then((profile) => {
 							trackUser(profile);
 							sentrySetUser({ id: profile.shortId });

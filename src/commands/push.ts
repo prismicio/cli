@@ -6,7 +6,11 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { deleteSliceScreenshots, getDocumentTotalByCustomType } from "../lib/prismic/client";
+import {
+	deleteSliceScreenshots,
+	getDocumentTotalByCustomType,
+	type RepositoryConfig,
+} from "../lib/prismic/client";
 import { diffModels, getRemoteModels, writeRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError } from "../lib/request";
@@ -52,7 +56,7 @@ export default createCommand(config, async ({ values }) => {
 		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 	} = values;
 
-	const { token, host } = await getCredentials();
+	const credentials = await getCredentials();
 	const projectRoot = await findProjectRoot();
 
 	console.info(`Pushing to repository: ${repo}`);
@@ -91,7 +95,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const [local, remote] = await Promise.all([
 		adapter.getModels(),
-		getRemoteModels({ repo, token, host }),
+		getRemoteModels({ repo, ...credentials }),
 	]);
 	const diff = diffModels(local, remote);
 
@@ -117,12 +121,12 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	try {
-		await writeRemoteModels(diff, { repo, token, host });
+		await writeRemoteModels(diff, { repo, ...credentials });
 	} catch (error) {
-		throw await explainExistingDocuments(error, diff.customTypes.delete, { repo, token, host });
+		throw await explainExistingDocuments(error, diff.customTypes.delete, { repo, ...credentials });
 	}
 	for (const { id } of diff.slices.delete) {
-		await deleteSliceScreenshots(id, { repo, token, host }).catch((error) => {
+		await deleteSliceScreenshots(id, { repo, ...credentials }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
 			console.warn(
 				`Failed to delete screenshots for slice "${id}"${message ? `: ${message}` : "."}`,
@@ -140,8 +144,7 @@ export default createCommand(config, async ({ values }) => {
 	if (onboardingSteps.length > 0) {
 		await completeOnboardingSteps(onboardingSteps, {
 			repo: await getRepositoryName(),
-			token,
-			host,
+			...credentials,
 		}).catch(() => {});
 	}
 
@@ -161,7 +164,7 @@ const ExistingDocumentsErrorSchema = z.object({ hasExistingDocuments: z.literal(
 async function explainExistingDocuments(
 	error: unknown,
 	deletedCustomTypes: DynamicCustomTypeModel[],
-	config: { repo: string; token: string | undefined; host: string },
+	config: RepositoryConfig,
 ): Promise<unknown> {
 	if (!(error instanceof ForbiddenRequestError)) return error;
 	if (!z.safeParse(ExistingDocumentsErrorSchema, error.body).success) return error;
