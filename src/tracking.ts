@@ -115,11 +115,18 @@ function detectRuntime(): { runtime: string; runtimeProvider?: string } {
 	const ciProvider = detectCIProvider();
 	if (ciProvider || process.env.CI) return { runtime: "ci", runtimeProvider: ciProvider };
 
-	if (existsSync("/.dockerenv") || existsSync("/run/.containerenv")) {
+	if (
+		existsSync("/.dockerenv") ||
+		existsSync("/run/.containerenv") ||
+		process.env.KUBERNETES_SERVICE_HOST
+	) {
 		return { runtime: "container" };
 	}
 
-	return { runtime: "local" };
+	// Hosted sandboxes run Linux, so an unrecognized Linux machine may not be local.
+	if (process.platform !== "linux" || process.env.WSL_DISTRO_NAME) return { runtime: "local" };
+
+	return { runtime: "unknown" };
 }
 
 function detectCloudProvider(): string | undefined {
@@ -129,6 +136,9 @@ function detectCloudProvider(): string | undefined {
 	if (process.env.GITPOD_WORKSPACE_ID) return "gitpod";
 	if (process.versions.webcontainer) return "stackblitz";
 	if (process.env.REPL_ID) return "replit";
+	if (process.env.CODESANDBOX_HOST) return "codesandbox";
+	if (process.env.MODAL_SANDBOX_ID) return "modal";
+	if (process.env.E2B_SANDBOX) return "e2b";
 	if (process.platform === "linux" && existsSync("/opt/.devin")) return "devin";
 }
 
@@ -140,7 +150,10 @@ function detectCIProvider(): string | undefined {
 	if (process.env.TF_BUILD) return "azure-pipelines";
 	if (process.env.JENKINS_URL) return "jenkins";
 	if (process.env.BUILDKITE) return "buildkite";
-	if (process.env.VERCEL) return "vercel";
+	if (process.env.CODEBUILD_BUILD_ID) return "codebuild";
+	if (process.env.TEAMCITY_VERSION) return "teamcity";
+	// Vercel also sets VERCEL at runtime, but sets CI only during builds.
+	if (process.env.VERCEL && process.env.CI) return "vercel";
 	if (process.env.NETLIFY) return "netlify";
 	if (process.env.CF_PAGES) return "cloudflare-pages";
 }
