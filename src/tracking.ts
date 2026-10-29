@@ -139,7 +139,7 @@ function detectCloudProvider(): string | undefined {
 	if (process.env.CODESANDBOX_HOST) return "codesandbox";
 	if (process.env.MODAL_SANDBOX_ID) return "modal";
 	if (process.env.E2B_SANDBOX) return "e2b";
-	if (process.platform === "linux" && existsSync("/opt/.devin")) return "devin";
+	if (existsSync("/opt/.devin")) return "devin";
 }
 
 function detectCIProvider(): string | undefined {
