@@ -29,16 +29,16 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
-	const { results: previews } = await getPreviews({ repo, ...credentials });
+	const { results: previews } = await getPreviews({ repo, host, getToken });
 
 	const preview = previews.find((p) => p.url === previewUrl);
 	if (!preview) {
 		throw new CommandError(`Preview not found: ${previewUrl}`);
 	}
 
-	await deletePreview(preview.id, { repo, ...credentials });
+	await deletePreview(preview.id, { repo, host, getToken });
 
 	console.info(`Preview removed: ${previewUrl}`);
 });

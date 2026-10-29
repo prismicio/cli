@@ -55,8 +55,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 	}
 
-	const credentials = await getCredentials();
-	const webhooks = await getWebhooks({ repo, ...credentials });
+	const { host, getToken } = await getCredentials();
+	const webhooks = await getWebhooks({ repo, host, getToken });
 
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
@@ -76,7 +76,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			tagsCreated: trigger.includes("tagsCreated"),
 			tagsDeleted: trigger.includes("tagsDeleted"),
 		},
-		{ repo, ...credentials },
+		{ repo, host, getToken },
 	);
 
 	console.info(`Webhook triggers updated: ${trigger.join(", ")}`);

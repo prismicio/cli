@@ -34,18 +34,18 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [tokenValue] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
 	const [apps, writeTokensInfo] = await Promise.all([
-		getOAuthApps({ repo, ...credentials }),
-		getWriteTokens({ repo, ...credentials }),
+		getOAuthApps({ repo, host, getToken }),
+		getWriteTokens({ repo, host, getToken }),
 	]);
 
 	// Search access tokens
 	const accessTokenAuths = apps.flatMap((app) => app.wroom_auths);
 	const accessToken = accessTokenAuths.find((auth) => auth.token === tokenValue);
 	if (accessToken) {
-		await deleteOAuthAuthorization(accessToken.id, { repo, ...credentials });
+		await deleteOAuthAuthorization(accessToken.id, { repo, host, getToken });
 		console.info("Token deleted");
 		return;
 	}
@@ -53,7 +53,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	// Search write tokens
 	const writeToken = writeTokensInfo.tokens.find((t) => t.token === tokenValue);
 	if (writeToken) {
-		await deleteWriteToken(writeToken.token, { repo, ...credentials });
+		await deleteWriteToken(writeToken.token, { repo, host, getToken });
 		console.info("Token deleted");
 		return;
 	}

@@ -36,7 +36,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	if (screenshot) {
 		const repo = await getRepositoryName();
-		const credentials = await getCredentials();
+		const { host, getToken } = await getCredentials();
 
 		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
 		const blob = await readURLFile(url);
@@ -44,7 +44,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 			sliceId: slice.id,
 			variationId: variation.id,
 			repo,
-			...credentials,
+			host,
+			getToken,
 		});
 		variation.imageUrl = screenshotUrl.toString();
 	}

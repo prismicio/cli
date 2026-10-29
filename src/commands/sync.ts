@@ -46,7 +46,7 @@ export default createCommand(config, async ({ values }) => {
 		repo = envFlag ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 	} = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
 	trackCommandStart("sync", { watch: true });
 	process.on("SIGINT", () => {
@@ -64,7 +64,7 @@ export default createCommand(config, async ({ values }) => {
 
 	while (true) {
 		try {
-			const remote = await getRemoteModels({ repo, ...credentials });
+			const remote = await getRemoteModels({ repo, host, getToken });
 			const sinceLastPoll = lastRemote && diffModels(remote, lastRemote);
 
 			if (
@@ -92,7 +92,8 @@ export default createCommand(config, async ({ values }) => {
 				if (isInitial) {
 					await completeOnboardingSteps(["connectPrismic"], {
 						repo: await getRepositoryName(),
-						...credentials,
+						host,
+						getToken,
 					}).catch(() => {});
 					console.info("Initial sync complete.");
 				} else if (changed.length > 0) {

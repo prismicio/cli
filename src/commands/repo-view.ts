@@ -24,8 +24,8 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo = await getRepositoryName(), web, json } = values;
 
-	const credentials = await getCredentials();
-	const url = `https://${repo}.${credentials.host}/`;
+	const { host, getToken } = await getCredentials();
+	const url = `https://${repo}.${host}/`;
 
 	if (web) {
 		openBrowser(new URL(url));
@@ -34,8 +34,8 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const [repository, syncState] = await Promise.all([
-		getRepository({ repo, ...credentials }),
-		getRepositoryApiAccess({ repo, ...credentials }).catch((error) => {
+		getRepository({ repo, host, getToken }),
+		getRepositoryApiAccess({ repo, host, getToken }).catch((error) => {
 			if (!isInvalidAuthContextError(error)) throw error;
 		}),
 	]);

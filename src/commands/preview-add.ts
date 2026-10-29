@@ -42,9 +42,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const websiteURL = `${parsed.protocol}//${parsed.host}`;
 	const resolverPath = parsed.pathname === "/" ? undefined : parsed.pathname;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
-	await addPreview({ name: displayName, websiteURL, resolverPath }, { repo, ...credentials });
+	await addPreview({ name: displayName, websiteURL, resolverPath }, { repo, host, getToken });
 
 	console.info(`Preview added: ${previewUrl}`);
 	console.info("Run `prismic preview set-simulator <url>` to set the slice simulator URL.");
