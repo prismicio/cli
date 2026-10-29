@@ -1,7 +1,10 @@
 import { existsSync } from "node:fs";
 
 export function detectAgent(): string | undefined {
-	if (process.env.AI_AGENT !== undefined) return process.env.AI_AGENT.toLowerCase() || undefined;
+	const aiAgent = process.env.AI_AGENT?.toLowerCase();
+	// Claude Code adds its version, as in "claude-code_2-1-296_agent".
+	if (aiAgent?.startsWith("claude-code_")) return "claude-code";
+	if (aiAgent !== undefined) return aiAgent || undefined;
 
 	if (process.env.CLAUDE_CODE_IS_COWORK === "1" || process.env.CLAUDE_CODE_IS_COWORK === "true") {
 		return "claude-cowork";
