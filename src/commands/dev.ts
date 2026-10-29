@@ -13,8 +13,7 @@ import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError, exclusiveOptions } from "../lib/command";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
-import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
-import type { CustomTypesConfig } from "../lib/prismic/clients/custom-types";
+import { createRelease, type CustomTypesConfig, deleteRelease } from "../lib/prismic/client";
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,

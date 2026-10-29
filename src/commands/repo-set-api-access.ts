@@ -1,6 +1,6 @@
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { type RepositoryAccessLevel, setRepositoryAccess } from "../lib/prismic/clients/wroom";
+import { type RepositoryAccessLevel, setRepositoryAccess } from "../lib/prismic/client";
 import { getRepositoryName } from "../project";
 
 const VALID_LEVELS: RepositoryAccessLevel[] = ["private", "public", "open"];

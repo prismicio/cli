@@ -13,7 +13,7 @@ import {
 	type CustomTypesConfig,
 	getCustomTypes,
 	getSlices,
-} from "./clients/custom-types";
+} from "./client";
 
 type Fields = Record<string, DynamicWidgetModel>;
 

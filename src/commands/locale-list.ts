@@ -2,7 +2,7 @@ import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getLocales } from "../lib/prismic/clients/locale";
+import { getLocales } from "../lib/prismic/client";
 import { formatTable } from "../lib/string";
 
 const config = {

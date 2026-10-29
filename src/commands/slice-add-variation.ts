@@ -6,7 +6,7 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { readURLFile } from "../lib/file";
-import { uploadScreenshot } from "../lib/prismic/clients/custom-types";
+import { uploadScreenshot } from "../lib/prismic/client";
 import { getRepositoryName } from "../project";
 
 const config = {

@@ -1,7 +1,7 @@
 import { env } from "../env";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getDocsIndex, getDocsPageIndex } from "../lib/prismic/clients/docs";
+import { getDocsIndex, getDocsPageIndex } from "../lib/prismic/client";
 import { formatTable } from "../lib/string";
 
 const config = {
