@@ -19,8 +19,8 @@ export default createCommand(config, async ({ values }) => {
 	const projectRepo = await getRepositoryName();
 	const { json, repo = projectRepo } = values;
 
-	const { token, host } = await getCredentials();
-	const environments = await getUserEnvironments({ repo, token, host });
+	const { host, getToken } = await getCredentials();
+	const environments = await getUserEnvironments({ repo, host, getToken });
 
 	let activeEnvironment: string | undefined;
 	if (repo === projectRepo) {

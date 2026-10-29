@@ -28,11 +28,11 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { env, repo = env ?? (await getActiveRepositoryName()), json } = values;
 
-	const { token, host } = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
 	const [{ results: previews }, { simulator_url: simulatorUrl }] = await Promise.all([
-		getPreviews({ repo, token, host }),
-		getSimulatorUrl({ repo, token, host }),
+		getPreviews({ repo, host, getToken }),
+		getSimulatorUrl({ repo, host, getToken }),
 	]);
 
 	if (json) {

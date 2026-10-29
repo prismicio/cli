@@ -74,7 +74,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 	}
 
-	const { token, host } = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
 	const defaultValue = trigger.length > 0 ? false : true;
 
@@ -90,7 +90,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			tagsCreated: trigger.includes("tagsCreated") || defaultValue,
 			tagsDeleted: trigger.includes("tagsDeleted") || defaultValue,
 		},
-		{ repo, token, host },
+		{ repo, host, getToken },
 	);
 
 	console.info(`Webhook created: ${webhookUrl}`);

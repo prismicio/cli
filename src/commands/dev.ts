@@ -13,7 +13,13 @@ import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError, exclusiveOptions } from "../lib/command";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
-import { createRelease, type CustomTypesConfig, deleteRelease } from "../lib/prismic/client";
+import {
+	createRelease,
+	type Credentials,
+	type CustomTypesConfig,
+	deleteRelease,
+	type RepositoryConfig,
+} from "../lib/prismic/client";
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,
@@ -66,15 +72,18 @@ export default createCommand(config, async ({ values }) => {
 		new: newSession,
 		"no-browser": noBrowser,
 	} = values;
-	const { token, host } = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
 	const sessionPath = await getSessionPath();
-	const previous = await resolvePreviousSession(adapter, sessionPath, {
-		token,
-		host,
-		continueSession,
-		newSession,
-	});
+	const previous = await resolvePreviousSession(
+		adapter,
+		sessionPath,
+		{ host, getToken },
+		{
+			continueSession,
+			newSession,
+		},
+	);
 
 	let session: Session;
 	if (previous) {
@@ -82,9 +91,9 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Continuing your session for ${repo}...`);
 	} else {
 		console.info(`Preparing your session for ${repo}...`);
-		session = await createSession({ repo, token, host });
+		session = await createSession({ repo, host, getToken });
 	}
-	const release = { repo, token, host, releaseId: session.releaseId };
+	const release = { repo, host, getToken, releaseId: session.releaseId };
 	const sync = (push = true) =>
 		syncModels(adapter, release, session, sessionPath, {
 			push,
@@ -173,14 +182,13 @@ async function saveSession(sessionPath: URL, session: Session): Promise<void> {
 	await writeFileRecursive(sessionPath, stringify(session));
 }
 
-async function createSession({ repo, token, host }: CustomTypesConfig): Promise<Session> {
-	const release = await createRelease(
-		{ label: "prismic dev", hidden: true },
-		{ repo, token, host },
-	).catch((error) => {
-		throw explainRequestError(error);
-	});
-	return { repo, releaseId: release.id, pid: process.pid, synced: {} };
+async function createSession(config: RepositoryConfig): Promise<Session> {
+	const release = await createRelease({ label: "prismic dev", hidden: true }, config).catch(
+		(error) => {
+			throw explainRequestError(error);
+		},
+	);
+	return { repo: config.repo, releaseId: release.id, pid: process.pid, synced: {} };
 }
 
 async function endSession({ releaseId, ...config }: Release, sessionPath: URL): Promise<void> {
@@ -191,14 +199,10 @@ async function endSession({ releaseId, ...config }: Release, sessionPath: URL): 
 async function resolvePreviousSession(
 	adapter: Adapter,
 	sessionPath: URL,
-	options: {
-		token: string | undefined;
-		host: string;
-		continueSession?: boolean;
-		newSession?: boolean;
-	},
+	{ host, getToken }: Credentials,
+	options: { continueSession?: boolean; newSession?: boolean },
 ): Promise<Session | undefined> {
-	const { token, host, continueSession, newSession } = options;
+	const { continueSession, newSession } = options;
 	const previous = await readSession(sessionPath);
 	if (previous && isRunning(previous.pid)) {
 		throw new CommandError(
@@ -218,7 +222,7 @@ async function resolvePreviousSession(
 	if (!newSession) {
 		const unpulled = await hasUnpulledChanges(
 			adapter,
-			{ repo: previous.repo, token, host, releaseId: previous.releaseId },
+			{ repo: previous.repo, host, getToken, releaseId: previous.releaseId },
 			previous.synced,
 		);
 		if (unpulled) {
@@ -227,7 +231,7 @@ async function resolvePreviousSession(
 			);
 		}
 	}
-	await deleteRelease(previous.releaseId, { repo: previous.repo, token, host }).catch(() => {});
+	await deleteRelease(previous.releaseId, { repo: previous.repo, host, getToken }).catch(() => {});
 }
 
 async function hasUnpulledChanges(

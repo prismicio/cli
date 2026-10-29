@@ -1,5 +1,4 @@
-import { createLoginSession } from "../auth";
-import { openBrowser } from "../lib/browser";
+import { logIn } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 
 const config = {
@@ -11,19 +10,5 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
-	const { "no-browser": noBrowser } = values;
-
-	const { email } = await createLoginSession({
-		onReady: (url) => {
-			if (noBrowser) {
-				console.info(`Open this URL to log in: ${url}`);
-			} else {
-				console.info("Opening browser to complete login...");
-				console.info(`If the browser doesn't open, visit: ${url}`);
-				openBrowser(url);
-			}
-		},
-	});
-
-	console.info(`Logged in to Prismic as ${email}`);
+	await logIn({ openBrowser: !values["no-browser"] });
 });

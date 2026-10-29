@@ -1,9 +1,8 @@
 import { rm } from "node:fs/promises";
 
 import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from "../adapters";
-import { createLoginSession, getCredentials } from "../auth";
+import { getCredentials, logIn } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
-import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 import {
 	getInstallCommand,
@@ -20,13 +19,14 @@ import {
 	enableTypeBuilder,
 	getPreviews,
 	getRepository,
-	getUserProfile,
+	hasValidToken,
 	type Repository,
+	type RepositoryConfig,
 	setSimulatorUrl,
 } from "../lib/prismic/client";
 import { diffModels, getLegacySlices, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
-import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import { ForbiddenRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
 import { dedent } from "../lib/string";
 import {
@@ -116,37 +116,16 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const { host, token: initialToken } = await getCredentials();
-	let token = initialToken;
-	try {
-		await getUserProfile({ token, host });
-	} catch (error) {
-		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
-			if (env.PRISMIC_TOKEN) throw error;
-			console.info("Not logged in. Starting login...");
-			const { email } = await createLoginSession({
-				onReady: (url) => {
-					if (noBrowser) {
-						console.info(`Open this URL to log in: ${url}`);
-					} else {
-						console.info("Opening browser to complete login...");
-						console.info(`If the browser doesn't open, visit: ${url}`);
-						openBrowser(url);
-					}
-				},
-			});
-			console.info(`Logged in as ${email}`);
-			const loggedIn = await getCredentials();
-			token = loggedIn.token;
-		} else {
-			throw error;
-		}
+	// Log in with the browser before changing the project, if needed.
+	if (!env.PRISMIC_TOKEN && !(await hasValidToken(await getCredentials({ allowLogin: false })))) {
+		await logIn({ openBrowser: !noBrowser });
 	}
+	const { host, getToken } = await getCredentials();
 
 	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
 	let connectedRepository: Repository | undefined;
 	if (repo) {
-		connectedRepository = await getRepository({ repo, token, host }).catch((error) => {
+		connectedRepository = await getRepository({ repo, host, getToken }).catch((error) => {
 			if (!(error instanceof ForbiddenRequestError)) throw error;
 			throw new CommandError(
 				`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
@@ -181,7 +160,7 @@ export default createCommand(config, async ({ values }) => {
 		(!isTypeBuilderEnabled || connectedRepository.framework !== adapter.id)
 	) {
 		try {
-			await enableTypeBuilder(adapter.id, { repo, token, host });
+			await enableTypeBuilder(adapter.id, { repo, host, getToken });
 			if (!isTypeBuilderEnabled)
 				console.info(`Turned on the Type Builder for repository "${repo}".`);
 		} catch (error) {
@@ -198,13 +177,10 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (!repo) {
-		repo = await createRepo({
-			name: values["repo-name"],
-			lang,
-			framework: adapter.id,
-			token,
-			host,
-		});
+		repo = await createRepo(
+			{ name: values["repo-name"], lang, framework: adapter.id },
+			{ host, getToken },
+		);
 		console.info(`Created repository: ${repo}`);
 	}
 
@@ -275,7 +251,7 @@ export default createCommand(config, async ({ values }) => {
 
 	// Sync models from remote and generate types
 	const [remote, local] = await Promise.all([
-		getRemoteModels({ repo, token, host }),
+		getRemoteModels({ repo, host, getToken }),
 		adapter.getModels(),
 	]);
 	const diff = diffModels(remote, local);
@@ -316,11 +292,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (isExistingProjectHandoff && connectedRepository?.starter) {
-		await completeStarterHandoff(adapter, connectedRepository.starter, {
-			repo,
-			token,
-			host,
-		});
+		await completeStarterHandoff(adapter, connectedRepository.starter, { repo, host, getToken });
 
 		if (!hasStarterModelChanges) {
 			console.info("\n---");
@@ -350,7 +322,7 @@ async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Pr
 async function completeStarterHandoff(
 	adapter: Adapter,
 	starter: NonNullable<Repository["starter"]>,
-	config: { repo: string; token: string | undefined; host: string },
+	config: RepositoryConfig,
 ): Promise<void> {
 	try {
 		const { results: previews } = await getPreviews(config);

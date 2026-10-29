@@ -55,22 +55,22 @@ export default createCommand(config, async ({ values }) => {
 		throw new CommandError("--allow-releases is only valid for access tokens (not with --write)");
 	}
 
-	const { token, host } = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
 	let createdToken: string;
 	let scope: string | undefined;
 	if (write) {
-		const writeToken = await createWriteToken(name, { repo, token, host });
+		const writeToken = await createWriteToken(name, { repo, host, getToken });
 		createdToken = writeToken.token;
 	} else {
 		scope = allowReleases ? "master+releases" : "master";
 
 		// Find or create the OAuth app.
-		const apps = await getOAuthApps({ repo, token, host });
+		const apps = await getOAuthApps({ repo, host, getToken });
 		let app = apps.find((a) => a.name === name);
-		if (!app) app = await createOAuthApp(name, { repo, token, host });
+		if (!app) app = await createOAuthApp(name, { repo, host, getToken });
 
-		const accessToken = await createOAuthAuthorization(app.id, scope, { repo, token, host });
+		const accessToken = await createOAuthAuthorization(app.id, scope, { repo, host, getToken });
 		createdToken = accessToken.token;
 	}
 

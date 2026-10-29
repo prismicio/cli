@@ -8,8 +8,8 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async () => {
-	const { token, host } = await getCredentials();
-	const session = await validateToken(token, { host });
+	const { host, getToken } = await getCredentials({ allowLogin: false });
+	const session = await validateToken({ host, getToken });
 
 	if (session.type === "Machine2Machine") {
 		console.info(`${session.appName} (Write API token for ${session.domain})`);

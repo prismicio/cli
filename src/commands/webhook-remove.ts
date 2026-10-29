@@ -29,8 +29,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
-	const { token, host } = await getCredentials();
-	const webhooks = await getWebhooks({ repo, token, host });
+	const { host, getToken } = await getCredentials();
+	const webhooks = await getWebhooks({ repo, host, getToken });
 
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
@@ -39,7 +39,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const id = webhook.config._id;
 
-	await deleteWebhook(id, { repo, token, host });
+	await deleteWebhook(id, { repo, host, getToken });
 
 	console.info(`Webhook removed: ${webhookUrl}`);
 });

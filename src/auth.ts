@@ -8,9 +8,11 @@ import * as z from "zod/mini";
 
 import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
+import { openBrowser } from "./lib/browser";
+import { CommandError } from "./lib/command";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
-import { refreshToken as baseRefreshToken } from "./lib/prismic/client";
+import { type Credentials, refreshToken as baseRefreshToken } from "./lib/prismic/client";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 
@@ -22,19 +24,58 @@ const CredentialsSchema = z.looseObject({
 	token: z.optional(z.string().check(z.minLength(1))),
 	host: z.optional(z.string().check(z.minLength(1))),
 });
-type Credentials = z.infer<typeof CredentialsSchema>;
+type StoredCredentials = z.infer<typeof CredentialsSchema>;
 
-export async function getCredentials(): Promise<{ token: string | undefined; host: string }> {
-	const credentials = await readCredentials();
+// When a request finds the token missing or invalid, it can ask for a new
+// token with `getToken({ login: true })`. That starts a login that prints its
+// URL. A command that wants the browser login calls `logIn` itself.
+export async function getCredentials(options: { allowLogin?: boolean } = {}): Promise<Credentials> {
+	const { allowLogin = true } = options;
+	const stored = await readCredentials();
+	let token = env.PRISMIC_TOKEN || stored?.token;
+	const canLogIn = allowLogin && !env.PRISMIC_TOKEN && !env.CI;
 	return {
-		token: env.PRISMIC_TOKEN || credentials?.token,
-		host: env.PRISMIC_HOST || credentials?.host || DEFAULT_PRISMIC_HOST,
+		host: env.PRISMIC_HOST || stored?.host || DEFAULT_PRISMIC_HOST,
+		getToken: async ({ login } = {}) => {
+			if (!login) return token;
+			if (!canLogIn) return undefined;
+			token = await logInOnce(token);
+			return token;
+		},
 	};
+}
+
+export async function logIn(options: { openBrowser?: boolean } = {}): Promise<string> {
+	const { email, token } = await createLoginSession({
+		onReady: (url) => {
+			if (options.openBrowser) {
+				console.info("Opening browser to complete login...");
+				console.info(`If the browser doesn't open, visit: ${url}`);
+				openBrowser(url);
+			} else {
+				console.info(`Open this URL to log in: ${url}`);
+			}
+		},
+	});
+	console.info(`Logged in to Prismic as ${email}`);
+	return token;
+}
+
+let pendingLogin: Promise<string> | undefined;
+
+// Parallel requests that find an invalid token share one login.
+function logInOnce(invalidToken: string | undefined): Promise<string> {
+	if (!pendingLogin) {
+		console.info(invalidToken ? "Your login expired." : "You are not logged in.");
+		pendingLogin = logIn().finally(() => (pendingLogin = undefined));
+	}
+	return pendingLogin;
 }
 
 export async function refreshToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return;
-	const { token, host } = await getCredentials();
+	const { host, getToken } = await getCredentials({ allowLogin: false });
+	const token = await getToken();
 	if (!token) return;
 	const newToken = await baseRefreshToken(token, { host });
 	await saveCredentials({ token: newToken, host });
@@ -54,17 +95,17 @@ export async function logout(): Promise<boolean> {
 	}
 }
 
-async function readCredentials(): Promise<Credentials | undefined> {
+async function readCredentials(): Promise<StoredCredentials | undefined> {
 	return readJsonFile(CREDENTIALS_PATH, { schema: CredentialsSchema }).catch(() => undefined);
 }
 
-async function saveCredentials(credentials: Credentials): Promise<void> {
+async function saveCredentials(credentials: StoredCredentials): Promise<void> {
 	await writeFileRecursive(CREDENTIALS_PATH, stringify(credentials));
 }
 
-export async function createLoginSession(options: {
+async function createLoginSession(options: {
 	onReady: (url: URL) => void;
-}): Promise<{ email: string }> {
+}): Promise<{ email: string; token: string }> {
 	const { host } = await getCredentials();
 	const corsOrigin = `https://${host}`;
 
@@ -116,7 +157,7 @@ export async function createLoginSession(options: {
 
 						clearTimeout(timeoutId);
 						server.close();
-						resolve({ email });
+						resolve({ email, token });
 					} catch {
 						respond(400, { error: "Invalid request" });
 					}
@@ -131,7 +172,7 @@ export async function createLoginSession(options: {
 
 		const timeoutId = setTimeout(() => {
 			server.close();
-			reject(new Error("Login timed out. Please try again."));
+			reject(new CommandError("Login timed out. Please try again."));
 		}, LOGIN_TIMEOUT_MS);
 
 		const onListening = async (): Promise<void> => {
