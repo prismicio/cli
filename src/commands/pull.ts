@@ -42,7 +42,7 @@ export default createCommand(config, async ({ values }) => {
 		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 	} = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 	const projectRoot = await findProjectRoot();
 
 	console.info(`Pulling from repository: ${repo}`);
@@ -85,7 +85,7 @@ export default createCommand(config, async ({ values }) => {
 	const [localCustomTypes, localSlices, remote] = await Promise.all([
 		adapter.getCustomTypes(),
 		adapter.getSlices(),
-		getRemoteModels({ repo, ...credentials }),
+		getRemoteModels({ repo, host, getToken }),
 	]);
 	const diff = diffModels(
 		remote,
@@ -123,7 +123,8 @@ export default createCommand(config, async ({ values }) => {
 
 	await completeOnboardingSteps(["connectPrismic"], {
 		repo: await getRepositoryName(),
-		...credentials,
+		host,
+		getToken,
 	}).catch(() => {});
 
 	const totalTypes = diff.customTypes.insert.length + diff.customTypes.update.length;

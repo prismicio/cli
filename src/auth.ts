@@ -12,12 +12,7 @@ import { openBrowser } from "./lib/browser";
 import { CommandError } from "./lib/command";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
-import {
-	type Credentials,
-	refreshToken as baseRefreshToken,
-	validateToken,
-} from "./lib/prismic/client";
-import { ForbiddenRequestError, type RequestError, UnauthorizedRequestError } from "./lib/request";
+import { type Credentials, refreshToken as baseRefreshToken } from "./lib/prismic/client";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 
@@ -31,24 +26,23 @@ const CredentialsSchema = z.looseObject({
 });
 type StoredCredentials = z.infer<typeof CredentialsSchema>;
 
-// When a request fails because the login is missing or expired, a new login
-// starts and the request retries. The token then updates, so later requests
-// use the new login. The login prints its URL and opens no browser, unless
-// the command asks for one.
-export async function getCredentials(
-	options: { openBrowser?: boolean } = {},
-): Promise<Credentials> {
+// When a request finds the token missing or invalid, it can ask for a new
+// token with `getToken({ login: true })`. That starts a login that prints its
+// URL. A command that wants the browser login calls `logIn` itself.
+export async function getCredentials(options: { allowLogin?: boolean } = {}): Promise<Credentials> {
+	const { allowLogin = true } = options;
 	const stored = await readCredentials();
-	const credentials: Credentials = {
-		token: env.PRISMIC_TOKEN || stored?.token,
+	let token = env.PRISMIC_TOKEN || stored?.token;
+	const canLogIn = allowLogin && !env.PRISMIC_TOKEN && !env.CI;
+	return {
 		host: env.PRISMIC_HOST || stored?.host || DEFAULT_PRISMIC_HOST,
-		onAuthError: undefined,
+		getToken: async ({ login } = {}) => {
+			if (!login) return token;
+			if (!canLogIn) return undefined;
+			token = await logInOnce(token);
+			return token;
+		},
 	};
-	if (!env.PRISMIC_TOKEN && !env.CI) {
-		credentials.onAuthError = (error, rejectedToken) =>
-			logInAgain(error, rejectedToken, credentials, options);
-	}
-	return credentials;
 }
 
 export async function logIn(options: { openBrowser?: boolean } = {}): Promise<string> {
@@ -69,37 +63,19 @@ export async function logIn(options: { openBrowser?: boolean } = {}): Promise<st
 
 let pendingLogin: Promise<string> | undefined;
 
-async function logInAgain(
-	error: RequestError,
-	rejectedToken: string | undefined,
-	credentials: Credentials,
-	options: { openBrowser?: boolean },
-): Promise<string | undefined> {
-	// Another request already logged in again.
-	if (credentials.token !== rejectedToken) return credentials.token;
-	// Most services answer an expired login with a 403. A 403 with a valid
-	// login means the user has no access, and a new login would not help.
-	if (error instanceof ForbiddenRequestError && rejectedToken && (await isLoggedIn(credentials))) {
-		return;
-	}
+// Parallel requests that find an invalid token share one login.
+function logInOnce(invalidToken: string | undefined): Promise<string> {
 	if (!pendingLogin) {
-		console.info(rejectedToken ? "Your login expired." : "You are not logged in.");
-		pendingLogin = logIn(options).finally(() => (pendingLogin = undefined));
+		console.info(invalidToken ? "Your login expired." : "You are not logged in.");
+		pendingLogin = logIn().finally(() => (pendingLogin = undefined));
 	}
-	credentials.token = await pendingLogin;
-	return credentials.token;
-}
-
-function isLoggedIn(credentials: Credentials): Promise<boolean> {
-	return validateToken({ ...credentials, onAuthError: undefined }).then(
-		() => true,
-		(error) => !(error instanceof UnauthorizedRequestError),
-	);
+	return pendingLogin;
 }
 
 export async function refreshToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return;
-	const { token, host } = await getCredentials();
+	const { host, getToken } = await getCredentials({ allowLogin: false });
+	const token = await getToken();
 	if (!token) return;
 	const newToken = await baseRefreshToken(token, { host });
 	await saveCredentials({ token: newToken, host });

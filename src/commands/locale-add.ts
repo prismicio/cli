@@ -31,9 +31,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [code] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()), master = false, name } = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
-	await upsertLocale({ id: code, isMaster: master, customName: name }, { repo, ...credentials });
+	await upsertLocale({ id: code, isMaster: master, customName: name }, { repo, host, getToken });
 
 	console.info(`Locale added: ${code}`);
 });

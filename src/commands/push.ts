@@ -56,7 +56,7 @@ export default createCommand(config, async ({ values }) => {
 		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 	} = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 	const projectRoot = await findProjectRoot();
 
 	console.info(`Pushing to repository: ${repo}`);
@@ -95,7 +95,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const [local, remote] = await Promise.all([
 		adapter.getModels(),
-		getRemoteModels({ repo, ...credentials }),
+		getRemoteModels({ repo, host, getToken }),
 	]);
 	const diff = diffModels(local, remote);
 
@@ -121,12 +121,12 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	try {
-		await writeRemoteModels(diff, { repo, ...credentials });
+		await writeRemoteModels(diff, { repo, host, getToken });
 	} catch (error) {
-		throw await explainExistingDocuments(error, diff.customTypes.delete, { repo, ...credentials });
+		throw await explainExistingDocuments(error, diff.customTypes.delete, { repo, host, getToken });
 	}
 	for (const { id } of diff.slices.delete) {
-		await deleteSliceScreenshots(id, { repo, ...credentials }).catch((error) => {
+		await deleteSliceScreenshots(id, { repo, host, getToken }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
 			console.warn(
 				`Failed to delete screenshots for slice "${id}"${message ? `: ${message}` : "."}`,
@@ -144,7 +144,8 @@ export default createCommand(config, async ({ values }) => {
 	if (onboardingSteps.length > 0) {
 		await completeOnboardingSteps(onboardingSteps, {
 			repo: await getRepositoryName(),
-			...credentials,
+			host,
+			getToken,
 		}).catch(() => {});
 	}
 

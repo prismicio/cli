@@ -28,11 +28,11 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { env, repo = env ?? (await getActiveRepositoryName()), json } = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
 	const [apps, writeTokensInfo] = await Promise.all([
-		getOAuthApps({ repo, ...credentials }),
-		getWriteTokens({ repo, ...credentials }),
+		getOAuthApps({ repo, host, getToken }),
+		getWriteTokens({ repo, host, getToken }),
 	]);
 
 	const accessTokens = apps.flatMap((app) =>

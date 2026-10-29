@@ -3,16 +3,19 @@ import { createHash } from "node:crypto";
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
-import { request, type RequestError } from "../request";
+import {
+	ForbiddenRequestError,
+	request,
+	type RequestError,
+	UnauthorizedRequestError,
+} from "../request";
 import { appendTrailingSlash } from "../url";
 
 export type Credentials = {
-	token: string | undefined;
 	host: string;
-	// Resolves to a new token to retry with, or nothing to fail the request.
-	onAuthError:
-		| ((error: RequestError, rejectedToken: string | undefined) => Promise<string | undefined>)
-		| undefined;
+	// With `login`, gets a new token by logging in, or nothing when a login
+	// is not possible.
+	getToken: (options?: { login?: boolean }) => Promise<string | undefined>;
 };
 
 export type RepositoryConfig = Credentials & { repo: string };
@@ -30,11 +33,21 @@ const SessionSchema = z.union([
 
 export async function validateToken(config: Credentials): Promise<z.infer<typeof SessionSchema>> {
 	const url = new URL("validate", getAuthServiceUrl(config.host));
-	if (config.token) url.searchParams.set("token", config.token);
+	const token = await config.getToken();
+	if (token) url.searchParams.set("token", token);
 	return request(url, {
 		schema: SessionSchema,
-		onAuthError: (error) => retryWithNewToken(error, config, validateToken),
+		onAuthError: (error) => retryAfterLogin(error, config, validateToken),
 	});
+}
+
+export async function hasValidToken(config: Credentials): Promise<boolean> {
+	const token = await config.getToken();
+	if (!token) return false;
+	return validateToken({ host: config.host, getToken: tokenWithoutLogin(token) }).then(
+		() => true,
+		(error) => !(error instanceof UnauthorizedRequestError),
+	);
 }
 
 function getAuthServiceUrl(host: string): URL {
@@ -60,10 +73,10 @@ const UserRepositorySchema = z.object({
 export async function getUserProfile(config: Credentials): Promise<Profile> {
 	const url = new URL("user/profile", getUserServiceUrl(config.host));
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
 		schema: ProfileSchema,
 		unknownErrorMessage: "Failed to load your profile",
-		onAuthError: (error) => retryWithNewToken(error, config, getUserProfile),
+		onAuthError: (error) => retryAfterLogin(error, config, getUserProfile),
 	});
 }
 
@@ -72,10 +85,10 @@ export async function getUserRepositories(
 ): Promise<{ repositories: z.infer<typeof UserRepositorySchema>[] }> {
 	const url = new URL("user/repositories", getUserServiceUrl(config.host));
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
 		schema: z.object({ repositories: z.array(UserRepositorySchema) }),
 		unknownErrorMessage: "Failed to load your repositories",
-		onAuthError: (error) => retryWithNewToken(error, config, getUserRepositories),
+		onAuthError: (error) => retryAfterLogin(error, config, getUserRepositories),
 	});
 }
 
@@ -99,14 +112,14 @@ const RepositorySchema = z.object({
 
 export type Repository = z.infer<typeof RepositorySchema>;
 
-export function getRepository(config: RepositoryConfig): Promise<Repository> {
+export async function getRepository(config: RepositoryConfig): Promise<Repository> {
 	const url = new URL("", getRepositoryServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
 		schema: RepositorySchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
-		onAuthError: (error) => retryWithNewToken(error, config, getRepository),
+		onAuthError: (error) => retryAfterLogin(error, config, getRepository),
 	});
 }
 
@@ -119,10 +132,10 @@ export async function enableTypeBuilder(
 	await request(url, {
 		method: "PATCH",
 		json: { framework },
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => enableTypeBuilder(framework, config)),
+			retryAfterLogin(error, config, (config) => enableTypeBuilder(framework, config)),
 	});
 }
 
@@ -135,9 +148,9 @@ export async function getOnboardingState(config: RepositoryConfig): Promise<Onbo
 	const url = new URL("onboarding", getRepositoryServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: OnboardingStateSchema,
-		onAuthError: (error) => retryWithNewToken(error, config, getOnboardingState),
+		onAuthError: (error) => retryAfterLogin(error, config, getOnboardingState),
 	});
 }
 
@@ -152,10 +165,10 @@ export async function toggleOnboardingStep(
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
 		method: "PATCH",
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: OnboardingStateSchema,
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => toggleOnboardingStep(stepId, config)),
+			retryAfterLogin(error, config, (config) => toggleOnboardingStep(stepId, config)),
 	});
 }
 
@@ -165,23 +178,23 @@ function getRepositoryServiceUrl(host: string): URL {
 
 export type CustomTypesConfig = RepositoryConfig & { releaseId?: string };
 
-export function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
+export async function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
 	const url = new URL("customtypes", getCustomTypesServiceUrl(config.host));
 	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	return request<DynamicCustomTypeModel[]>(url, {
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
 		notFoundMessage: `Repository not found: ${config.repo}`,
-		onAuthError: (error) => retryWithNewToken(error, config, getCustomTypes),
+		onAuthError: (error) => retryAfterLogin(error, config, getCustomTypes),
 	});
 }
 
-export function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]> {
+export async function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]> {
 	const url = new URL("slices", getCustomTypesServiceUrl(config.host));
 	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	return request<SharedSliceModel[]>(url, {
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
 		notFoundMessage: `Repository not found: ${config.repo}`,
-		onAuthError: (error) => retryWithNewToken(error, config, getSlices),
+		onAuthError: (error) => retryAfterLogin(error, config, getSlices),
 	});
 }
 
@@ -200,11 +213,11 @@ export async function bulkUpdateModels(
 	await request(url, {
 		method: "POST",
 		json: { changes },
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to update models",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => bulkUpdateModels(changes, config)),
+			retryAfterLogin(error, config, (config) => bulkUpdateModels(changes, config)),
 	});
 }
 
@@ -236,9 +249,9 @@ export async function deleteSliceScreenshots(
 	await request(url, {
 		method: "POST",
 		json: { sliceId },
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => deleteSliceScreenshots(sliceId, config)),
+			retryAfterLogin(error, config, (config) => deleteSliceScreenshots(sliceId, config)),
 	});
 }
 
@@ -277,15 +290,15 @@ export async function uploadSliceScreenshot(
 	return url;
 }
 
-function getScreenshotUploadForm(
+async function getScreenshotUploadForm(
 	config: RepositoryConfig,
 ): Promise<z.infer<typeof ScreenshotPresignedUrlResponseSchema>> {
 	const url = new URL("presigned-url", getScreenshotServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
 		schema: ScreenshotPresignedUrlResponseSchema,
-		onAuthError: (error) => retryWithNewToken(error, config, getScreenshotUploadForm),
+		onAuthError: (error) => retryAfterLogin(error, config, getScreenshotUploadForm),
 	});
 }
 
@@ -317,11 +330,11 @@ export async function getLocales(config: RepositoryConfig): Promise<{ results: L
 	const url = new URL("repository/locales", getLocaleServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
 		schema: z.object({ results: z.array(LocaleSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load locales",
-		onAuthError: (error) => retryWithNewToken(error, config, getLocales),
+		onAuthError: (error) => retryAfterLogin(error, config, getLocales),
 	});
 }
 
@@ -338,12 +351,12 @@ export async function upsertLocale(
 			isMaster: locale.isMaster ?? false,
 			...(locale.customName ? { customName: locale.customName } : {}),
 		},
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
 		schema: LocaleSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to save locale",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => upsertLocale(locale, config)),
+			retryAfterLogin(error, config, (config) => upsertLocale(locale, config)),
 	});
 }
 
@@ -355,11 +368,10 @@ export async function deleteLocale(code: string, config: RepositoryConfig): Prom
 	url.searchParams.set("repository", config.repo);
 	await request(url, {
 		method: "DELETE",
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
 		notFoundMessage: `Locale not found: ${code}`,
 		unknownErrorMessage: "Failed to remove locale",
-		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => deleteLocale(code, config)),
+		onAuthError: (error) => retryAfterLogin(error, config, (config) => deleteLocale(code, config)),
 	});
 }
 
@@ -381,11 +393,11 @@ export async function getPreviews(config: RepositoryConfig): Promise<{ results: 
 		getRepositoryDomainUrl(config.repo, config.host),
 	);
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: z.object({ results: z.array(PreviewSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load previews",
-		onAuthError: (error) => retryWithNewToken(error, config, getPreviews),
+		onAuthError: (error) => retryAfterLogin(error, config, getPreviews),
 	});
 }
 
@@ -405,11 +417,11 @@ export async function addPreview(
 			websiteURL: previewConfig.websiteURL,
 			resolverPath: previewConfig.resolverPath,
 		},
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to add preview",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => addPreview(previewConfig, config)),
+			retryAfterLogin(error, config, (config) => addPreview(previewConfig, config)),
 	});
 }
 
@@ -421,10 +433,10 @@ export async function deletePreview(id: string, config: RepositoryConfig): Promi
 	await request(url, {
 		method: "POST",
 		json: {},
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		notFoundMessage: `Preview not found: ${id}`,
 		unknownErrorMessage: "Failed to remove preview",
-		onAuthError: (error) => retryWithNewToken(error, config, (config) => deletePreview(id, config)),
+		onAuthError: (error) => retryAfterLogin(error, config, (config) => deletePreview(id, config)),
 	});
 }
 
@@ -441,10 +453,10 @@ export async function getEnvironments(
 ): Promise<{ results: Environment[] }> {
 	const url = new URL("core/environments", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: z.object({ results: z.array(EnvironmentSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
-		onAuthError: (error) => retryWithNewToken(error, config, getEnvironments),
+		onAuthError: (error) => retryAfterLogin(error, config, getEnvironments),
 	});
 }
 
@@ -453,11 +465,11 @@ export async function getSimulatorUrl(
 ): Promise<{ simulator_url?: string }> {
 	const url = new URL("core/repository", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: z.object({ simulator_url: z.optional(z.string()) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load simulator URL",
-		onAuthError: (error) => retryWithNewToken(error, config, getSimulatorUrl),
+		onAuthError: (error) => retryAfterLogin(error, config, getSimulatorUrl),
 	});
 }
 
@@ -469,11 +481,11 @@ export async function setSimulatorUrl(
 	await request(url, {
 		method: "PATCH",
 		json: { simulator_url: simulatorUrl },
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to set simulator URL",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => setSimulatorUrl(simulatorUrl, config)),
+			retryAfterLogin(error, config, (config) => setSimulatorUrl(simulatorUrl, config)),
 	});
 }
 
@@ -485,11 +497,11 @@ export async function getDocumentTotalByCustomType(
 	return request(url, {
 		method: "POST",
 		json: { customTypes: [customTypeId], limit: 0 },
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: z.object({ total: z.number() }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) =>
+			retryAfterLogin(error, config, (config) =>
 				getDocumentTotalByCustomType(customTypeId, config),
 			),
 	});
@@ -503,12 +515,12 @@ export async function createRelease(
 	return request(url, {
 		method: "POST",
 		json: release,
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: z.looseObject({ id: z.string() }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create a release",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => createRelease(release, config)),
+			retryAfterLogin(error, config, (config) => createRelease(release, config)),
 	});
 }
 
@@ -519,10 +531,10 @@ export async function deleteRelease(id: string, config: RepositoryConfig): Promi
 	);
 	await request(url, {
 		method: "DELETE",
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		notFoundMessage: `Release not found: ${id}`,
 		unknownErrorMessage: "Failed to delete the release",
-		onAuthError: (error) => retryWithNewToken(error, config, (config) => deleteRelease(id, config)),
+		onAuthError: (error) => retryAfterLogin(error, config, (config) => deleteRelease(id, config)),
 	});
 }
 
@@ -549,14 +561,14 @@ const WebhookSchema = z.object({
 });
 type Webhook = z.infer<typeof WebhookSchema>;
 
-export function getWebhooks(config: RepositoryConfig): Promise<Webhook[]> {
+export async function getWebhooks(config: RepositoryConfig): Promise<Webhook[]> {
 	const url = new URL("app/settings/webhooks", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: z.array(WebhookSchema),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load webhooks",
-		onAuthError: (error) => retryWithNewToken(error, config, getWebhooks),
+		onAuthError: (error) => retryAfterLogin(error, config, getWebhooks),
 	});
 }
 
@@ -572,11 +584,11 @@ export async function createWebhook(
 	await request(url, {
 		method: "POST",
 		body,
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create webhook",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => createWebhook(webhookConfig, config)),
+			retryAfterLogin(error, config, (config) => createWebhook(webhookConfig, config)),
 	});
 }
 
@@ -593,11 +605,11 @@ export async function updateWebhook(
 	await request(url, {
 		method: "POST",
 		body,
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		notFoundMessage: `Webhook not found: ${id}`,
 		unknownErrorMessage: "Failed to update webhook",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => updateWebhook(id, webhookConfig, config)),
+			retryAfterLogin(error, config, (config) => updateWebhook(id, webhookConfig, config)),
 	});
 }
 
@@ -608,10 +620,10 @@ export async function deleteWebhook(id: string, config: RepositoryConfig): Promi
 	);
 	await request(url, {
 		method: "POST",
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		notFoundMessage: `Webhook not found: ${id}`,
 		unknownErrorMessage: "Failed to delete webhook",
-		onAuthError: (error) => retryWithNewToken(error, config, (config) => deleteWebhook(id, config)),
+		onAuthError: (error) => retryAfterLogin(error, config, (config) => deleteWebhook(id, config)),
 	});
 }
 
@@ -659,17 +671,17 @@ const WriteTokensInfoSchema = z.object({
 });
 type WriteTokensInfo = z.infer<typeof WriteTokensInfoSchema>;
 
-export function getOAuthApps(config: RepositoryConfig): Promise<OAuthApp[]> {
+export async function getOAuthApps(config: RepositoryConfig): Promise<OAuthApp[]> {
 	const url = new URL(
 		"settings/security/contentapi",
 		getRepositoryDomainUrl(config.repo, config.host),
 	);
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: z.array(OAuthAppSchema),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load OAuth apps",
-		onAuthError: (error) => retryWithNewToken(error, config, getOAuthApps),
+		onAuthError: (error) => retryAfterLogin(error, config, getOAuthApps),
 	});
 }
 
@@ -681,12 +693,12 @@ export async function createOAuthApp(name: string, config: RepositoryConfig): Pr
 	return request(url, {
 		method: "POST",
 		json: { app_name: name },
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: OAuthAppSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create OAuth app",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => createOAuthApp(name, config)),
+			retryAfterLogin(error, config, (config) => createOAuthApp(name, config)),
 	});
 }
 
@@ -702,12 +714,12 @@ export async function createOAuthAuthorization(
 	return request(url, {
 		method: "POST",
 		json: { app: appId, scope },
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: AccessTokenSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create token",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => createOAuthAuthorization(appId, scope, config)),
+			retryAfterLogin(error, config, (config) => createOAuthAuthorization(appId, scope, config)),
 	});
 }
 
@@ -721,25 +733,25 @@ export async function deleteOAuthAuthorization(
 	);
 	await request(url, {
 		method: "DELETE",
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		notFoundMessage: `Token not found: ${authId}`,
 		unknownErrorMessage: "Failed to delete token",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => deleteOAuthAuthorization(authId, config)),
+			retryAfterLogin(error, config, (config) => deleteOAuthAuthorization(authId, config)),
 	});
 }
 
-export function getWriteTokens(config: RepositoryConfig): Promise<WriteTokensInfo> {
+export async function getWriteTokens(config: RepositoryConfig): Promise<WriteTokensInfo> {
 	const url = new URL(
 		"settings/security/customtypesapi",
 		getRepositoryDomainUrl(config.repo, config.host),
 	);
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: WriteTokensInfoSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load write tokens",
-		onAuthError: (error) => retryWithNewToken(error, config, getWriteTokens),
+		onAuthError: (error) => retryAfterLogin(error, config, getWriteTokens),
 	});
 }
 
@@ -751,12 +763,12 @@ export async function createWriteToken(
 	return request(url, {
 		method: "POST",
 		json: { app_name: name },
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: WriteTokenSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create write token",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => createWriteToken(name, config)),
+			retryAfterLogin(error, config, (config) => createWriteToken(name, config)),
 	});
 }
 
@@ -770,11 +782,11 @@ export async function deleteWriteToken(
 	);
 	await request(url, {
 		method: "DELETE",
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		notFoundMessage: "Token not found",
 		unknownErrorMessage: "Failed to delete write token",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => deleteWriteToken(tokenValue, config)),
+			retryAfterLogin(error, config, (config) => deleteWriteToken(tokenValue, config)),
 	});
 }
 
@@ -783,11 +795,11 @@ export async function getRepositoryApiAccess(
 ): Promise<{ repository: { api_access: string } }> {
 	const url = new URL("syncState", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: z.object({ repository: z.object({ api_access: z.string() }) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load repository access",
-		onAuthError: (error) => retryWithNewToken(error, config, getRepositoryApiAccess),
+		onAuthError: (error) => retryAfterLogin(error, config, getRepositoryApiAccess),
 	});
 }
 
@@ -804,11 +816,11 @@ export async function setRepositoryApiAccess(
 	await request(url, {
 		method: "POST",
 		json: { api_access: level },
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to set repository access",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => setRepositoryApiAccess(level, config)),
+			retryAfterLogin(error, config, (config) => setRepositoryApiAccess(level, config)),
 	});
 }
 
@@ -822,12 +834,12 @@ export async function setRepositoryName(
 	return request(url, {
 		method: "POST",
 		body: formData,
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: z.object({ repository: z.object({ name: z.string() }) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to set repository name",
 		onAuthError: (error) =>
-			retryWithNewToken(error, config, (config) => setRepositoryName(name, config)),
+			retryAfterLogin(error, config, (config) => setRepositoryName(name, config)),
 	});
 }
 
@@ -843,9 +855,9 @@ export async function checkIsDomainAvailable(
 		getDashboardUrl(config.host),
 	);
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		schema: z.boolean(),
-		onAuthError: (error) => retryWithNewToken(error, config, checkIsDomainAvailable),
+		onAuthError: (error) => retryAfterLogin(error, config, checkIsDomainAvailable),
 	});
 }
 
@@ -864,9 +876,9 @@ export async function createRepository(
 	await request(url, {
 		method: "POST",
 		json: { domain, name, framework, plan: "personal" },
-		credentials: { "prismic-auth": config.token },
+		credentials: { "prismic-auth": await config.getToken() },
 		unknownErrorMessage: "Failed to create repository",
-		onAuthError: (error) => retryWithNewToken(error, config, createRepository),
+		onAuthError: (error) => retryAfterLogin(error, config, createRepository),
 	});
 }
 
@@ -931,12 +943,19 @@ function getDocsUrl(host = DEFAULT_DOCS_HOST): URL {
 	return new URL(`https://${host}/docs/`);
 }
 
-async function retryWithNewToken<C extends Credentials, T>(
+async function retryAfterLogin<C extends Credentials, T>(
 	error: RequestError,
 	config: C,
 	retry: (config: C) => Promise<T>,
 ): Promise<T> {
-	const token = await config.onAuthError?.(error, config.token);
+	// Most services answer an invalid token with a 403. A 403 with a valid
+	// token means no access, and a new login would not help.
+	if (error instanceof ForbiddenRequestError && (await hasValidToken(config))) throw error;
+	const token = await config.getToken({ login: true });
 	if (!token) throw error;
-	return retry({ ...config, token, onAuthError: undefined });
+	return retry({ ...config, getToken: tokenWithoutLogin(token) });
+}
+
+function tokenWithoutLogin(token: string): Credentials["getToken"] {
+	return async ({ login } = {}) => (login ? undefined : token);
 }

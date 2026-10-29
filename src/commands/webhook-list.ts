@@ -28,8 +28,8 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { env, repo = env ?? (await getActiveRepositoryName()), json } = values;
 
-	const credentials = await getCredentials();
-	const webhooks = await getWebhooks({ repo, ...credentials });
+	const { host, getToken } = await getCredentials();
+	const webhooks = await getWebhooks({ repo, host, getToken });
 
 	if (json) {
 		console.info(stringify(webhooks.map((webhook) => webhook.config)));

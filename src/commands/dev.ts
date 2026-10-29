@@ -72,13 +72,18 @@ export default createCommand(config, async ({ values }) => {
 		new: newSession,
 		"no-browser": noBrowser,
 	} = values;
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
 	const sessionPath = await getSessionPath();
-	const previous = await resolvePreviousSession(adapter, sessionPath, credentials, {
-		continueSession,
-		newSession,
-	});
+	const previous = await resolvePreviousSession(
+		adapter,
+		sessionPath,
+		{ host, getToken },
+		{
+			continueSession,
+			newSession,
+		},
+	);
 
 	let session: Session;
 	if (previous) {
@@ -86,9 +91,9 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Continuing your session for ${repo}...`);
 	} else {
 		console.info(`Preparing your session for ${repo}...`);
-		session = await createSession({ repo, ...credentials });
+		session = await createSession({ repo, host, getToken });
 	}
-	const release = { repo, ...credentials, releaseId: session.releaseId };
+	const release = { repo, host, getToken, releaseId: session.releaseId };
 	const sync = (push = true) =>
 		syncModels(adapter, release, session, sessionPath, {
 			push,
@@ -125,7 +130,7 @@ export default createCommand(config, async ({ values }) => {
 			`Ready. Loaded ${types} ${types === 1 ? "type" : "types"} and ${slices} ${slices === 1 ? "slice" : "slices"} from your project.\n`,
 		);
 
-		const url = new URL("builder/types", `https://${repo}.${credentials.host}/`);
+		const url = new URL("builder/types", `https://${repo}.${host}/`);
 		url.searchParams.set("r", release.releaseId);
 		console.info(`Type Builder: ${url}`);
 		if (noBrowser) {
@@ -194,7 +199,7 @@ async function endSession({ releaseId, ...config }: Release, sessionPath: URL): 
 async function resolvePreviousSession(
 	adapter: Adapter,
 	sessionPath: URL,
-	credentials: Credentials,
+	{ host, getToken }: Credentials,
 	options: { continueSession?: boolean; newSession?: boolean },
 ): Promise<Session | undefined> {
 	const { continueSession, newSession } = options;
@@ -217,7 +222,7 @@ async function resolvePreviousSession(
 	if (!newSession) {
 		const unpulled = await hasUnpulledChanges(
 			adapter,
-			{ repo: previous.repo, ...credentials, releaseId: previous.releaseId },
+			{ repo: previous.repo, host, getToken, releaseId: previous.releaseId },
 			previous.synced,
 		);
 		if (unpulled) {
@@ -226,7 +231,7 @@ async function resolvePreviousSession(
 			);
 		}
 	}
-	await deleteRelease(previous.releaseId, { repo: previous.repo, ...credentials }).catch(() => {});
+	await deleteRelease(previous.releaseId, { repo: previous.repo, host, getToken }).catch(() => {});
 }
 
 async function hasUnpulledChanges(

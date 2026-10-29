@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 
 import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, logIn } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 import {
@@ -19,7 +19,7 @@ import {
 	enableTypeBuilder,
 	getPreviews,
 	getRepository,
-	getUserProfile,
+	hasValidToken,
 	type Repository,
 	type RepositoryConfig,
 	setSimulatorUrl,
@@ -116,14 +116,16 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const credentials = await getCredentials({ openBrowser: !noBrowser });
-	// Log in before changing the project if the login is missing or expired.
-	await getUserProfile(credentials);
+	// Log in with the browser before changing the project, if needed.
+	if (!env.PRISMIC_TOKEN && !(await hasValidToken(await getCredentials({ allowLogin: false })))) {
+		await logIn({ openBrowser: !noBrowser });
+	}
+	const { host, getToken } = await getCredentials();
 
 	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
 	let connectedRepository: Repository | undefined;
 	if (repo) {
-		connectedRepository = await getRepository({ repo, ...credentials }).catch((error) => {
+		connectedRepository = await getRepository({ repo, host, getToken }).catch((error) => {
 			if (!(error instanceof ForbiddenRequestError)) throw error;
 			throw new CommandError(
 				`Repository "${repo}" not found in your account. Check the name or request access to the repository.`,
@@ -158,7 +160,7 @@ export default createCommand(config, async ({ values }) => {
 		(!isTypeBuilderEnabled || connectedRepository.framework !== adapter.id)
 	) {
 		try {
-			await enableTypeBuilder(adapter.id, { repo, ...credentials });
+			await enableTypeBuilder(adapter.id, { repo, host, getToken });
 			if (!isTypeBuilderEnabled)
 				console.info(`Turned on the Type Builder for repository "${repo}".`);
 		} catch (error) {
@@ -177,7 +179,7 @@ export default createCommand(config, async ({ values }) => {
 	if (!repo) {
 		repo = await createRepo(
 			{ name: values["repo-name"], lang, framework: adapter.id },
-			credentials,
+			{ host, getToken },
 		);
 		console.info(`Created repository: ${repo}`);
 	}
@@ -185,9 +187,7 @@ export default createCommand(config, async ({ values }) => {
 	// Create or reconnect prismic.config.json
 	try {
 		const documentAPIEndpoint =
-			credentials.host !== DEFAULT_PRISMIC_HOST
-				? `https://${repo}.cdn.${credentials.host}/api/v2/`
-				: undefined;
+			host !== DEFAULT_PRISMIC_HOST ? `https://${repo}.cdn.${host}/api/v2/` : undefined;
 		if (existingConfig) {
 			await updateConfig({ repositoryName: repo, documentAPIEndpoint });
 		} else {
@@ -251,7 +251,7 @@ export default createCommand(config, async ({ values }) => {
 
 	// Sync models from remote and generate types
 	const [remote, local] = await Promise.all([
-		getRemoteModels({ repo, ...credentials }),
+		getRemoteModels({ repo, host, getToken }),
 		adapter.getModels(),
 	]);
 	const diff = diffModels(remote, local);
@@ -292,13 +292,13 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (isExistingProjectHandoff && connectedRepository?.starter) {
-		await completeStarterHandoff(adapter, connectedRepository.starter, { repo, ...credentials });
+		await completeStarterHandoff(adapter, connectedRepository.starter, { repo, host, getToken });
 
 		if (!hasStarterModelChanges) {
 			console.info("\n---");
 			console.info("\nYour project is ready! Here's what you can do next:");
 			console.info("- Run `npm run dev` to start the development server");
-			console.info(`- Open https://${repo}.${credentials.host}/builder to preview pages live`);
+			console.info(`- Open https://${repo}.${host}/builder to preview pages live`);
 			console.info("\nStart building 🚀");
 		}
 	} else {

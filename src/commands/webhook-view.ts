@@ -29,8 +29,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
-	const credentials = await getCredentials();
-	const webhooks = await getWebhooks({ repo, ...credentials });
+	const { host, getToken } = await getCredentials();
+	const webhooks = await getWebhooks({ repo, host, getToken });
 
 	const webhook = webhooks.find((webhook) => webhook.config.url === webhookUrl);
 	if (!webhook) {

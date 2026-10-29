@@ -15,9 +15,9 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { json } = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
-	const { repositories: repos } = await getUserRepositories(credentials);
+	const { repositories: repos } = await getUserRepositories({ host, getToken });
 
 	if (json) {
 		console.info(
@@ -26,7 +26,7 @@ export default createCommand(config, async ({ values }) => {
 					domain: repo.domain,
 					name: repo.name ?? null,
 					role: repo.role ?? null,
-					url: `https://${repo.domain}.${credentials.host}/`,
+					url: `https://${repo.domain}.${host}/`,
 				})),
 			),
 		);

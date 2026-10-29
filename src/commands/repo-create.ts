@@ -56,44 +56,45 @@ export default createCommand(config, async ({ values }) => {
 		);
 	}
 
-	const credentials = await getCredentials();
-	const domain = await createRepo({ name, lang, framework }, credentials);
+	const { host, getToken } = await getCredentials();
+	const domain = await createRepo({ name, lang, framework }, { host, getToken });
 
 	console.info(`Repository created: ${domain}`);
-	console.info(`URL: https://${domain}.${credentials.host}/`);
+	console.info(`URL: https://${domain}.${host}/`);
 });
 
 export async function createRepo(
 	config: { name?: string; lang?: string; framework: string },
-	credentials: Credentials,
+	{ host, getToken }: Credentials,
 ): Promise<string> {
 	const { name, lang = "en-us", framework } = config;
 
-	const domain = await findAvailableDomain(credentials);
+	const domain = await findAvailableDomain({ host, getToken });
 	if (!domain) {
 		throw new CommandError("Failed to create a repository. Please try again.");
 	}
 
 	const agent = detectAgent();
 
-	await createRepository({ domain, name: name ?? domain, framework, agent, ...credentials });
+	await createRepository({ domain, name: name ?? domain, framework, agent, host, getToken });
 
 	// A new repository has no locale, so set the master locale to make it usable.
-	await upsertLocale({ id: lang, isMaster: true }, { repo: domain, ...credentials });
+	await upsertLocale({ id: lang, isMaster: true }, { repo: domain, host, getToken });
 
 	await completeOnboardingSteps(["createPrismicProject"], {
 		repo: domain,
-		...credentials,
+		host,
+		getToken,
 	}).catch(() => {});
 
 	return domain;
 }
 
-async function findAvailableDomain(credentials: Credentials): Promise<string | undefined> {
+async function findAvailableDomain({ host, getToken }: Credentials): Promise<string | undefined> {
 	let domain;
 	for (let i = 0; i < MAX_DOMAIN_TRIES; i++) {
 		const candidate = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
-		const available = await checkIsDomainAvailable({ domain: candidate, ...credentials });
+		const available = await checkIsDomainAvailable({ domain: candidate, host, getToken });
 		if (available) {
 			domain = candidate;
 			break;

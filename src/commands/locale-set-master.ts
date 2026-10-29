@@ -29,9 +29,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [code] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
-	const { results: locales } = await getLocales({ repo, ...credentials });
+	const { results: locales } = await getLocales({ repo, host, getToken });
 
 	const locale = locales.find((l) => l.id === code);
 
@@ -47,7 +47,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	await upsertLocale(
 		{ id: locale.id, isMaster: true, customName: locale.customName ?? undefined },
-		{ repo, ...credentials },
+		{ repo, host, getToken },
 	);
 
 	console.info(`Master locale set: ${code}`);

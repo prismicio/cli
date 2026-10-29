@@ -47,9 +47,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 	const simulatorUrl = parsed.toString();
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
-	await setSimulatorUrl(simulatorUrl, { repo, ...credentials });
+	await setSimulatorUrl(simulatorUrl, { repo, host, getToken });
 
 	console.info(`Simulator URL set: ${simulatorUrl}`);
 });

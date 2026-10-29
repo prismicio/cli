@@ -28,9 +28,9 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { env, repo = env ?? (await getActiveRepositoryName()), json } = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 
-	const { results: locales } = await getLocales({ repo, ...credentials });
+	const { results: locales } = await getLocales({ repo, host, getToken });
 
 	if (json) {
 		console.info(stringify(locales));

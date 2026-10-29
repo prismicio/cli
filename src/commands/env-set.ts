@@ -16,8 +16,8 @@ export default createCommand(config, async ({ positionals }) => {
 	const [environment] = positionals;
 
 	const repo = await getRepositoryName();
-	const credentials = await getCredentials();
-	const environments = await getUserEnvironments({ repo, ...credentials });
+	const { host, getToken } = await getCredentials();
+	const environments = await getUserEnvironments({ repo, host, getToken });
 
 	const validEnvironment = environments.some((env) => env.domain === environment);
 	if (!validEnvironment) throw new InvalidEnvironmentError(environment, environments, repo);

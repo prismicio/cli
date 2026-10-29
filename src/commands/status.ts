@@ -40,7 +40,7 @@ export default createCommand(config, async ({ values }) => {
 	const activeEnvironment = await adapter.getEnvironment();
 	const { env, repo = env ?? activeEnvironment ?? repositoryName } = values;
 
-	const credentials = await getCredentials();
+	const { host, getToken } = await getCredentials();
 	const projectRoot = await findProjectRoot();
 
 	const [gitRoot, customTypeLibraries, sliceLibraries, local] = await Promise.all([
@@ -52,10 +52,10 @@ export default createCommand(config, async ({ values }) => {
 
 	let authenticatedAs: string | undefined;
 	let diff: ModelsDiff | undefined;
-	if (credentials.token) {
+	if (await getToken()) {
 		const [session, remote] = await Promise.all([
-			validateToken(credentials),
-			getRemoteModels({ repo, ...credentials }),
+			validateToken({ host, getToken }),
+			getRemoteModels({ repo, host, getToken }),
 		]);
 		authenticatedAs =
 			session.type === "USER"
