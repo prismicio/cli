@@ -16,11 +16,11 @@ import {
 } from "../lib/packageJson";
 import {
 	addPreview,
+	deletePreview,
 	enableTypeBuilder,
 	getPreviews,
-	getProfile,
 	getRepository,
-	removePreview,
+	getUserProfile,
 	type Repository,
 	setSimulatorUrl,
 } from "../lib/prismic/client";
@@ -119,7 +119,7 @@ export default createCommand(config, async ({ values }) => {
 	const { host, token: initialToken } = await getCredentials();
 	let token = initialToken;
 	try {
-		await getProfile({ token, host });
+		await getUserProfile({ token, host });
 	} catch (error) {
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			if (env.PRISMIC_TOKEN) throw error;
@@ -357,7 +357,7 @@ async function completeStarterHandoff(
 		await Promise.all(
 			previews
 				.filter((preview) => preview.label === "Starter Preview")
-				.map((preview) => removePreview(preview.id, config)),
+				.map((preview) => deletePreview(preview.id, config)),
 		);
 		const hasDevelopmentPreview = previews.some(
 			(preview) => preview.url === adapter.localPreviewUrl,

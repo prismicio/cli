@@ -3,7 +3,7 @@ import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { isInvalidAuthContextError } from "../lib/prismic/auth";
-import { getRepository, getRepositoryAccess } from "../lib/prismic/client";
+import { getRepository, getRepositoryApiAccess } from "../lib/prismic/client";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -35,7 +35,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const [repository, syncState] = await Promise.all([
 		getRepository({ repo, token, host }),
-		getRepositoryAccess({ repo, token, host }).catch((error) => {
+		getRepositoryApiAccess({ repo, token, host }).catch((error) => {
 			if (!isInvalidAuthContextError(error)) throw error;
 		}),
 	]);

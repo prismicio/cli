@@ -6,7 +6,7 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { deleteScreenshots, getDocumentTotalByCustomTypes } from "../lib/prismic/client";
+import { deleteSliceScreenshots, getDocumentTotalByCustomType } from "../lib/prismic/client";
 import { diffModels, getRemoteModels, writeRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError } from "../lib/request";
@@ -122,7 +122,7 @@ export default createCommand(config, async ({ values }) => {
 		throw await explainExistingDocuments(error, diff.customTypes.delete, { repo, token, host });
 	}
 	for (const { id } of diff.slices.delete) {
-		await deleteScreenshots(id, { repo, token, host }).catch((error) => {
+		await deleteSliceScreenshots(id, { repo, token, host }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
 			console.warn(
 				`Failed to delete screenshots for slice "${id}"${message ? `: ${message}` : "."}`,
@@ -172,7 +172,7 @@ async function explainExistingDocuments(
 
 		let documentCount: number;
 		try {
-			documentCount = (await getDocumentTotalByCustomTypes(id, config)).total;
+			documentCount = (await getDocumentTotalByCustomType(id, config)).total;
 		} catch {
 			return new CommandError(
 				`Could not check whether type "${id}" has associated pages. ` +

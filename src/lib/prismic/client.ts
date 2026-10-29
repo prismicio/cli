@@ -53,7 +53,7 @@ const UserRepositorySchema = z.object({
 	role: z.optional(z.union([z.string(), z.record(z.string(), z.string())])),
 });
 
-export async function getProfile(config: Config): Promise<Profile> {
+export async function getUserProfile(config: Config): Promise<Profile> {
 	const url = new URL("user/profile", getUserServiceUrl(config.host));
 	return request(url, {
 		headers: { Authorization: `Bearer ${config.token}` },
@@ -62,7 +62,7 @@ export async function getProfile(config: Config): Promise<Profile> {
 	});
 }
 
-export async function getRepositories(
+export async function getUserRepositories(
 	config: Config,
 ): Promise<{ repositories: z.infer<typeof UserRepositorySchema>[] }> {
 	const url = new URL("user/repositories", getUserServiceUrl(config.host));
@@ -171,13 +171,16 @@ export function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]
 	});
 }
 
-export type BulkChange = {
+export type BulkModelChange = {
 	type: `${"CUSTOM_TYPE" | "SLICE"}_${"INSERT" | "UPDATE" | "DELETE"}`;
 	id: string;
 	payload: DynamicCustomTypeModel | SharedSliceModel | { id: string };
 };
 
-export async function bulkUpdate(changes: BulkChange[], config: CustomTypesConfig): Promise<void> {
+export async function bulkUpdateModels(
+	changes: BulkModelChange[],
+	config: CustomTypesConfig,
+): Promise<void> {
 	const url = new URL("bulk-update", getCustomTypesServiceUrl(config.host));
 	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	await request(url, {
@@ -208,7 +211,10 @@ const SUPPORTED_IMAGE_MIME_TYPES: Record<string, string> = {
 	"image/webp": ".webp",
 };
 
-export async function deleteScreenshots(sliceId: string, config: RepositoryConfig): Promise<void> {
+export async function deleteSliceScreenshots(
+	sliceId: string,
+	config: RepositoryConfig,
+): Promise<void> {
 	const url = new URL("delete", getScreenshotServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	await request(url, {
@@ -218,7 +224,7 @@ export async function deleteScreenshots(sliceId: string, config: RepositoryConfi
 	});
 }
 
-export async function uploadScreenshot(
+export async function uploadSliceScreenshot(
 	blob: Blob,
 	config: RepositoryConfig & { sliceId: string; variationId: string },
 ): Promise<URL> {
@@ -319,7 +325,7 @@ export async function upsertLocale(
 	});
 }
 
-export async function removeLocale(code: string, config: RepositoryConfig): Promise<void> {
+export async function deleteLocale(code: string, config: RepositoryConfig): Promise<void> {
 	const url = new URL(
 		`repository/locales/${encodeURIComponent(code)}`,
 		getLocaleServiceUrl(config.host),
@@ -380,7 +386,7 @@ export async function addPreview(
 	});
 }
 
-export async function removePreview(id: string, config: RepositoryConfig): Promise<void> {
+export async function deletePreview(id: string, config: RepositoryConfig): Promise<void> {
 	const url = new URL(
 		`previews/delete/${encodeURIComponent(id)}`,
 		getRepositoryDomainUrl(config.repo, config.host),
@@ -439,7 +445,7 @@ export async function setSimulatorUrl(
 	});
 }
 
-export async function getDocumentTotalByCustomTypes(
+export async function getDocumentTotalByCustomType(
 	customTypeId: string,
 	config: RepositoryConfig,
 ): Promise<{ total: number }> {
@@ -715,7 +721,7 @@ export async function deleteWriteToken(
 	});
 }
 
-export async function getRepositoryAccess(
+export async function getRepositoryApiAccess(
 	config: RepositoryConfig,
 ): Promise<{ repository: { api_access: string } }> {
 	const url = new URL("syncState", getRepositoryDomainUrl(config.repo, config.host));
@@ -727,10 +733,10 @@ export async function getRepositoryAccess(
 	});
 }
 
-export type RepositoryAccessLevel = "private" | "public" | "open";
+export type RepositoryApiAccessLevel = "private" | "public" | "open";
 
-export async function setRepositoryAccess(
-	level: RepositoryAccessLevel,
+export async function setRepositoryApiAccess(
+	level: RepositoryApiAccessLevel,
 	config: RepositoryConfig,
 ): Promise<void> {
 	const url = new URL(
