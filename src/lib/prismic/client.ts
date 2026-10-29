@@ -57,10 +57,6 @@ const UserRepositorySchema = z.object({
 	role: z.optional(z.union([z.string(), z.record(z.string(), z.string())])),
 });
 
-const UserRepositoryListSchema = z.object({
-	repositories: z.array(UserRepositorySchema),
-});
-
 export async function getProfile(config: Config): Promise<Profile> {
 	const url = new URL("user/profile", getUserServiceUrl(config.host));
 	return bearerRequest(url, config, {
@@ -74,7 +70,7 @@ export async function getRepositories(
 ): Promise<z.infer<typeof UserRepositorySchema>[]> {
 	const url = new URL("user/repositories", getUserServiceUrl(config.host));
 	const response = await bearerRequest(url, config, {
-		schema: UserRepositoryListSchema,
+		schema: z.object({ repositories: z.array(UserRepositorySchema) }),
 		unknownErrorMessage: "Failed to load your repositories",
 	});
 	return response.repositories;
@@ -86,22 +82,18 @@ function getUserServiceUrl(host: string): URL {
 
 // Repository service
 
-const RepositoryStarterSchema = z.object({
-	id: z.string(),
-	revision: z.string(),
-	framework: z.string(),
-	deploymentUrl: z.url(),
-});
-
 const RepositorySchema = z.object({
 	name: z.optional(z.string()),
-	starter: z.nullish(RepositoryStarterSchema),
-	framework: z.optional(z.string()),
-	quotas: z.optional(
+	starter: z.nullish(
 		z.object({
-			sliceMachineEnabled: z.boolean(),
+			id: z.string(),
+			revision: z.string(),
+			framework: z.string(),
+			deploymentUrl: z.url(),
 		}),
 	),
+	framework: z.optional(z.string()),
+	quotas: z.optional(z.object({ sliceMachineEnabled: z.boolean() })),
 });
 
 export type Repository = z.infer<typeof RepositorySchema>;
@@ -384,16 +376,12 @@ const PreviewSchema = z.object({
 	url: z.string(),
 });
 
-const GetPreviewsResponseSchema = z.object({
-	results: z.array(PreviewSchema),
-});
-
 export type Preview = z.infer<typeof PreviewSchema>;
 
 export async function getPreviews(config: RepositoryConfig): Promise<Preview[]> {
 	const url = new URL("core/repository/preview_configs", getRepositoryDomainUrl(config));
 	const response = await repositoryDomainRequest(url, config, {
-		schema: GetPreviewsResponseSchema,
+		schema: z.object({ results: z.array(PreviewSchema) }),
 		unknownErrorMessage: "Failed to load previews",
 	});
 	return response.results;
@@ -445,14 +433,10 @@ export async function getEnvironments(config: RepositoryConfig): Promise<Environ
 	return response.results;
 }
 
-const SimulatorUrlResponseSchema = z.object({
-	simulator_url: z.optional(z.string()),
-});
-
 export async function getSimulatorUrl(config: RepositoryConfig): Promise<string | undefined> {
 	const url = new URL("core/repository", getRepositoryDomainUrl(config));
 	const response = await repositoryDomainRequest(url, config, {
-		schema: SimulatorUrlResponseSchema,
+		schema: z.object({ simulator_url: z.optional(z.string()) }),
 		unknownErrorMessage: "Failed to load simulator URL",
 	});
 	return response.simulator_url;
@@ -470,10 +454,6 @@ export async function setSimulatorUrl(
 	});
 }
 
-const DocumentSearchTotalSchema = z.object({
-	total: z.number(),
-});
-
 export async function getDocumentTotalByCustomTypes(
 	customTypeId: string,
 	config: RepositoryConfig,
@@ -482,7 +462,7 @@ export async function getDocumentTotalByCustomTypes(
 	const response = await repositoryDomainRequest(url, config, {
 		method: "POST",
 		json: { customTypes: [customTypeId], limit: 0 },
-		schema: DocumentSearchTotalSchema,
+		schema: z.object({ total: z.number() }),
 	});
 	return response.total;
 }
@@ -711,16 +691,10 @@ export async function deleteWriteToken(
 	});
 }
 
-const SyncStateSchema = z.object({
-	repository: z.object({
-		api_access: z.string(),
-	}),
-});
-
 export async function getRepositoryAccess(config: RepositoryConfig): Promise<string> {
 	const url = new URL("syncState", getRepositoryDomainUrl(config));
 	const response = await repositoryDomainRequest(url, config, {
-		schema: SyncStateSchema,
+		schema: z.object({ repository: z.object({ api_access: z.string() }) }),
 		unknownErrorMessage: "Failed to load repository access",
 	});
 	return response.repository.api_access;
@@ -740,12 +714,6 @@ export async function setRepositoryAccess(
 	});
 }
 
-const SetNameResponseSchema = z.object({
-	repository: z.object({
-		name: z.string(),
-	}),
-});
-
 export async function setRepositoryName(name: string, config: RepositoryConfig): Promise<string> {
 	const formData = new FormData();
 	formData.set("displayname", name);
@@ -753,7 +721,7 @@ export async function setRepositoryName(name: string, config: RepositoryConfig):
 	const response = await repositoryDomainRequest(url, config, {
 		method: "POST",
 		body: formData,
-		schema: SetNameResponseSchema,
+		schema: z.object({ repository: z.object({ name: z.string() }) }),
 		unknownErrorMessage: "Failed to set repository name",
 	});
 	return response.repository.name;
