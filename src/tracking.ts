@@ -124,6 +124,7 @@ function detectRuntime(): { runtime: string; runtimeProvider?: string } {
 
 function detectCloudProvider(): string | undefined {
 	if (process.env.CLAUDE_CODE_REMOTE === "true") return "claude-code";
+	if (process.env.CODEX_EXEC_SERVER_REMOTE_BASE_URL) return "codex";
 	if (process.env.CODESPACES === "true") return "codespaces";
 	if (process.env.GITPOD_WORKSPACE_ID) return "gitpod";
 	if (process.versions.webcontainer) return "stackblitz";
