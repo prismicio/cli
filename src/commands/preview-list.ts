@@ -30,7 +30,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const [previews, simulatorUrl] = await Promise.all([
+	const [{ results: previews }, { simulator_url: simulatorUrl }] = await Promise.all([
 		getPreviews({ repo, token, host }),
 		getSimulatorUrl({ repo, token, host }),
 	]);

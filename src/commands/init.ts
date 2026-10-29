@@ -353,7 +353,7 @@ async function completeStarterHandoff(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	try {
-		const previews = await getPreviews(config);
+		const { results: previews } = await getPreviews(config);
 		await Promise.all(
 			previews
 				.filter((preview) => preview.label === "Starter Preview")

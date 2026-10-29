@@ -17,7 +17,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const repos = await getRepositories({ token, host });
+	const { repositories: repos } = await getRepositories({ token, host });
 
 	if (json) {
 		console.info(

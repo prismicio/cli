@@ -174,7 +174,7 @@ async function saveSession(sessionPath: URL, session: Session): Promise<void> {
 }
 
 async function createSession({ repo, token, host }: CustomTypesConfig): Promise<Session> {
-	const releaseId = await createRelease(
+	const { id: releaseId } = await createRelease(
 		{ label: "prismic dev", hidden: true },
 		{ repo, token, host },
 	).catch((error) => {

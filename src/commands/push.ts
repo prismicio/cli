@@ -172,7 +172,7 @@ async function explainExistingDocuments(
 
 		let documentCount: number;
 		try {
-			documentCount = await getDocumentTotalByCustomTypes(id, config);
+			documentCount = (await getDocumentTotalByCustomTypes(id, config)).total;
 		} catch {
 			return new CommandError(
 				`Could not check whether type "${id}" has associated pages. ` +

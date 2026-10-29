@@ -31,7 +31,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const previews = await getPreviews({ repo, token, host });
+	const { results: previews } = await getPreviews({ repo, token, host });
 
 	const preview = previews.find((p) => p.url === previewUrl);
 	if (!preview) {
