@@ -8,9 +8,16 @@ import * as z from "zod/mini";
 
 import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
+import { openBrowser } from "./lib/browser";
+import { CommandError } from "./lib/command";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
-import { refreshToken as baseRefreshToken } from "./lib/prismic/client";
+import {
+	type Credentials,
+	refreshToken as baseRefreshToken,
+	validateToken,
+} from "./lib/prismic/client";
+import { ForbiddenRequestError, type RequestError, UnauthorizedRequestError } from "./lib/request";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 
@@ -22,14 +29,69 @@ const CredentialsSchema = z.looseObject({
 	token: z.optional(z.string().check(z.minLength(1))),
 	host: z.optional(z.string().check(z.minLength(1))),
 });
-type Credentials = z.infer<typeof CredentialsSchema>;
+type StoredCredentials = z.infer<typeof CredentialsSchema>;
 
-export async function getCredentials(): Promise<{ token: string | undefined; host: string }> {
-	const credentials = await readCredentials();
-	return {
-		token: env.PRISMIC_TOKEN || credentials?.token,
-		host: env.PRISMIC_HOST || credentials?.host || DEFAULT_PRISMIC_HOST,
+// When a request fails because the login is missing or expired, a new login
+// starts and the request retries. The token then updates, so later requests
+// use the new login.
+export async function getCredentials(options: { noBrowser?: boolean } = {}): Promise<Credentials> {
+	const stored = await readCredentials();
+	const credentials: Credentials = {
+		token: env.PRISMIC_TOKEN || stored?.token,
+		host: env.PRISMIC_HOST || stored?.host || DEFAULT_PRISMIC_HOST,
+		onAuthError: undefined,
 	};
+	if (!env.PRISMIC_TOKEN && !env.CI) {
+		credentials.onAuthError = (error, rejectedToken) =>
+			logInAgain(error, rejectedToken, credentials, options);
+	}
+	return credentials;
+}
+
+export async function logIn(options: { noBrowser?: boolean } = {}): Promise<string> {
+	const { email, token } = await createLoginSession({
+		onReady: (url) => {
+			if (options.noBrowser) {
+				console.info(`Open this URL to log in: ${url}`);
+			} else {
+				console.info("Opening browser to complete login...");
+				console.info(`If the browser doesn't open, visit: ${url}`);
+				openBrowser(url);
+			}
+		},
+	});
+	console.info(`Logged in to Prismic as ${email}`);
+	return token;
+}
+
+let pendingLogin: Promise<string> | undefined;
+
+async function logInAgain(
+	error: RequestError,
+	rejectedToken: string | undefined,
+	credentials: Credentials,
+	options: { noBrowser?: boolean },
+): Promise<string | undefined> {
+	// Another request already logged in again.
+	if (credentials.token !== rejectedToken) return credentials.token;
+	// Most services answer an expired login with a 403. A 403 with a valid
+	// login means the user has no access, and a new login would not help.
+	if (error instanceof ForbiddenRequestError && rejectedToken && (await isLoggedIn(credentials))) {
+		return;
+	}
+	if (!pendingLogin) {
+		console.info(rejectedToken ? "Your login expired." : "You are not logged in.");
+		pendingLogin = logIn(options).finally(() => (pendingLogin = undefined));
+	}
+	credentials.token = await pendingLogin;
+	return credentials.token;
+}
+
+function isLoggedIn(credentials: Credentials): Promise<boolean> {
+	return validateToken({ ...credentials, onAuthError: undefined }).then(
+		() => true,
+		(error) => !(error instanceof UnauthorizedRequestError),
+	);
 }
 
 export async function refreshToken(): Promise<string | undefined> {
@@ -54,17 +116,17 @@ export async function logout(): Promise<boolean> {
 	}
 }
 
-async function readCredentials(): Promise<Credentials | undefined> {
+async function readCredentials(): Promise<StoredCredentials | undefined> {
 	return readJsonFile(CREDENTIALS_PATH, { schema: CredentialsSchema }).catch(() => undefined);
 }
 
-async function saveCredentials(credentials: Credentials): Promise<void> {
+async function saveCredentials(credentials: StoredCredentials): Promise<void> {
 	await writeFileRecursive(CREDENTIALS_PATH, stringify(credentials));
 }
 
-export async function createLoginSession(options: {
+async function createLoginSession(options: {
 	onReady: (url: URL) => void;
-}): Promise<{ email: string }> {
+}): Promise<{ email: string; token: string }> {
 	const { host } = await getCredentials();
 	const corsOrigin = `https://${host}`;
 
@@ -116,7 +178,7 @@ export async function createLoginSession(options: {
 
 						clearTimeout(timeoutId);
 						server.close();
-						resolve({ email });
+						resolve({ email, token });
 					} catch {
 						respond(400, { error: "Invalid request" });
 					}
@@ -131,7 +193,7 @@ export async function createLoginSession(options: {
 
 		const timeoutId = setTimeout(() => {
 			server.close();
-			reject(new Error("Login timed out. Please try again."));
+			reject(new CommandError("Login timed out. Please try again."));
 		}, LOGIN_TIMEOUT_MS);
 
 		const onListening = async (): Promise<void> => {

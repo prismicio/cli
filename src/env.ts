@@ -7,6 +7,7 @@ export const DEFAULT_PRISMIC_HOST = "prismic.io";
 
 const Env = z.object({
 	PROD: z.stringbool(),
+	CI: z.optional(z.string()),
 	PRISMIC_SENTRY_DSN: z._default(z.httpUrl(), DEFAULT_PRISMIC_SENTRY_DSN),
 	PRISMIC_SENTRY_ENVIRONMENT: z.optional(z.string()),
 	PRISMIC_SENTRY_ENABLED: z.optional(z.stringbool()),

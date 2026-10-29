@@ -2,15 +2,17 @@ import * as z from "zod/mini";
 
 const USER_AGENT = "prismic-cli";
 
-type CustomRequestInit = Omit<RequestInit, "body" | "credentials"> & {
+type CustomRequestInit<T> = Omit<RequestInit, "body" | "credentials"> & {
 	credentials?: Record<string, string | undefined>;
 	notFoundMessage?: string;
 	unknownErrorMessage?: string;
+	// Handles a 401 or 403 error. Resolve to recover the request, or throw.
+	onAuthError?: (error: RequestError) => Promise<T>;
 };
 
 type RequestBody = { body?: BodyInit | null; json?: never } | { body?: never; json?: unknown };
 
-export type RequestOptions<T = unknown> = CustomRequestInit &
+export type RequestOptions<T = unknown> = CustomRequestInit<T> &
 	RequestBody & {
 		schema?: z.ZodMiniType<T>;
 	};
@@ -19,7 +21,15 @@ export async function request<T = unknown>(
 	input: RequestInfo | URL,
 	init: RequestOptions<T> = {},
 ): Promise<T> {
-	const { credentials, json, notFoundMessage, unknownErrorMessage, schema, ...requestInit } = init;
+	const {
+		credentials,
+		json,
+		notFoundMessage,
+		unknownErrorMessage,
+		onAuthError,
+		schema,
+		...requestInit
+	} = init;
 
 	const headers = new Headers(init.headers);
 	if (!headers.has("Accept")) {
@@ -57,17 +67,29 @@ export async function request<T = unknown>(
 		return schema ? z.parse(schema, value) : (value as T);
 	}
 
+	const error = createRequestError(response, value, { notFoundMessage, unknownErrorMessage });
+	const isAuthError =
+		error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError;
+	if (isAuthError && onAuthError) return onAuthError(error);
+	throw error;
+}
+
+function createRequestError(
+	response: Response,
+	value: unknown,
+	messages: { notFoundMessage?: string; unknownErrorMessage?: string },
+): RequestError {
 	switch (response.status) {
 		case 400:
-			throw new BadRequestError(response, value);
+			return new BadRequestError(response, value);
 		case 401:
-			throw new UnauthorizedRequestError(response, value);
+			return new UnauthorizedRequestError(response, value);
 		case 403:
-			throw new ForbiddenRequestError(response, value);
+			return new ForbiddenRequestError(response, value);
 		case 404:
-			throw new NotFoundRequestError(response, value, notFoundMessage);
+			return new NotFoundRequestError(response, value, messages.notFoundMessage);
 		default:
-			throw new UnknownRequestError(response, value, unknownErrorMessage);
+			return new UnknownRequestError(response, value, messages.unknownErrorMessage);
 	}
 }
 

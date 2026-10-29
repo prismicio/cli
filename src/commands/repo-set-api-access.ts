@@ -33,9 +33,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 		);
 	}
 
-	const { token, host } = await getCredentials();
+	const credentials = await getCredentials();
 
-	await setRepositoryApiAccess(level as RepositoryApiAccessLevel, { repo, token, host });
+	await setRepositoryApiAccess(level as RepositoryApiAccessLevel, { repo, ...credentials });
 
 	console.info(`Repository access set to: ${level}`);
 });
