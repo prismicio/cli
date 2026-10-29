@@ -19,7 +19,7 @@ import { detectAgent } from "./lib/ai";
 import { CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
-import { getProfile, UnsupportedFileTypeError } from "./lib/prismic/client";
+import { getUserProfile, UnsupportedFileTypeError } from "./lib/prismic/client";
 import { InvalidEnvironmentError } from "./lib/prismic/environments";
 import {
 	FieldExistsError,
@@ -174,7 +174,7 @@ async function main(): Promise<void> {
 				if (knownUserId) {
 					sentrySetUser({ id: knownUserId });
 				} else if (!exp || exp > now) {
-					getProfile({ token, host })
+					getUserProfile({ token, host })
 						.then((profile) => {
 							trackUser(profile);
 							sentrySetUser({ id: profile.shortId });
