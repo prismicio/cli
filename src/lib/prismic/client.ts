@@ -13,8 +13,6 @@ type Config = {
 
 type RepositoryConfig = Config & { repo: string };
 
-// Auth service
-
 export async function refreshToken(token: string, config: { host: string }): Promise<string> {
 	const url = new URL("refreshtoken", getAuthServiceUrl(config.host));
 	url.searchParams.set("token", token);
@@ -38,8 +36,6 @@ export async function validateToken(
 function getAuthServiceUrl(host: string): URL {
 	return new URL(`https://auth.${host}/`);
 }
-
-// User service
 
 const ProfileSchema = z.object({
 	email: z.string(),
@@ -80,8 +76,6 @@ export async function getRepositories(
 function getUserServiceUrl(host: string): URL {
 	return new URL(`https://api.internal.${host}/`);
 }
-
-// Repository service
 
 const RepositorySchema = z.object({
 	name: z.optional(z.string()),
@@ -157,8 +151,6 @@ function getRepositoryServiceUrl(host: string): URL {
 	return new URL(`https://api.internal.${host}/repository/`);
 }
 
-// Custom types service
-
 export type CustomTypesConfig = RepositoryConfig & { releaseId?: string };
 
 export function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
@@ -200,8 +192,6 @@ export async function bulkUpdate(changes: BulkChange[], config: CustomTypesConfi
 function getCustomTypesServiceUrl(host: string): URL {
 	return new URL(`https://customtypes.${host}/`);
 }
-
-// Screenshot service
 
 const ScreenshotPresignedUrlResponseSchema = z.object({
 	values: z.object({
@@ -289,8 +279,6 @@ function getScreenshotServiceUrl(host: string): URL {
 	return new URL(`https://api.internal.${host}/screenshot/`);
 }
 
-// Locale service
-
 const LocaleSchema = z.object({
 	id: z.string(),
 	label: z.string(),
@@ -348,8 +336,6 @@ export async function removeLocale(code: string, config: RepositoryConfig): Prom
 function getLocaleServiceUrl(host: string): URL {
 	return new URL(`https://api.internal.${host}/locale/`);
 }
-
-// Repository domain (Core and Wroom)
 
 const PreviewSchema = z.object({
 	id: z.string(),
@@ -781,8 +767,6 @@ function getRepositoryDomainUrl(repo: string, host: string): URL {
 	return new URL(`https://${repo}.${host}/`);
 }
 
-// Dashboard (Wroom)
-
 export async function checkIsDomainAvailable(
 	config: Config & { domain: string },
 ): Promise<boolean> {
@@ -819,8 +803,6 @@ export async function createRepository(
 function getDashboardUrl(host: string): URL {
 	return new URL(`https://${host}/`);
 }
-
-// Documentation
 
 // Documentation is only published at prismic.io; the host option exists for
 // overrides only.
