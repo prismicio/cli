@@ -26,7 +26,7 @@ it("supports --help", async ({ expect, prismic }) => {
 
 it("starts a login when not logged in", async ({ expect, prismic, logout }) => {
 	await logout();
-	const proc = prismic("dev", ["--no-browser"], { nodeOptions: { env: { CI: "" } } });
+	const proc = prismic("dev", [], { nodeOptions: { env: { CI: "" } } });
 	const output = captureOutput(proc);
 	await expect.poll(output, { timeout: 15_000 }).toMatch(/port=(\d+)/);
 	proc.kill();

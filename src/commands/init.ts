@@ -116,7 +116,7 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const credentials = await getCredentials({ noBrowser });
+	const credentials = await getCredentials({ openBrowser: !noBrowser });
 	// Log in before changing the project if the login is missing or expired.
 	await getUserProfile(credentials);
 

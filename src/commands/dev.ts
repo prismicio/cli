@@ -72,7 +72,7 @@ export default createCommand(config, async ({ values }) => {
 		new: newSession,
 		"no-browser": noBrowser,
 	} = values;
-	const credentials = await getCredentials({ noBrowser });
+	const credentials = await getCredentials();
 
 	const sessionPath = await getSessionPath();
 	const previous = await resolvePreviousSession(adapter, sessionPath, credentials, {
