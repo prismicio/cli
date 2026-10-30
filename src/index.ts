@@ -158,7 +158,7 @@ async function main(): Promise<void> {
 			await initSentry({ host, repo, userIntent, taskId });
 		}
 		if (telemetryEnabled) {
-			await initTracking({ host, repo, userIntent, taskId });
+			await initTracking({ host, token, repo, userIntent, taskId });
 		}
 
 		if (token) {

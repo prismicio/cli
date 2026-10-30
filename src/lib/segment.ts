@@ -67,6 +67,7 @@ export function trackEvent(
 		event,
 		properties: {
 			nodeVersion: process.versions.node,
+			os: process.platform,
 			...properties,
 		},
 		context: {
