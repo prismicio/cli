@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.25.0](https://github.com/prismicio/cli/compare/v1.24.0...v1.25.0) (2026-10-30)
+
+
+### Features
+
+* **analytics:** record how and where each command runs ([#444](https://github.com/prismicio/cli/issues/444)) ([8625829](https://github.com/prismicio/cli/commit/86258295359be7ce38e8030bbcf287e740471bd9)), closes [#442](https://github.com/prismicio/cli/issues/442)
+
 ## [1.24.0](https://github.com/prismicio/cli/compare/v1.23.0...v1.24.0) (2026-10-15)
 
 
