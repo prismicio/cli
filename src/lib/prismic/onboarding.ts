@@ -1,4 +1,4 @@
-import { getOnboardingState, toggleOnboardingStep } from "./clients/repository";
+import { getOnboardingState, toggleOnboardingStep } from "./client";
 
 type OnboardingConfig = {
 	repo: string;

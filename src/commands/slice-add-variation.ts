@@ -6,7 +6,7 @@ import { getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { readURLFile } from "../lib/file";
-import { uploadScreenshot } from "../lib/prismic/clients/custom-types";
+import { uploadSliceScreenshot } from "../lib/prismic/client";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -44,7 +44,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
 		const blob = await readURLFile(url);
-		const screenshotUrl = await uploadScreenshot(blob, {
+		const screenshotUrl = await uploadSliceScreenshot(blob, {
 			sliceId: slice.id,
 			variationId: id,
 			repo,

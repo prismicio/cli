@@ -1,7 +1,7 @@
 import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
+import { getWebhooks, updateWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic webhook set-triggers",

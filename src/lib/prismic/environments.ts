@@ -1,6 +1,5 @@
 import { dedent } from "../string";
-import { validateToken } from "./clients/auth";
-import { type Environment, getEnvironments } from "./clients/core";
+import { type Environment, getEnvironments, validateToken } from "./client";
 
 export async function getUserEnvironments(config: {
 	repo: string;
@@ -8,7 +7,7 @@ export async function getUserEnvironments(config: {
 	host: string;
 }): Promise<Environment[]> {
 	const { repo, token, host } = config;
-	const [session, environments] = await Promise.all([
+	const [session, { results: environments }] = await Promise.all([
 		validateToken(token, { host }),
 		getEnvironments({ repo, token, host }),
 	]);

@@ -2,7 +2,7 @@ import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getOAuthApps, getWriteTokens } from "../lib/prismic/clients/wroom";
+import { getOAuthApps, getWriteTokens } from "../lib/prismic/client";
 import { formatTable } from "../lib/string";
 
 const config = {

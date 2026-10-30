@@ -16,16 +16,14 @@ import {
 } from "../lib/packageJson";
 import {
 	addPreview,
-	getPreviews,
-	removePreview,
-	setSimulatorUrl,
-} from "../lib/prismic/clients/core";
-import {
+	deletePreview,
 	enableTypeBuilder,
+	getPreviews,
 	getRepository,
+	getUserProfile,
 	type Repository,
-} from "../lib/prismic/clients/repository";
-import { getProfile } from "../lib/prismic/clients/user";
+	setSimulatorUrl,
+} from "../lib/prismic/client";
 import { diffModels, getLegacySlices, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
@@ -121,7 +119,7 @@ export default createCommand(config, async ({ values }) => {
 	const { host, token: initialToken } = await getCredentials();
 	let token = initialToken;
 	try {
-		await getProfile({ token, host });
+		await getUserProfile({ token, host });
 	} catch (error) {
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			if (env.PRISMIC_TOKEN) throw error;
@@ -355,11 +353,11 @@ async function completeStarterHandoff(
 	config: { repo: string; token: string | undefined; host: string },
 ): Promise<void> {
 	try {
-		const previews = await getPreviews(config);
+		const { results: previews } = await getPreviews(config);
 		await Promise.all(
 			previews
 				.filter((preview) => preview.label === "Starter Preview")
-				.map((preview) => removePreview(preview.id, config)),
+				.map((preview) => deletePreview(preview.id, config)),
 		);
 		const hasDevelopmentPreview = previews.some(
 			(preview) => preview.url === adapter.localPreviewUrl,
