@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.26.0](https://github.com/prismicio/cli/compare/v1.25.0...v1.26.0) (2026-11-04)
+
+
+### Features
+
+* **init:** mark the project as connected after init ([#451](https://github.com/prismicio/cli/issues/451)) ([e5b2e91](https://github.com/prismicio/cli/commit/e5b2e915c7448246f89b88c95859b8bb8cefa752))
+
 ## [1.25.0](https://github.com/prismicio/cli/compare/v1.24.0...v1.25.0) (2026-11-02)
 
 
