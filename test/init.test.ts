@@ -143,6 +143,8 @@ it("initializes a project with --repo when logged in", async ({
 	project,
 	prismic,
 	repo,
+	token,
+	host,
 }) => {
 	await rm(new URL("prismic.config.json", project));
 
@@ -153,6 +155,9 @@ it("initializes a project with --repo when logged in", async ({
 	const configRaw = await readFile(new URL("prismic.config.json", project), "utf-8");
 	const config = JSON.parse(configRaw);
 	expect(config.repositoryName).toBe(repo);
+
+	const completedSteps = await getOnboardingCompletedSteps({ repo, token, host });
+	expect(completedSteps).toContain("connectPrismic");
 }, 60_000);
 
 it("reconnects an existing project with --repo", async ({ expect, project, prismic, repo }) => {
