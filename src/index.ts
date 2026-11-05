@@ -44,7 +44,7 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { isTaskId } from "./lib/task-id";
+import { genTaskId, isTaskId } from "./lib/task-id";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import {
 	InvalidLegacySliceMachineConfigError,
@@ -139,10 +139,11 @@ async function main(): Promise<void> {
 	const agentOptionsError = agentNeedsTaskId ? getAgentOptionsError(taskId, userIntent) : undefined;
 
 	if (agentOptionsError) {
+		const id = taskId && isTaskId(taskId) ? taskId : genTaskId();
 		console.error(
 			`error: ${agentOptionsError}\n` +
-				"run `prismic task-id` once per user request, then pass --task-id <id> --user-intent " +
-				'"<what the user asked for>" on every command until the user asks for something else',
+				`rerun with --task-id ${id} --user-intent "<what the user asked for>", ` +
+				"and pass both on every command until the user asks for something else",
 		);
 		process.exitCode = 1;
 		return;
