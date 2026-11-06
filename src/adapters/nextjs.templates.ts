@@ -95,6 +95,13 @@ export function pageTemplate({
 						return <SliceZone slices={page.data.slices} components={components} />;
 					}
 
+					export async function generateStaticParams() {
+						const client = createClient();
+						const pages = await client.getAllByType("${model.id}");
+
+						return pages.map((page) => ({ uid: page.uid }));
+					}
+
 					async function getPage(uid: string, ref?: string) {
 						"use cache";
 						cacheLife("max");
@@ -122,6 +129,13 @@ export function pageTemplate({
 					const page = await getPage(uid, await getPreviewRef());
 
 					return <SliceZone slices={page.data.slices} components={components} />;
+				}
+
+				export async function generateStaticParams() {
+					const client = createClient();
+					const pages = await client.getAllByType("${model.id}");
+
+					return pages.map((page) => ({ uid: page.uid }));
 				}
 
 				/**

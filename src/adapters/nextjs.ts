@@ -227,20 +227,12 @@ export class NextJsAdapter extends Adapter {
 		}
 		const typescript = await checkIsTypeScriptProject();
 		const cacheComponents = await checkUsesCacheComponents();
-		const files = [
+		return [
 			{
 				path,
 				contents: pageTemplate({ model, routePath, typescript, appRouter, cacheComponents }),
 			},
 		];
-		// A dynamic route without generateStaticParams needs a Suspense boundary.
-		if (cacheComponents && model.repeatable) {
-			files.push({
-				path: new URL(`app/${routePath}/loading.${extension}`, sourceRoot),
-				contents: loadingTemplate(),
-			});
-		}
-		return files;
 	}
 }
 

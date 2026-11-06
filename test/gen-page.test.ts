@@ -173,7 +173,7 @@ it("writes a cached page with Cache Components", async ({ expect, project, prism
 
 	const directory = `app/${customType.id.toLowerCase()}/[uid]/`;
 	await expect(project).toHaveFile(`${directory}page.jsx`, { contains: '"use cache";' });
-	await expect(project).toHaveFile(`${directory}loading.jsx`, {
-		contains: "export default function Loading()",
+	await expect(project).toHaveFile(`${directory}page.jsx`, {
+		contains: "export async function generateStaticParams()",
 	});
 });
