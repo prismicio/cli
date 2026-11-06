@@ -162,3 +162,18 @@ it("uses the default path for a route with an optional param", async ({
 	await expect(project).toHaveFile(`app/${customType.id.toLowerCase()}/[uid]/page.jsx`);
 	await expect(project).not.toHaveFile("app/[lang?]/articles/[uid]/page.jsx");
 });
+
+it("writes a cached page with Cache Components", async ({ expect, project, prismic }) => {
+	await writeFile(new URL("next.config.mjs", project), "export default { cacheComponents: true };");
+	const customType = buildCustomType({ format: "page", repeatable: true });
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("gen", ["page", customType.id]);
+	expect(exitCode, stderr).toBe(0);
+
+	const directory = `app/${customType.id.toLowerCase()}/[uid]/`;
+	await expect(project).toHaveFile(`${directory}page.jsx`, { contains: '"use cache";' });
+	await expect(project).toHaveFile(`${directory}loading.jsx`, {
+		contains: "export default function Loading()",
+	});
+});

@@ -69,12 +69,110 @@ export function pageTemplate({
 	routePath,
 	typescript,
 	appRouter,
+	cacheComponents,
 }: {
 	model: DynamicCustomTypeModel;
 	routePath: string;
 	typescript: boolean;
 	appRouter: boolean;
+	cacheComponents: boolean;
 }): string {
+	if (cacheComponents) {
+		if (model.repeatable) {
+			if (typescript) {
+				return dedent`
+					import { SliceZone } from "@prismicio/react";
+					import { getPreviewRef } from "@prismicio/next";
+					import { createClient } from "@/prismicio";
+					import { components } from "@/slices";
+
+					export default async function Page({ params }: PageProps<"/${routePath}">) {
+						const { uid } = await params;
+						const page = await getPage(uid, await getPreviewRef());
+
+						return <SliceZone slices={page.data.slices} components={components} />;
+					}
+
+					async function getPage(uid: string, ref?: string) {
+						"use cache";
+						const client = createClient();
+						return await client.getByUID("${model.id}", uid, { ref });
+					}
+				`;
+			}
+
+			return dedent`
+				import { SliceZone } from "@prismicio/react";
+				import { getPreviewRef } from "@prismicio/next";
+				import { createClient } from "@/prismicio";
+				import { components } from "@/slices";
+
+				/**
+				 * @type {PageProps<"/${routePath}">}
+				 */
+				export default async function Page({ params }) {
+					const { uid } = await params;
+					const page = await getPage(uid, await getPreviewRef());
+
+					return <SliceZone slices={page.data.slices} components={components} />;
+				}
+
+				/**
+				 * @param {string} uid
+				 * @param {string} [ref]
+				 */
+				async function getPage(uid, ref) {
+					"use cache";
+					const client = createClient();
+					return await client.getByUID("${model.id}", uid, { ref });
+				}
+			`;
+		}
+
+		if (typescript) {
+			return dedent`
+				import { SliceZone } from "@prismicio/react";
+				import { getPreviewRef } from "@prismicio/next";
+				import { createClient } from "@/prismicio";
+				import { components } from "@/slices";
+
+				export default async function Page() {
+					const page = await getPage(await getPreviewRef());
+
+					return <SliceZone slices={page.data.slices} components={components} />;
+				}
+
+				async function getPage(ref?: string) {
+					"use cache";
+					const client = createClient();
+					return await client.getSingle("${model.id}", { ref });
+				}
+			`;
+		}
+
+		return dedent`
+			import { SliceZone } from "@prismicio/react";
+			import { getPreviewRef } from "@prismicio/next";
+			import { createClient } from "@/prismicio";
+			import { components } from "@/slices";
+
+			export default async function Page() {
+				const page = await getPage(await getPreviewRef());
+
+				return <SliceZone slices={page.data.slices} components={components} />;
+			}
+
+			/**
+			 * @param {string} [ref]
+			 */
+			async function getPage(ref) {
+				"use cache";
+				const client = createClient();
+				return await client.getSingle("${model.id}", { ref });
+			}
+		`;
+	}
+
 	if (appRouter) {
 		if (model.repeatable) {
 			if (typescript) {
@@ -233,10 +331,12 @@ export function pageTemplate({
 export function prismicIOFileTemplate({
 	typescript,
 	appRouter,
+	cacheComponents,
 	hasSrcDirectory,
 }: {
 	typescript: boolean;
 	appRouter: boolean;
+	cacheComponents: boolean;
 	hasSrcDirectory: boolean;
 }): string {
 	const configImportPath = `${hasSrcDirectory ? ".." : "."}/prismic.config.json`;
@@ -357,7 +457,7 @@ export function prismicIOFileTemplate({
 		`;
 	}
 
-	return dedent`
+	const contents = dedent`
 		${importsContents}
 
 		/**
@@ -367,6 +467,17 @@ export function prismicIOFileTemplate({
 			process.env.NEXT_PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 
 		${createClientContents}
+	`;
+
+	// With Cache Components, pages read the preview ref outside "use cache" instead.
+	return cacheComponents ? contents.replace(/^.*enableAutoPreviews.*\n\n?/gm, "") : contents;
+}
+
+export function loadingTemplate(): string {
+	return dedent`
+		export default function Loading() {
+			return null;
+		}
 	`;
 }
 
