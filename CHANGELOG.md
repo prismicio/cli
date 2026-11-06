@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.27.0](https://github.com/prismicio/cli/compare/v1.26.0...v1.27.0) (2026-11-06)
+
+
+### Features
+
+* **nextjs:** support Cache Components ([#457](https://github.com/prismicio/cli/issues/457)) ([4959f8f](https://github.com/prismicio/cli/commit/4959f8fc720275c3f98560fe8200d3a1cb13d3e0))
+
 ## [1.26.0](https://github.com/prismicio/cli/compare/v1.25.0...v1.26.0) (2026-11-04)
 
 
