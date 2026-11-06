@@ -11,15 +11,17 @@ export type CustomTypesConfig = {
 	token: string | undefined;
 	host: string;
 	releaseId?: string;
+	// An obelix preview stage, like `pull-123`, to send requests to instead of production.
+	stage?: string;
 };
 
 export function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
-	const url = new URL("customtypes", getCustomTypesServiceUrl(config.host));
+	const url = new URL("customtypes", getCustomTypesServiceUrl(config));
 	return customTypesServiceRequest<DynamicCustomTypeModel[]>(url, config);
 }
 
 export function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]> {
-	const url = new URL("slices", getCustomTypesServiceUrl(config.host));
+	const url = new URL("slices", getCustomTypesServiceUrl(config));
 	return customTypesServiceRequest<SharedSliceModel[]>(url, config);
 }
 
@@ -30,7 +32,7 @@ export type BulkChange = {
 };
 
 export async function bulkUpdate(changes: BulkChange[], config: CustomTypesConfig): Promise<void> {
-	const url = new URL("bulk-update", getCustomTypesServiceUrl(config.host));
+	const url = new URL("bulk-update", getCustomTypesServiceUrl(config));
 	await customTypesServiceRequest(url, config, {
 		method: "POST",
 		json: { changes },
@@ -148,7 +150,8 @@ function screenshotServiceRequest<T>(
 	});
 }
 
-function getCustomTypesServiceUrl(host: string): URL {
+function getCustomTypesServiceUrl({ host, stage }: CustomTypesConfig): URL {
+	if (stage) return new URL(`https://api.internal.${host}/${stage}/custom-type/`);
 	return new URL(`https://customtypes.${host}/`);
 }
 
