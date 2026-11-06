@@ -367,14 +367,17 @@ it("supports Next.js Cache Components", async ({ expect, project, prismic }) => 
 	expect(stdout).not.toContain("enableAutoPreviews");
 
 	const client = await readFile(new URL("prismicio.js", project), "utf8");
-	expect(client).toContain("fetchOptions");
+	expect(client).not.toContain("fetchOptions");
 	expect(client).not.toContain("enableAutoPreviews");
+	await expect(project).toHaveFile("app/api/revalidate/route.js", {
+		contains: "revalidatePrismicPages(body.documents)",
+	});
 	await expect(project).toHaveFile("app/slice-simulator/loading.jsx", {
 		contains: "export default function Loading()",
 	});
 });
 
-it("asks to remove enableAutoPreviews with Cache Components", async ({
+it("asks to regenerate Data Cache files with Cache Components", async ({
 	expect,
 	project,
 	prismic,
@@ -385,7 +388,9 @@ it("asks to remove enableAutoPreviews with Cache Components", async ({
 	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("add <PrismicPreview> to your root layout");
-	expect(stdout).toContain("Action required: remove enableAutoPreviews from prismicio.js.");
+	expect(stdout).toContain(
+		"Action required: regenerate prismicio.js and the /api/revalidate route.",
+	);
 });
 
 it("works when Next.js is declared but not installed", async ({ expect, project, prismic }) => {

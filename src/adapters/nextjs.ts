@@ -95,7 +95,7 @@ export class NextJsAdapter extends Adapter {
 		if (appRouter) {
 			await writeFileIfMissing(
 				new URL(`app/api/revalidate/route.${extension}`, sourceRoot),
-				revalidateRouteTemplate({ supportsCacheLife }),
+				revalidateRouteTemplate({ supportsCacheLife, cacheComponents, typescript }),
 			);
 		}
 	}
@@ -109,16 +109,11 @@ export class NextJsAdapter extends Adapter {
 		);
 		if ((await checkUsesCacheComponents()) && prismicIO.includes("enableAutoPreviews")) {
 			steps.push(dedent`
-				Action required: remove enableAutoPreviews from ${prismicIOFile}.
+				Action required: regenerate ${prismicIOFile} and the /api/revalidate route.
 
-				Previews fail with Cache Components until you do this. Make the
-				change now.
-
-				Remove the lines marked - from ${prismicIOFile}:
-
-				- import { enableAutoPreviews } from "@prismicio/next";
-				  ...
-				- enableAutoPreviews({ client });
+				They were generated for the Data Cache, and content does not update
+				with Cache Components until you replace them. Delete both files and
+				run \`prismic gen setup\` again.
 
 				Run \`prismic docs view nextjs\` for details.
 			`);
