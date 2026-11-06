@@ -377,22 +377,6 @@ it("supports Next.js Cache Components", async ({ expect, project, prismic }) => 
 	});
 });
 
-it("asks to regenerate Data Cache files with Cache Components", async ({
-	expect,
-	project,
-	prismic,
-}) => {
-	await writeFile(new URL("next.config.mjs", project), "export default { cacheComponents: true };");
-	await writeFile(new URL("prismicio.js", project), "enableAutoPreviews({ client });");
-
-	const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("add <PrismicPreview> to your root layout");
-	expect(stdout).toContain(
-		"Action required: regenerate prismicio.js and the /api/revalidate route.",
-	);
-});
-
 it("works when Next.js is declared but not installed", async ({ expect, project, prismic }) => {
 	// node_modules is absent, so the Next.js version cannot be read.
 	await rm(new URL("node_modules/next/", project), { recursive: true });

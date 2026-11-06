@@ -101,28 +101,6 @@ export class NextJsAdapter extends Adapter {
 	}
 
 	async getSetupInstructions(): Promise<string | undefined> {
-		const steps = [await this.getPreviewInstructions()];
-
-		const prismicIOFile = `${(await checkHasSrc()) ? "src/" : ""}prismicio.${await getJsFileExtension()}`;
-		const prismicIO = await readFile(new URL(prismicIOFile, await findProjectRoot()), "utf8").catch(
-			() => "",
-		);
-		if ((await checkUsesCacheComponents()) && prismicIO.includes("enableAutoPreviews")) {
-			steps.push(dedent`
-				Action required: regenerate ${prismicIOFile} and the /api/revalidate route.
-
-				They were generated for the Data Cache, and content does not update
-				with Cache Components until you replace them. Delete both files and
-				run \`prismic gen setup\` again.
-
-				Run \`prismic docs view nextjs\` for details.
-			`);
-		}
-
-		return steps.filter(Boolean).join("\n\n") || undefined;
-	}
-
-	private async getPreviewInstructions(): Promise<string | undefined> {
 		if (await checkSourceContains("PrismicPreview")) return;
 
 		const sourceDirectory = (await checkHasSrc()) ? "src/" : "";
