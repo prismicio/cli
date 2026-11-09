@@ -26,6 +26,12 @@ export const TARGET_OPTIONS = {
 		description: 'Slice variation ID (default: "default")',
 		dependsOn: "to-slice",
 	},
+	zone: {
+		type: "string",
+		description:
+			'Slice variation zone: "primary" or "items", the legacy repeatable zone of upgraded slices (default: "primary")',
+		dependsOn: "to-slice",
+	},
 	tab: {
 		type: "string",
 		description: 'Content type tab name (default: "Main")',
@@ -47,6 +53,12 @@ export const SOURCE_OPTIONS = {
 		description: 'Slice variation ID (default: "default")',
 		dependsOn: "from-slice",
 	},
+	zone: {
+		type: "string",
+		description:
+			'Slice variation zone: "primary" or "items", the legacy repeatable zone of upgraded slices (default: "primary")',
+		dependsOn: "from-slice",
+	},
 } satisfies CommandConfig["options"];
 
 type ResolvedFieldTarget = {
@@ -64,6 +76,7 @@ export async function getFieldReorderTargets(
 		"from-slice"?: string;
 		"from-type"?: string;
 		variation?: string;
+		zone?: string;
 	},
 ): Promise<{
 	source: ResolvedFieldContainer;
@@ -71,6 +84,7 @@ export async function getFieldReorderTargets(
 	save: () => Promise<void>;
 }> {
 	const { variation = "default" } = values;
+	const zone = parseZone(values.zone);
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const adapter = await getAdapter();
 
@@ -79,8 +93,8 @@ export async function getFieldReorderTargets(
 	let save: () => Promise<void>;
 	if (key === "from-slice") {
 		const { model } = await adapter.getSlice(value);
-		source = resolveSliceFieldContainer(sourcePath, model, variation);
-		anchor = resolveSliceFieldContainer(anchorPath, model, variation);
+		source = resolveSliceFieldContainer(sourcePath, model, variation, zone);
+		anchor = resolveSliceFieldContainer(anchorPath, model, variation, zone);
 		save = async () => {
 			await adapter.updateSlice(model);
 			await adapter.generateTypes();
@@ -107,6 +121,7 @@ export async function getNewFieldTarget(
 		"to-slice"?: string;
 		"to-type"?: string;
 		variation?: string;
+		zone?: string;
 		tab?: string;
 	},
 ): Promise<ResolvedFieldTarget> {
@@ -114,7 +129,7 @@ export async function getNewFieldTarget(
 	const { key, value } = exactlyOneOption(values, ["to-slice", "to-type"]);
 	const target =
 		key === "to-slice"
-			? await getSliceFieldTarget(path, value, variation)
+			? await getSliceFieldTarget(path, value, variation, values.zone)
 			: await getCustomTypeFieldTarget(path, value, tab);
 	if (target.fieldId in target.fields) throw new FieldExistsError(path);
 	return target;
@@ -126,13 +141,14 @@ export async function getExistingField(
 		"from-slice"?: string;
 		"from-type"?: string;
 		variation?: string;
+		zone?: string;
 	},
 ): Promise<ResolvedFieldTarget & { field: DynamicWidgetModel }> {
 	const { variation = "default" } = values;
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const target =
 		key === "from-slice"
-			? await getSliceFieldTarget(path, value, variation)
+			? await getSliceFieldTarget(path, value, variation, values.zone)
 			: await getCustomTypeFieldTarget(path, value);
 	const field = target.fields[target.fieldId];
 	if (!field) throw new FieldNotFoundError(path);
@@ -157,10 +173,11 @@ async function getSliceFieldTarget(
 	path: string,
 	sliceId: string,
 	variationId: string,
+	zone?: string,
 ): Promise<ResolvedFieldTarget> {
 	const adapter = await getAdapter();
 	const { model } = await adapter.getSlice(sliceId);
-	const fieldContainer = resolveSliceFieldContainer(path, model, variationId);
+	const fieldContainer = resolveSliceFieldContainer(path, model, variationId, parseZone(zone));
 
 	return {
 		...fieldContainer,
@@ -187,6 +204,13 @@ async function getCustomTypeFieldTarget(
 			await adapter.generateTypes();
 		},
 	};
+}
+
+function parseZone(zone = "primary"): "primary" | "items" {
+	if (zone !== "primary" && zone !== "items") {
+		throw new CommandError('--zone must be "primary" or "items".');
+	}
+	return zone;
 }
 
 export function parseNumber(value: string | undefined, optionName: string): number | undefined {

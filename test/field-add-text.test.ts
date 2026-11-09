@@ -83,3 +83,60 @@ it("errors for an unknown slice", async ({ expect, prismic }) => {
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain('Slice "CallToAction" does not exist.');
 });
+
+it("adds a text field to a slice's items", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	slice.variations[0].items = { label: { type: "Text", config: { label: "Label" } } };
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"text",
+		"subtitle",
+		"--to-slice",
+		slice.id,
+		"--zone",
+		"items",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	expect(updated!.variations[0].items!.subtitle).toMatchObject({ type: "Text" });
+	expect(updated!.variations[0].primary).toEqual({});
+});
+
+it("errors for an unknown zone", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"text",
+		"subtitle",
+		"--to-slice",
+		slice.id,
+		"--zone",
+		"repeat",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain('--zone must be "primary" or "items".');
+});
+
+it("errors when the variation has no items", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"text",
+		"subtitle",
+		"--to-slice",
+		slice.id,
+		"--zone",
+		"items",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(
+		`Variation "default" of slice "${slice.id}" has no items. Add fields to primary instead.`,
+	);
+});

@@ -76,3 +76,13 @@ it("points at the upgrade for a legacy slice", async ({ expect, prismic, project
 		`"hero" is a legacy slice in "${customType.id}". Upgrade it first: \`prismic slice upgrade-legacy hero --from ${customType.id}\`.`,
 	);
 });
+
+it("shows a variation's items fields", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	slice.variations[0].items = { label: { type: "Text", config: { label: "Label" } } };
+	await writeLocalSlice(project, slice);
+
+	const { stdout, stderr, exitCode } = await prismic("slice", ["view", slice.id]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toMatch(/default items:\n\s+label\s+Text\s+Label/);
+});

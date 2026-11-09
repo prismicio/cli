@@ -337,3 +337,24 @@ it("edits link field options", async ({ expect, prismic, project }) => {
 		config: { allowTargetBlank: true },
 	});
 });
+
+it("edits a field in a slice's items", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	slice.variations[0].items = { label: { type: "Text", config: { label: "Old Label" } } };
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"edit",
+		"label",
+		"--from-slice",
+		slice.id,
+		"--zone",
+		"items",
+		"--label",
+		"New Label",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	expect(updated!.variations[0].items!.label).toMatchObject({ config: { label: "New Label" } });
+});

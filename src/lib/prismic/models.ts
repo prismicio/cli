@@ -167,11 +167,15 @@ export function resolveSliceFieldContainer(
 	path: string,
 	slice: SharedSliceModel,
 	variationId: string,
+	zone: "primary" | "items",
 ): { fields: Fields; fieldId: string } {
 	const variation = slice.variations.find((variation) => variation.id === variationId);
 	if (!variation) throw new SliceVariationNotFoundError(variationId, slice.id);
-	variation.primary ??= {};
-	return resolveNestedFieldContainer(path, variation.primary);
+	if (zone === "primary") return resolveNestedFieldContainer(path, (variation.primary ??= {}));
+	if (!variation.items || Object.keys(variation.items).length === 0) {
+		throw new SliceItemsNotFoundError(variationId, slice.id);
+	}
+	return resolveNestedFieldContainer(path, variation.items);
 }
 
 export async function getRemoteModels(config: CustomTypesConfig): Promise<Models> {
@@ -376,5 +380,15 @@ export class SliceVariationNotFoundError extends Error {
 
 	constructor(id: string, sliceId: string) {
 		super(`Variation "${id}" does not exist on slice "${sliceId}".`);
+	}
+}
+
+export class SliceItemsNotFoundError extends Error {
+	name = "SliceItemsNotFoundError";
+
+	constructor(variationId: string, sliceId: string) {
+		super(
+			`Variation "${variationId}" of slice "${sliceId}" has no items. Add fields to primary instead.`,
+		);
 	}
 }

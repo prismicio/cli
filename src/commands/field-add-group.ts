@@ -2,7 +2,7 @@ import type { GroupModel } from "@prismicio/types-internal";
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
-import { createCommand, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { addField } from "../lib/prismic/models";
 
 const config = {
@@ -24,6 +24,8 @@ const config = {
 export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
 	const { label } = values;
+
+	if (values.zone === "items") throw new CommandError("Group fields cannot be added to items.");
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 
