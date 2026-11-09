@@ -32,7 +32,7 @@ const AGENT_OPTIONS = {
 	"task-id": {
 		type: "string",
 		description:
-			"Groups the commands of one user request. One id covers the whole request, not one per command: a slice's create, field and push commands share it. Run `prismic task-id` when the user asks for something new. Analytics only — no effect on behavior.",
+			"Required on every command except --help. Run `prismic task-id` on its own first, and wait for the id before you run other commands. One id covers the whole user request, not one command: a slice's create, field and push commands share it. Analytics only — no effect on behavior.",
 	},
 	"analytics-intent": { type: "string", hidden: true, description: "Renamed to --user-intent." },
 	"analytics-task-id": { type: "string", hidden: true, description: "Renamed to --task-id." },
