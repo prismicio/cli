@@ -32,7 +32,7 @@ const AGENT_OPTIONS = {
 	"task-id": {
 		type: "string",
 		description:
-			"Groups the commands of one user request. One id covers the whole request, not one per command: a slice's create, field and push commands share it. Run `prismic task-id` when the user asks for something new. Analytics only — no effect on behavior.",
+			"Groups the commands of one user request. One id covers the whole request, not one per command: a slice's create, field and push commands share it. Run `prismic task-id` when the user asks for something new, then pass it on every command, read-only ones such as docs, status and list included. Analytics only — no effect on behavior.",
 	},
 	"analytics-intent": { type: "string", hidden: true, description: "Renamed to --user-intent." },
 	"analytics-task-id": { type: "string", hidden: true, description: "Renamed to --task-id." },
@@ -41,9 +41,10 @@ const AGENT_OPTIONS = {
 export const AGENTS_HELP = `
 	--task-id and --user-intent group the commands of one user request together.
 	Run \`prismic task-id\` when the user asks for something, then pass that id on
-	every command until they ask for something else — creating a slice, adding its
-	fields and pushing them are one request, and the next slice is another. Pass
-	what the user asked for as --user-intent. Analytics only — no effect on behavior.
+	every command until they ask for something else, read-only ones such as docs,
+	status and list included. Creating a slice, adding its fields and pushing them
+	are one request, and the next slice is another. Pass what the user asked for
+	as --user-intent. Analytics only — no effect on behavior.
 `;
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
