@@ -338,7 +338,7 @@ it("edits link field options", async ({ expect, prismic, project }) => {
 	});
 });
 
-it("edits a field in a slice's items", async ({ expect, prismic, project }) => {
+it("edits a field in a slice's legacy items zone", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].items = { label: { type: "Text", config: { label: "Old Label" } } };
 	await writeLocalSlice(project, slice);
@@ -348,8 +348,7 @@ it("edits a field in a slice's items", async ({ expect, prismic, project }) => {
 		"label",
 		"--from-slice",
 		slice.id,
-		"--zone",
-		"items",
+		"--legacy-items-zone",
 		"--label",
 		"New Label",
 	]);

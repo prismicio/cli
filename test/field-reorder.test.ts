@@ -134,7 +134,7 @@ it("errors when the field does not exist", async ({ expect, prismic, project }) 
 	expect(stderr).toContain('"missing"');
 });
 
-it("reorders a field in a slice's items", async ({ expect, prismic, project }) => {
+it("reorders a field in a slice's legacy items zone", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].items = {
 		field_a: { type: "Boolean", config: { label: "A" } },
@@ -149,8 +149,7 @@ it("reorders a field in a slice's items", async ({ expect, prismic, project }) =
 		"field_b",
 		"--from-slice",
 		slice.id,
-		"--zone",
-		"items",
+		"--legacy-items-zone",
 	]);
 	expect(exitCode, stderr).toBe(0);
 

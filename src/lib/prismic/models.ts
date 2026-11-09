@@ -167,15 +167,18 @@ export function resolveSliceFieldContainer(
 	path: string,
 	slice: SharedSliceModel,
 	variationId: string,
-	zone: "primary" | "items",
+	items = false,
 ): { fields: Fields; fieldId: string } {
 	const variation = slice.variations.find((variation) => variation.id === variationId);
 	if (!variation) throw new SliceVariationNotFoundError(variationId, slice.id);
-	if (zone === "primary") return resolveNestedFieldContainer(path, (variation.primary ??= {}));
-	if (!variation.items || Object.keys(variation.items).length === 0) {
-		throw new SliceItemsNotFoundError(variationId, slice.id);
+	if (items) {
+		if (!variation.items || Object.keys(variation.items).length === 0) {
+			throw new SliceItemsNotFoundError(variationId, slice.id);
+		}
+		return resolveNestedFieldContainer(path, variation.items);
 	}
-	return resolveNestedFieldContainer(path, variation.items);
+	variation.primary ??= {};
+	return resolveNestedFieldContainer(path, variation.primary);
 }
 
 export async function getRemoteModels(config: CustomTypesConfig): Promise<Models> {
@@ -388,7 +391,7 @@ export class SliceItemsNotFoundError extends Error {
 
 	constructor(variationId: string, sliceId: string) {
 		super(
-			`Variation "${variationId}" of slice "${sliceId}" has no items. Add fields to primary instead.`,
+			`Variation "${variationId}" of slice "${sliceId}" has no legacy items zone. Add fields to the slice instead.`,
 		);
 	}
 }

@@ -239,18 +239,6 @@ export function exclusiveOptions<T extends Record<string, unknown>>(
 	if (provided.length > 1) throw new CommandError(`Only one of ${list} can be specified.`);
 }
 
-export function enumOption<T extends Record<string, unknown>, const C extends readonly string[]>(
-	values: T,
-	name: keyof T,
-	choices: C,
-): C[number] | undefined {
-	const value = values[name];
-	if (value === undefined || choices.includes(value as string))
-		return value as C[number] | undefined;
-	const list = choices.map((choice) => `"${choice}"`).join(" or ");
-	throw new CommandError(`--${String(name)} must be ${list}.`);
-}
-
 export class CommandError extends Error {
 	name = "CommandError";
 }

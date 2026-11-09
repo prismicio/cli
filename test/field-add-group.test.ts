@@ -112,7 +112,7 @@ it("errors when dot syntax targets a field that does not support nesting", async
 	expect(stderr).toContain('Field "my_text" does not support nested fields.');
 });
 
-it("errors when adding a group to a slice's items", async ({ expect, prismic, project }) => {
+it("errors for the legacy items zone", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].items = { label: { type: "Text", config: { label: "Label" } } };
 	await writeLocalSlice(project, slice);
@@ -123,9 +123,8 @@ it("errors when adding a group to a slice's items", async ({ expect, prismic, pr
 		"my_group",
 		"--to-slice",
 		slice.id,
-		"--zone",
-		"items",
+		"--legacy-items-zone",
 	]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Group fields cannot be added to items.");
+	expect(stderr).toContain("Group fields cannot be added to the legacy items zone.");
 });

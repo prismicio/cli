@@ -25,7 +25,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [id] = positionals;
 	const { label } = values;
 
-	if (values.zone === "items") throw new CommandError("Group fields cannot be added to items.");
+	if (values["legacy-items-zone"]) {
+		throw new CommandError("Group fields cannot be added to the legacy items zone.");
+	}
 
 	const { fields, fieldId, save } = await getNewFieldTarget(id, values);
 

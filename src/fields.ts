@@ -1,7 +1,7 @@
 import type { DynamicWidgetModel } from "@prismicio/types-internal";
 
 import { getAdapter } from "./adapters";
-import { CommandError, enumOption, exactlyOneOption, type CommandConfig } from "./lib/command";
+import { CommandError, exactlyOneOption, type CommandConfig } from "./lib/command";
 import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
 import {
 	FieldExistsError,
@@ -26,10 +26,10 @@ export const TARGET_OPTIONS = {
 		description: 'Slice variation ID (default: "default")',
 		dependsOn: "to-slice",
 	},
-	zone: {
-		type: "string",
+	"legacy-items-zone": {
+		type: "boolean",
 		description:
-			'Slice variation zone: "primary" or "items", the legacy repeatable zone of upgraded slices (default: "primary")',
+			"Edit the legacy repeatable zone of a slice upgraded from the Legacy Builder. New slices use a repeatable group instead.",
 		dependsOn: "to-slice",
 	},
 	tab: {
@@ -53,10 +53,10 @@ export const SOURCE_OPTIONS = {
 		description: 'Slice variation ID (default: "default")',
 		dependsOn: "from-slice",
 	},
-	zone: {
-		type: "string",
+	"legacy-items-zone": {
+		type: "boolean",
 		description:
-			'Slice variation zone: "primary" or "items", the legacy repeatable zone of upgraded slices (default: "primary")',
+			"Edit the legacy repeatable zone of a slice upgraded from the Legacy Builder. New slices use a repeatable group instead.",
 		dependsOn: "from-slice",
 	},
 } satisfies CommandConfig["options"];
@@ -76,15 +76,14 @@ export async function getFieldReorderTargets(
 		"from-slice"?: string;
 		"from-type"?: string;
 		variation?: string;
-		zone?: string;
+		"legacy-items-zone"?: boolean;
 	},
 ): Promise<{
 	source: ResolvedFieldContainer;
 	anchor: ResolvedFieldContainer;
 	save: () => Promise<void>;
 }> {
-	const { variation = "default" } = values;
-	const zone = enumOption(values, "zone", ["primary", "items"]) ?? "primary";
+	const { variation = "default", "legacy-items-zone": items } = values;
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const adapter = await getAdapter();
 
@@ -93,8 +92,8 @@ export async function getFieldReorderTargets(
 	let save: () => Promise<void>;
 	if (key === "from-slice") {
 		const { model } = await adapter.getSlice(value);
-		source = resolveSliceFieldContainer(sourcePath, model, variation, zone);
-		anchor = resolveSliceFieldContainer(anchorPath, model, variation, zone);
+		source = resolveSliceFieldContainer(sourcePath, model, variation, items);
+		anchor = resolveSliceFieldContainer(anchorPath, model, variation, items);
 		save = async () => {
 			await adapter.updateSlice(model);
 			await adapter.generateTypes();
@@ -121,7 +120,7 @@ export async function getNewFieldTarget(
 		"to-slice"?: string;
 		"to-type"?: string;
 		variation?: string;
-		zone?: string;
+		"legacy-items-zone"?: boolean;
 		tab?: string;
 	},
 ): Promise<ResolvedFieldTarget> {
@@ -129,7 +128,7 @@ export async function getNewFieldTarget(
 	const { key, value } = exactlyOneOption(values, ["to-slice", "to-type"]);
 	const target =
 		key === "to-slice"
-			? await getSliceFieldTarget(path, value, variation, values)
+			? await getSliceFieldTarget(path, value, variation, values["legacy-items-zone"])
 			: await getCustomTypeFieldTarget(path, value, tab);
 	if (target.fieldId in target.fields) throw new FieldExistsError(path);
 	return target;
@@ -141,14 +140,14 @@ export async function getExistingField(
 		"from-slice"?: string;
 		"from-type"?: string;
 		variation?: string;
-		zone?: string;
+		"legacy-items-zone"?: boolean;
 	},
 ): Promise<ResolvedFieldTarget & { field: DynamicWidgetModel }> {
 	const { variation = "default" } = values;
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const target =
 		key === "from-slice"
-			? await getSliceFieldTarget(path, value, variation, values)
+			? await getSliceFieldTarget(path, value, variation, values["legacy-items-zone"])
 			: await getCustomTypeFieldTarget(path, value);
 	const field = target.fields[target.fieldId];
 	if (!field) throw new FieldNotFoundError(path);
@@ -173,12 +172,11 @@ async function getSliceFieldTarget(
 	path: string,
 	sliceId: string,
 	variationId: string,
-	values: { zone?: string },
+	items?: boolean,
 ): Promise<ResolvedFieldTarget> {
-	const zone = enumOption(values, "zone", ["primary", "items"]) ?? "primary";
 	const adapter = await getAdapter();
 	const { model } = await adapter.getSlice(sliceId);
-	const fieldContainer = resolveSliceFieldContainer(path, model, variationId, zone);
+	const fieldContainer = resolveSliceFieldContainer(path, model, variationId, items);
 
 	return {
 		...fieldContainer,
