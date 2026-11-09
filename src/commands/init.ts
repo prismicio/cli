@@ -274,7 +274,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	await adapter.generateTypes();
-	await completeOnboardingSteps(["connectPrismic"], { repo, token, host }).catch(() => {});
+	await completeOnboardingSteps(["connectPrismic"], { repo, host, getToken }).catch(() => {});
 
 	if (getLegacySlices(remote.customTypes).length > 0) {
 		console.info("\nRun `prismic slice list --legacy` to find legacy slices to upgrade.");
