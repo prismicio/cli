@@ -39,12 +39,13 @@ const AGENT_OPTIONS = {
 } satisfies CommandConfig["options"];
 
 export const AGENTS_HELP = `
-	Every command except --help needs --task-id and --user-intent, read-only ones
-	included. Get the id first: run \`prismic task-id\` on its own and wait for its
-	output before you run any other command, as commands without the id fail.
-	One id covers one user request: creating a slice, adding its fields and pushing
-	them are one request, and the next slice is another. Pass what the user asked
-	for as --user-intent. Analytics only — no effect on behavior.
+	Every command except --help, read-only ones included, needs the same
+	--task-id and the same --user-intent, the user's request in one sentence, for
+	as long as you work on that request. Get the id first: run \`prismic task-id\`
+	on its own and wait for its output before you run any other command, as
+	commands without the id fail. Creating a slice, adding its fields and pushing
+	them are one request, and the next slice is another. Analytics only — no
+	effect on behavior.
 `;
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
