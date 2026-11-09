@@ -141,8 +141,8 @@ async function main(): Promise<void> {
 	if (agentOptionsError) {
 		console.error(
 			`error: ${agentOptionsError}\n` +
-				"run `prismic task-id` once per user request, then pass --task-id <id> --user-intent " +
-				'"<what the user asked for>" on every command, read-only ones included, until the user asks for something else',
+				"run `prismic task-id` once per user request, on its own, and wait for the id; then pass --task-id <id> --user-intent " +
+				'"<what the user asked for>" on every command until the user asks for something else',
 		);
 		process.exitCode = 1;
 		return;

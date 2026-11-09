@@ -32,19 +32,19 @@ const AGENT_OPTIONS = {
 	"task-id": {
 		type: "string",
 		description:
-			"Groups the commands of one user request. One id covers the whole request, not one per command: a slice's create, field and push commands share it. Run `prismic task-id` when the user asks for something new, then pass it on every command, read-only ones such as docs, status and list included. Analytics only — no effect on behavior.",
+			"Required on every command except --help. Run `prismic task-id` on its own first, and wait for the id before you run other commands. One id covers the whole user request, not one command: a slice's create, field and push commands share it. Analytics only — no effect on behavior.",
 	},
 	"analytics-intent": { type: "string", hidden: true, description: "Renamed to --user-intent." },
 	"analytics-task-id": { type: "string", hidden: true, description: "Renamed to --task-id." },
 } satisfies CommandConfig["options"];
 
 export const AGENTS_HELP = `
-	--task-id and --user-intent group the commands of one user request together.
-	Run \`prismic task-id\` when the user asks for something, then pass that id on
-	every command until they ask for something else, read-only ones such as docs,
-	status and list included. Creating a slice, adding its fields and pushing them
-	are one request, and the next slice is another. Pass what the user asked for
-	as --user-intent. Analytics only — no effect on behavior.
+	Every command except --help needs --task-id and --user-intent, read-only ones
+	included. Get the id first: run \`prismic task-id\` on its own and wait for its
+	output before you run any other command, as commands without the id fail.
+	One id covers one user request: creating a slice, adding its fields and pushing
+	them are one request, and the next slice is another. Pass what the user asked
+	for as --user-intent. Analytics only — no effect on behavior.
 `;
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
@@ -167,8 +167,9 @@ export function createCommandRouter(config: {
 			),
 			OPTIONS: formatTable(optionRows({})),
 		};
-		const sections = isAgent ? { ...config.sections, AGENTS: AGENTS_HELP } : config.sections;
-		console.info(formatHelp(config.description, blocks, config.name, sections));
+		// First, so an agent that reads only the start of the help still sees it.
+		const first: Record<string, string> = isAgent ? { AGENTS: AGENTS_HELP } : {};
+		console.info(formatHelp(config.description, blocks, config.name, config.sections, first));
 	};
 }
 
@@ -192,20 +193,25 @@ function formatHelp(
 	blocks: Record<string, string>,
 	learnMoreCommand: string,
 	sections: Record<string, string> = {},
+	firstSections: Record<string, string> = {},
 ): string {
 	const lines = [dedent(description)];
+	const pushSections = (entries: Record<string, string>) => {
+		for (const [title, content] of Object.entries(entries)) {
+			lines.push(
+				"",
+				title,
+				...dedent(content)
+					.split("\n")
+					.map((line) => (line ? `  ${line}` : "")),
+			);
+		}
+	};
+	pushSections(firstSections);
 	for (const [title, content] of Object.entries(blocks)) {
 		lines.push("", title, content);
 	}
-	for (const [title, content] of Object.entries(sections)) {
-		lines.push(
-			"",
-			title,
-			...dedent(content)
-				.split("\n")
-				.map((line) => (line ? `  ${line}` : "")),
-		);
-	}
+	pushSections(sections);
 	lines.push(
 		"",
 		"LEARN MORE",
