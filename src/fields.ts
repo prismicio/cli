@@ -1,7 +1,7 @@
 import type { DynamicWidgetModel } from "@prismicio/types-internal";
 
 import { getAdapter } from "./adapters";
-import { CommandError, exactlyOneOption, type CommandConfig } from "./lib/command";
+import { CommandError, enumOption, exactlyOneOption, type CommandConfig } from "./lib/command";
 import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
 import {
 	FieldExistsError,
@@ -84,7 +84,7 @@ export async function getFieldReorderTargets(
 	save: () => Promise<void>;
 }> {
 	const { variation = "default" } = values;
-	const zone = parseZone(values.zone);
+	const zone = enumOption(values, "zone", ["primary", "items"]) ?? "primary";
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const adapter = await getAdapter();
 
@@ -129,7 +129,7 @@ export async function getNewFieldTarget(
 	const { key, value } = exactlyOneOption(values, ["to-slice", "to-type"]);
 	const target =
 		key === "to-slice"
-			? await getSliceFieldTarget(path, value, variation, values.zone)
+			? await getSliceFieldTarget(path, value, variation, values)
 			: await getCustomTypeFieldTarget(path, value, tab);
 	if (target.fieldId in target.fields) throw new FieldExistsError(path);
 	return target;
@@ -148,7 +148,7 @@ export async function getExistingField(
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const target =
 		key === "from-slice"
-			? await getSliceFieldTarget(path, value, variation, values.zone)
+			? await getSliceFieldTarget(path, value, variation, values)
 			: await getCustomTypeFieldTarget(path, value);
 	const field = target.fields[target.fieldId];
 	if (!field) throw new FieldNotFoundError(path);
@@ -173,11 +173,12 @@ async function getSliceFieldTarget(
 	path: string,
 	sliceId: string,
 	variationId: string,
-	zone?: string,
+	values: { zone?: string },
 ): Promise<ResolvedFieldTarget> {
+	const zone = enumOption(values, "zone", ["primary", "items"]) ?? "primary";
 	const adapter = await getAdapter();
 	const { model } = await adapter.getSlice(sliceId);
-	const fieldContainer = resolveSliceFieldContainer(path, model, variationId, parseZone(zone));
+	const fieldContainer = resolveSliceFieldContainer(path, model, variationId, zone);
 
 	return {
 		...fieldContainer,
@@ -204,13 +205,6 @@ async function getCustomTypeFieldTarget(
 			await adapter.generateTypes();
 		},
 	};
-}
-
-function parseZone(zone = "primary"): "primary" | "items" {
-	if (zone !== "primary" && zone !== "items") {
-		throw new CommandError('--zone must be "primary" or "items".');
-	}
-	return zone;
 }
 
 export function parseNumber(value: string | undefined, optionName: string): number | undefined {
