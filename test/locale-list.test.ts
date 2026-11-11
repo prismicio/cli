@@ -34,9 +34,7 @@ it("does not log in when the repository is not accessible", async ({ expect, pri
 	const { stderr, exitCode } = await prismic(
 		"locale",
 		["list", "--repo", "nonexistent-repo-xyz-12345"],
-		{
-			nodeOptions: { env: { CI: "" } },
-		},
+		{ nodeOptions: { env: { CI: "" } } },
 	);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("You do not have access to this repository");

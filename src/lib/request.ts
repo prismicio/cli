@@ -12,7 +12,6 @@ export type RequestOptions<T = unknown> = Omit<RequestInit, "body"> & {
 export async function request<T = unknown>(
 	input: RequestInfo | URL,
 	init: RequestOptions<T> = {},
-	_retryCount = 0,
 ): Promise<T> {
 	const { json, notFoundMessage, unknownErrorMessage, schema, onUnauthorized, ...requestInit } =
 		init;
@@ -51,12 +50,10 @@ export async function request<T = unknown>(
 			throw new BadRequestError(response, value);
 		case 401:
 		case 403: {
-			if (_retryCount === 0) {
-				const retryInit = await onUnauthorized?.(response);
-				if (retryInit) {
-					new Headers(retryInit.headers).forEach((value, key) => headers.set(key, value));
-					return request(input, { ...init, headers }, _retryCount + 1);
-				}
+			const retryInit = await onUnauthorized?.(response);
+			if (retryInit) {
+				new Headers(retryInit.headers).forEach((value, key) => headers.set(key, value));
+				return request(input, { ...init, headers, onUnauthorized: undefined });
 			}
 			if (response.status === 401) throw new UnauthorizedRequestError(response, value);
 			throw new ForbiddenRequestError(response, value);
