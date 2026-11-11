@@ -1,11 +1,5 @@
 import { getOnboardingState, toggleOnboardingStep } from "./client";
 
-type OnboardingConfig = {
-	repo: string;
-	token: string | undefined;
-	host: string;
-};
-
 export type OnboardingStep =
 	| "createPrismicProject"
 	| "createPageType"
@@ -15,14 +9,13 @@ export type OnboardingStep =
 
 export async function completeOnboardingSteps(
 	stepIds: OnboardingStep[],
-	config: OnboardingConfig,
+	config: Parameters<typeof getOnboardingState>[0],
 ): Promise<void> {
-	const { repo, token, host } = config;
-	const { completedSteps } = await getOnboardingState({ repo, token, host });
+	const { completedSteps } = await getOnboardingState(config);
 	const missing = stepIds.filter((id) => !completedSteps.includes(id));
 
 	// API does not accept multiple steps; toggle each missing step sequentially.
 	for (const stepId of missing) {
-		await toggleOnboardingStep(stepId, { repo, token, host });
+		await toggleOnboardingStep(stepId, config);
 	}
 }

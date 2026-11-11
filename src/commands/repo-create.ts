@@ -1,5 +1,5 @@
 import { FRAMEWORKS, getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { checkIsDomainAvailable, createRepository, upsertLocale } from "../lib/prismic/client";
@@ -74,15 +74,24 @@ export async function createRepo(config: {
 
 	const agent = detectAgent();
 
-	await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
+	await createRepository({
+		domain,
+		name: name ?? domain,
+		framework,
+		agent,
+		token,
+		host,
+		onUnauthorized,
+	});
 
 	// A new repository has no locale, so set the master locale to make it usable.
-	await upsertLocale({ id: lang, isMaster: true }, { repo: domain, token, host });
+	await upsertLocale({ id: lang, isMaster: true }, { repo: domain, token, host, onUnauthorized });
 
 	await completeOnboardingSteps(["createPrismicProject"], {
 		repo: domain,
 		token,
 		host,
+		onUnauthorized,
 	}).catch(() => {});
 
 	return domain;
@@ -96,7 +105,12 @@ async function findAvailableDomain(config: {
 	let domain;
 	for (let i = 0; i < MAX_DOMAIN_TRIES; i++) {
 		const candidate = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
-		const available = await checkIsDomainAvailable({ domain: candidate, token, host });
+		const available = await checkIsDomainAvailable({
+			domain: candidate,
+			token,
+			host,
+			onUnauthorized,
+		});
 		if (available) {
 			domain = candidate;
 			break;

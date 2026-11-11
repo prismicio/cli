@@ -29,3 +29,16 @@ describe("with an isolated repository", () => {
 		expect(parsed).toEqual(expect.arrayContaining([expect.objectContaining({ id: "fr-fr" })]));
 	});
 });
+
+it("does not log in when the repository is not accessible", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic(
+		"locale",
+		["list", "--repo", "nonexistent-repo-xyz-12345"],
+		{
+			nodeOptions: { env: { CI: "" } },
+		},
+	);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("You do not have access to this repository");
+	expect(stderr).not.toContain("Log in to continue");
+});

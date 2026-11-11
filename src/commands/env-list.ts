@@ -1,5 +1,5 @@
 import { getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getUserEnvironments } from "../lib/prismic/environments";
@@ -20,7 +20,10 @@ export default createCommand(config, async ({ values }) => {
 	const { json, repo = projectRepo } = values;
 
 	const { token, host } = await getCredentials();
-	const environments = await getUserEnvironments({ repo, token, host });
+	const environments = await getUserEnvironments(
+		{ repo, token, host, onUnauthorized },
+		async () => (await getCredentials()).token,
+	);
 
 	let activeEnvironment: string | undefined;
 	if (repo === projectRepo) {

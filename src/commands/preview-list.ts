@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getPreviews, getSimulatorUrl } from "../lib/prismic/client";
@@ -31,8 +31,8 @@ export default createCommand(config, async ({ values }) => {
 	const { token, host } = await getCredentials();
 
 	const [{ results: previews }, { simulator_url: simulatorUrl }] = await Promise.all([
-		getPreviews({ repo, token, host }),
-		getSimulatorUrl({ repo, token, host }),
+		getPreviews({ repo, token, host, onUnauthorized }),
+		getSimulatorUrl({ repo, token, host, onUnauthorized }),
 	]);
 
 	if (json) {

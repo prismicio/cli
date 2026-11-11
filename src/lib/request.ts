@@ -6,13 +6,16 @@ export type RequestOptions<T = unknown> = Omit<RequestInit, "body"> & {
 	schema?: z.ZodMiniType<T>;
 	notFoundMessage?: string;
 	unknownErrorMessage?: string;
+	onUnauthorized?: () => Promise<void | Pick<RequestInit, "headers">>;
 } & ({ body?: BodyInit | null; json?: never } | { body?: never; json?: unknown });
 
 export async function request<T = unknown>(
 	input: RequestInfo | URL,
 	init: RequestOptions<T> = {},
+	_retryCount = 0,
 ): Promise<T> {
-	const { json, notFoundMessage, unknownErrorMessage, schema, ...requestInit } = init;
+	const { json, notFoundMessage, unknownErrorMessage, schema, onUnauthorized, ...requestInit } =
+		init;
 
 	const headers = new Headers(init.headers);
 	if (!headers.has("Accept")) {
@@ -47,9 +50,17 @@ export async function request<T = unknown>(
 		case 400:
 			throw new BadRequestError(response, value);
 		case 401:
-			throw new UnauthorizedRequestError(response, value);
-		case 403:
+		case 403: {
+			if (_retryCount === 0) {
+				const retryInit = await onUnauthorized?.();
+				if (retryInit) {
+					new Headers(retryInit.headers).forEach((value, key) => headers.set(key, value));
+					return request(input, { ...init, headers }, _retryCount + 1);
+				}
+			}
+			if (response.status === 401) throw new UnauthorizedRequestError(response, value);
 			throw new ForbiddenRequestError(response, value);
+		}
 		case 404:
 			throw new NotFoundRequestError(response, value, notFoundMessage);
 		default:

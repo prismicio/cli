@@ -1,4 +1,8 @@
-import { it } from "./it";
+import { writeFile } from "node:fs/promises";
+
+import type { ExpectStatic } from "vitest";
+
+import { captureOutput, it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("repo", ["list", "--help"]);
@@ -40,3 +44,49 @@ it("lists the one repository a Write API token can write to", async ({
 		},
 	]);
 });
+
+it("logs in and continues when not logged in", async ({ expect, prismic, logout, token, repo }) => {
+	await logout();
+	const proc = prismic("repo", ["list", "--json"], { nodeOptions: { env: { CI: "" } } });
+	const output = captureOutput(proc);
+	await completeLogin(expect, output, token);
+	const { stdout, exitCode } = await proc;
+	expect(exitCode, output()).toBe(0);
+	expect(output()).toContain("Log in to continue: https://");
+	expect(JSON.parse(stdout)).toEqual(
+		expect.arrayContaining([expect.objectContaining({ domain: repo })]),
+	);
+});
+
+it("logs in again and continues when the login expired", async ({
+	expect,
+	prismic,
+	home,
+	host,
+	token,
+	repo,
+}) => {
+	await writeFile(
+		new URL(".config/prismic/credentials.json", home),
+		JSON.stringify({ token: "expired-token", host }),
+	);
+	const proc = prismic("repo", ["list"], { nodeOptions: { env: { CI: "" } } });
+	await completeLogin(expect, captureOutput(proc), token);
+	const { stdout, stderr, exitCode } = await proc;
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(repo);
+});
+
+async function completeLogin(
+	expect: ExpectStatic,
+	output: () => string,
+	token: string,
+): Promise<void> {
+	await expect.poll(output, { timeout: 15_000 }).toMatch(/port=(\d+)/);
+	const port = output().match(/port=(\d+)/)![1];
+	await fetch(`http://localhost:${port}`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ cookies: [`prismic-auth=${token}; path=/`], email: "test@example.com" }),
+	});
+}

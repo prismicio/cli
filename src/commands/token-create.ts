@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import {
@@ -60,17 +60,22 @@ export default createCommand(config, async ({ values }) => {
 	let createdToken: string;
 	let scope: string | undefined;
 	if (write) {
-		const writeToken = await createWriteToken(name, { repo, token, host });
+		const writeToken = await createWriteToken(name, { repo, token, host, onUnauthorized });
 		createdToken = writeToken.token;
 	} else {
 		scope = allowReleases ? "master+releases" : "master";
 
 		// Find or create the OAuth app.
-		const apps = await getOAuthApps({ repo, token, host });
+		const apps = await getOAuthApps({ repo, token, host, onUnauthorized });
 		let app = apps.find((a) => a.name === name);
-		if (!app) app = await createOAuthApp(name, { repo, token, host });
+		if (!app) app = await createOAuthApp(name, { repo, token, host, onUnauthorized });
 
-		const accessToken = await createOAuthAuthorization(app.id, scope, { repo, token, host });
+		const accessToken = await createOAuthAuthorization(app.id, scope, {
+			repo,
+			token,
+			host,
+			onUnauthorized,
+		});
 		createdToken = accessToken.token;
 	}
 

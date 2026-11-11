@@ -1,5 +1,5 @@
 import { getActiveRepositoryName, getAdapter, NoSupportedFrameworkError } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { MissingPackageJson } from "../lib/packageJson";
 import { addPreview } from "../lib/prismic/client";
@@ -44,7 +44,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { token, host } = await getCredentials();
 
-	await addPreview({ name: displayName, websiteURL, resolverPath }, { repo, token, host });
+	await addPreview(
+		{ name: displayName, websiteURL, resolverPath },
+		{ repo, token, host, onUnauthorized },
+	);
 
 	console.info(`Preview added: ${previewUrl}`);
 	console.info("Run `prismic preview set-simulator <url>` to set the slice simulator URL.");

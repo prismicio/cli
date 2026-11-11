@@ -1,5 +1,5 @@
 import { getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { diffModels, getRemoteModels } from "../lib/prismic/models";
@@ -85,7 +85,7 @@ export default createCommand(config, async ({ values }) => {
 	const [localCustomTypes, localSlices, remote] = await Promise.all([
 		adapter.getCustomTypes(),
 		adapter.getSlices(),
-		getRemoteModels({ repo, token, host }),
+		getRemoteModels({ repo, token, host, onUnauthorized }),
 	]);
 	const diff = diffModels(
 		remote,
@@ -125,6 +125,7 @@ export default createCommand(config, async ({ values }) => {
 		repo: await getRepositoryName(),
 		token,
 		host,
+		onUnauthorized,
 	}).catch(() => {});
 
 	const totalTypes = diff.customTypes.insert.length + diff.customTypes.update.length;

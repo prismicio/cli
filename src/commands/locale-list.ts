@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getLocales } from "../lib/prismic/client";
@@ -30,7 +30,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const { results: locales } = await getLocales({ repo, token, host });
+	const { results: locales } = await getLocales({ repo, token, host, onUnauthorized });
 
 	if (json) {
 		console.info(stringify(locales));

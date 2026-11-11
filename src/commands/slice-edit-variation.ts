@@ -1,7 +1,7 @@
 import { pathToFileURL } from "node:url";
 
 import { getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { readURLFile } from "../lib/file";
 import { uploadSliceScreenshot } from "../lib/prismic/client";
@@ -46,6 +46,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			repo,
 			token,
 			host,
+			onUnauthorized,
 		});
 		variation.imageUrl = screenshotUrl.toString();
 	}

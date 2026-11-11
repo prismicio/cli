@@ -3,7 +3,7 @@ import { pascalCase } from "change-case";
 import * as z from "zod/mini";
 
 import { getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { deleteSliceScreenshots, getDocumentTotalByCustomType } from "../lib/prismic/client";
@@ -91,7 +91,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const [local, remote] = await Promise.all([
 		adapter.getModels(),
-		getRemoteModels({ repo, token, host }),
+		getRemoteModels({ repo, token, host, onUnauthorized }),
 	]);
 	const diff = diffModels(local, remote);
 
@@ -117,12 +117,17 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	try {
-		await writeRemoteModels(diff, { repo, token, host });
+		await writeRemoteModels(diff, { repo, token, host, onUnauthorized });
 	} catch (error) {
-		throw await explainExistingDocuments(error, diff.customTypes.delete, { repo, token, host });
+		throw await explainExistingDocuments(error, diff.customTypes.delete, {
+			repo,
+			token,
+			host,
+			onUnauthorized,
+		});
 	}
 	for (const { id } of diff.slices.delete) {
-		await deleteSliceScreenshots(id, { repo, token, host }).catch((error) => {
+		await deleteSliceScreenshots(id, { repo, token, host, onUnauthorized }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
 			console.warn(
 				`Failed to delete screenshots for slice "${id}"${message ? `: ${message}` : "."}`,
@@ -142,6 +147,7 @@ export default createCommand(config, async ({ values }) => {
 			repo: await getRepositoryName(),
 			token,
 			host,
+			onUnauthorized,
 		}).catch(() => {});
 	}
 
@@ -161,7 +167,7 @@ const ExistingDocumentsErrorSchema = z.object({ hasExistingDocuments: z.literal(
 async function explainExistingDocuments(
 	error: unknown,
 	deletedCustomTypes: DynamicCustomTypeModel[],
-	config: { repo: string; token: string | undefined; host: string },
+	config: Parameters<typeof getDocumentTotalByCustomType>[1],
 ): Promise<unknown> {
 	if (!(error instanceof ForbiddenRequestError)) return error;
 	if (!z.safeParse(ExistingDocumentsErrorSchema, error.body).success) return error;

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
 
 import { type Adapter, getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { CONFIG_DIR } from "../config";
 import { env } from "../env";
 import { getErrorMessage } from "../error";
@@ -84,7 +84,7 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Preparing your session for ${repo}...`);
 		session = await createSession({ repo, token, host });
 	}
-	const release = { repo, token, host, releaseId: session.releaseId };
+	const release = { repo, token, host, onUnauthorized, releaseId: session.releaseId };
 	const sync = (push = true) =>
 		syncModels(adapter, release, session, sessionPath, {
 			push,
@@ -176,7 +176,7 @@ async function saveSession(sessionPath: URL, session: Session): Promise<void> {
 async function createSession({ repo, token, host }: CustomTypesConfig): Promise<Session> {
 	const release = await createRelease(
 		{ label: "prismic dev", hidden: true },
-		{ repo, token, host },
+		{ repo, token, host, onUnauthorized },
 	).catch((error) => {
 		throw explainRequestError(error);
 	});
@@ -218,7 +218,7 @@ async function resolvePreviousSession(
 	if (!newSession) {
 		const unpulled = await hasUnpulledChanges(
 			adapter,
-			{ repo: previous.repo, token, host, releaseId: previous.releaseId },
+			{ repo: previous.repo, token, host, onUnauthorized, releaseId: previous.releaseId },
 			previous.synced,
 		);
 		if (unpulled) {
@@ -227,7 +227,12 @@ async function resolvePreviousSession(
 			);
 		}
 	}
-	await deleteRelease(previous.releaseId, { repo: previous.repo, token, host }).catch(() => {});
+	await deleteRelease(previous.releaseId, {
+		repo: previous.repo,
+		token,
+		host,
+		onUnauthorized,
+	}).catch(() => {});
 }
 
 async function hasUnpulledChanges(

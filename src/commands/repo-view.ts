@@ -1,4 +1,4 @@
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
@@ -34,8 +34,8 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const [repository, syncState] = await Promise.all([
-		getRepository({ repo, token, host }),
-		getRepositoryApiAccess({ repo, token, host }).catch((error) => {
+		getRepository({ repo, token, host, onUnauthorized }),
+		getRepositoryApiAccess({ repo, token, host, onUnauthorized }).catch((error) => {
 			if (!isInvalidAuthContextError(error)) throw error;
 		}),
 	]);

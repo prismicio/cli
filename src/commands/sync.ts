@@ -1,7 +1,7 @@
 import { setTimeout } from "node:timers/promises";
 
 import { getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
@@ -64,7 +64,7 @@ export default createCommand(config, async ({ values }) => {
 
 	while (true) {
 		try {
-			const remote = await getRemoteModels({ repo, token, host });
+			const remote = await getRemoteModels({ repo, token, host, onUnauthorized });
 			const sinceLastPoll = lastRemote && diffModels(remote, lastRemote);
 
 			if (
@@ -94,6 +94,7 @@ export default createCommand(config, async ({ values }) => {
 						repo: await getRepositoryName(),
 						token,
 						host,
+						onUnauthorized,
 					}).catch(() => {});
 					console.info("Initial sync complete.");
 				} else if (changed.length > 0) {

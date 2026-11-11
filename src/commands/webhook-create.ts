@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { createWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/client";
 
@@ -90,7 +90,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			tagsCreated: trigger.includes("tagsCreated") || defaultValue,
 			tagsDeleted: trigger.includes("tagsDeleted") || defaultValue,
 		},
-		{ repo, token, host },
+		{ repo, token, host, onUnauthorized },
 	);
 
 	console.info(`Webhook created: ${webhookUrl}`);

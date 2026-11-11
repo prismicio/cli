@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { upsertLocale } from "../lib/prismic/client";
 
@@ -33,7 +33,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { token, host } = await getCredentials();
 
-	await upsertLocale({ id: code, isMaster: master, customName: name }, { repo, token, host });
+	await upsertLocale(
+		{ id: code, isMaster: master, customName: name },
+		{ repo, token, host, onUnauthorized },
+	);
 
 	console.info(`Locale added: ${code}`);
 });

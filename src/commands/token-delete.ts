@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getCredentials, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import {
 	deleteOAuthAuthorization,
@@ -37,15 +37,15 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const { token, host } = await getCredentials();
 
 	const [apps, writeTokensInfo] = await Promise.all([
-		getOAuthApps({ repo, token, host }),
-		getWriteTokens({ repo, token, host }),
+		getOAuthApps({ repo, token, host, onUnauthorized }),
+		getWriteTokens({ repo, token, host, onUnauthorized }),
 	]);
 
 	// Search access tokens
 	const accessTokenAuths = apps.flatMap((app) => app.wroom_auths);
 	const accessToken = accessTokenAuths.find((auth) => auth.token === tokenValue);
 	if (accessToken) {
-		await deleteOAuthAuthorization(accessToken.id, { repo, token, host });
+		await deleteOAuthAuthorization(accessToken.id, { repo, token, host, onUnauthorized });
 		console.info("Token deleted");
 		return;
 	}
@@ -53,7 +53,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	// Search write tokens
 	const writeToken = writeTokensInfo.tokens.find((t) => t.token === tokenValue);
 	if (writeToken) {
-		await deleteWriteToken(writeToken.token, { repo, token, host });
+		await deleteWriteToken(writeToken.token, { repo, token, host, onUnauthorized });
 		console.info("Token deleted");
 		return;
 	}

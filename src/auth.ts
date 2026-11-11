@@ -10,7 +10,7 @@ import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
-import { refreshToken as baseRefreshToken } from "./lib/prismic/client";
+import { refreshToken as baseRefreshToken, validateToken } from "./lib/prismic/client";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 
@@ -39,6 +39,21 @@ export async function refreshToken(): Promise<string | undefined> {
 	const newToken = await baseRefreshToken(token, { host });
 	await saveCredentials({ token: newToken, host });
 	return newToken;
+}
+
+let login: Promise<unknown> | undefined;
+
+export async function onUnauthorized(): Promise<Pick<RequestInit, "headers"> | undefined> {
+	if (env.PRISMIC_TOKEN || process.env.CI) return;
+	const { token, host } = await getCredentials();
+	if (!(await validateToken(token, { host }).catch(() => undefined))) {
+		login ??= createLoginSession({
+			onReady: (url) =>
+				console.error(`Your login is missing or expired. Log in to continue: ${url}`),
+		});
+		await login;
+	}
+	return { headers: { Authorization: `Bearer ${(await getCredentials()).token}` } };
 }
 
 export async function logout(): Promise<boolean> {
