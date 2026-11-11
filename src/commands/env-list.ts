@@ -2,7 +2,8 @@ import { getAdapter } from "../adapters";
 import { getCredentials, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getUserEnvironments } from "../lib/prismic/environments";
+import { getEnvironments, validateToken } from "../lib/prismic/client";
+import { filterEnvironments } from "../lib/prismic/environments";
 import { formatTable } from "../lib/string";
 import { getRepositoryName } from "../project";
 
@@ -20,10 +21,9 @@ export default createCommand(config, async ({ values }) => {
 	const { json, repo = projectRepo } = values;
 
 	const { token, host } = await getCredentials();
-	const environments = await getUserEnvironments(
-		{ repo, token, host, onUnauthorized },
-		async () => (await getCredentials()).token,
-	);
+	const { results } = await getEnvironments({ repo, token, host, onUnauthorized });
+	const session = await validateToken((await getCredentials()).token, { host });
+	const environments = filterEnvironments(results, session);
 
 	let activeEnvironment: string | undefined;
 	if (repo === projectRepo) {
@@ -32,12 +32,12 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	if (json) {
-		const results = environments.map((environment) => ({
+		const output = environments.map((environment) => ({
 			domain: environment.domain,
 			kind: environment.kind,
 			active: environment.domain === activeEnvironment,
 		}));
-		console.info(stringify(results));
+		console.info(stringify(output));
 		return;
 	}
 

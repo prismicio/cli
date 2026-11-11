@@ -11,6 +11,7 @@ import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { refreshToken as baseRefreshToken, validateToken } from "./lib/prismic/client";
+import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 
@@ -46,7 +47,12 @@ let login: Promise<unknown> | undefined;
 export async function onUnauthorized(): Promise<Pick<RequestInit, "headers"> | undefined> {
 	if (env.PRISMIC_TOKEN || process.env.CI) return;
 	const { token, host } = await getCredentials();
-	if (!(await validateToken(token, { host }).catch(() => undefined))) {
+	try {
+		await validateToken(token, { host });
+	} catch (error) {
+		if (!(error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError)) {
+			return;
+		}
 		login ??= createLoginSession({
 			onReady: (url) =>
 				console.error(`Your login is missing or expired. Log in to continue: ${url}`),

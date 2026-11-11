@@ -1,7 +1,8 @@
 import { getAdapter } from "../adapters";
 import { getCredentials, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { getUserEnvironments, InvalidEnvironmentError } from "../lib/prismic/environments";
+import { getEnvironments, validateToken } from "../lib/prismic/client";
+import { filterEnvironments, InvalidEnvironmentError } from "../lib/prismic/environments";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -17,10 +18,9 @@ export default createCommand(config, async ({ positionals }) => {
 
 	const repo = await getRepositoryName();
 	const { token, host } = await getCredentials();
-	const environments = await getUserEnvironments(
-		{ repo, token, host, onUnauthorized },
-		async () => (await getCredentials()).token,
-	);
+	const { results } = await getEnvironments({ repo, token, host, onUnauthorized });
+	const session = await validateToken((await getCredentials()).token, { host });
+	const environments = filterEnvironments(results, session);
 
 	const validEnvironment = environments.some((env) => env.domain === environment);
 	if (!validEnvironment) throw new InvalidEnvironmentError(environment, environments, repo);
