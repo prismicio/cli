@@ -40,7 +40,9 @@ it("prints the login URL once when the preferred port is in use", async ({
 	await logout();
 	// Another test may already hold the port, which also triggers the fallback.
 	const blocker = createServer();
-	await new Promise((resolve) => blocker.once("error", resolve).listen(5555, "0.0.0.0", resolve));
+	await new Promise<void>((resolve) =>
+		blocker.once("error", resolve).listen(5555, "0.0.0.0", resolve),
+	);
 	onTestFinished(() => void blocker.close());
 
 	const proc = prismic("login", ["--no-browser"]);
