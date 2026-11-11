@@ -120,4 +120,6 @@ it("errors when the variation has no legacy items zone", async ({ expect, prismi
 	expect(stderr).toContain(
 		`Variation "default" of slice "${slice.id}" has no legacy items zone. To add repeatable fields, add a repeatable group to the slice.`,
 	);
+	expect(stderr).toContain(`Hint: prismic field add group items --to-slice ${slice.id}`);
+	expect(stderr).toContain(`prismic field add text items.<field_id> --to-slice ${slice.id}`);
 });

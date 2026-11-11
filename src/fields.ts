@@ -1,4 +1,4 @@
-import type { DynamicWidgetModel } from "@prismicio/types-internal";
+import type { DynamicWidgetModel, SharedSliceModel } from "@prismicio/types-internal";
 
 import { getAdapter } from "./adapters";
 import { CommandError, exactlyOneOption, type CommandConfig } from "./lib/command";
@@ -6,6 +6,7 @@ import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
 import {
 	FieldExistsError,
 	FieldNotFoundError,
+	SliceItemsNotFoundError,
 	resolveCustomTypeFieldContainer,
 	resolveContentRelationshipFieldSelection,
 	resolveSliceFieldContainer,
@@ -92,8 +93,8 @@ export async function getFieldReorderTargets(
 	let save: () => Promise<void>;
 	if (key === "from-slice") {
 		const { model } = await adapter.getSlice(value);
-		source = resolveSliceFieldContainer(sourcePath, model, variation, items);
-		anchor = resolveSliceFieldContainer(anchorPath, model, variation, items);
+		source = resolveSliceFields(sourcePath, model, variation, items);
+		anchor = resolveSliceFields(anchorPath, model, variation, items);
 		save = async () => {
 			await adapter.updateSlice(model);
 			await adapter.generateTypes();
@@ -176,7 +177,7 @@ async function getSliceFieldTarget(
 ): Promise<ResolvedFieldTarget> {
 	const adapter = await getAdapter();
 	const { model } = await adapter.getSlice(sliceId);
-	const fieldContainer = resolveSliceFieldContainer(path, model, variationId, items);
+	const fieldContainer = resolveSliceFields(path, model, variationId, items);
 
 	return {
 		...fieldContainer,
@@ -185,6 +186,24 @@ async function getSliceFieldTarget(
 			await adapter.generateTypes();
 		},
 	};
+}
+
+function resolveSliceFields(
+	path: string,
+	slice: SharedSliceModel,
+	variationId: string,
+	items?: boolean,
+): ResolvedFieldContainer {
+	try {
+		return resolveSliceFieldContainer(path, slice, variationId, items);
+	} catch (error) {
+		if (!(error instanceof SliceItemsNotFoundError)) throw error;
+		let target = `--to-slice ${slice.id}`;
+		if (variationId !== "default") target += ` --variation ${variationId}`;
+		throw new CommandError(
+			`${error.message}\nHint: prismic field add group items ${target}\nThen add fields to the group: prismic field add text items.<field_id> ${target}`,
+		);
+	}
 }
 
 async function getCustomTypeFieldTarget(
