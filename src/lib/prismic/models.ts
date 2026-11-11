@@ -391,7 +391,7 @@ export class SliceItemsNotFoundError extends Error {
 
 	constructor(variationId: string, sliceId: string) {
 		super(
-			`Variation "${variationId}" of slice "${sliceId}" has no legacy items zone. Add fields to the slice instead.`,
+			`Variation "${variationId}" of slice "${sliceId}" has no legacy items zone. To add repeatable fields, add a repeatable group to the slice.`,
 		);
 	}
 }

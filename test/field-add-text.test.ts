@@ -118,6 +118,6 @@ it("errors when the variation has no legacy items zone", async ({ expect, prismi
 	]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain(
-		`Variation "default" of slice "${slice.id}" has no legacy items zone. Add fields to the slice instead.`,
+		`Variation "default" of slice "${slice.id}" has no legacy items zone. To add repeatable fields, add a repeatable group to the slice.`,
 	);
 });
