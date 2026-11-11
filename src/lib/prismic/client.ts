@@ -126,7 +126,7 @@ export async function getOnboardingState(config: RepositoryConfig): Promise<Onbo
 	const url = new URL("onboarding", getRepositoryServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: OnboardingStateSchema,
 	});
 }
@@ -142,7 +142,7 @@ export async function toggleOnboardingStep(
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
 		method: "PATCH",
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: OnboardingStateSchema,
 	});
 }
@@ -357,7 +357,7 @@ export async function getPreviews(config: RepositoryConfig): Promise<{ results: 
 		getRepositoryDomainUrl(config.repo, config.host),
 	);
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ results: z.array(PreviewSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load previews",
@@ -380,7 +380,7 @@ export async function addPreview(
 			websiteURL: previewConfig.websiteURL,
 			resolverPath: previewConfig.resolverPath,
 		},
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to add preview",
 	});
@@ -394,7 +394,7 @@ export async function deletePreview(id: string, config: RepositoryConfig): Promi
 	await request(url, {
 		method: "POST",
 		json: {},
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: `Preview not found: ${id}`,
 		unknownErrorMessage: "Failed to remove preview",
 	});
@@ -413,7 +413,7 @@ export async function getEnvironments(
 ): Promise<{ results: Environment[] }> {
 	const url = new URL("core/environments", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ results: z.array(EnvironmentSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
@@ -424,7 +424,7 @@ export async function getSimulatorUrl(
 ): Promise<{ simulator_url?: string }> {
 	const url = new URL("core/repository", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ simulator_url: z.optional(z.string()) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load simulator URL",
@@ -439,7 +439,7 @@ export async function setSimulatorUrl(
 	await request(url, {
 		method: "PATCH",
 		json: { simulator_url: simulatorUrl },
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to set simulator URL",
 	});
@@ -453,7 +453,7 @@ export async function getDocumentTotalByCustomType(
 	return request(url, {
 		method: "POST",
 		json: { customTypes: [customTypeId], limit: 0 },
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ total: z.number() }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
@@ -467,7 +467,7 @@ export async function createRelease(
 	return request(url, {
 		method: "POST",
 		json: release,
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.looseObject({ id: z.string() }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create a release",
@@ -481,7 +481,7 @@ export async function deleteRelease(id: string, config: RepositoryConfig): Promi
 	);
 	await request(url, {
 		method: "DELETE",
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: `Release not found: ${id}`,
 		unknownErrorMessage: "Failed to delete the release",
 	});
@@ -513,7 +513,7 @@ type Webhook = z.infer<typeof WebhookSchema>;
 export function getWebhooks(config: RepositoryConfig): Promise<Webhook[]> {
 	const url = new URL("app/settings/webhooks", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.array(WebhookSchema),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load webhooks",
@@ -532,7 +532,7 @@ export async function createWebhook(
 	await request(url, {
 		method: "POST",
 		body,
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create webhook",
 	});
@@ -551,7 +551,7 @@ export async function updateWebhook(
 	await request(url, {
 		method: "POST",
 		body,
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: `Webhook not found: ${id}`,
 		unknownErrorMessage: "Failed to update webhook",
 	});
@@ -564,7 +564,7 @@ export async function deleteWebhook(id: string, config: RepositoryConfig): Promi
 	);
 	await request(url, {
 		method: "POST",
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: `Webhook not found: ${id}`,
 		unknownErrorMessage: "Failed to delete webhook",
 	});
@@ -620,7 +620,7 @@ export function getOAuthApps(config: RepositoryConfig): Promise<OAuthApp[]> {
 		getRepositoryDomainUrl(config.repo, config.host),
 	);
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.array(OAuthAppSchema),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load OAuth apps",
@@ -635,7 +635,7 @@ export async function createOAuthApp(name: string, config: RepositoryConfig): Pr
 	return request(url, {
 		method: "POST",
 		json: { app_name: name },
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: OAuthAppSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create OAuth app",
@@ -654,7 +654,7 @@ export async function createOAuthAuthorization(
 	return request(url, {
 		method: "POST",
 		json: { app: appId, scope },
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: AccessTokenSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create token",
@@ -671,7 +671,7 @@ export async function deleteOAuthAuthorization(
 	);
 	await request(url, {
 		method: "DELETE",
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: `Token not found: ${authId}`,
 		unknownErrorMessage: "Failed to delete token",
 	});
@@ -683,7 +683,7 @@ export function getWriteTokens(config: RepositoryConfig): Promise<WriteTokensInf
 		getRepositoryDomainUrl(config.repo, config.host),
 	);
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: WriteTokensInfoSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load write tokens",
@@ -698,7 +698,7 @@ export async function createWriteToken(
 	return request(url, {
 		method: "POST",
 		json: { app_name: name },
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: WriteTokenSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create write token",
@@ -715,7 +715,7 @@ export async function deleteWriteToken(
 	);
 	await request(url, {
 		method: "DELETE",
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: "Token not found",
 		unknownErrorMessage: "Failed to delete write token",
 	});
@@ -726,7 +726,7 @@ export async function getRepositoryApiAccess(
 ): Promise<{ repository: { api_access: string } }> {
 	const url = new URL("syncState", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ repository: z.object({ api_access: z.string() }) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load repository access",
@@ -746,7 +746,7 @@ export async function setRepositoryApiAccess(
 	await request(url, {
 		method: "POST",
 		json: { api_access: level },
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to set repository access",
 	});
@@ -762,7 +762,7 @@ export async function setRepositoryName(
 	return request(url, {
 		method: "POST",
 		body: formData,
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ repository: z.object({ name: z.string() }) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to set repository name",
@@ -781,7 +781,7 @@ export async function checkIsDomainAvailable(
 		getDashboardUrl(config.host),
 	);
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.boolean(),
 	});
 }
@@ -801,7 +801,7 @@ export async function createRepository(
 	await request(url, {
 		method: "POST",
 		json: { domain, name, framework, plan: "personal" },
-		credentials: { "prismic-auth": config.token },
+		headers: { Authorization: `Bearer ${config.token}` },
 		unknownErrorMessage: "Failed to create repository",
 	});
 }
