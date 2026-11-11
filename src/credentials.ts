@@ -42,26 +42,32 @@ const SessionSchema = z.object({
 });
 export type Session = z.infer<typeof SessionSchema>;
 
+const FallbackReasonSchema = z.enum([
+	"forced",
+	"wsl",
+	"secret-service-missing",
+	"locked",
+	"write-rejected",
+	"timeout",
+	"module-missing",
+]);
+export type FallbackReason = z.infer<typeof FallbackReasonSchema>;
+
 const CredentialsVersionSchema = z.looseObject({
 	version: z.optional(z.unknown()),
 	store: z.optional(z.unknown()),
+	storeReason: z.optional(z.unknown()),
 });
 const CredentialsHostSchema = z.looseObject({ host: z.optional(z.string()) });
 
 export type StoreMode = "keyring" | "file";
 
-export type FallbackReason =
-	| "forced"
-	| "wsl"
-	| "secret-service-missing"
-	| "locked"
-	| "write-rejected"
-	| "timeout"
-	| "module-missing";
+// `storeReason` says why a login went to a file.
+export type StoredLogin = { store: StoreMode; storeReason?: FallbackReason; session: Session };
 
 export type StoredCredentials = {
 	host?: string;
-	login?: { store: StoreMode; session: Session };
+	login?: StoredLogin;
 };
 
 let key: Buffer | undefined;
@@ -72,7 +78,7 @@ export async function readCredentials(): Promise<StoredCredentials> {
 	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH));
 	const file = z.safeParse(CredentialsVersionSchema, json);
 	if (!file.success) return {};
-	const { version, store } = file.data;
+	const { version, store, storeReason } = file.data;
 
 	// Without a version, the file has only `host` (website generator), or is
 	// version 1, whose token expires within hours and can't be refreshed.
@@ -95,7 +101,13 @@ export async function readCredentials(): Promise<StoredCredentials> {
 			: parseJson(decrypt(await readPrivateFile(ENCRYPTED_CREDENTIALS_PATH), await requireKey())),
 	);
 	if (!session.success) throw undecryptable();
-	return { host: session.data.host, login: { store, session: session.data } };
+
+	// An unknown reason reads as none.
+	const reason = store === "file" ? z.safeParse(FallbackReasonSchema, storeReason).data : undefined;
+	return {
+		host: session.data.host,
+		login: { store, ...(reason ? { storeReason: reason } : {}), session: session.data },
+	};
 }
 
 const FALLBACK_REASONS: Record<KeyringErrorReason, Exclude<FallbackReason, "forced">> = {
@@ -118,7 +130,7 @@ const FALLBACK_DESCRIPTIONS: Record<Exclude<FallbackReason, "forced">, string> =
 // Only a login calls this, under the lock it keeps until it writes, so `auto`
 // falls back to a file only at login.
 export async function prepareLogin(): Promise<
-	{ store: "keyring" } | { store: "file"; reason: FallbackReason; warning?: string }
+	{ store: "keyring" } | { store: "file"; storeReason: FallbackReason; warning?: string }
 > {
 	const setting = env.PRISMIC_CREDENTIALS_STORE || "auto";
 	if (setting !== "auto" && setting !== "keyring" && setting !== "file") {
@@ -127,11 +139,11 @@ export async function prepareLogin(): Promise<
 			`PRISMIC_CREDENTIALS_STORE must be auto, keyring or file, not "${setting}".`,
 		);
 	}
-	if (setting === "file") return { store: "file", reason: "forced" };
+	if (setting === "file") return { store: "file", storeReason: "forced" };
 
 	const fallback = (reason: Exclude<FallbackReason, "forced">) => ({
 		store: "file" as const,
-		reason,
+		storeReason: reason,
 		warning: `No usable keychain (${FALLBACK_DESCRIPTIONS[reason]}). Saved your login in ${fileURLToPath(CREDENTIALS_PATH)}, readable only by you.`,
 	});
 
@@ -166,9 +178,9 @@ export async function prepareLogin(): Promise<
 
 export async function writeCredentials(
 	lock: Lock,
-	login: { store: StoreMode; session: Session },
+	login: StoredLogin,
 ): Promise<{ warning?: string }> {
-	const { store, session } = login;
+	const { store, storeReason, session } = login;
 	let safe;
 	if (store === "keyring") {
 		const { host, email, expiresAt, auth0Domain, clientId } = session;
@@ -182,7 +194,7 @@ export async function writeCredentials(
 		]);
 	} else {
 		safe = await writePrivateFiles(lock, [
-			[CREDENTIALS_PATH, stringify({ version: 2, store, ...session })],
+			[CREDENTIALS_PATH, stringify({ version: 2, store, storeReason, ...session })],
 		]);
 		await removeFile(lock, ENCRYPTED_CREDENTIALS_PATH);
 	}

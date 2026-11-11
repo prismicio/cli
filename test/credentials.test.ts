@@ -70,7 +70,7 @@ async function loadStore(dir: URL, setting = "") {
 async function logIn(store: Awaited<ReturnType<typeof loadStore>>, saved: Session = session) {
 	const choice = await store.prepareLogin();
 	const lock = await store.lockCredentials({ timeoutMs: 5_000 });
-	await store.writeCredentials(lock, { store: choice.store, session: saved });
+	await store.writeCredentials(lock, { ...choice, session: saved });
 	await lock.release();
 	return choice;
 }
@@ -166,16 +166,16 @@ describe("credential store", { concurrent: false }, () => {
 			const store = await loadStore(new URL(`${reason}/`, home), "auto");
 
 			const choice = await logIn(store);
-			expect(choice).toMatchObject({ store: "file", reason });
+			expect(choice).toMatchObject({ store: "file", storeReason: reason });
 			expect(choice).toHaveProperty(
 				"warning",
 				expect.stringMatching(
 					/^No usable keychain \(.+\)\. Saved your login in .+credentials\.json, readable only by you\.$/,
 				),
 			);
-			expect(await store.readCredentials()).toEqual({
+			expect(await (await loadStore(new URL(`${reason}/`, home))).readCredentials()).toEqual({
 				host: session.host,
-				login: { store: "file", session },
+				login: { store: "file", storeReason: reason, session },
 			});
 		}
 	});
@@ -195,16 +195,17 @@ describe("credential store", { concurrent: false }, () => {
 		keychain.fail = { get: "rejected", set: "rejected", delete: "rejected" };
 		const store = await loadStore(home, "file");
 
-		expect(await logIn(store)).toEqual({ store: "file", reason: "forced" });
+		expect(await logIn(store)).toEqual({ store: "file", storeReason: "forced" });
 		expect(JSON.parse(await readFile(new URL("credentials.json", home), "utf8"))).toEqual({
 			version: 2,
 			store: "file",
+			storeReason: "forced",
 			...session,
 		});
 		expect(await readdir(home)).not.toContain("credentials.enc");
 		expect(await store.readCredentials()).toEqual({
 			host: session.host,
-			login: { store: "file", session },
+			login: { store: "file", storeReason: "forced", session },
 		});
 	});
 
@@ -324,6 +325,12 @@ describe("credential store", { concurrent: false }, () => {
 			expect(mode).toBe(0o600);
 		}
 		expect(await read("invalid", "{")).toEqual({});
+		expect(
+			await read(
+				"unknown-reason",
+				JSON.stringify({ version: 2, store: "file", storeReason: "new-reason", ...session }),
+			),
+		).toEqual({ host: session.host, login: { store: "file", session } });
 		await expect(
 			read("damaged", JSON.stringify({ version: 2, store: "file", host: null })),
 		).rejects.toMatchObject({ reason: "decrypt-failed" });
