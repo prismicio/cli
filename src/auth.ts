@@ -53,6 +53,9 @@ export async function onUnauthorized(
 	if (response.status === 403 && !login && !(await isTokenRejected())) return;
 	login ??= createLoginSession({
 		onReady: (url) => console.error(`Your login is missing or expired. Log in to continue: ${url}`),
+	}).catch((error) => {
+		login = undefined;
+		throw error;
 	});
 	await login;
 	return { headers: { Authorization: `Bearer ${(await getCredentials()).token}` } };

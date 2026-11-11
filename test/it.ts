@@ -7,6 +7,7 @@ import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-
 import { pascalCase } from "change-case";
 import type { Result } from "tinyexec";
 import { x } from "tinyexec";
+import type { ExpectStatic } from "vitest";
 import { inject, test } from "vitest";
 
 import {
@@ -217,6 +218,20 @@ export function captureOutput(proc: Result): () => string {
 	proc.process?.stdout?.on("data", (c: Buffer) => (output += c.toString()));
 	proc.process?.stderr?.on("data", (c: Buffer) => (output += c.toString()));
 	return () => output;
+}
+
+export async function completeLogin(
+	expect: ExpectStatic,
+	output: () => string,
+	token: string,
+): Promise<void> {
+	await expect.poll(output, { timeout: 15_000 }).toMatch(/port=(\d+)/);
+	const port = output().match(/port=(\d+)/)![1];
+	await fetch(`http://localhost:${port}`, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ cookies: [`prismic-auth=${token}; path=/`], email: "test@example.com" }),
+	});
 }
 
 export function buildCustomType(

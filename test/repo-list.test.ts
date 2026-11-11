@@ -1,8 +1,6 @@
 import { writeFile } from "node:fs/promises";
 
-import type { ExpectStatic } from "vitest";
-
-import { captureOutput, it } from "./it";
+import { captureOutput, completeLogin, it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("repo", ["list", "--help"]);
@@ -76,17 +74,3 @@ it("logs in again and continues when the login expired", async ({
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(repo);
 });
-
-async function completeLogin(
-	expect: ExpectStatic,
-	output: () => string,
-	token: string,
-): Promise<void> {
-	await expect.poll(output, { timeout: 15_000 }).toMatch(/port=(\d+)/);
-	const port = output().match(/port=(\d+)/)![1];
-	await fetch(`http://localhost:${port}`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ cookies: [`prismic-auth=${token}; path=/`], email: "test@example.com" }),
-	});
-}
