@@ -2,17 +2,11 @@ import * as z from "zod/mini";
 
 const USER_AGENT = "prismic-cli";
 
-type CustomRequestInit = Omit<RequestInit, "body"> & {
+export type RequestOptions<T = unknown> = Omit<RequestInit, "body"> & {
+	schema?: z.ZodMiniType<T>;
 	notFoundMessage?: string;
 	unknownErrorMessage?: string;
-};
-
-type RequestBody = { body?: BodyInit | null; json?: never } | { body?: never; json?: unknown };
-
-export type RequestOptions<T = unknown> = CustomRequestInit &
-	RequestBody & {
-		schema?: z.ZodMiniType<T>;
-	};
+} & ({ body?: BodyInit | null; json?: never } | { body?: never; json?: unknown });
 
 export async function request<T = unknown>(
 	input: RequestInfo | URL,
