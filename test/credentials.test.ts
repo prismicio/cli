@@ -318,7 +318,6 @@ describe("credential store", { concurrent: false }, () => {
 		});
 		expect(await read("version-1", JSON.stringify({ token: "token", host: "wroom.io" }))).toEqual({
 			host: "wroom.io",
-			legacyToken: "token",
 		});
 		if (process.platform !== "win32") {
 			const mode = (await stat(new URL("version-1/credentials.json", home))).mode & 0o777;

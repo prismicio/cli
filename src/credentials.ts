@@ -42,16 +42,11 @@ const SessionSchema = z.object({
 });
 export type Session = z.infer<typeof SessionSchema>;
 
-// Without a version, credentials.json has only `host` (website generator) or
-// is version 1, `{ token, host }`.
 const CredentialsVersionSchema = z.looseObject({
 	version: z.optional(z.unknown()),
 	store: z.optional(z.unknown()),
 });
-const LegacyCredentialsSchema = z.looseObject({
-	host: z.optional(z.string()),
-	token: z.optional(z.string()),
-});
+const CredentialsHostSchema = z.looseObject({ host: z.optional(z.string()) });
 
 export type StoreMode = "keyring" | "file";
 
@@ -66,7 +61,6 @@ export type FallbackReason =
 
 export type StoredCredentials = {
 	host?: string;
-	legacyToken?: string;
 	login?: { store: StoreMode; session: Session };
 };
 
@@ -80,11 +74,11 @@ export async function readCredentials(): Promise<StoredCredentials> {
 	if (!file.success) return {};
 	const { version, store } = file.data;
 
+	// Without a version, the file has only `host` (website generator), or is
+	// version 1, whose token expires within hours and can't be refreshed.
 	if (version === undefined) {
-		const legacy = z.safeParse(LegacyCredentialsSchema, json);
-		if (!legacy.success) return {};
-		const { host, token } = legacy.data;
-		return token ? { host, legacyToken: token } : { host };
+		const host = z.safeParse(CredentialsHostSchema, json).data?.host;
+		return host ? { host } : {};
 	}
 	if (version !== 2) {
 		throw new CredentialsError(
@@ -202,7 +196,7 @@ export async function writeCredentials(
 
 export async function clearCredentials(lock: Lock): Promise<void> {
 	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH).catch(() => undefined));
-	const host = z.safeParse(LegacyCredentialsSchema, json).data?.host;
+	const host = z.safeParse(CredentialsHostSchema, json).data?.host;
 	const hadKey =
 		z.safeParse(CredentialsVersionSchema, json).data?.store === "keyring" ||
 		(await exists(ENCRYPTED_CREDENTIALS_PATH));
