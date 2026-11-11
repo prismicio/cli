@@ -29,28 +29,6 @@ const KEYCHAIN_TIMEOUT_MS = 30_000;
 // tag, then the ciphertext.
 const ENCRYPTED_FORMAT = Buffer.from([1]);
 
-const FALLBACK_REASONS: Record<KeyringErrorReason, Exclude<FallbackReason, "forced">> = {
-	"module-missing": "module-missing",
-	unavailable: "secret-service-missing",
-	locked: "locked",
-	rejected: "write-rejected",
-	timeout: "timeout",
-};
-
-const FALLBACK_DESCRIPTIONS: Record<Exclude<FallbackReason, "forced">, string> = {
-	wsl: "WSL",
-	"secret-service-missing": "Secret Service isn't available",
-	locked: "the keychain is locked",
-	"write-rejected": "the keychain rejected the key",
-	timeout: "the keychain didn't respond",
-	"module-missing": "the keychain module didn't load",
-};
-
-const KEYCHAIN_FAILURES: Partial<Record<KeyringErrorReason, [CredentialsErrorReason, string]>> = {
-	locked: ["locked", "the keychain is locked in this session. Unlock it and try again"],
-	timeout: ["timeout", "the keychain didn't respond. Try again"],
-};
-
 const SessionSchema = z.object({
 	host: z.string(),
 	auth0Domain: z.string(),
@@ -125,6 +103,23 @@ export async function readCredentials(): Promise<StoredCredentials> {
 	if (!session.success) throw undecryptable();
 	return { host: session.data.host, login: { store, session: session.data } };
 }
+
+const FALLBACK_REASONS: Record<KeyringErrorReason, Exclude<FallbackReason, "forced">> = {
+	"module-missing": "module-missing",
+	unavailable: "secret-service-missing",
+	locked: "locked",
+	rejected: "write-rejected",
+	timeout: "timeout",
+};
+
+const FALLBACK_DESCRIPTIONS: Record<Exclude<FallbackReason, "forced">, string> = {
+	wsl: "WSL",
+	"secret-service-missing": "Secret Service isn't available",
+	locked: "the keychain is locked",
+	"write-rejected": "the keychain rejected the key",
+	timeout: "the keychain didn't respond",
+	"module-missing": "the keychain module didn't load",
+};
 
 // Only a login calls this, under the lock it keeps until it writes, so `auto`
 // falls back to a file only at login.
@@ -267,6 +262,11 @@ async function requireKey(): Promise<Buffer> {
 	if (!currentKey) throw undecryptable("missing-key");
 	return currentKey;
 }
+
+const KEYCHAIN_FAILURES: Partial<Record<KeyringErrorReason, [CredentialsErrorReason, string]>> = {
+	locked: ["locked", "the keychain is locked in this session. Unlock it and try again"],
+	timeout: ["timeout", "the keychain didn't respond. Try again"],
+};
 
 function keyringFailure(error: unknown, action: "read" | "delete" = "read"): unknown {
 	if (!(error instanceof KeyringError)) return error;
