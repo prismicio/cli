@@ -53,6 +53,17 @@ const FallbackReasonSchema = z.enum([
 ]);
 export type FallbackReason = z.infer<typeof FallbackReasonSchema>;
 
+// Fits both "No usable keychain (…)" and "file (…)".
+export const FALLBACK_DESCRIPTIONS: Record<FallbackReason, string> = {
+	forced: "set by PRISMIC_CREDENTIALS_STORE",
+	wsl: "WSL",
+	"secret-service-missing": "Secret Service isn't available",
+	locked: "the keychain is locked",
+	"write-rejected": "the keychain rejected the key",
+	timeout: "the keychain didn't respond",
+	"module-missing": "the keychain module didn't load",
+};
+
 const CredentialsVersionSchema = z.looseObject({
 	version: z.optional(z.unknown()),
 	store: z.optional(z.unknown()),
@@ -116,15 +127,6 @@ const FALLBACK_REASONS: Record<KeyringErrorReason, Exclude<FallbackReason, "forc
 	locked: "locked",
 	rejected: "write-rejected",
 	timeout: "timeout",
-};
-
-const FALLBACK_DESCRIPTIONS: Record<Exclude<FallbackReason, "forced">, string> = {
-	wsl: "WSL",
-	"secret-service-missing": "Secret Service isn't available",
-	locked: "the keychain is locked",
-	"write-rejected": "the keychain rejected the key",
-	timeout: "the keychain didn't respond",
-	"module-missing": "the keychain module didn't load",
 };
 
 // Only a login calls this, under the lock it keeps until it writes, so `auto`
