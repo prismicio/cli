@@ -6,7 +6,7 @@ export type RequestOptions<T = unknown> = Omit<RequestInit, "body"> & {
 	schema?: z.ZodMiniType<T>;
 	notFoundMessage?: string;
 	unknownErrorMessage?: string;
-	onUnauthorized?: () => Promise<void | Pick<RequestInit, "headers">>;
+	onUnauthorized?: (response: Response) => Promise<void | Pick<RequestInit, "headers">>;
 } & ({ body?: BodyInit | null; json?: never } | { body?: never; json?: unknown });
 
 export async function request<T = unknown>(
@@ -52,7 +52,7 @@ export async function request<T = unknown>(
 		case 401:
 		case 403: {
 			if (_retryCount === 0) {
-				const retryInit = await onUnauthorized?.();
+				const retryInit = await onUnauthorized?.(response);
 				if (retryInit) {
 					new Headers(retryInit.headers).forEach((value, key) => headers.set(key, value));
 					return request(input, { ...init, headers }, _retryCount + 1);
