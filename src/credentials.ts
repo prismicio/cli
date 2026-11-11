@@ -105,7 +105,8 @@ export type CredentialStore = {
 	read(): Promise<StoredCredentials>;
 	/**
 	 * Picks where a new login goes, and creates the keychain key if needed.
-	 * Only a login calls this, so `auto` falls back to a file only at login.
+	 * Only a login calls this, under the lock it keeps until `write`, so `auto`
+	 * falls back to a file only at login.
 	 */
 	prepareLogin(): Promise<
 		{ store: "keyring" } | { store: "file"; reason: FallbackReason; warning?: string }
@@ -217,6 +218,8 @@ export function createCredentialStore(
 			}
 
 			try {
+				// Another process may have deleted the key since this one read it.
+				key = undefined;
 				if (!(await readKey(KEYCHAIN_LOGIN_TIMEOUT_MS))) {
 					const newKey = randomBytes(32);
 					await keyring.set(KEYCHAIN_SERVICE, keychainAccount, newKey.toString("base64"), {

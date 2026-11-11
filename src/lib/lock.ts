@@ -54,13 +54,12 @@ export async function acquireLock(path: URL, options: LockOptions): Promise<Lock
 		return !released && (await readOwner(dir))?.id === owner.id;
 	};
 
+	// A failed check skips one touch but never stops the heartbeat: a waiter's
+	// rename can hide the lock for a moment before putting it back.
 	const heartbeat = setInterval(async () => {
-		if (await isHeld()) {
-			const now = new Date();
-			await utimes(join(dir, OWNER_FILE), now, now).catch(() => {});
-		} else {
-			clearInterval(heartbeat);
-		}
+		if (!(await isHeld())) return;
+		const now = new Date();
+		await utimes(join(dir, OWNER_FILE), now, now).catch(() => {});
 	}, heartbeatMs);
 	heartbeat.unref();
 

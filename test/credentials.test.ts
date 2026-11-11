@@ -236,6 +236,20 @@ describe("modes", () => {
 		await logIn(createCredentialStore({ dir: new URL("b/", home), keyring }));
 		expect(items.size).toBe(2);
 	});
+
+	it("creates a new key at login when another process deleted it", async ({ home }) => {
+		const { keyring, items } = fakeKeyring();
+		const store = createCredentialStore({ dir: home, keyring });
+		await logIn(store);
+		await store.read();
+
+		items.clear();
+		await logIn(store);
+		expect(items.size).toBe(1);
+		expect((await createCredentialStore({ dir: home, keyring }).read()).login?.session).toEqual(
+			session,
+		);
+	});
 });
 
 describe("files", () => {

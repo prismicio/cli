@@ -4,7 +4,8 @@
 
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { expect } from "vitest";
@@ -49,7 +50,8 @@ it("lets one process at a time hold the lock", async ({ home }) => {
 		lockProcess(
 			path,
 			`
-			import { readFile, writeFile } from "node:fs/promises";
+			import { readFile, rename, writeFile } from "node:fs/promises";
+import { setTimeout as sleep } from "node:timers/promises";
 			const counter = ${JSON.stringify(fileURLToPath(counter))};
 			const lock = await acquireLock(path, { timeoutMs: 30_000 });
 			const count = Number(await readFile(counter, "utf8"));
@@ -105,6 +107,24 @@ it.skipIf(process.platform === "win32")(
 		await lock.release();
 	},
 );
+
+it("keeps the heartbeat after the lock briefly disappears", async ({ home }) => {
+	const path = new URL("test.lock", home);
+	const hidden = new URL("hidden.lock", home);
+	const holder = await acquireLock(path, { timeoutMs: 1_000, staleMs: 500, heartbeatMs: 50 });
+
+	// A recovering waiter renames the lock away, then puts it back.
+	await rename(path, hidden);
+	await sleep(150);
+	await rename(hidden, path);
+
+	await sleep(700);
+	await expect(acquireLock(path, { timeoutMs: 200, staleMs: 500 })).rejects.toBeInstanceOf(
+		LockTimeoutError,
+	);
+	expect(await holder.isHeld()).toBe(true);
+	await holder.release();
+});
 
 it("waits for a live holder, then times out", async ({ home }) => {
 	const path = new URL("test.lock", home);
