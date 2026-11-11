@@ -137,6 +137,54 @@ it.skipIf(process.platform === "win32")(
 	60_000,
 );
 
+it.skipIf(process.platform === "win32")(
+	"keeps the release with --keep and attaches to it with --release",
+	async ({ expect, prismic, project, repo, token, host }) => {
+		const localType = buildCustomType();
+		await writeLocalCustomType(project, localType);
+
+		const kept = await startSession(prismic, expect, ["--keep"]);
+		expect(kept.output()).toContain(`Release: ${kept.releaseId}`);
+		expect(kept.output()).toContain(
+			`Page Builder: https://${repo}.${host}/builder/upcoming/${kept.releaseId}`,
+		);
+		kept.proc.kill("SIGINT");
+		await kept.proc;
+		expect(kept.output()).toContain(`Kept release ${kept.releaseId}`);
+
+		const releaseOnlyType = buildCustomType();
+		await insertCustomType(releaseOnlyType, { repo, token, host, releaseId: kept.releaseId });
+
+		const attached = await startSession(prismic, expect, ["--release", kept.releaseId]);
+		expect(attached.releaseId).toBe(kept.releaseId);
+		expect(attached.output()).toContain(`Pulled ${releaseOnlyType.id}`);
+		expect(await readLocalCustomType(project, releaseOnlyType.id)).toMatchObject(releaseOnlyType);
+		attached.proc.kill("SIGINT");
+		await attached.proc;
+
+		const releaseTypeIds = (
+			await getCustomTypes({ repo, token, host, releaseId: kept.releaseId })
+		).map((m) => m.id);
+		expect(releaseTypeIds.sort()).toEqual([localType.id, releaseOnlyType.id].sort());
+	},
+	90_000,
+);
+
+it("fails to attach to a missing release", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("dev", ["--release", "missing", "--no-browser"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Release not found: missing");
+});
+
+it("sends model requests to the PRISMIC_STAGE preview", async ({ expect, prismic }) => {
+	const { stdout, stderr, exitCode } = await prismic("dev", ["--no-browser"], {
+		nodeOptions: { env: { PRISMIC_STAGE: "pull-0" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stdout).not.toContain("Type Builder:");
+	expect(stderr).toContain("The session ended.");
+});
+
 describe("with an isolated repository", () => {
 	it.scoped({ isolateRepo: true });
 
@@ -253,7 +301,7 @@ async function startSession(
 	args: string[] = [],
 	env?: Record<string, string>,
 ) {
-	const proc = prismic("dev", args, { nodeOptions: { env } });
+	const proc = prismic("dev", [...args, "--no-browser"], { nodeOptions: { env } });
 	const output = captureOutput(proc);
 	const deadline = Date.now() + 30_000;
 	while (!output().includes("Type Builder:")) {

@@ -136,6 +136,16 @@ export async function createRelease(
 	return response.id;
 }
 
+export async function getRelease(id: string, config: CoreConfig): Promise<{ id: string }> {
+	const { repo, host } = config;
+	const url = new URL(`core/releases/${encodeURIComponent(id)}`, getCoreServiceUrl(repo, host));
+	return coreServiceRequest(url, config, {
+		schema: z.looseObject({ id: z.string() }),
+		notFoundMessage: `Release not found: ${id}`,
+		unknownErrorMessage: "Failed to load the release",
+	});
+}
+
 export async function deleteRelease(id: string, config: CoreConfig): Promise<void> {
 	const { repo, host } = config;
 	const url = new URL(`core/releases/${encodeURIComponent(id)}`, getCoreServiceUrl(repo, host));

@@ -13,7 +13,7 @@ import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError, exclusiveOptions } from "../lib/command";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
-import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
+import { createRelease, deleteRelease, getRelease } from "../lib/prismic/clients/core";
 import type { CustomTypesConfig } from "../lib/prismic/clients/custom-types";
 import {
 	canonicalizeCustomType,
@@ -42,7 +42,8 @@ const config = {
 		appear in the Type Builder.
 
 		The command runs until you stop it. Agents should run it in the
-		background and give the user the URL from its "Type Builder:" line.
+		background and give the user the URLs from its "Type Builder:" and
+		"Page Builder:" lines, and the ID from its "Release:" line.
 
 		@experimental - This command may change or be removed in any release and does not follow semver.
 	`,
@@ -53,39 +54,49 @@ const config = {
 			type: "boolean",
 			description: "Start a new session, even if the previous one has unpulled changes",
 		},
+		keep: { type: "boolean", description: "Keep the session's release when it ends" },
+		release: { type: "string", description: "Sync with an existing release and keep it" },
 		"no-browser": { type: "boolean", description: "Skip opening the Type Builder in the browser" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
 	exclusiveOptions(values, ["continue", "new"]);
+	exclusiveOptions(values, ["continue", "release"]);
 
 	const adapter = await getAdapter();
 	const {
 		repo = (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 		continue: continueSession,
 		new: newSession,
+		keep = false,
+		release: attachId,
 		"no-browser": noBrowser,
 	} = values;
 	const { token, host } = await getCredentials();
+	const stage = env.PRISMIC_STAGE;
 
 	const sessionPath = await getSessionPath();
 	const previous = await resolvePreviousSession(adapter, sessionPath, {
 		token,
 		host,
+		stage,
 		continueSession,
 		newSession,
 	});
 
 	let session: Session;
 	if (previous) {
-		session = { ...previous, pid: process.pid };
+		session = { ...previous, pid: process.pid, keep: previous.keep || keep };
 		console.info(`Continuing your session for ${repo}...`);
+	} else if (attachId !== undefined) {
+		console.info(`Attaching to release ${attachId} for ${repo}...`);
+		session = await attachSession(attachId, { repo, token, host });
 	} else {
 		console.info(`Preparing your session for ${repo}...`);
-		session = await createSession({ repo, token, host });
+		session = await createSession({ repo, token, host }, keep);
 	}
-	const release = { repo, token, host, releaseId: session.releaseId };
+	const release = { repo, token, host, stage, releaseId: session.releaseId };
 	const sync = (push = true) =>
 		syncModels(adapter, release, session, sessionPath, {
 			push,
@@ -97,7 +108,7 @@ export default createCommand(config, async ({ values }) => {
 	const end = async (): Promise<boolean> => {
 		try {
 			await sync(false);
-			await endSession(release, sessionPath);
+			await endSession(release, sessionPath, session.keep);
 			return true;
 		} catch (error) {
 			console.error(
@@ -113,9 +124,11 @@ export default createCommand(config, async ({ values }) => {
 			[...(await adapter.getCustomTypeLibraries()), ...(await adapter.getSliceLibraries())],
 			stopping.signal,
 		);
-		const models = continueSession
-			? await sync()
-			: await seedRelease(adapter, release, session, sessionPath);
+		// Seeding pushes deletions, which would wipe an attached release's own models.
+		const models =
+			continueSession || attachId !== undefined
+				? await sync()
+				: await seedRelease(adapter, release, session, sessionPath);
 		const types = models.customTypes.length;
 		const slices = models.slices.length;
 		console.info(
@@ -125,6 +138,10 @@ export default createCommand(config, async ({ values }) => {
 		const url = new URL("builder/types", `https://${repo}.${host}/`);
 		url.searchParams.set("r", release.releaseId);
 		console.info(`Type Builder: ${url}`);
+		console.info(`Release: ${release.releaseId}`);
+		console.info(
+			`Page Builder: ${new URL(`builder/upcoming/${release.releaseId}`, `https://${repo}.${host}/`)}`,
+		);
 		if (noBrowser) {
 			console.info("Open the URL above to start editing. Changes sync both ways while this runs.");
 		} else {
@@ -153,7 +170,11 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	console.info("\nEnding the session...");
-	if (await end()) console.info("Session ended.");
+	if (await end()) {
+		console.info(
+			session.keep ? `Session ended. Kept release ${session.releaseId}.` : "Session ended.",
+		);
+	}
 });
 
 type Session = z.infer<typeof SessionSchema>;
@@ -174,18 +195,37 @@ async function saveSession(sessionPath: URL, session: Session): Promise<void> {
 	await writeFileRecursive(sessionPath, stringify(session));
 }
 
-async function createSession({ repo, token, host }: CustomTypesConfig): Promise<Session> {
+async function createSession(
+	{ repo, token, host }: CustomTypesConfig,
+	keep: boolean,
+): Promise<Session> {
 	const releaseId = await createRelease(
 		{ label: "prismic dev", hidden: true },
 		{ repo, token, host },
 	).catch((error) => {
 		throw explainRequestError(error);
 	});
-	return { repo, releaseId, pid: process.pid, synced: {} };
+	return { repo, releaseId, pid: process.pid, synced: {}, keep };
 }
 
-async function endSession({ releaseId, ...config }: Release, sessionPath: URL): Promise<void> {
-	await deleteRelease(releaseId, config);
+async function attachSession(
+	releaseId: string,
+	{ repo, token, host }: CustomTypesConfig,
+): Promise<Session> {
+	// Without a release ID, every write would go to production.
+	if (!releaseId) throw new CommandError("--release needs a release ID.");
+	await getRelease(releaseId, { repo, token, host }).catch((error) => {
+		throw explainRequestError(error);
+	});
+	return { repo, releaseId, pid: process.pid, synced: {}, keep: true };
+}
+
+async function endSession(
+	{ releaseId, ...config }: Release,
+	sessionPath: URL,
+	keep: boolean,
+): Promise<void> {
+	if (!keep) await deleteRelease(releaseId, config);
 	await rm(sessionPath, { force: true });
 }
 
@@ -195,11 +235,12 @@ async function resolvePreviousSession(
 	options: {
 		token: string | undefined;
 		host: string;
+		stage: string | undefined;
 		continueSession?: boolean;
 		newSession?: boolean;
 	},
 ): Promise<Session | undefined> {
-	const { token, host, continueSession, newSession } = options;
+	const { token, host, stage, continueSession, newSession } = options;
 	const previous = await readSession(sessionPath);
 	if (previous && isRunning(previous.pid)) {
 		throw new CommandError(
@@ -214,12 +255,13 @@ async function resolvePreviousSession(
 		}
 		return previous;
 	}
-	if (!previous) return;
+	// A kept release outlives its session, so starting over loses nothing.
+	if (!previous || previous.keep) return;
 
 	if (!newSession) {
 		const unpulled = await hasUnpulledChanges(
 			adapter,
-			{ repo: previous.repo, token, host, releaseId: previous.releaseId },
+			{ repo: previous.repo, token, host, stage, releaseId: previous.releaseId },
 			previous.synced,
 		);
 		if (unpulled) {
@@ -462,4 +504,5 @@ const SessionSchema = z.object({
 	releaseId: z.string(),
 	pid: z.number(),
 	synced: z.record(z.string(), z.string()),
+	keep: z._default(z.boolean(), false),
 });
