@@ -5,12 +5,19 @@ import { pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
 import { ANALYTICS_IDS_PATH } from "./config";
+import type {
+	CredentialsError,
+	CredentialsErrorReason,
+	FallbackReason,
+	StoreMode,
+} from "./credentials";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { detectAgent } from "./lib/ai";
 import { readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { decodePayload } from "./lib/jwt";
 import type { Profile } from "./lib/prismic/client";
+import type { DeviceFlowError } from "./lib/prismic/device-flow";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
 
@@ -210,6 +217,106 @@ export function trackCommandEnd(
 			taskId,
 		},
 		groupId: repository ? { Repository: repository } : undefined,
+	});
+}
+
+export type LoginTrigger = "login" | "init" | "command";
+
+export type LoginResult =
+	| "success"
+	| "expired"
+	| "declined"
+	| "email-unverified"
+	| "cancelled"
+	| "wait-limit"
+	| "error";
+
+// Saved with the pending login, so a resumed run keeps the attempt's ID and
+// start time.
+export type LoginAttempt = { attemptId: string; startedAt: number };
+
+export function trackLoginStart(
+	attempt: LoginAttempt,
+	config: { trigger: LoginTrigger; resume?: boolean },
+): void {
+	const { trigger, resume } = config;
+	trackEvent("Prismic CLI Login", {
+		properties: {
+			phase: resume ? "resume" : "start",
+			attemptId: attempt.attemptId,
+			trigger,
+			agent,
+			runtime,
+			runtimeProvider,
+		},
+	});
+}
+
+export function trackLoginEnd(
+	attempt: LoginAttempt,
+	config: {
+		trigger: LoginTrigger;
+		result: LoginResult;
+		newUser?: boolean;
+		store?: StoreMode;
+		storeReason?: FallbackReason;
+	},
+): void {
+	const { trigger, result, newUser, store, storeReason } = config;
+	trackEvent("Prismic CLI Login", {
+		properties: {
+			phase: "end",
+			attemptId: attempt.attemptId,
+			trigger,
+			result,
+			durationS: Math.round((Date.now() - attempt.startedAt) / 1000),
+			newUser,
+			store,
+			storeReason,
+			agent,
+			runtime,
+			runtimeProvider,
+		},
+	});
+}
+
+const LOGIN_RESULTS: Record<DeviceFlowError["reason"], LoginResult> = {
+	expired: "expired",
+	declined: "declined",
+	"email-unverified": "email-unverified",
+	"invalid-grant": "error",
+	misconfigured: "error",
+	unavailable: "error",
+};
+
+export function getLoginResult(error: DeviceFlowError): LoginResult {
+	return LOGIN_RESULTS[error.reason];
+}
+
+export function trackSessionEnded(config: {
+	reason: "invalid-grant" | "logout";
+	revoked: boolean;
+}): void {
+	const { reason, revoked } = config;
+	trackEvent("Prismic CLI Session Ended", {
+		properties: { reason, revoked, agent, runtime, runtimeProvider },
+	});
+}
+
+type StoreErrorReason = "locked" | "missing-key" | "decrypt-failed" | "timeout";
+
+const STORE_ERROR_REASONS: Partial<Record<CredentialsErrorReason, StoreErrorReason>> = {
+	locked: "locked",
+	"missing-key": "missing-key",
+	"decrypt-failed": "decrypt-failed",
+	timeout: "timeout",
+};
+
+export function trackStoreError(error: CredentialsError): void {
+	const reason = STORE_ERROR_REASONS[error.reason];
+	if (!reason) return;
+	trackEvent("Prismic CLI Store Error", {
+		properties: { reason, agent, runtime, runtimeProvider },
 	});
 }
 
