@@ -44,19 +44,16 @@ export async function refreshToken(): Promise<string | undefined> {
 
 let login: Promise<unknown> | undefined;
 
-export async function onUnauthorized(
-	response: Response,
-): Promise<Pick<RequestInit, "headers"> | undefined> {
+export async function onUnauthorized(): Promise<Pick<RequestInit, "headers"> | undefined> {
 	if (env.PRISMIC_TOKEN || process.env.CI) return;
-	// A 403 can mean a real lack of access. Log in only if the stored token is rejected,
-	// or if a login already ran and the request may have used the old token.
-	if (response.status === 403 && !login && !(await isTokenRejected())) return;
-	login ??= createLoginSession({
-		onReady: (url) => console.error(`Your login is missing or expired. Log in to continue: ${url}`),
-	}).catch((error) => {
-		login = undefined;
-		throw error;
-	});
+	if (!login && (await isTokenRejected())) {
+		login ??= createLoginSession({
+			onReady: (url) =>
+				console.error(`Your login is missing or expired. Log in to continue: ${url}`),
+		}).finally(() => {
+			login = undefined;
+		});
+	}
 	await login;
 	return { headers: { Authorization: `Bearer ${(await getCredentials()).token}` } };
 }
