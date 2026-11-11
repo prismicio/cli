@@ -2,8 +2,7 @@ import * as z from "zod/mini";
 
 const USER_AGENT = "prismic-cli";
 
-type CustomRequestInit = Omit<RequestInit, "body" | "credentials"> & {
-	credentials?: Record<string, string | undefined>;
+type CustomRequestInit = Omit<RequestInit, "body"> & {
 	notFoundMessage?: string;
 	unknownErrorMessage?: string;
 };
@@ -19,7 +18,7 @@ export async function request<T = unknown>(
 	input: RequestInfo | URL,
 	init: RequestOptions<T> = {},
 ): Promise<T> {
-	const { credentials, json, notFoundMessage, unknownErrorMessage, schema, ...requestInit } = init;
+	const { json, notFoundMessage, unknownErrorMessage, schema, ...requestInit } = init;
 
 	const headers = new Headers(init.headers);
 	if (!headers.has("Accept")) {
@@ -27,13 +26,6 @@ export async function request<T = unknown>(
 	}
 	if (!headers.has("User-Agent")) {
 		headers.set("User-Agent", USER_AGENT);
-	}
-	if (credentials) {
-		const cookies: string[] = [];
-		for (const key in credentials) {
-			cookies.push(`${key}=${credentials[key] ?? ""}`);
-		}
-		headers.set("Cookie", cookies.join("; "));
 	}
 	if ("json" in init && !headers.has("Content-Type")) {
 		headers.set("Content-Type", "application/json");
