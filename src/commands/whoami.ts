@@ -9,7 +9,7 @@ const config = {
 
 export default createCommand(config, async () => {
 	const { token, host } = await getCredentials();
-	const session = await validateToken(token, { host });
+	const session = await validateToken(token.current(), { host });
 
 	if (session.type === "Machine2Machine") {
 		console.info(`${session.appName} (Write API token for ${session.domain})`);

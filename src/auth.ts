@@ -10,7 +10,8 @@ import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
-import { refreshToken as baseRefreshToken } from "./lib/prismic/clients/auth";
+import { refreshToken as baseRefreshToken, validateToken } from "./lib/prismic/clients/auth";
+import { ForbiddenRequestError, type TokenSource } from "./lib/request";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 
@@ -24,17 +25,53 @@ const CredentialsSchema = z.looseObject({
 });
 type Credentials = z.infer<typeof CredentialsSchema>;
 
-export async function getCredentials(): Promise<{ token: string | undefined; host: string }> {
+// With `login`, a rejected token starts a login, unless a token comes from
+// the environment or the CLI runs in CI.
+export async function getCredentials({ login = true } = {}): Promise<{
+	token: TokenSource;
+	host: string;
+}> {
 	const credentials = await readCredentials();
+	let token = env.PRISMIC_TOKEN || credentials?.token;
+	const host = env.PRISMIC_HOST || credentials?.host || DEFAULT_PRISMIC_HOST;
 	return {
-		token: env.PRISMIC_TOKEN || credentials?.token,
-		host: env.PRISMIC_HOST || credentials?.host || DEFAULT_PRISMIC_HOST,
+		host,
+		token: {
+			current: () => token,
+			renew: async (error) => {
+				if (!login || env.PRISMIC_TOKEN || env.CI) return;
+				// A 403 with a valid token means no access, which a login does not fix.
+				if (!pendingLogin && error instanceof ForbiddenRequestError && token) {
+					const valid = await validateToken(token, { host }).then(
+						() => true,
+						() => false,
+					);
+					if (valid) return;
+				}
+				token = await (pendingLogin ??= logInMidCommand(token));
+				return token;
+			},
+		},
 	};
+}
+
+// Shared by all requests, so one run logs in at most once.
+let pendingLogin: Promise<string> | undefined;
+
+// stdout can hold a command's output, such as JSON, so this logs to stderr.
+async function logInMidCommand(expiredToken: string | undefined): Promise<string> {
+	console.error(expiredToken ? "Your login expired." : "You are not logged in.");
+	const { email, token } = await createLoginSession({
+		onReady: (url) => console.error(`Open this URL to log in: ${url}`),
+	});
+	console.error(`Logged in to Prismic as ${email}`);
+	return token;
 }
 
 export async function refreshToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return;
-	const { token, host } = await getCredentials();
+	const { token: source, host } = await getCredentials();
+	const token = source.current();
 	if (!token) return;
 	const newToken = await baseRefreshToken(token, { host });
 	await saveCredentials({ token: newToken, host });
@@ -64,7 +101,7 @@ async function saveCredentials(credentials: Credentials): Promise<void> {
 
 export async function createLoginSession(options: {
 	onReady: (url: URL) => void;
-}): Promise<{ email: string }> {
+}): Promise<{ email: string; token: string }> {
 	const { host } = await getCredentials();
 	const corsOrigin = `https://${host}`;
 
@@ -116,7 +153,7 @@ export async function createLoginSession(options: {
 
 						clearTimeout(timeoutId);
 						server.close();
-						resolve({ email });
+						resolve({ email, token });
 					} catch {
 						respond(400, { error: "Invalid request" });
 					}

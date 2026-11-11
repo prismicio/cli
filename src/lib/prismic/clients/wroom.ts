@@ -1,10 +1,10 @@
 import * as z from "zod/mini";
 
-import { request, type RequestOptions } from "../../request";
+import { request, type RequestOptions, type TokenSource } from "../../request";
 
 type WroomConfig = {
 	repo: string;
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 };
 
@@ -213,7 +213,7 @@ export async function deleteWriteToken(tokenValue: string, config: WroomConfig):
 
 export async function checkIsDomainAvailable(config: {
 	domain: string;
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 }): Promise<boolean> {
 	const { domain, host } = config;
@@ -229,7 +229,7 @@ export async function createRepository(config: {
 	name: string;
 	framework: string;
 	agent: string | undefined;
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 }): Promise<void> {
 	const { domain, name, framework, agent, host } = config;
@@ -300,7 +300,7 @@ function wroomRepoServiceRequest<T>(
 	options: RequestOptions<T> = {},
 ): Promise<T> {
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		login: { token: config.token, cookie: "prismic-auth" },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		...options,
 	});
@@ -308,11 +308,11 @@ function wroomRepoServiceRequest<T>(
 
 function wroomServiceRequest<T>(
 	url: URL,
-	config: { token: string | undefined; host: string },
+	config: { token: TokenSource; host: string },
 	options: RequestOptions<T> = {},
 ): Promise<T> {
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		login: { token: config.token, cookie: "prismic-auth" },
 		...options,
 	});
 }

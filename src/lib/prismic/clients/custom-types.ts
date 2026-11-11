@@ -3,12 +3,12 @@ import { createHash } from "node:crypto";
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
-import { request, type RequestOptions } from "../../request";
+import { request, type RequestOptions, type TokenSource } from "../../request";
 import { appendTrailingSlash } from "../../url";
 
 export type CustomTypesConfig = {
 	repo: string;
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 	releaseId?: string;
 };
@@ -67,7 +67,7 @@ export async function uploadScreenshot(
 		sliceId: string;
 		variationId: string;
 		repo: string;
-		token: string | undefined;
+		token: TokenSource;
 		host: string;
 	},
 ): Promise<URL> {
@@ -123,10 +123,8 @@ function customTypesServiceRequest<T>(
 ): Promise<T> {
 	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	return request(url, {
-		headers: {
-			repository: config.repo,
-			Authorization: `Bearer ${config.token}`,
-		},
+		headers: { repository: config.repo },
+		login: { token: config.token },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		...options,
 	});
@@ -140,10 +138,8 @@ function screenshotServiceRequest<T>(
 	const scopedUrl = new URL(url);
 	scopedUrl.searchParams.set("repository", config.repo);
 	return request(scopedUrl, {
-		headers: {
-			repository: config.repo,
-			Authorization: `Bearer ${config.token}`,
-		},
+		headers: { repository: config.repo },
+		login: { token: config.token },
 		...options,
 	});
 }

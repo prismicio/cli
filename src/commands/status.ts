@@ -52,11 +52,10 @@ export default createCommand(config, async ({ values }) => {
 
 	let authenticatedAs: string | undefined;
 	let diff: ModelsDiff | undefined;
-	if (token) {
-		const [session, remote] = await Promise.all([
-			validateToken(token, { host }),
-			getRemoteModels({ repo, token, host }),
-		]);
+	if (token.current()) {
+		// Validates after, since getting models can log in again.
+		const remote = await getRemoteModels({ repo, token, host });
+		const session = await validateToken(token.current(), { host });
 		authenticatedAs =
 			session.type === "USER"
 				? session.email

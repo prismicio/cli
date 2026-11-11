@@ -1,10 +1,10 @@
 import * as z from "zod/mini";
 
-import { request, type RequestOptions } from "../../request";
+import { request, type RequestOptions, type TokenSource } from "../../request";
 
 type LocaleConfig = {
 	repo: string;
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 };
 
@@ -63,7 +63,7 @@ function localeServiceRequest<T>(
 	const scopedUrl = new URL(url);
 	scopedUrl.searchParams.set("repository", config.repo);
 	return request(scopedUrl, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		login: { token: config.token },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		...options,
 	});

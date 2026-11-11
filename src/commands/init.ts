@@ -28,7 +28,7 @@ import {
 import { getProfile } from "../lib/prismic/clients/user";
 import { diffModels, getLegacySlices, getRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
-import { ForbiddenRequestError, UnauthorizedRequestError } from "../lib/request";
+import { ForbiddenRequestError, type TokenSource, UnauthorizedRequestError } from "../lib/request";
 import { sentryCaptureError } from "../lib/sentry";
 import { dedent } from "../lib/string";
 import {
@@ -118,7 +118,7 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
-	const { host, token: initialToken } = await getCredentials();
+	const { host, token: initialToken } = await getCredentials({ login: false });
 	let token = initialToken;
 	try {
 		await getProfile({ token, host });
@@ -353,7 +353,7 @@ async function isStarterPackage(starter: NonNullable<Repository["starter"]>): Pr
 async function completeStarterHandoff(
 	adapter: Adapter,
 	starter: NonNullable<Repository["starter"]>,
-	config: { repo: string; token: string | undefined; host: string },
+	config: { repo: string; token: TokenSource; host: string },
 ): Promise<void> {
 	try {
 		const previews = await getPreviews(config);

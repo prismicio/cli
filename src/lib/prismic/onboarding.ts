@@ -1,8 +1,9 @@
+import type { TokenSource } from "../request";
 import { getOnboardingState, toggleOnboardingStep } from "./clients/repository";
 
 type OnboardingConfig = {
 	repo: string;
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 };
 

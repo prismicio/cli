@@ -1,10 +1,10 @@
 import * as z from "zod/mini";
 
-import { request, type RequestOptions } from "../../request";
+import { request, type RequestOptions, type TokenSource } from "../../request";
 
 type RepositoryConfig = {
 	repo: string;
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 };
 
@@ -75,10 +75,8 @@ function repositoryServiceRequest<T>(
 	const scopedUrl = new URL(url);
 	scopedUrl.searchParams.set("repository", config.repo);
 	return request(scopedUrl, {
-		headers: {
-			Authorization: `Bearer ${config.token}`,
-			repository: config.repo,
-		},
+		headers: { repository: config.repo },
+		login: { token: config.token },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		...options,
 	});
@@ -92,7 +90,7 @@ function onboardingServiceRequest<T>(
 	const scopedUrl = new URL(url);
 	scopedUrl.searchParams.set("repository", config.repo);
 	return request(scopedUrl, {
-		credentials: { "prismic-auth": config.token },
+		login: { token: config.token, cookie: "prismic-auth" },
 		...options,
 	});
 }

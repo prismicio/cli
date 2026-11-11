@@ -1,10 +1,10 @@
 import * as z from "zod/mini";
 
-import { request, type RequestOptions } from "../../request";
+import { request, type RequestOptions, type TokenSource } from "../../request";
 
 type CoreConfig = {
 	repo: string;
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 };
 
@@ -152,7 +152,7 @@ function coreServiceRequest<T>(
 	options: RequestOptions<T> = {},
 ): Promise<T> {
 	return request(url, {
-		credentials: { "prismic-auth": config.token },
+		login: { token: config.token, cookie: "prismic-auth" },
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		...options,
 	});

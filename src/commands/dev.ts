@@ -27,6 +27,7 @@ import {
 	ForbiddenRequestError,
 	NotFoundRequestError,
 	RequestError,
+	type TokenSource,
 	UnauthorizedRequestError,
 } from "../lib/request";
 import { findProjectRoot, getRepositoryName } from "../project";
@@ -193,7 +194,7 @@ async function resolvePreviousSession(
 	adapter: Adapter,
 	sessionPath: URL,
 	options: {
-		token: string | undefined;
+		token: TokenSource;
 		host: string;
 		continueSession?: boolean;
 		newSession?: boolean;

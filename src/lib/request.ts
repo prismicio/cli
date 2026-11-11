@@ -2,8 +2,17 @@ import * as z from "zod/mini";
 
 const USER_AGENT = "prismic-cli";
 
+// The user's login token. `renew` is called when a request's token is
+// rejected, and resolves to a new token, or to nothing to give up.
+export type TokenSource = {
+	current: () => string | undefined;
+	renew: (error: RequestError) => Promise<string | undefined>;
+};
+
 type CustomRequestInit = Omit<RequestInit, "body" | "credentials"> & {
 	credentials?: Record<string, string | undefined>;
+	// Sends the token as a Bearer header, or in `cookie` if set.
+	login?: { token: TokenSource; cookie?: string };
 	notFoundMessage?: string;
 	unknownErrorMessage?: string;
 };
@@ -19,6 +28,31 @@ export async function request<T = unknown>(
 	input: RequestInfo | URL,
 	init: RequestOptions<T> = {},
 ): Promise<T> {
+	const { login, ...options } = init;
+	if (!login) return send(input, options);
+
+	const withToken = (token: string | undefined): RequestOptions<T> => {
+		if (login.cookie) {
+			return { ...options, credentials: { ...options.credentials, [login.cookie]: token } };
+		}
+		const headers = new Headers(options.headers);
+		headers.set("Authorization", `Bearer ${token}`);
+		return { ...options, headers };
+	};
+
+	try {
+		return await send(input, withToken(login.token.current()));
+	} catch (error) {
+		if (!(error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError)) {
+			throw error;
+		}
+		const token = await login.token.renew(error);
+		if (!token) throw error;
+		return send(input, withToken(token));
+	}
+}
+
+async function send<T>(input: RequestInfo | URL, init: RequestOptions<T>): Promise<T> {
 	const { credentials, json, notFoundMessage, unknownErrorMessage, schema, ...requestInit } = init;
 
 	const headers = new Headers(init.headers);

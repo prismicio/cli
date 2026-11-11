@@ -5,6 +5,7 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 import { upsertLocale } from "../lib/prismic/clients/locale";
 import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients/wroom";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
+import type { TokenSource } from "../lib/request";
 
 const MAX_DOMAIN_TRIES = 5;
 
@@ -63,7 +64,7 @@ export async function createRepo(config: {
 	name?: string;
 	lang?: string;
 	framework: string;
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 }): Promise<string> {
 	const { name, lang = "en-us", framework, token, host } = config;
@@ -90,7 +91,7 @@ export async function createRepo(config: {
 }
 
 async function findAvailableDomain(config: {
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 }): Promise<string | undefined> {
 	const { token, host } = config;

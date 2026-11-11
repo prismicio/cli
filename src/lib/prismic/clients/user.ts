@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-import { request } from "../../request";
+import { request, type TokenSource } from "../../request";
 
 const ProfileSchema = z.object({
 	email: z.string(),
@@ -22,25 +22,22 @@ const RepositoryListSchema = z.object({
 	repositories: z.array(RepositorySchema),
 });
 
-export async function getProfile(config: {
-	token: string | undefined;
-	host: string;
-}): Promise<Profile> {
+export async function getProfile(config: { token: TokenSource; host: string }): Promise<Profile> {
 	const url = new URL("user/profile", `https://api.internal.${config.host}/`);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		login: { token: config.token },
 		schema: ProfileSchema,
 		unknownErrorMessage: "Failed to load your profile",
 	});
 }
 
 export async function getRepositories(config: {
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 }): Promise<z.infer<typeof RepositorySchema>[]> {
 	const url = new URL("user/repositories", `https://api.internal.${config.host}/`);
 	const response = await request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		login: { token: config.token },
 		schema: RepositoryListSchema,
 		unknownErrorMessage: "Failed to load your repositories",
 	});

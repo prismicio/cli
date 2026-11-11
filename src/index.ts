@@ -150,7 +150,8 @@ async function main(): Promise<void> {
 	}
 
 	if (!help) {
-		const { token, host } = await getCredentials();
+		const { token: tokenSource, host } = await getCredentials({ login: false });
+		const token = tokenSource.current();
 
 		const telemetryEnabled = env.PRISMIC_TELEMETRY_ENABLED ?? (await isTelemetryEnabled());
 		const sentryEnabled = env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD);
@@ -176,7 +177,7 @@ async function main(): Promise<void> {
 				if (knownUserId) {
 					sentrySetUser({ id: knownUserId });
 				} else if (!exp || exp > now) {
-					getProfile({ token, host })
+					getProfile({ token: tokenSource, host })
 						.then((profile) => {
 							trackUser(profile);
 							sentrySetUser({ id: profile.shortId });

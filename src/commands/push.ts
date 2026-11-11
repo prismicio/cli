@@ -10,7 +10,7 @@ import { getDocumentTotalByCustomTypes } from "../lib/prismic/clients/core";
 import { deleteScreenshots } from "../lib/prismic/clients/custom-types";
 import { diffModels, getRemoteModels, writeRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
-import { ForbiddenRequestError } from "../lib/request";
+import { ForbiddenRequestError, type TokenSource } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
 
@@ -162,7 +162,7 @@ const ExistingDocumentsErrorSchema = z.object({ hasExistingDocuments: z.literal(
 async function explainExistingDocuments(
 	error: unknown,
 	deletedCustomTypes: DynamicCustomTypeModel[],
-	config: { repo: string; token: string | undefined; host: string },
+	config: { repo: string; token: TokenSource; host: string },
 ): Promise<unknown> {
 	if (!(error instanceof ForbiddenRequestError)) return error;
 	if (!z.safeParse(ExistingDocumentsErrorSchema, error.body).success) return error;

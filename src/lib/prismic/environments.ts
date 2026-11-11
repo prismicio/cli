@@ -1,17 +1,17 @@
+import type { TokenSource } from "../request";
 import { dedent } from "../string";
 import { validateToken } from "./clients/auth";
 import { type Environment, getEnvironments } from "./clients/core";
 
 export async function getUserEnvironments(config: {
 	repo: string;
-	token: string | undefined;
+	token: TokenSource;
 	host: string;
 }): Promise<Environment[]> {
 	const { repo, token, host } = config;
-	const [session, environments] = await Promise.all([
-		validateToken(token, { host }),
-		getEnvironments({ repo, token, host }),
-	]);
+	// Validates after, since getting environments can log in again.
+	const environments = await getEnvironments({ repo, token, host });
+	const session = await validateToken(token.current(), { host });
 	if (session.type === "Machine2Machine") {
 		return environments.filter((environment) => environment.domain === session.domain);
 	}
