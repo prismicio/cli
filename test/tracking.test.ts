@@ -1,12 +1,13 @@
-// Temporary. These unit tests cover the login events until commands send them.
-// C4, the PR that switches `prismic login` to the device flow, deletes this
-// file and tests the events end to end instead.
+// Temporary. These unit tests cover the login details on the End event until
+// commands send them. C4, the PR that switches `prismic login` to the device
+// flow, deletes this file and tests them end to end instead.
 
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { afterEach, beforeEach, describe, vi } from "vitest";
 
+import type { FallbackReason, StoreMode } from "../src/credentials";
 import { it } from "./it";
 
 // Replaces Segment, so tests never send events.
@@ -20,81 +21,95 @@ vi.mock("../src/lib/segment", () => ({
 	},
 }));
 
-const CONTEXT = { agent: "test-agent", runtime: "cloud", runtimeProvider: "claude-code" };
-
 // src/env.ts requires PROD, which the build defines. Vitest sets it to "".
 process.env.PROD = "false";
 
 // Imports tracking as a new process would, with its own config directory.
-async function loadTracking(home: URL) {
+async function loadTracking(
+	home: URL,
+	config: { token?: string; store?: StoreMode; storeReason?: FallbackReason } = {},
+) {
 	vi.resetModules();
 	vi.stubEnv("PRISMIC_CONFIG_DIR", fileURLToPath(home));
 	vi.stubEnv("AI_AGENT", "test-agent");
 	// Gives the same runtime on every machine.
 	vi.stubEnv("CLAUDE_CODE_REMOTE", "true");
 	const tracking = await import("../src/tracking");
-	await tracking.initTracking({ host: "wroom.io" });
+	await tracking.initTracking({ host: "wroom.io", ...config });
 	return tracking;
 }
 
+function getLoginProperties() {
+	const { store, storeReason, loginResult, loginResumed, loginDurationS, revoked } =
+		events.at(-1)?.properties ?? {};
+	return { store, storeReason, loginResult, loginResumed, loginDurationS, revoked };
+}
+
 // The tests share the recorded events and the environment.
-describe("login events", { concurrent: false }, () => {
+describe("login details on the End event", { concurrent: false }, () => {
 	beforeEach(() => {
 		events.length = 0;
 	});
 
 	afterEach(() => {
-		vi.useRealTimers();
 		vi.unstubAllEnvs();
 	});
 
-	it("sends one attempt ID and a growing duration across runs", async ({ expect, home }) => {
+	it("adds the store, the login and the logout", async ({ expect, home }) => {
+		let tracking = await loadTracking(home, {
+			store: "file",
+			storeReason: "secret-service-missing",
+		});
+		tracking.trackCommandEnd("repo-list");
+		expect(getLoginProperties()).toEqual({
+			store: "file",
+			storeReason: "secret-service-missing",
+		});
+
+		tracking = await loadTracking(home);
+		tracking.trackLogin({ result: "wait-limit", resumed: false, startedAt: Date.now() - 90_000 });
+		tracking.trackCommandEnd("repo-list");
+		expect(getLoginProperties()).toEqual({
+			loginResult: "wait-limit",
+			loginResumed: false,
+			loginDurationS: 90,
+		});
+
+		tracking = await loadTracking(home);
+		tracking.trackLogin({
+			result: "success",
+			resumed: true,
+			startedAt: Date.now() - 120_000,
+			store: "keyring",
+		});
+		tracking.trackCommandEnd("repo-list");
+		expect(getLoginProperties()).toEqual({
+			store: "keyring",
+			loginResult: "success",
+			loginResumed: true,
+			loginDurationS: 120,
+		});
+
+		tracking = await loadTracking(home, { store: "keyring" });
+		tracking.trackLogout({ revoked: false });
+		tracking.trackCommandEnd("logout");
+		expect(getLoginProperties()).toEqual({ store: "keyring", revoked: false });
+	});
+
+	it("leaves Start and End unchanged until something sets them", async ({ expect, home }) => {
 		const tracking = await loadTracking(home);
-		vi.useFakeTimers({ toFake: ["Date"] });
-		const attempt = { attemptId: randomUUID(), startedAt: Date.now() };
-		const store = { store: "file", storeReason: "wsl" } as const;
+		tracking.trackCommandStart("repo-list");
+		tracking.trackCommandEnd("repo-list");
 
-		tracking.trackLoginStart(attempt, { trigger: "init" });
-		vi.advanceTimersByTime(90_000);
-		tracking.trackLoginEnd(attempt, { trigger: "init", result: "wait-limit", ...store });
-		vi.advanceTimersByTime(30_000);
-		tracking.trackLoginStart(attempt, { trigger: "login", resume: true });
-		tracking.trackLoginEnd(attempt, { trigger: "login", result: "success", ...store });
-
-		const { attemptId } = attempt;
-		expect(events).toEqual([
-			{
-				event: "Prismic CLI Login",
-				properties: { phase: "start", attemptId, trigger: "init", ...CONTEXT },
-			},
-			{
-				event: "Prismic CLI Login",
-				properties: {
-					phase: "end",
-					attemptId,
-					trigger: "init",
-					result: "wait-limit",
-					durationS: 90,
-					...store,
-					...CONTEXT,
-				},
-			},
-			{
-				event: "Prismic CLI Login",
-				properties: { phase: "resume", attemptId, trigger: "login", ...CONTEXT },
-			},
-			{
-				event: "Prismic CLI Login",
-				properties: {
-					phase: "end",
-					attemptId,
-					trigger: "login",
-					result: "success",
-					durationS: 120,
-					...store,
-					...CONTEXT,
-				},
-			},
+		// Segment receives JSON, which drops undefined properties.
+		const sent = events.map(({ event, properties }) => [
+			event,
+			Object.keys(JSON.parse(JSON.stringify(properties))),
+		]);
+		const context = ["agent", "auth", "runtime", "runtimeProvider"];
+		expect(sent).toEqual([
+			["Prismic CLI Start", ["commandType", "fullCommand", ...context]],
+			["Prismic CLI End", ["commandType", "fullCommand", "success", ...context]],
 		]);
 	});
 
@@ -124,48 +139,7 @@ describe("login events", { concurrent: false }, () => {
 		});
 	});
 
-	it("sends session ends, and store errors only for the key or decryption", async ({
-		expect,
-		home,
-	}) => {
-		const tracking = await loadTracking(home);
-		const { CredentialsError } = await import("../src/credentials");
-		const reasons = [
-			"invalid-setting",
-			"unsupported-version",
-			"unsafe-file",
-			"lock-lost",
-			"locked",
-			"timeout",
-			"keychain-unavailable",
-			"missing-key",
-			"decrypt-failed",
-		] as const;
-
-		tracking.trackSessionEnded({ reason: "logout", revoked: false });
-		tracking.trackSessionEnded({ reason: "invalid-grant", revoked: false });
-		for (const reason of reasons) tracking.trackStoreError(new CredentialsError(reason, ""));
-
-		expect(events).toEqual([
-			{
-				event: "Prismic CLI Session Ended",
-				properties: { reason: "logout", revoked: false, ...CONTEXT },
-			},
-			{
-				event: "Prismic CLI Session Ended",
-				properties: { reason: "invalid-grant", revoked: false, ...CONTEXT },
-			},
-			...["locked", "timeout", "missing-key", "decrypt-failed"].map((reason) => ({
-				event: "Prismic CLI Store Error",
-				properties: { reason, ...CONTEXT },
-			})),
-		]);
-	});
-
 	it("never sends tokens, codes or the key", async ({ expect, home }) => {
-		const tracking = await loadTracking(home);
-		const { CredentialsError } = await import("../src/credentials");
-		const { DeviceFlowError } = await import("../src/lib/prismic/device-flow");
 		const key = randomBytes(32).toString("base64");
 		const auth0 = { host: "prismic.io", auth0Domain: "auth0.prismic.io", clientId: "client-id" };
 		const pending = {
@@ -176,11 +150,11 @@ describe("login events", { concurrent: false }, () => {
 			verificationUriComplete: "https://auth0.prismic.io/activate?user_code=BCDF-GHJK",
 			expiresAt: Date.now() + 900_000,
 			intervalMs: 5_000,
-			attemptId: randomUUID(),
 			startedAt: Date.now(),
 		};
 		const login = {
 			store: "keyring",
+			key,
 			session: {
 				...auth0,
 				accessToken: "access-token-secret",
@@ -190,18 +164,14 @@ describe("login events", { concurrent: false }, () => {
 		} as const;
 
 		// Callers hold a whole pending login and saved login, not just the fields
-		// the events need.
-		tracking.trackLoginStart(pending, { trigger: "login" });
-		tracking.trackLoginStart(pending, { trigger: "login", resume: true });
-		tracking.trackLoginEnd(pending, { trigger: "login", result: "success", ...login });
-		tracking.trackLoginEnd(pending, {
-			trigger: "login",
-			result: tracking.getLoginResult(new DeviceFlowError("misconfigured", "prismic.io")),
-		});
-		tracking.trackStoreError(new CredentialsError("locked", key, { cause: new Error(key) }));
-		tracking.trackSessionEnded({ reason: "logout", revoked: true });
+		// the End event needs.
+		const tracking = await loadTracking(home, { token: "access-token-secret", ...login });
+		tracking.trackLogin({ ...pending, ...login, result: "success", resumed: true });
+		tracking.trackLogout({ revoked: true });
+		tracking.trackCommandStart("login");
+		tracking.trackCommandEnd("login");
 
-		expect(events).toHaveLength(6);
+		expect(events).toHaveLength(2);
 		const sent = JSON.stringify(events);
 		for (const secret of [
 			"access-token-secret",
