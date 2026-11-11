@@ -13,8 +13,7 @@ import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError, exclusiveOptions } from "../lib/command";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
-import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
-import type { CustomTypesConfig } from "../lib/prismic/clients/custom-types";
+import { createRelease, type CustomTypesConfig, deleteRelease } from "../lib/prismic/client";
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,
@@ -175,13 +174,13 @@ async function saveSession(sessionPath: URL, session: Session): Promise<void> {
 }
 
 async function createSession({ repo, token, host }: CustomTypesConfig): Promise<Session> {
-	const releaseId = await createRelease(
+	const release = await createRelease(
 		{ label: "prismic dev", hidden: true },
 		{ repo, token, host },
 	).catch((error) => {
 		throw explainRequestError(error);
 	});
-	return { repo, releaseId, pid: process.pid, synced: {} };
+	return { repo, releaseId: release.id, pid: process.pid, synced: {} };
 }
 
 async function endSession({ releaseId, ...config }: Release, sessionPath: URL): Promise<void> {

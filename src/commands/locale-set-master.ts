@@ -1,7 +1,7 @@
 import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { getLocales, upsertLocale } from "../lib/prismic/clients/locale";
+import { getLocales, upsertLocale } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic locale set-master",
@@ -31,7 +31,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const { token, host } = await getCredentials();
 
-	const locales = await getLocales({ repo, token, host });
+	const { results: locales } = await getLocales({ repo, token, host });
 
 	const locale = locales.find((l) => l.id === code);
 

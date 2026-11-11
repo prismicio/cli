@@ -7,7 +7,7 @@ import {
 	createOAuthApp,
 	createWriteToken,
 	getOAuthApps,
-} from "../lib/prismic/clients/wroom";
+} from "../lib/prismic/client";
 
 const CLI_APP_NAME = "Prismic CLI";
 

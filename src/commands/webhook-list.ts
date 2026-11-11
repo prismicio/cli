@@ -2,7 +2,7 @@ import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getWebhooks } from "../lib/prismic/clients/wroom";
+import { getWebhooks } from "../lib/prismic/client";
 import { formatTable } from "../lib/string";
 
 const config = {

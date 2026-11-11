@@ -1,6 +1,6 @@
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { validateToken } from "../lib/prismic/clients/auth";
+import { validateToken } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic whoami",

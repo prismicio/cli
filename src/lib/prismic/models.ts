@@ -8,12 +8,12 @@ import type {
 
 import { type ArrayDiff, diffArrays } from "../diff";
 import {
-	type BulkChange,
-	bulkUpdate,
+	type BulkModelChange,
+	bulkUpdateModels,
 	type CustomTypesConfig,
 	getCustomTypes,
 	getSlices,
-} from "./clients/custom-types";
+} from "./client";
 
 type Fields = Record<string, DynamicWidgetModel>;
 
@@ -183,7 +183,7 @@ export async function writeRemoteModels(
 	{ customTypes, slices }: ModelsDiff,
 	config: CustomTypesConfig,
 ): Promise<void> {
-	const change = (type: BulkChange["type"], payload: BulkChange["payload"]) => ({
+	const change = (type: BulkModelChange["type"], payload: BulkModelChange["payload"]) => ({
 		type,
 		id: payload.id,
 		payload,
@@ -196,7 +196,7 @@ export async function writeRemoteModels(
 		...slices.update.map((model) => change("SLICE_UPDATE", model)),
 		...slices.delete.map(({ id }) => change("SLICE_DELETE", { id })),
 	];
-	if (changes.length > 0) await bulkUpdate(changes, config);
+	if (changes.length > 0) await bulkUpdateModels(changes, config);
 }
 
 export function diffModels(

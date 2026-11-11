@@ -1,7 +1,7 @@
 import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { deleteWebhook, getWebhooks } from "../lib/prismic/clients/wroom";
+import { deleteWebhook, getWebhooks } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic webhook remove",

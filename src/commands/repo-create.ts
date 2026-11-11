@@ -2,8 +2,7 @@ import { FRAMEWORKS, getAdapter } from "../adapters";
 import { getCredentials } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { upsertLocale } from "../lib/prismic/clients/locale";
-import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients/wroom";
+import { checkIsDomainAvailable, createRepository, upsertLocale } from "../lib/prismic/client";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 
 const MAX_DOMAIN_TRIES = 5;

@@ -3,7 +3,7 @@ import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { validateToken } from "../lib/prismic/clients/auth";
+import { validateToken } from "../lib/prismic/client";
 import {
 	diffModels,
 	getLegacySlices,

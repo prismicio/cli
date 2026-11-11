@@ -1,7 +1,7 @@
 import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { upsertLocale } from "../lib/prismic/clients/locale";
+import { upsertLocale } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic locale add",

@@ -2,7 +2,7 @@ import { getActiveRepositoryName, getAdapter, NoSupportedFrameworkError } from "
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { MissingPackageJson } from "../lib/packageJson";
-import { addPreview } from "../lib/prismic/clients/core";
+import { addPreview } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic preview add",

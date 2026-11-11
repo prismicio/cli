@@ -1,7 +1,7 @@
 import { getActiveRepositoryName } from "../adapters";
 import { getCredentials } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { setSimulatorUrl } from "../lib/prismic/clients/core";
+import { setSimulatorUrl } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic preview set-simulator",
