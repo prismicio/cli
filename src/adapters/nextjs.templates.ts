@@ -69,12 +69,144 @@ export function pageTemplate({
 	routePath,
 	typescript,
 	appRouter,
+	cacheComponents,
 }: {
 	model: DynamicCustomTypeModel;
 	routePath: string;
 	typescript: boolean;
 	appRouter: boolean;
+	cacheComponents: boolean;
 }): string {
+	if (cacheComponents) {
+		if (model.repeatable) {
+			if (typescript) {
+				return dedent`
+					import { cacheLife } from "next/cache";
+					import { notFound } from "next/navigation";
+					import { SliceZone } from "@prismicio/react";
+					import { cacheTagPrismicPages, getPreviewRef } from "@prismicio/next";
+					import { createClient } from "@/prismicio";
+					import { components } from "@/slices";
+
+					export default async function Page({ params }: PageProps<"/${routePath}">) {
+						const { uid } = await params;
+						const page = await getPage(uid, await getPreviewRef());
+
+						return <SliceZone slices={page.data.slices} components={components} />;
+					}
+
+					export async function generateStaticParams() {
+						const client = createClient();
+						const pages = await client.getAllByType("${model.id}");
+
+						return pages.map((page) => ({ uid: page.uid }));
+					}
+
+					async function getPage(uid: string, ref?: string) {
+						"use cache";
+						cacheLife("max");
+						const client = createClient();
+						const page = await client.getByUID("${model.id}", uid, { ref }).catch(() => notFound());
+						cacheTagPrismicPages([page]);
+						return page;
+					}
+				`;
+			}
+
+			return dedent`
+				import { cacheLife } from "next/cache";
+				import { notFound } from "next/navigation";
+				import { SliceZone } from "@prismicio/react";
+				import { cacheTagPrismicPages, getPreviewRef } from "@prismicio/next";
+				import { createClient } from "@/prismicio";
+				import { components } from "@/slices";
+
+				/**
+				 * @type {PageProps<"/${routePath}">}
+				 */
+				export default async function Page({ params }) {
+					const { uid } = await params;
+					const page = await getPage(uid, await getPreviewRef());
+
+					return <SliceZone slices={page.data.slices} components={components} />;
+				}
+
+				export async function generateStaticParams() {
+					const client = createClient();
+					const pages = await client.getAllByType("${model.id}");
+
+					return pages.map((page) => ({ uid: page.uid }));
+				}
+
+				/**
+				 * @param {string} uid
+				 * @param {string} [ref]
+				 */
+				async function getPage(uid, ref) {
+					"use cache";
+					cacheLife("max");
+					const client = createClient();
+					const page = await client.getByUID("${model.id}", uid, { ref }).catch(() => notFound());
+					cacheTagPrismicPages([page]);
+					return page;
+				}
+			`;
+		}
+
+		if (typescript) {
+			return dedent`
+				import { cacheLife } from "next/cache";
+				import { notFound } from "next/navigation";
+				import { SliceZone } from "@prismicio/react";
+				import { cacheTagPrismicPages, getPreviewRef } from "@prismicio/next";
+				import { createClient } from "@/prismicio";
+				import { components } from "@/slices";
+
+				export default async function Page() {
+					const page = await getPage(await getPreviewRef());
+
+					return <SliceZone slices={page.data.slices} components={components} />;
+				}
+
+				async function getPage(ref?: string) {
+					"use cache";
+					cacheLife("max");
+					const client = createClient();
+					const page = await client.getSingle("${model.id}", { ref }).catch(() => notFound());
+					cacheTagPrismicPages([page]);
+					return page;
+				}
+			`;
+		}
+
+		return dedent`
+			import { cacheLife } from "next/cache";
+			import { notFound } from "next/navigation";
+			import { SliceZone } from "@prismicio/react";
+			import { cacheTagPrismicPages, getPreviewRef } from "@prismicio/next";
+			import { createClient } from "@/prismicio";
+			import { components } from "@/slices";
+
+			export default async function Page() {
+				const page = await getPage(await getPreviewRef());
+
+				return <SliceZone slices={page.data.slices} components={components} />;
+			}
+
+			/**
+			 * @param {string} [ref]
+			 */
+			async function getPage(ref) {
+				"use cache";
+				cacheLife("max");
+				const client = createClient();
+				const page = await client.getSingle("${model.id}", { ref }).catch(() => notFound());
+				cacheTagPrismicPages([page]);
+				return page;
+			}
+		`;
+	}
+
 	if (appRouter) {
 		if (model.repeatable) {
 			if (typescript) {
@@ -233,10 +365,12 @@ export function pageTemplate({
 export function prismicIOFileTemplate({
 	typescript,
 	appRouter,
+	cacheComponents,
 	hasSrcDirectory,
 }: {
 	typescript: boolean;
 	appRouter: boolean;
+	cacheComponents: boolean;
 	hasSrcDirectory: boolean;
 }): string {
 	const configImportPath = `${hasSrcDirectory ? ".." : "."}/prismic.config.json`;
@@ -244,7 +378,50 @@ export function prismicIOFileTemplate({
 	let importsContents: string;
 	let createClientContents: string;
 
-	if (appRouter && typescript) {
+	if (appRouter && cacheComponents && typescript) {
+		importsContents = dedent`
+			import {
+				createClient as baseCreateClient,
+				type ClientConfig,
+			} from "@prismicio/client";
+			import prismicConfig from "${configImportPath}";
+		`;
+
+		createClientContents = dedent`
+			/**
+			 * Creates a Prismic client for the project's repository. The client is used to
+			 * query content from the Prismic API.
+			 *
+			 * @param config - Configuration for the Prismic client.
+			 */
+			export const createClient = (config: ClientConfig = {}) => {
+				return baseCreateClient(repositoryName, {
+					routes: prismicConfig.routes,
+					...config,
+				});
+			};
+		`;
+	} else if (appRouter && cacheComponents) {
+		importsContents = dedent`
+			import { createClient as baseCreateClient } from "@prismicio/client";
+			import prismicConfig from "${configImportPath}";
+		`;
+
+		createClientContents = dedent`
+			/**
+			 * Creates a Prismic client for the project's repository. The client is used to
+			 * query content from the Prismic API.
+			 *
+			 * @param {import("@prismicio/client").ClientConfig} config - Configuration for the Prismic client.
+			 */
+			export const createClient = (config = {}) => {
+				return baseCreateClient(repositoryName, {
+					routes: prismicConfig.routes,
+					...config,
+				});
+			};
+		`;
+	} else if (appRouter && typescript) {
 		importsContents = dedent`
 			import {
 				createClient as baseCreateClient,
@@ -367,6 +544,14 @@ export function prismicIOFileTemplate({
 			process.env.NEXT_PUBLIC_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 
 		${createClientContents}
+	`;
+}
+
+export function loadingTemplate(): string {
+	return dedent`
+		export default function Loading() {
+			return null;
+		}
 	`;
 }
 
@@ -537,9 +722,27 @@ export function exitPreviewRouteTemplate({
 
 export function revalidateRouteTemplate({
 	supportsCacheLife,
+	cacheComponents,
+	typescript,
 }: {
 	supportsCacheLife: boolean;
+	cacheComponents: boolean;
+	typescript: boolean;
 }): string {
+	if (cacheComponents) {
+		return dedent`
+			import { NextResponse } from "next/server";
+			import { revalidatePrismicPages } from "@prismicio/next";
+
+			export async function POST(request${typescript ? ": Request" : ""}) {
+				const body = await request.json();
+				if (body.type === "api-update") revalidatePrismicPages(body.documents);
+
+				return NextResponse.json({ revalidated: true, now: Date.now() });
+			}
+		`;
+	}
+
 	return dedent`
 		import { NextResponse } from "next/server";
 		import { revalidateTag } from "next/cache";

@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,6 +18,7 @@ import { dedent, formatObjectKey } from "../lib/string";
 import { checkIsTypeScriptProject, findProjectRoot } from "../project";
 import {
 	exitPreviewRouteTemplate,
+	loadingTemplate,
 	pageTemplate,
 	previewRouteTemplate,
 	prismicIOFileTemplate,
@@ -47,11 +49,17 @@ export class NextJsAdapter extends Adapter {
 		const extension = await getJsFileExtension();
 		const typescript = await checkIsTypeScriptProject();
 		const appRouter = await checkUsesAppRouter();
+		const cacheComponents = await checkUsesCacheComponents();
 		const supportsCacheLife = (await getInstalledMajor("next")) >= 16;
 
 		await writeFileIfMissing(
 			new URL(`prismicio.${extension}`, sourceRoot),
-			prismicIOFileTemplate({ typescript, appRouter, hasSrcDirectory: await checkHasSrc() }),
+			prismicIOFileTemplate({
+				typescript,
+				appRouter,
+				cacheComponents,
+				hasSrcDirectory: await checkHasSrc(),
+			}),
 		);
 		await writeFileIfMissing(
 			new URL(
@@ -62,6 +70,12 @@ export class NextJsAdapter extends Adapter {
 			),
 			sliceSimulatorPageTemplate({ typescript, appRouter }),
 		);
+		if (cacheComponents) {
+			await writeFileIfMissing(
+				new URL(`app/slice-simulator/loading.${extension}x`, sourceRoot),
+				loadingTemplate(),
+			);
+		}
 		await writeFileIfMissing(
 			new URL(
 				appRouter ? `app/api/preview/route.${extension}` : `pages/api/preview.${extension}`,
@@ -81,7 +95,7 @@ export class NextJsAdapter extends Adapter {
 		if (appRouter) {
 			await writeFileIfMissing(
 				new URL(`app/api/revalidate/route.${extension}`, sourceRoot),
-				revalidateRouteTemplate({ supportsCacheLife }),
+				revalidateRouteTemplate({ supportsCacheLife, cacheComponents, typescript }),
 			);
 		}
 	}
@@ -190,12 +204,29 @@ export class NextJsAdapter extends Adapter {
 			if (await exists(candidatePath)) path = candidatePath;
 		}
 		const typescript = await checkIsTypeScriptProject();
-		return [{ path, contents: pageTemplate({ model, routePath, typescript, appRouter }) }];
+		const cacheComponents = await checkUsesCacheComponents();
+		return [
+			{
+				path,
+				contents: pageTemplate({ model, routePath, typescript, appRouter, cacheComponents }),
+			},
+		];
 	}
 }
 
 async function checkUsesAppRouter(): Promise<boolean> {
 	return exists(new URL("app/", await getSourceRoot()));
+}
+
+async function checkUsesCacheComponents(): Promise<boolean> {
+	if (!(await checkUsesAppRouter())) return false;
+	const projectRoot = await findProjectRoot();
+	for (const extension of ["ts", "mjs", "js"]) {
+		const path = new URL(`next.config.${extension}`, projectRoot);
+		const contents = await readFile(path, "utf8").catch(() => "");
+		if (/cacheComponents\s*:\s*true/.test(contents)) return true;
+	}
+	return false;
 }
 
 async function getSourceRoot(): Promise<URL> {
