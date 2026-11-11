@@ -303,6 +303,25 @@ export async function addPreview(
 	if (!res.ok) throw new Error(`Failed to add preview: ${res.status} ${await res.text()}`);
 }
 
+export async function getReleasePreviewToken(
+	releaseId: string,
+	config: RepoConfig,
+): Promise<string | null> {
+	const host = config.host ?? DEFAULT_HOST;
+	const [preview] = await getPreviews(config);
+	const url = new URL(
+		`core/previews/session/releases/${releaseId}`,
+		`https://${config.repo}.${host}/`,
+	);
+	url.searchParams.set("previewId", preview.id);
+	const res = await fetch(url, {
+		headers: { Cookie: `prismic-auth=${config.token}` },
+	});
+	if (!res.ok) throw new Error(`Failed to get release preview: ${res.status} ${await res.text()}`);
+	const data = await res.json();
+	return new URL(data.preview_url).searchParams.get("token");
+}
+
 export async function getLocales(
 	config: RepoConfig,
 ): Promise<{ id: string; label: string; customName: string | null; isMaster: boolean }[]> {
