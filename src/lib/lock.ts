@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
-import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+
+const OWNER_FILENAME = "owner.json";
+
+type Owner = { id: string; pid: number; hostname: string };
 
 export type LockOptions = {
 	timeoutMs: number;
@@ -16,25 +19,16 @@ export type Lock = {
 	release(): Promise<void>;
 };
 
-export class LockTimeoutError extends Error {
-	name = "LockTimeoutError";
-}
-
-type Owner = { id: string; pid: number; hostname: string };
-
-const OWNER_FILE = "owner.json";
-
 export async function acquireLock(path: URL, options: LockOptions): Promise<Lock> {
 	const { timeoutMs, staleMs = 10_000, heartbeatMs = 2_000 } = options;
-	const dir = fileURLToPath(path);
 	const owner: Owner = { id: randomUUID(), pid: process.pid, hostname: hostname() };
 	const deadline = Date.now() + timeoutMs;
 
 	let delayMs = 25;
-	while (!(await tryCreate(dir, owner))) {
-		if (await recoverIfStale(dir, staleMs)) continue;
+	while (!(await tryCreate(path, owner))) {
+		if (await recoverIfStale(path, staleMs)) continue;
 		if (Date.now() >= deadline) {
-			throw new LockTimeoutError(`Timed out waiting for the lock at ${dir}.`);
+			throw new LockTimeoutError(`Timed out waiting for the lock at ${fileURLToPath(path)}.`);
 		}
 		await sleep(delayMs * (0.5 + Math.random()));
 		delayMs = Math.min(delayMs * 2, 500);
@@ -42,7 +36,7 @@ export async function acquireLock(path: URL, options: LockOptions): Promise<Lock
 
 	let released = false;
 	const isHeld = async (): Promise<boolean> => {
-		return !released && (await readOwner(dir))?.id === owner.id;
+		return !released && (await readOwner(path))?.id === owner.id;
 	};
 
 	// A waiter's rename can hide the lock for a moment, so a failed check only
@@ -50,7 +44,7 @@ export async function acquireLock(path: URL, options: LockOptions): Promise<Lock
 	const heartbeat = setInterval(async () => {
 		if (!(await isHeld())) return;
 		const now = new Date();
-		await utimes(join(dir, OWNER_FILE), now, now).catch(() => {});
+		await utimes(getOwnerPath(path), now, now).catch(() => {});
 	}, heartbeatMs);
 	heartbeat.unref();
 
@@ -60,21 +54,25 @@ export async function acquireLock(path: URL, options: LockOptions): Promise<Lock
 			clearInterval(heartbeat);
 			const held = await isHeld();
 			released = true;
-			if (held) await rm(dir, { recursive: true, force: true });
+			if (held) await rm(path, { recursive: true, force: true });
 		},
 	};
 }
 
-async function tryCreate(dir: string, owner: Owner): Promise<boolean> {
+export class LockTimeoutError extends Error {
+	name = "LockTimeoutError";
+}
+
+async function tryCreate(path: URL, owner: Owner): Promise<boolean> {
 	try {
-		await mkdir(dir);
+		await mkdir(path);
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
 		throw error;
 	}
 	try {
 		// `wx` fails if another waiter put an older lock back in place.
-		await writeFile(join(dir, OWNER_FILE), JSON.stringify(owner), { flag: "wx" });
+		await writeFile(getOwnerPath(path), JSON.stringify(owner), { flag: "wx" });
 		return true;
 	} catch (error) {
 		const { code } = error as NodeJS.ErrnoException;
@@ -83,10 +81,10 @@ async function tryCreate(dir: string, owner: Owner): Promise<boolean> {
 	}
 }
 
-async function recoverIfStale(dir: string, staleMs: number): Promise<boolean> {
-	const owner = await readOwner(dir);
-	const touched = await stat(join(dir, OWNER_FILE))
-		.catch(() => stat(dir))
+async function recoverIfStale(path: URL, staleMs: number): Promise<boolean> {
+	const owner = await readOwner(path);
+	const touched = await stat(getOwnerPath(path))
+		.catch(() => stat(path))
 		.catch(() => undefined);
 	if (!touched) return true; // Released in the meantime.
 
@@ -95,31 +93,35 @@ async function recoverIfStale(dir: string, staleMs: number): Promise<boolean> {
 	if (!isOld && !isOrphan) return false;
 
 	// Only one waiter can rename a given lock away.
-	const trash = `${dir}.stale-${randomUUID()}`;
+	const stalePath = new URL(`${path.href}.stale-${randomUUID()}`);
 	try {
-		await rename(dir, trash);
+		await rename(path, stalePath);
 	} catch {
 		return false;
 	}
 
 	// Another waiter may have replaced the stale lock since the check.
-	const moved = await readOwner(trash);
+	const moved = await readOwner(stalePath);
 	if (moved && moved.id !== owner?.id) {
 		try {
-			await rename(trash, dir);
+			await rename(stalePath, path);
 			return false;
 		} catch {}
 	}
-	await rm(trash, { recursive: true, force: true });
+	await rm(stalePath, { recursive: true, force: true });
 	return true;
 }
 
-async function readOwner(dir: string): Promise<Owner | undefined> {
+async function readOwner(path: URL): Promise<Owner | undefined> {
 	try {
-		return JSON.parse(await readFile(join(dir, OWNER_FILE), "utf8"));
+		return JSON.parse(await readFile(getOwnerPath(path), "utf8"));
 	} catch {
 		return undefined;
 	}
+}
+
+function getOwnerPath(path: URL): URL {
+	return new URL(`${path.href}/${OWNER_FILENAME}`);
 }
 
 function isAlive(pid: number): boolean {

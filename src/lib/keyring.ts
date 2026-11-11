@@ -2,6 +2,10 @@ import { spawn } from "node:child_process";
 
 import type { AsyncEntry } from "@napi-rs/keyring";
 
+// `security` exits with the low byte of its status code.
+const SECURITY_NOT_FOUND = 44; // errSecItemNotFound
+const SECURITY_LOCKED = [36, 51]; // errSecInteractionNotAllowed, errSecAuthFailed
+
 export type KeyringErrorReason =
 	| "module-missing"
 	| "unavailable"
@@ -19,12 +23,12 @@ export class KeyringError extends Error {
 	}
 }
 
-type Options = { timeoutMs: number };
+type KeyringOptions = { timeoutMs: number };
 
 export type Keyring = {
-	get(service: string, account: string, options: Options): Promise<string | undefined>;
-	set(service: string, account: string, password: string, options: Options): Promise<void>;
-	delete(service: string, account: string, options: Options): Promise<boolean>;
+	get(service: string, account: string, options: KeyringOptions): Promise<string | undefined>;
+	set(service: string, account: string, password: string, options: KeyringOptions): Promise<void>;
+	delete(service: string, account: string, options: KeyringOptions): Promise<boolean>;
 };
 
 // Keychain items trust the binary that created them. With a native module,
@@ -49,14 +53,10 @@ const macosKeyring: Keyring = {
 	},
 };
 
-// `security` exits with the low byte of its status code.
-const SECURITY_NOT_FOUND = 44; // errSecItemNotFound
-const SECURITY_LOCKED = [36, 51]; // errSecInteractionNotAllowed, errSecAuthFailed
-
 function security(
 	args: string[],
 	input: string | undefined,
-	options: Options,
+	options: KeyringOptions,
 ): Promise<string | undefined> {
 	return new Promise((resolve, reject) => {
 		const child = spawn("/usr/bin/security", args, {
@@ -79,20 +79,26 @@ function security(
 }
 
 const napiKeyring: Keyring = {
-	get: (service, account, options) =>
-		napiCall(service, account, options, async (entry, signal) => {
-			return (await entry.getPassword(signal)) ?? undefined;
-		}),
-	set: (service, account, password, options) =>
-		napiCall(service, account, options, (entry, signal) => entry.setPassword(password, signal)),
-	delete: (service, account, options) =>
-		napiCall(service, account, options, (entry, signal) => entry.deleteCredential(signal)),
+	async get(service, account, options) {
+		const password = await napiCall(service, account, options, (entry, signal) =>
+			entry.getPassword(signal),
+		);
+		return password ?? undefined;
+	},
+	async set(service, account, password, options) {
+		await napiCall(service, account, options, (entry, signal) =>
+			entry.setPassword(password, signal),
+		);
+	},
+	async delete(service, account, options) {
+		return napiCall(service, account, options, (entry, signal) => entry.deleteCredential(signal));
+	},
 };
 
 async function napiCall<T>(
 	service: string,
 	account: string,
-	options: Options,
+	options: KeyringOptions,
 	call: (entry: AsyncEntry, signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
 	let Entry: typeof AsyncEntry;
