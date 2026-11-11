@@ -15,19 +15,9 @@ import { KeyringError, systemKeyring, type Keyring, type KeyringErrorReason } fr
 import { acquireLock, type Lock, type LockOptions } from "./lib/lock";
 import { PendingLoginSchema } from "./lib/prismic/device-flow";
 
-// The login lives in the config directory:
-// - credentials.json: plain metadata. In file mode, also the secrets.
-// - credentials.enc: in keyring mode, the session, encrypted with a key from
-//   the OS keychain. Authoritative over credentials.json.
-// - credentials.lock: held while a login, refresh or logout writes.
-//
-// The keychain holds one key per config directory, never tokens, so refreshes
-// never write to it.
-
 const KEYCHAIN_SERVICE = "prismic-cli";
-// At login, a slower keychain means no usable keychain.
 const KEYCHAIN_LOGIN_TIMEOUT_MS = 5_000;
-// After login, leave time to answer an unlock dialog.
+// Leaves time to answer the keychain's unlock dialog.
 const KEYCHAIN_TIMEOUT_MS = 30_000;
 
 export type StoreMode = "keyring" | "file";
@@ -62,23 +52,21 @@ export class CredentialsError extends Error {
 	}
 }
 
-// The domain and client ID are the ones that issued the session, so refresh
-// and logout use them.
 const SessionSchema = z.object({
 	host: z.string(),
-	domain: z.string(),
+	auth0Domain: z.string(),
 	clientId: z.string(),
 	email: z.optional(z.string()),
 	accessToken: z.optional(z.string()),
 	refreshToken: z.optional(z.string()),
-	/** Local time of receipt plus `expires_in`, in milliseconds. */
+	/** Milliseconds since the epoch, from the local time of receipt. */
 	expiresAt: z.optional(z.number()),
 	pendingLogin: z.optional(PendingLoginSchema),
 });
 export type Session = z.infer<typeof SessionSchema>;
 
-// credentials.json: version 2, or no version: only `host` (website
-// generator), or version 1 with a `token`.
+// Without a version, credentials.json has only `host` (website generator) or
+// is version 1, `{ token, host }`.
 const VersionSchema = z.looseObject({
 	version: z.optional(z.unknown()),
 	store: z.optional(z.unknown()),
@@ -89,34 +77,20 @@ const LegacySchema = z.looseObject({
 });
 
 export type StoredCredentials = {
-	/** The host, from any version of credentials.json. */
 	host?: string;
-	/** A version 1 token, used until a request rejects it. */
 	legacyToken?: string;
-	/** A version 2 login. */
 	login?: { store: StoreMode; session: Session };
 };
 
 export type CredentialStore = {
-	/**
-	 * Reads the stored login. A login that exists but can't be read throws a
-	 * `CredentialsError`, never returns "not logged in".
-	 */
+	// A login that exists but can't be read throws, never reads as logged out.
 	read(): Promise<StoredCredentials>;
-	/**
-	 * Picks where a new login goes, and creates the keychain key if needed.
-	 * Only a login calls this, under the lock it keeps until `write`, so `auto`
-	 * falls back to a file only at login.
-	 */
+	// Only a login calls this, under the lock it keeps until `write`, so `auto`
+	// falls back to a file only at login.
 	prepareLogin(): Promise<
 		{ store: "keyring" } | { store: "file"; reason: FallbackReason; warning?: string }
 	>;
-	/**
-	 * Saves a login in the given mode. Throws if `lock` was lost, so a stalled
-	 * process can't overwrite a newer login.
-	 */
 	write(lock: Lock, login: { store: StoreMode; session: Session }): Promise<{ warning?: string }>;
-	/** Deletes the session and the keychain key. Keeps the host. */
 	clear(lock: Lock): Promise<void>;
 	lock(options: Pick<LockOptions, "timeoutMs">): Promise<Lock>;
 };
@@ -138,7 +112,6 @@ export function createCredentialStore(
 		.digest("hex")
 		.slice(0, 16)}`;
 
-	// The key is read at most once per process.
 	let key: Buffer | undefined;
 	let warnedUnsafe = false;
 
@@ -245,11 +218,14 @@ export function createCredentialStore(
 		async write(lock, { store, session }) {
 			let safe;
 			if (store === "keyring") {
-				const { host, email, expiresAt, domain, clientId } = session;
+				const { host, email, expiresAt, auth0Domain, clientId } = session;
 				safe = await writeFiles(lock, [
-					// The encrypted file is authoritative, so it's written first.
+					// credentials.enc is authoritative, so it's written first.
 					[encPath, encrypt(JSON.stringify(session), await requireKey())],
-					[jsonPath, stringify({ version: 2, host, email, expiresAt, store, domain, clientId })],
+					[
+						jsonPath,
+						stringify({ version: 2, host, email, expiresAt, store, auth0Domain, clientId }),
+					],
 				]);
 			} else {
 				safe = await writeFiles(lock, [[jsonPath, stringify({ version: 2, store, ...session })]]);
@@ -325,9 +301,8 @@ function keyringFailure(error: unknown, action: "read" | "delete" = "read"): unk
 	);
 }
 
-// A process that lost the lock drops its write, so a stalled refresh can't
-// overwrite a newer login or restore a session after a logout. Checked right
-// before each rename or delete.
+// Checked right before each rename or delete, so a stalled process can't
+// overwrite a newer login or restore a session after a logout.
 async function assertHeld(lock: Lock): Promise<void> {
 	if (await lock.isHeld()) return;
 	throw new CredentialsError(
@@ -348,8 +323,7 @@ function undecryptable(reason: "missing-key" | "decrypt-failed" = "decrypt-faile
 	);
 }
 
-// credentials.enc: a format byte, a 12-byte nonce, a 16-byte tag, then the
-// AES-256-GCM ciphertext. Every write uses a fresh nonce.
+// A format byte, a 12-byte nonce, a 16-byte tag, then the ciphertext.
 const FORMAT = Buffer.from([1]);
 
 function encrypt(plaintext: string, key: Buffer): Buffer {
@@ -381,9 +355,7 @@ async function ensurePrivateDir(dir: URL): Promise<void> {
 	if (((await stat(dir)).mode & 0o077) !== 0) await chmod(dir, 0o700);
 }
 
-// Writes to a new temporary file, then renames it over the old one, so a
-// killed process never leaves a partial file. Returns whether the file ended
-// up private: some disks ignore modes (WSL's /mnt/c, network mounts).
+// Returns false when the disk ignores modes, like WSL's /mnt/c.
 async function writePrivateFile(lock: Lock, path: URL, data: string | Buffer): Promise<boolean> {
 	const temporary = new URL(`.${basename(fileURLToPath(path))}.${randomUUID()}.tmp`, path);
 	try {
@@ -406,8 +378,6 @@ async function writePrivateFile(lock: Lock, path: URL, data: string | Buffer): P
 	return (stats.mode & 0o777) === 0o600 && stats.uid === process.getuid?.();
 }
 
-// Refuses symlinks and files that belong to another user. Restricts the file's
-// mode to 0600, for files written by older versions.
 async function readPrivateFile(path: URL): Promise<Buffer | undefined> {
 	const unsafe = (why: string) =>
 		new CredentialsError(
@@ -431,6 +401,7 @@ async function readPrivateFile(path: URL): Promise<Buffer | undefined> {
 		if (!stats.isFile()) throw unsafe("it isn't a regular file");
 		if (IS_WINDOWS) return await handle.readFile();
 		if (stats.uid !== process.getuid?.()) throw unsafe("it belongs to another user");
+		// Older versions wrote credentials.json with the default mode.
 		if ((stats.mode & 0o077) !== 0) await handle.chmod(0o600).catch(() => {});
 		return await handle.readFile();
 	} finally {

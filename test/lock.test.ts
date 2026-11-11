@@ -13,8 +13,7 @@ import { expect } from "vitest";
 import { acquireLock, LockTimeoutError } from "../src/lib/lock";
 import { it } from "./it";
 
-// Runs `script` in a new Node.js process, with `acquireLock` in scope and the
-// lock path as `path`. Node.js strips the module's types.
+// Node.js strips the types of the imported module.
 function lockProcess(path: URL, script: string) {
 	const lockModule = new URL("../src/lib/lock.ts", import.meta.url).href;
 	const code = `

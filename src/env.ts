@@ -15,7 +15,6 @@ const Env = z.object({
 	PRISMIC_TOKEN: z.optional(z.string()),
 	PRISMIC_DOCS_HOST: z.optional(z.string()),
 	PRISMIC_CONFIG_DIR: z.optional(z.string()),
-	// Validated where it's read, so a bad value doesn't break unrelated commands.
 	PRISMIC_CREDENTIALS_STORE: z.optional(z.string()),
 	PRISMIC_TYPE_BUILDER_ENABLED: z.optional(z.stringbool()),
 	PRISMIC_SYNC_POLL_MS: z.optional(z.coerce.number().check(z.gte(100))),

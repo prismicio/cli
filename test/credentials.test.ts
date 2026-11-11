@@ -23,7 +23,7 @@ const isWindows = process.platform === "win32";
 
 const session = {
 	host: "prismic.io",
-	domain: "auth0.prismic.io",
+	auth0Domain: "auth0.prismic.io",
 	clientId: "client-id",
 	email: "dev@example.com",
 	accessToken: "access-token-secret",
@@ -35,8 +35,6 @@ const DECRYPT_ERROR = "Your Prismic login can't be decrypted. Run `prismic login
 const LOCKED_ERROR =
 	"Can't read your Prismic key because the keychain is locked in this session. Unlock it and try again, or log in again with PRISMIC_CREDENTIALS_STORE=file.";
 
-// An in-memory keychain. Set `fail.get`, `fail.set` or `fail.delete` to make
-// that call throw.
 function fakeKeyring() {
 	const items = new Map<string, string>();
 	const fail: Partial<Record<"get" | "set" | "delete", KeyringErrorReason>> = {};
@@ -74,12 +72,11 @@ describe("encryption", () => {
 		const dir = new URL("config/", home);
 		const { keyring } = fakeKeyring();
 		const store = createCredentialStore({ dir, keyring, setting: "auto" });
-		// A new login waiting for approval, next to the current tokens.
 		const saved = {
 			...session,
 			pendingLogin: {
 				host: session.host,
-				domain: session.domain,
+				auth0Domain: session.auth0Domain,
 				clientId: session.clientId,
 				deviceCode: "device-code-secret",
 				userCode: "BCDF-GHJK",
@@ -104,7 +101,7 @@ describe("encryption", () => {
 			email: session.email,
 			expiresAt: session.expiresAt,
 			store: "keyring",
-			domain: session.domain,
+			auth0Domain: session.auth0Domain,
 			clientId: session.clientId,
 		});
 
@@ -263,7 +260,6 @@ describe("files", () => {
 			expect((await stat(dir)).mode & 0o777).toBe(0o700);
 			expect((await stat(new URL("credentials.json", dir))).mode & 0o777).toBe(0o600);
 			expect((await stat(new URL("credentials.enc", dir))).mode & 0o777).toBe(0o600);
-			// No temporary files or lock left behind.
 			expect((await readdir(dir)).sort()).toEqual(["credentials.enc", "credentials.json"]);
 		},
 	);
@@ -366,7 +362,6 @@ describe("lock and logout", () => {
 		expect(await readdir(home)).not.toContain("credentials.enc");
 		expect(items.size).toBe(0);
 
-		// A locked keychain still loses the files, and says the key stayed.
 		await logIn(store);
 		fail.delete = "locked";
 		const again = await store.lock({ timeoutMs: 5_000 });

@@ -2,17 +2,12 @@ import { spawn } from "node:child_process";
 
 import type { AsyncEntry } from "@napi-rs/keyring";
 
-// macOS uses `/usr/bin/security`. A native module's keychain items trust the
-// `node` binary that created them, so an ad-hoc-signed `node` (Homebrew) shows
-// a keychain prompt after every upgrade. Items created by `security` trust
-// `security`. Other platforms use `@napi-rs/keyring`.
-
 export type KeyringErrorReason =
-	| "module-missing" // The native module failed to load.
-	| "unavailable" // No keychain service, such as Linux without Secret Service.
-	| "locked" // The keychain is locked and can't be unlocked here.
-	| "rejected" // The keychain refused the operation.
-	| "timeout"; // The keychain didn't answer in time.
+	| "module-missing"
+	| "unavailable"
+	| "locked"
+	| "rejected"
+	| "timeout";
 
 export class KeyringError extends Error {
 	name = "KeyringError";
@@ -32,14 +27,16 @@ export type Keyring = {
 	delete(service: string, account: string, options: Options): Promise<boolean>;
 };
 
+// Keychain items trust the binary that created them. With a native module,
+// that's `node`, so an ad-hoc-signed Homebrew `node` prompts after each upgrade.
 const macosKeyring: Keyring = {
 	async get(service, account, options) {
 		const args = ["find-generic-password", "-s", service, "-a", account, "-w"];
 		return (await security(args, undefined, options))?.replace(/\n$/, "");
 	},
 	async set(service, account, password, options) {
-		// The password goes on stdin, so it never appears in a process list.
-		// `security -i` splits lines on spaces, so values can't contain them.
+		// On stdin, the password never shows in a process list. `security -i`
+		// splits lines on spaces.
 		if (![service, account, password].every((value) => /^[^\s"'\\]+$/.test(value))) {
 			throw new TypeError("Keychain values can't contain spaces, quotes or backslashes.");
 		}
@@ -52,14 +49,10 @@ const macosKeyring: Keyring = {
 	},
 };
 
-// `security` exits with the low byte of the Security framework's status code.
+// `security` exits with the low byte of its status code.
 const SECURITY_NOT_FOUND = 44; // errSecItemNotFound
-const SECURITY_LOCKED = [
-	36, // errSecInteractionNotAllowed: locked, and no session to unlock it in.
-	51, // errSecAuthFailed: wrong keychain password.
-];
+const SECURITY_LOCKED = [36, 51]; // errSecInteractionNotAllowed, errSecAuthFailed
 
-// Resolves with the output, or undefined when the item doesn't exist.
 function security(
 	args: string[],
 	input: string | undefined,
@@ -111,9 +104,7 @@ async function napiCall<T>(
 
 	const signal = AbortSignal.timeout(options.timeoutMs);
 	try {
-		// Linux must use Secret Service. The kernel keyring lives in memory and
-		// is cleared on reboot. The constructor throws when Secret Service is
-		// missing.
+		// Never the kernel keyring, which a reboot clears.
 		const entry = new Entry(service, account, { linux: { store: "secret-service" } });
 		return await call(entry, signal);
 	} catch (cause) {

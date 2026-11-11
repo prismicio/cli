@@ -5,22 +5,13 @@ import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
-// A lock shared by processes on one machine: a directory created with `mkdir`,
-// which is atomic. The holder writes its owner ID, PID and hostname inside and
-// touches it on a heartbeat. A lock nobody touched recently, or whose owner
-// process is gone, is stale, and a waiter takes it over.
-
 export type LockOptions = {
-	/** How long to wait for the current holder. */
 	timeoutMs: number;
-	/** A lock nobody touched for this long is stale. */
 	staleMs?: number;
-	/** How often the holder touches the lock. */
 	heartbeatMs?: number;
 };
 
 export type Lock = {
-	/** Whether this process still holds the lock. Check it before each write. */
 	isHeld(): Promise<boolean>;
 	release(): Promise<void>;
 };
@@ -54,8 +45,8 @@ export async function acquireLock(path: URL, options: LockOptions): Promise<Lock
 		return !released && (await readOwner(dir))?.id === owner.id;
 	};
 
-	// A failed check skips one touch but never stops the heartbeat: a waiter's
-	// rename can hide the lock for a moment before putting it back.
+	// A waiter's rename can hide the lock for a moment, so a failed check only
+	// skips one touch.
 	const heartbeat = setInterval(async () => {
 		if (!(await isHeld())) return;
 		const now = new Date();
@@ -103,7 +94,7 @@ async function recoverIfStale(dir: string, staleMs: number): Promise<boolean> {
 	const isOrphan = owner?.hostname === hostname() && !isAlive(owner.pid);
 	if (!isOld && !isOrphan) return false;
 
-	// Renaming first means only one waiter takes over a given lock.
+	// Only one waiter can rename a given lock away.
 	const trash = `${dir}.stale-${randomUUID()}`;
 	try {
 		await rename(dir, trash);
@@ -111,17 +102,13 @@ async function recoverIfStale(dir: string, staleMs: number): Promise<boolean> {
 		return false;
 	}
 
-	// Another waiter may have replaced the stale lock between the check and
-	// the rename. Put that newer lock back.
+	// Another waiter may have replaced the stale lock since the check.
 	const moved = await readOwner(trash);
 	if (moved && moved.id !== owner?.id) {
 		try {
 			await rename(trash, dir);
 			return false;
-		} catch {
-			// A third process created a lock in the meantime. The newer lock's
-			// owner sees it lost the lock at its next check.
-		}
+		} catch {}
 	}
 	await rm(trash, { recursive: true, force: true });
 	return true;
@@ -140,7 +127,7 @@ function isAlive(pid: number): boolean {
 		process.kill(pid, 0);
 		return true;
 	} catch (error) {
-		// EPERM: the process exists but belongs to another user.
+		// EPERM means the process exists but belongs to another user.
 		return (error as NodeJS.ErrnoException).code === "EPERM";
 	}
 }
