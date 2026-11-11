@@ -257,12 +257,11 @@ export function trackLoginEnd(
 	config: {
 		trigger: LoginTrigger;
 		result: LoginResult;
-		newUser?: boolean;
 		store?: StoreMode;
 		storeReason?: FallbackReason;
 	},
 ): void {
-	const { trigger, result, newUser, store, storeReason } = config;
+	const { trigger, result, store, storeReason } = config;
 	trackEvent("Prismic CLI Login", {
 		properties: {
 			phase: "end",
@@ -270,7 +269,6 @@ export function trackLoginEnd(
 			trigger,
 			result,
 			durationS: Math.round((Date.now() - attempt.startedAt) / 1000),
-			newUser,
 			store,
 			storeReason,
 			agent,

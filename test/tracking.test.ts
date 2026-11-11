@@ -59,12 +59,7 @@ describe("login events", { concurrent: false }, () => {
 		tracking.trackLoginEnd(attempt, { trigger: "init", result: "wait-limit", ...store });
 		vi.advanceTimersByTime(30_000);
 		tracking.trackLoginStart(attempt, { trigger: "login", resume: true });
-		tracking.trackLoginEnd(attempt, {
-			trigger: "login",
-			result: "success",
-			newUser: true,
-			...store,
-		});
+		tracking.trackLoginEnd(attempt, { trigger: "login", result: "success", ...store });
 
 		const { attemptId } = attempt;
 		expect(events).toEqual([
@@ -96,7 +91,6 @@ describe("login events", { concurrent: false }, () => {
 					trigger: "login",
 					result: "success",
 					durationS: 120,
-					newUser: true,
 					...store,
 					...CONTEXT,
 				},
