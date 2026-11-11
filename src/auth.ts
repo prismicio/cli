@@ -149,14 +149,15 @@ export async function createLoginSession(options: {
 
 		server.on("error", (error: NodeJS.ErrnoException) => {
 			if (error.code === "EADDRINUSE" && server.listening === false) {
-				server.listen(0, "0.0.0.0", onListening);
+				server.listen(0, "0.0.0.0");
 			} else {
 				clearTimeout(timeoutId);
 				reject(error);
 			}
 		});
 
-		server.listen(PREFERRED_PORT, "0.0.0.0", onListening);
+		server.once("listening", onListening);
+		server.listen(PREFERRED_PORT, "0.0.0.0");
 	});
 }
 
