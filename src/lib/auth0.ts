@@ -176,6 +176,15 @@ export async function refreshAccessToken(
 	};
 }
 
+export async function revokeRefreshToken(refreshToken: string, config: Auth0Config): Promise<void> {
+	const url = new URL("oauth/revoke", getAuth0Url(config.auth0Domain));
+	await request(url, {
+		method: "POST",
+		body: new URLSearchParams({ client_id: config.clientId, token: refreshToken }),
+		signal: getRequestSignal(),
+	});
+}
+
 function getRequestSignal(signal?: AbortSignal): AbortSignal {
 	const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
 	return signal ? AbortSignal.any([timeout, signal]) : timeout;
