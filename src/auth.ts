@@ -25,18 +25,19 @@ const CredentialsSchema = z.looseObject({
 });
 type Credentials = z.infer<typeof CredentialsSchema>;
 
-export async function getCredentials(): Promise<{ token: string | undefined; host: string }> {
-	const credentials = await readCredentials();
-	return {
-		token: env.PRISMIC_TOKEN || credentials?.token,
-		host: env.PRISMIC_HOST || credentials?.host || DEFAULT_PRISMIC_HOST,
-	};
+export async function getToken(): Promise<string | undefined> {
+	return env.PRISMIC_TOKEN || (await readCredentials())?.token;
+}
+
+export async function getHost(): Promise<string> {
+	return env.PRISMIC_HOST || (await readCredentials())?.host || DEFAULT_PRISMIC_HOST;
 }
 
 export async function refreshToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return;
-	const { token, host } = await getCredentials();
+	const token = await getToken();
 	if (!token) return;
+	const host = await getHost();
 	const newToken = await baseRefreshToken(token, { host });
 	await saveCredentials({ token: newToken, host });
 	return newToken;
@@ -44,24 +45,23 @@ export async function refreshToken(): Promise<string | undefined> {
 
 let login: Promise<unknown> | undefined;
 
-export async function onUnauthorized(): Promise<Pick<RequestInit, "headers"> | undefined> {
+export async function onUnauthorized<T>(
+	retry: (init?: Pick<RequestInit, "headers">) => Promise<T>,
+): Promise<T | undefined> {
 	if (env.PRISMIC_TOKEN || process.env.CI) return;
-	if (!login && (await isTokenRejected())) {
-		login ??= createLoginSession({
-			onReady: (url) =>
-				console.error(`Your login is missing or expired. Log in to continue: ${url}`),
-		}).finally(() => {
-			login = undefined;
-		});
-	}
+	if (!login && !(await isTokenRejected())) return;
+	login ??= createLoginSession({
+		onReady: (url) => console.error(`Your login is missing or expired. Log in to continue: ${url}`),
+	}).finally(() => {
+		login = undefined;
+	});
 	await login;
-	return { headers: { Authorization: `Bearer ${(await getCredentials()).token}` } };
+	return retry({ headers: { Authorization: `Bearer ${await getToken()}` } });
 }
 
 async function isTokenRejected(): Promise<boolean> {
-	const { token, host } = await getCredentials();
 	try {
-		await validateToken(token, { host });
+		await validateToken(await getToken(), { host: await getHost() });
 		return false;
 	} catch (error) {
 		return error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError;
@@ -92,7 +92,7 @@ async function saveCredentials(credentials: Credentials): Promise<void> {
 export async function createLoginSession(options: {
 	onReady: (url: URL) => void;
 }): Promise<{ email: string }> {
-	const { host } = await getCredentials();
+	const host = await getHost();
 	const corsOrigin = `https://${host}`;
 
 	return new Promise((resolve, reject) => {

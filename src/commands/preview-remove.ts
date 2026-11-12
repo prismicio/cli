@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { deletePreview, getPreviews } from "../lib/prismic/client";
 
@@ -29,16 +29,16 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [previewUrl] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
-	const { results: previews } = await getPreviews({ repo, token, host, onUnauthorized });
+	const { results: previews } = await getPreviews({ repo, getToken, host, onUnauthorized });
 
 	const preview = previews.find((p) => p.url === previewUrl);
 	if (!preview) {
 		throw new CommandError(`Preview not found: ${previewUrl}`);
 	}
 
-	await deletePreview(preview.id, { repo, token, host, onUnauthorized });
+	await deletePreview(preview.id, { repo, getToken, host, onUnauthorized });
 
 	console.info(`Preview removed: ${previewUrl}`);
 });

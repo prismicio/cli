@@ -3,7 +3,7 @@ import { pascalCase } from "change-case";
 import * as z from "zod/mini";
 
 import { getAdapter } from "../adapters";
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { deleteSliceScreenshots, getDocumentTotalByCustomType } from "../lib/prismic/client";
@@ -52,7 +52,7 @@ export default createCommand(config, async ({ values }) => {
 		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 	} = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 	const projectRoot = await findProjectRoot();
 
 	console.info(`Pushing to repository: ${repo}`);
@@ -91,7 +91,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const [local, remote] = await Promise.all([
 		adapter.getModels(),
-		getRemoteModels({ repo, token, host, onUnauthorized }),
+		getRemoteModels({ repo, getToken, host, onUnauthorized }),
 	]);
 	const diff = diffModels(local, remote);
 
@@ -117,17 +117,17 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	try {
-		await writeRemoteModels(diff, { repo, token, host, onUnauthorized });
+		await writeRemoteModels(diff, { repo, getToken, host, onUnauthorized });
 	} catch (error) {
 		throw await explainExistingDocuments(error, diff.customTypes.delete, {
 			repo,
-			token,
+			getToken,
 			host,
 			onUnauthorized,
 		});
 	}
 	for (const { id } of diff.slices.delete) {
-		await deleteSliceScreenshots(id, { repo, token, host, onUnauthorized }).catch((error) => {
+		await deleteSliceScreenshots(id, { repo, getToken, host, onUnauthorized }).catch((error) => {
 			const message = error instanceof Error ? error.message : String(error);
 			console.warn(
 				`Failed to delete screenshots for slice "${id}"${message ? `: ${message}` : "."}`,
@@ -145,7 +145,7 @@ export default createCommand(config, async ({ values }) => {
 	if (onboardingSteps.length > 0) {
 		await completeOnboardingSteps(onboardingSteps, {
 			repo: await getRepositoryName(),
-			token,
+			getToken,
 			host,
 			onUnauthorized,
 		}).catch(() => {});

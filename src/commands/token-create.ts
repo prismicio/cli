@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import {
@@ -55,24 +55,24 @@ export default createCommand(config, async ({ values }) => {
 		throw new CommandError("--allow-releases is only valid for access tokens (not with --write)");
 	}
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
 	let createdToken: string;
 	let scope: string | undefined;
 	if (write) {
-		const writeToken = await createWriteToken(name, { repo, token, host, onUnauthorized });
+		const writeToken = await createWriteToken(name, { repo, getToken, host, onUnauthorized });
 		createdToken = writeToken.token;
 	} else {
 		scope = allowReleases ? "master+releases" : "master";
 
 		// Find or create the OAuth app.
-		const apps = await getOAuthApps({ repo, token, host, onUnauthorized });
+		const apps = await getOAuthApps({ repo, getToken, host, onUnauthorized });
 		let app = apps.find((a) => a.name === name);
-		if (!app) app = await createOAuthApp(name, { repo, token, host, onUnauthorized });
+		if (!app) app = await createOAuthApp(name, { repo, getToken, host, onUnauthorized });
 
 		const accessToken = await createOAuthAuthorization(app.id, scope, {
 			repo,
-			token,
+			getToken,
 			host,
 			onUnauthorized,
 		});

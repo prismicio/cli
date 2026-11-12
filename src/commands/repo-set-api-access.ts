@@ -1,4 +1,4 @@
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { type RepositoryApiAccessLevel, setRepositoryApiAccess } from "../lib/prismic/client";
 import { getRepositoryName } from "../project";
@@ -33,11 +33,11 @@ export default createCommand(config, async ({ positionals, values }) => {
 		);
 	}
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
 	await setRepositoryApiAccess(level as RepositoryApiAccessLevel, {
 		repo,
-		token,
+		getToken,
 		host,
 		onUnauthorized,
 	});

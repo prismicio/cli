@@ -1,5 +1,5 @@
 import { getActiveRepositoryName, getAdapter, NoSupportedFrameworkError } from "../adapters";
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { MissingPackageJson } from "../lib/packageJson";
 import { addPreview } from "../lib/prismic/client";
@@ -42,11 +42,11 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const websiteURL = `${parsed.protocol}//${parsed.host}`;
 	const resolverPath = parsed.pathname === "/" ? undefined : parsed.pathname;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
 	await addPreview(
 		{ name: displayName, websiteURL, resolverPath },
-		{ repo, token, host, onUnauthorized },
+		{ repo, getToken, host, onUnauthorized },
 	);
 
 	console.info(`Preview added: ${previewUrl}`);

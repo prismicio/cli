@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { deleteWebhook, getWebhooks } from "../lib/prismic/client";
 
@@ -29,8 +29,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
-	const { token, host } = await getCredentials();
-	const webhooks = await getWebhooks({ repo, token, host, onUnauthorized });
+	const host = await getHost();
+	const webhooks = await getWebhooks({ repo, getToken, host, onUnauthorized });
 
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
@@ -39,7 +39,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const id = webhook.config._id;
 
-	await deleteWebhook(id, { repo, token, host, onUnauthorized });
+	await deleteWebhook(id, { repo, getToken, host, onUnauthorized });
 
 	console.info(`Webhook removed: ${webhookUrl}`);
 });

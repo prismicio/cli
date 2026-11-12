@@ -1,7 +1,7 @@
 import { setTimeout } from "node:timers/promises";
 
 import { getAdapter } from "../adapters";
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { env } from "../env";
 import { getErrorMessage } from "../error";
 import { createCommand, type CommandConfig, CommandError } from "../lib/command";
@@ -46,7 +46,7 @@ export default createCommand(config, async ({ values }) => {
 		repo = envFlag ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 	} = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
 	trackCommandStart("sync", { watch: true });
 	process.on("SIGINT", () => {
@@ -64,7 +64,7 @@ export default createCommand(config, async ({ values }) => {
 
 	while (true) {
 		try {
-			const remote = await getRemoteModels({ repo, token, host, onUnauthorized });
+			const remote = await getRemoteModels({ repo, getToken, host, onUnauthorized });
 			const sinceLastPoll = lastRemote && diffModels(remote, lastRemote);
 
 			if (
@@ -92,7 +92,7 @@ export default createCommand(config, async ({ values }) => {
 				if (isInitial) {
 					await completeOnboardingSteps(["connectPrismic"], {
 						repo: await getRepositoryName(),
-						token,
+						getToken,
 						host,
 						onUnauthorized,
 					}).catch(() => {});

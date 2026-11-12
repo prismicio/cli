@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { deleteLocale } from "../lib/prismic/client";
 
@@ -29,9 +29,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [code] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
-	await deleteLocale(code, { repo, token, host, onUnauthorized });
+	await deleteLocale(code, { repo, getToken, host, onUnauthorized });
 
 	console.info(`Locale removed: ${code}`);
 });

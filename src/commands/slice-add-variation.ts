@@ -3,7 +3,7 @@ import { pathToFileURL } from "node:url";
 import { camelCase } from "change-case";
 
 import { getAdapter } from "../adapters";
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { readURLFile } from "../lib/file";
 import { uploadSliceScreenshot } from "../lib/prismic/client";
@@ -40,7 +40,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	let imageUrl = "";
 	if (screenshot) {
 		const repo = await getRepositoryName();
-		const { token, host } = await getCredentials();
+		const host = await getHost();
 
 		const url = /^https?:\/\//i.test(screenshot) ? new URL(screenshot) : pathToFileURL(screenshot);
 		const blob = await readURLFile(url);
@@ -48,7 +48,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			sliceId: slice.id,
 			variationId: id,
 			repo,
-			token,
+			getToken,
 			host,
 			onUnauthorized,
 		});

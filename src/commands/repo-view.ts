@@ -1,4 +1,4 @@
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
@@ -24,7 +24,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo = await getRepositoryName(), web, json } = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 	const url = `https://${repo}.${host}/`;
 
 	if (web) {
@@ -34,8 +34,8 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const [repository, syncState] = await Promise.all([
-		getRepository({ repo, token, host, onUnauthorized }),
-		getRepositoryApiAccess({ repo, token, host, onUnauthorized }).catch((error) => {
+		getRepository({ repo, getToken, host, onUnauthorized }),
+		getRepositoryApiAccess({ repo, getToken, host, onUnauthorized }).catch((error) => {
 			if (!isInvalidAuthContextError(error)) throw error;
 		}),
 	]);

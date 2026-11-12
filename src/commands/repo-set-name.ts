@@ -1,4 +1,4 @@
-import { getCredentials, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { setRepositoryName } from "../lib/prismic/client";
 import { getRepositoryName } from "../project";
@@ -23,11 +23,11 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [displayName] = positionals;
 	const { repo = await getRepositoryName() } = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
 	const { repository } = await setRepositoryName(displayName, {
 		repo,
-		token,
+		getToken,
 		host,
 		onUnauthorized,
 	});

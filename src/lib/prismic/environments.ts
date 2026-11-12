@@ -1,10 +1,12 @@
 import { dedent } from "../string";
-import type { Environment, validateToken } from "./client";
+import { type Environment, getEnvironments, validateToken } from "./client";
 
-export function filterEnvironments(
-	environments: Environment[],
-	session: Awaited<ReturnType<typeof validateToken>>,
-): Environment[] {
+export async function getUserEnvironments(
+	config: Parameters<typeof getEnvironments>[0],
+): Promise<Environment[]> {
+	// Validate after the request, which can log in and change the token.
+	const { results: environments } = await getEnvironments(config);
+	const session = await validateToken(await config.getToken(), config);
 	if (session.type === "Machine2Machine") {
 		return environments.filter((environment) => environment.domain === session.domain);
 	}
