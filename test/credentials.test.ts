@@ -86,7 +86,6 @@ describe("credential store", { concurrent: false }, () => {
 		const saved = {
 			...session,
 			pendingLogin: {
-				host: session.host,
 				auth0Domain: session.auth0Domain,
 				clientId: session.clientId,
 				deviceCode: "device-code-secret",

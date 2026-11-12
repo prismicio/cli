@@ -12,11 +12,11 @@ import {
 	CREDENTIALS_PATH,
 	ENCRYPTED_CREDENTIALS_PATH,
 } from "./config";
+import { PendingLoginSchema } from "./lib/auth0";
 import { exists } from "./lib/file";
 import { stringify } from "./lib/json";
 import { KeyringError, systemKeyring, type KeyringErrorReason } from "./lib/keyring";
 import { acquireLock, type Lock } from "./lib/lock";
-import { PendingLoginSchema } from "./lib/prismic/device-flow";
 
 const KEYCHAIN_SERVICE = "prismic-cli";
 const KEYCHAIN_ACCOUNT = `cli:${createHash("sha256").update(fileURLToPath(CONFIG_DIR)).digest("hex").slice(0, 16)}`;
@@ -51,15 +51,6 @@ const FallbackReasonSchema = z.enum([
 ]);
 export type FallbackReason = z.infer<typeof FallbackReasonSchema>;
 
-export const FALLBACK_DESCRIPTIONS: Record<FallbackReason, string> = {
-	wsl: "WSL",
-	"secret-service-missing": "Secret Service isn't available",
-	locked: "the keychain is locked",
-	"write-rejected": "the keychain rejected the key",
-	timeout: "the keychain didn't respond",
-	"module-missing": "the keychain module didn't load",
-};
-
 const CredentialsVersionSchema = z.looseObject({
 	version: z.optional(z.unknown()),
 	store: z.optional(z.unknown()),
@@ -69,7 +60,7 @@ const CredentialsHostSchema = z.looseObject({ host: z.optional(z.string()) });
 
 export type StoreMode = "keyring" | "file";
 
-// `storeReason` says why a login went to a file.
+// `storeReason` says why a login went to a file, for telemetry.
 export type StoredLogin = { store: StoreMode; storeReason?: FallbackReason; session: Session };
 
 export type StoredCredentials = {
