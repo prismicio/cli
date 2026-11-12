@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { createFakeAuth0 } from "./auth0";
-import { approveLogin, captureOutput, getUserCode, it } from "./it";
+import { approveLogin, captureOutput, captureStdout, getUserCode, it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("login", ["--help"]);
@@ -152,17 +152,38 @@ it("makes another command wait for the login in progress", async ({
 
 	const repos = prismic("repo", ["list", "--json"], { nodeOptions: { env: { CI: "" } } });
 	const reposOutput = captureOutput(repos);
+	const reposStdout = captureStdout(repos);
 	await expect.poll(reposOutput, { timeout: 15_000 }).toContain("Waiting for the login");
 	expect(getUserCode(reposOutput())).toBe(getUserCode(loginOutput()));
 
 	auth0.approve();
 	expect((await login).exitCode, loginOutput()).toBe(0);
-	const { stdout, exitCode } = await repos;
-	expect(exitCode, reposOutput()).toBe(0);
-	expect(JSON.parse(stdout)).toEqual(
+	expect((await repos).exitCode, reposOutput()).toBe(0);
+	expect(JSON.parse(reposStdout())).toEqual(
 		expect.arrayContaining([expect.objectContaining({ domain: repo })]),
 	);
 	expect(auth0.requests.filter((request) => request.path === "/oauth/device/code")).toHaveLength(1);
+});
+
+it("drops a login that a logout cancelled while it waited", async ({
+	expect,
+	prismic,
+	logout,
+	auth0,
+}) => {
+	await logout();
+	const login = prismic("login");
+	const output = captureOutput(login);
+	await expect.poll(output, { timeout: 15_000 }).toContain("Waiting for the login");
+	expect((await prismic("logout")).exitCode).toBe(0);
+
+	auth0.approve();
+	expect((await login).exitCode).toBe(1);
+	expect(output()).toContain("A logout cancelled this login. Run the command again to log in.");
+	// The tokens the approval gave are revoked, and nothing is saved.
+	const issued = auth0.requests.filter((request) => request.path === "/oauth/revoke");
+	expect(issued).toHaveLength(1);
+	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });
 
 it("starts a new login for another Auth0 client instead of resuming", async ({
@@ -295,13 +316,15 @@ async function createFakeSentry() {
 		events.push(body);
 		res.end("{}");
 	});
-	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+	// Both loopback addresses, since `sentry.localhost` may resolve to either.
+	await new Promise<void>((resolve) => server.listen(0, "::", resolve));
 	const { port } = server.address() as AddressInfo;
 	return {
 		events,
 		env: {
 			PRISMIC_SENTRY_ENABLED: "true",
-			PRISMIC_SENTRY_DSN: `http://key@127.0.0.1:${port}/1`,
+			// The DSN needs a domain name, not an IP address.
+			PRISMIC_SENTRY_DSN: `http://key@sentry.localhost:${port}/1`,
 		},
 		close: () => new Promise<void>((resolve) => server.close(() => resolve())),
 	};

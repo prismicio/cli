@@ -66,7 +66,9 @@ it("refreshes a login about to expire once, even for parallel commands", async (
 	login,
 	auth0,
 }) => {
-	const { email } = await login({ expiresAt: Date.now() + 60_000 });
+	// The fake Auth0 refreshes to the e2e token, which must differ from the
+	// saved one for the other commands to see a new token.
+	const { email } = await login({ accessToken: "stale-token", expiresAt: Date.now() + 60_000 });
 	const results = await Promise.all(Array.from({ length: 10 }, () => prismic("whoami")));
 	for (const { stdout, stderr, exitCode } of results) {
 		expect(exitCode, stderr).toBe(0);

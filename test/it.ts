@@ -252,6 +252,13 @@ export function captureOutput(proc: Result): () => string {
 	return () => output;
 }
 
+// tinyexec's own output misses what a capture read first.
+export function captureStdout(proc: Result): () => string {
+	let stdout = "";
+	proc.process?.stdout?.on("data", (c: Buffer) => (stdout += c.toString()));
+	return () => stdout;
+}
+
 // Approves the login a command waits for, as a person would in the browser.
 export async function approveLogin(
 	expect: ExpectStatic,

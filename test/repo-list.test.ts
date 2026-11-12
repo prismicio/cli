@@ -1,4 +1,4 @@
-import { approveLogin, captureOutput, it } from "./it";
+import { approveLogin, captureOutput, captureStdout, it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("repo", ["list", "--help"]);
@@ -45,12 +45,14 @@ it("logs in and continues when not logged in", async ({ expect, prismic, logout,
 	await logout();
 	const proc = prismic("repo", ["list", "--json"], { nodeOptions: { env: { CI: "" } } });
 	const output = captureOutput(proc);
+	const stdout = captureStdout(proc);
 	await approveLogin(expect, output, auth0);
-	const { stdout, stderr, exitCode } = await proc;
+	const { exitCode } = await proc;
 	expect(exitCode, output()).toBe(0);
-	expect(stderr).toContain("You are not logged in.");
-	expect(stderr).toContain("Logged in to Prismic as");
-	expect(JSON.parse(stdout)).toEqual(
+	expect(output()).toContain("You are not logged in.");
+	expect(output()).toContain("Logged in to Prismic as");
+	// The login prompt stays out of the command's output.
+	expect(JSON.parse(stdout())).toEqual(
 		expect.arrayContaining([expect.objectContaining({ domain: repo })]),
 	);
 });
@@ -67,10 +69,10 @@ it("logs in again and continues when the session ended", async ({
 	const proc = prismic("repo", ["list"], { nodeOptions: { env: { CI: "" } } });
 	const output = captureOutput(proc);
 	await approveLogin(expect, output, auth0);
-	const { stdout, stderr, exitCode } = await proc;
+	const { exitCode } = await proc;
 	expect(exitCode, output()).toBe(0);
-	expect(stderr).toContain("Your login expired.");
-	expect(stdout).toContain(repo);
+	expect(output()).toContain("Your login expired.");
+	expect(output()).toContain(repo);
 });
 
 it("doesn't log in when Auth0 can't be reached", async ({ expect, prismic, login, auth0 }) => {

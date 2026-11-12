@@ -197,6 +197,7 @@ async function isTokenRejected(): Promise<boolean> {
 
 const WAIT_LIMIT_MESSAGE =
 	"Waiting for approval. After the user approves, run the same command again. It continues this login.";
+const LOGGED_OUT_MESSAGE = "A logout cancelled this login. Run the command again to log in.";
 
 type Login = {
 	host: string;
@@ -230,21 +231,20 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 		resumed: false,
 	};
 
-	// Ctrl-C ends the command, even when the login runs inside a request whose
-	// errors the command ignores.
-	const onInterrupt = async (): Promise<void> => {
-		console.error("\nLogin cancelled.");
+	// Ctrl-C during a login runs only this handler, so a command that stops on
+	// Ctrl-C, like sync, can't exit before the login cleans up.
+	const handlers = process.rawListeners("SIGINT") as NodeJS.SignalsListener[];
+	process.removeAllListeners("SIGINT");
+	process.once("SIGINT", async () => {
+		console.error();
 		if (login.pending) await setPendingLogin(login.pending, undefined).catch(() => {});
 		recordLogin({ result: "cancelled", resumed: login.resumed, startedAt: login.startedAt });
-		process.exitCode = 130;
-		trackCommandEnd();
-		process.exit();
-	};
-	process.once("SIGINT", onInterrupt);
+		await endCommand("Login cancelled.", 130);
+	});
 
-	let completed: CompletedLogin | undefined;
+	let outcome: CompletedLogin | "wait-limit" | "logged-out";
 	try {
-		completed = await completeLogin(login, { browser: Boolean(options.browser) && isPerson });
+		outcome = await completeLogin(login, { browser: Boolean(options.browser) && isPerson });
 	} catch (error) {
 		recordLogin({
 			result: getLoginResult(error),
@@ -253,27 +253,41 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 		});
 		throw error;
 	} finally {
-		process.off("SIGINT", onInterrupt);
+		process.removeAllListeners("SIGINT");
+		for (const handler of handlers) process.on("SIGINT", handler);
 	}
 
 	const { resumed, startedAt } = login;
-	if (!completed) {
+	if (outcome === "wait-limit") {
 		recordLogin({ result: "wait-limit", resumed, startedAt });
-		throw new CommandError(WAIT_LIMIT_MESSAGE);
+		return endCommand(WAIT_LIMIT_MESSAGE, 1);
 	}
-	const { token, email, store, storeReason } = completed;
+	if (outcome === "logged-out") {
+		recordLogin({ result: "cancelled", resumed, startedAt });
+		throw new CommandError(LOGGED_OUT_MESSAGE);
+	}
+	const { token, email, store, storeReason } = outcome;
 	recordLogin({ result: "success", resumed, startedAt, store, storeReason });
 	console.error(`Logged in to Prismic as ${email}`);
 	return token;
 }
 
-// Returns nothing when an agent's wait ends before the approval.
+// Ends the command at once, even inside a request whose errors the command
+// catches, like sync's loop.
+async function endCommand(message: string, exitCode: number): Promise<never> {
+	process.exitCode = exitCode;
+	trackCommandEnd({ error: message });
+	// Exiting right after a write can drop it from a pipe.
+	await new Promise((resolve) => process.stderr.write(`${message}\n`, resolve));
+	process.exit();
+}
+
 async function completeLogin(
 	login: Login,
 	options: { browser: boolean },
-): Promise<CompletedLogin | undefined> {
+): Promise<CompletedLogin | "wait-limit" | "logged-out"> {
 	const other = await lockLoginAfterOthers(login);
-	if (!other) return;
+	if (!other) return "wait-limit";
 
 	let saved: SavedLogin;
 	try {
@@ -285,8 +299,10 @@ async function completeLogin(
 			if (pending.deviceCode !== other.shown?.deviceCode) printLoginPrompt(pending);
 			if (options.browser) openBrowser(new URL(getDeviceLoginPrompt(pending).url));
 			const tokens = await pollUntilApproved(login, pending);
-			if (!tokens) return;
-			saved = { ...(await saveLogin(login, pending, tokens)), token: tokens.accessToken };
+			if (!tokens) return "wait-limit";
+			const store = await saveLogin(login, pending, tokens);
+			if (!store) return "logged-out";
+			saved = { ...store, token: tokens.accessToken };
 		}
 	} finally {
 		await other.lock.release();
@@ -308,7 +324,13 @@ async function lockLoginAfterOthers(
 		if (!(error instanceof LockTimeoutError)) throw error;
 	}
 
-	const session = (await readCredentials().catch(() => undefined))?.login?.session;
+	// The other command saves its code under this lock, so it's there once the
+	// lock is free.
+	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+	const session = await readCredentials()
+		.then((credentials) => credentials.login?.session)
+		.catch(() => undefined)
+		.finally(() => lock.release());
 	const shown = session && getResumableLogin(session, login);
 	if (shown) printLoginPrompt(shown);
 	const timeoutMs = Math.min(login.deadline - Date.now(), LOGIN_WAIT_MS);
@@ -420,36 +442,39 @@ async function setPendingLogin(
 	}
 }
 
-// prepareLogin runs again in this lock hold, since a logout may have deleted
-// the key while the login waited.
+// Returns nothing when a logout deleted the pending login while it waited.
 async function saveLogin(
 	login: Login,
 	pending: PendingLogin,
 	tokens: DeviceLoginTokens,
-): Promise<Pick<StoredLogin, "store" | "storeReason">> {
+): Promise<Pick<StoredLogin, "store" | "storeReason"> | undefined> {
 	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
 	try {
-		const store = await prepareLogin(lock);
 		const { auth0Domain, clientId } = pending;
+		// A saved login that can't be read can't have been logged out.
+		const stored = await readCredentials().catch(() => undefined);
+		if (stored && stored.login?.session.pendingLogin?.deviceCode !== pending.deviceCode) {
+			await revokeRefreshToken(tokens.refreshToken, { auth0Domain, clientId }).catch(() => {});
+			return;
+		}
+
+		const store = await prepareLogin(lock);
 		const session = { host: login.host, auth0Domain, clientId, ...tokens };
-		const { warning } = await replaceSession(lock, { ...store, session });
+		const { warning } = await writeCredentials(lock, { ...store, session });
 		if (warning) console.warn(warning);
+		// The new login is saved first, so a failed revoke only leaves the
+		// previous session to expire.
+		const previous = stored?.login?.session;
+		if (previous?.refreshToken) {
+			await revokeRefreshToken(previous.refreshToken, {
+				auth0Domain: previous.auth0Domain,
+				clientId: previous.clientId,
+			}).catch(() => {});
+		}
 		return store;
 	} finally {
 		await lock.release();
 	}
-}
-
-// The new login is saved before the previous one is revoked, so a failed
-// revoke only leaves the previous session to expire.
-async function replaceSession(lock: Lock, storedLogin: StoredLogin): Promise<{ warning?: string }> {
-	const previous = (await readCredentials().catch(() => undefined))?.login?.session;
-	const { warning } = await writeCredentials(lock, storedLogin);
-	if (previous?.refreshToken) {
-		const { refreshToken, auth0Domain, clientId } = previous;
-		await revokeRefreshToken(refreshToken, { auth0Domain, clientId }).catch(() => {});
-	}
-	return { warning };
 }
 
 // The profile request also creates the Prismic user for a new social or SSO
