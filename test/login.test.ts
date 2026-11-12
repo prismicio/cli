@@ -214,6 +214,30 @@ it("drops a login that a logout cancelled while it waited", async ({
 	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });
 
+it("cancels a command waiting for a login that a logout cancelled", async ({
+	expect,
+	prismic,
+	logout,
+	auth0,
+}) => {
+	await logout();
+	const first = prismic("login");
+	const second = prismic("login");
+	const firstOutput = captureOutput(first);
+	const secondOutput = captureOutput(second);
+	await expect.poll(firstOutput, { timeout: 15_000 }).toContain("Waiting for the login");
+	await expect.poll(secondOutput, { timeout: 15_000 }).toContain("Waiting for the login");
+	expect((await prismic("logout")).exitCode).toBe(0);
+
+	auth0.approve();
+	const message = "A logout cancelled this login. Run the command again to log in.";
+	expect((await first).exitCode).toBe(1);
+	expect(firstOutput()).toContain(message);
+	expect((await second).exitCode).toBe(1);
+	expect(secondOutput()).toContain(message);
+	expect(auth0.requests.filter((request) => request.path === "/oauth/device/code")).toHaveLength(1);
+});
+
 it("starts a new login for another Auth0 client instead of resuming", async ({
 	expect,
 	prismic,

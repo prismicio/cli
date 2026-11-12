@@ -298,6 +298,7 @@ async function completeLogin(
 	let saved: SavedLogin;
 	try {
 		const started = await startLogin(login, other);
+		if (started === "logged-out") return started;
 		if ("token" in started) {
 			saved = started;
 		} else {
@@ -352,15 +353,19 @@ async function lockLoginAfterOthers(login: Login): Promise<LoginLock | undefined
 
 // Resumes the saved login, or starts one and saves it so a later run can
 // continue it. prepareLogin and that write share one lock hold. Returns the
-// saved login instead when another command logged in while this one waited.
+// saved login instead when another command logged in while this one waited,
+// and "logged-out" when a logout cancelled the login it waited for.
 async function startLogin(
 	login: Login,
 	other: Omit<LoginLock, "lock">,
-): Promise<{ pending: PendingLogin } | SavedLogin> {
+): Promise<{ pending: PendingLogin } | SavedLogin | "logged-out"> {
 	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
 	try {
 		// A saved login that can't be read doesn't stop a new one.
-		const stored = (await readCredentials().catch(() => undefined))?.login;
+		const credentials = await readCredentials().catch(() => undefined);
+		// A failed login keeps the saved login, but a logout deletes it.
+		if (other.shown && credentials && !credentials.login) return "logged-out";
+		const stored = credentials?.login;
 		const resumable = stored && getResumableLogin(stored.session, login);
 		if (resumable) {
 			Object.assign(login, { pending: resumable, startedAt: resumable.startedAt, resumed: true });
