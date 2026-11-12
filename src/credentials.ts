@@ -220,7 +220,7 @@ async function lockConfigDir(path: URL, config: { timeoutMs: number }): Promise<
 		const code = (error as NodeJS.ErrnoException).code;
 		if (code !== "EACCES" && code !== "EPERM" && code !== "EROFS") throw error;
 		throw new CredentialsError(
-			`Can't write to ${fileURLToPath(CONFIG_DIR).replace(/[/\\]$/, "")}. Set PRISMIC_CONFIG_DIR to a folder you can write to.`,
+			`Can't write to ${fileURLToPath(CONFIG_DIR).replace(/[/\\]$/, "")}. Set PRISMIC_CONFIG_DIR to a private folder outside your project.`,
 			{ cause: error },
 		);
 	}

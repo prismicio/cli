@@ -1,6 +1,6 @@
-import { chmod } from "node:fs/promises";
+import { chmod, readFile } from "node:fs/promises";
 
-import { it } from "./it";
+import { captureOutput, it, waitForLoginPrompt } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("whoami", ["--help"]);
@@ -80,6 +80,33 @@ it("uses a token that hasn't expired when Auth0 can't be reached", async ({
 	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
 });
 
+// Unlike the `login` fixture, `prismic login` saves to the keychain where one
+// is usable.
+it("refreshes a login saved by `prismic login`", async ({
+	expect,
+	home,
+	prismic,
+	logout,
+	auth0,
+	token,
+}) => {
+	await logout();
+	const login = prismic("login");
+	const output = captureOutput(login);
+	await waitForLoginPrompt(expect, output);
+	// Inside the 5-minute refresh margin.
+	auth0.approve({ expiresIn: 60 });
+	expect((await login).exitCode, output()).toBe(0);
+
+	const { stderr, exitCode } = await prismic("whoami");
+	expect(exitCode, stderr).toBe(0);
+	const grants = auth0.requestsTo("/oauth/token").map((params) => params.grant_type);
+	expect(grants.filter((grant) => grant === "refresh_token")).toHaveLength(1);
+	const credentials = await readFile(new URL(".config/prismic/credentials.json", home), "utf8");
+	// The `exec` fixture keeps Linux off the keyring, so its logins go to this file.
+	if (process.platform !== "linux") expect(credentials).not.toContain(token);
+});
+
 it("refreshes a login about to expire, once for parallel commands", async ({
 	expect,
 	prismic,
@@ -116,7 +143,9 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
 			await chmod(configDir, 0o500);
 			const expired = await prismic("whoami");
 			expect(expired.exitCode).toBe(1);
-			expect(expired.stderr).toContain("Set PRISMIC_CONFIG_DIR to a folder you can write to.");
+			expect(expired.stderr).toContain(
+				"Set PRISMIC_CONFIG_DIR to a private folder outside your project.",
+			);
 		} finally {
 			await chmod(configDir, 0o700);
 		}

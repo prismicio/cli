@@ -15,7 +15,8 @@ export type FakeAuth0 = {
 	clientId: string;
 	/** The form fields of each request to this path, in order. */
 	requestsTo: (path: string) => Record<string, string>[];
-	approve: () => void;
+	/** `expiresIn` sets the access token's lifetime in seconds. */
+	approve: (options?: { expiresIn?: number }) => void;
 	deny: (options?: { description?: string }) => void;
 	expire: () => void;
 	respondOnce: (path: string, response: FakeAuth0Response) => void;
@@ -29,6 +30,7 @@ type DeviceCode = {
 	expiresAt: number;
 	status: "pending" | "approved" | "denied" | "redeemed";
 	description?: string;
+	expiresIn?: number;
 };
 
 export async function createFakeAuth0(options: { accessToken: string }): Promise<FakeAuth0> {
@@ -95,7 +97,7 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 						return sendError(res, 403, "authorization_pending", "Waiting for approval.");
 					}
 					code.status = "redeemed";
-					return sendTokens(res);
+					return sendTokens(res, code.expiresIn);
 				}
 				if (params.grant_type === "refresh_token") {
 					// Each refresh token works once. Auth0 accepts the previous one for 60
@@ -123,11 +125,11 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 		return refreshToken;
 	}
 
-	function sendTokens(res: ServerResponse): void {
+	function sendTokens(res: ServerResponse, expiresIn = 3600): void {
 		send(res, 200, {
 			access_token: accessToken,
 			refresh_token: issueRefreshToken(),
-			expires_in: 3600,
+			expires_in: expiresIn,
 			token_type: "Bearer",
 		});
 	}
@@ -148,8 +150,10 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 		clientId,
 		requestsTo: (path) =>
 			requests.filter((request) => request.path === path).map((request) => request.params),
-		approve: () => {
-			latestCode().status = "approved";
+		approve: ({ expiresIn } = {}) => {
+			const code = latestCode();
+			code.status = "approved";
+			code.expiresIn = expiresIn;
 		},
 		deny: ({ description } = {}) => {
 			const code = latestCode();

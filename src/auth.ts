@@ -314,11 +314,11 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 		} else {
 			const { pending } = started;
 			if (pending.deviceCode !== login.shown?.deviceCode) printLoginPrompt(pending);
-			const url = new URL(pending.verificationUriComplete ?? pending.verificationUri);
 			// openBrowser() runs a shell, so the URL from Auth0 must hold no shell
 			// syntax, including cmd.exe's %NAME%.
-			if (options.browser && url.protocol === "https:" && /^[\w\-.:/?=&~+]+$/.test(url.href)) {
-				openBrowser(url);
+			const href = pending.verificationUriComplete ?? pending.verificationUri;
+			if (options.browser && /^https:\/\/[\w\-.:/?=&~+]+$/.test(href) && URL.canParse(href)) {
+				openBrowser(new URL(href));
 			}
 			const tokens = await pollUntilApproved(login, pending);
 			if ("status" in tokens) return tokens;
