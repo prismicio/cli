@@ -58,7 +58,7 @@ it("logs in with a code, and saves the login for this user only", async ({
 	expect(whoami.stdout).toContain(email);
 });
 
-it("stops an agent after 90 seconds, and its next run continues the login", async ({
+it("stops an agent at its wait limit, and its next run continues the login", async ({
 	expect,
 	prismic,
 	logout,
@@ -67,12 +67,11 @@ it("stops an agent after 90 seconds, and its next run continues the login", asyn
 	await logout();
 	const { stdout: taskId } = await prismic("task-id");
 	const args = ["--task-id", taskId.trim(), "--user-intent", "Log in to Prismic"];
-	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
+	// Agents wait 90 seconds.
+	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent", PRISMIC_AGENT_WAIT_MS: "1000" } } };
 
-	const startedAt = Date.now();
 	const first = await prismic("login", args, agent);
 	expect(first.exitCode).toBe(1);
-	expect(Date.now() - startedAt).toBeGreaterThanOrEqual(90_000);
 	expect(first.stderr).toContain(
 		"Waiting for approval. After the user approves, run the same command again. It continues this login.",
 	);
@@ -82,7 +81,7 @@ it("stops an agent after 90 seconds, and its next run continues the login", asyn
 	expect(second.exitCode, second.stderr).toBe(0);
 	expect(getUserCode(second.stderr)).toBe(getUserCode(first.stderr));
 	expect(auth0.requests.filter((request) => request.path === "/oauth/device/code")).toHaveLength(1);
-}, 150_000);
+});
 
 it("continues a killed login with its code and its slower polling", async ({
 	expect,

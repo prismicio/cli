@@ -40,8 +40,12 @@ import { forgetTrackedUser, getLoginResult, recordLogin, trackCommandEnd } from 
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
 const CREDENTIALS_LOCK_TIMEOUT_MS = 30_000;
-// Below Claude Code's 2-minute command timeout.
-const AGENT_WAIT_MS = 90_000;
+// Below Claude Code's 2-minute command timeout. Tests shorten it, and
+// production builds drop that branch.
+const AGENT_WAIT_MS =
+	process.env.PROD === "false" && process.env.PRISMIC_AGENT_WAIT_MS
+		? Number(process.env.PRISMIC_AGENT_WAIT_MS)
+		: 90_000;
 // Auth0's device codes expire after 15 minutes.
 const LOGIN_WAIT_MS = 15 * 60 * 1000;
 const PENDING_POLL_MS = 250;
