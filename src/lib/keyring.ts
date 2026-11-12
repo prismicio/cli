@@ -59,6 +59,8 @@ function security(
 ): Promise<string | undefined> {
 	return new Promise((resolve, reject) => {
 		const child = spawn("/usr/bin/security", args, {
+			// A Ctrl-C meant for the caller must not make the call fail.
+			detached: true,
 			signal: AbortSignal.timeout(options.timeoutMs),
 			stdio: ["pipe", "pipe", "ignore"],
 		});

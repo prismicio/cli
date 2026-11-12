@@ -65,6 +65,7 @@ it("stops an agent at its wait limit, and its next run continues the login", asy
 		nodeOptions: { env: { ...env, PRISMIC_AGENT_WAIT_MS: "30000" } },
 	});
 	expect(second.exitCode, second.stderr).toBe(0);
+	expect(getUserCode(first.stderr)).toBeDefined();
 	expect(getUserCode(second.stderr)).toBe(getUserCode(first.stderr));
 	expect(auth0.requestsTo("/oauth/device/code")).toHaveLength(1);
 });

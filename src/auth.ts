@@ -79,6 +79,7 @@ let renewal: Promise<string | undefined> | undefined;
 let ended = false;
 
 let reauthentication: Promise<string> | undefined;
+let savedHost: Promise<string | undefined> | undefined;
 
 export async function getToken(): Promise<string | undefined> {
 	return env.PRISMIC_TOKEN || getSessionToken();
@@ -86,7 +87,10 @@ export async function getToken(): Promise<string | undefined> {
 
 export async function getHost(): Promise<string> {
 	if (env.PRISMIC_HOST) return env.PRISMIC_HOST;
-	return (await readLoginSummary()).host || DEFAULT_PRISMIC_HOST;
+	// Read once. A command keeps its host, and the session check with it, even
+	// if another command logs in to another host meanwhile.
+	savedHost ??= readLoginSummary().then((summary) => summary.host);
+	return (await savedHost) || DEFAULT_PRISMIC_HOST;
 }
 
 // `forceRefresh` renews a token that a server refused, even if it's not about
@@ -105,8 +109,6 @@ async function getSessionToken(
 	// Parallel calls share one renewal.
 	renewal ??= withCredentialsLock(async (lock) => {
 		const { login } = await readCredentials();
-		// Another command may have saved a login for another host meanwhile.
-		if (login?.session.host !== session.host) return;
 		return renewLogin(lock, login, session.accessToken, { canRetry: true });
 	}).finally(() => (renewal = undefined));
 	try {
@@ -128,7 +130,8 @@ async function renewLogin(
 	options: { canRetry: boolean },
 ): Promise<string | undefined> {
 	const session = storedLogin?.session;
-	if (!storedLogin || !session?.refreshToken) return;
+	// Another command may have saved a login for another host meanwhile.
+	if (!storedLogin || !session?.refreshToken || session.host !== (await getHost())) return;
 
 	// Another process renewed it while this one waited for the lock.
 	const freshToken = getUnexpiredToken(session, REFRESH_MARGIN_MS);
