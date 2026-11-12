@@ -61,7 +61,9 @@ it("stops an agent at its wait limit, and its next run continues the login", asy
 	);
 
 	auth0.approve();
-	const second = await prismic("login", args, { nodeOptions: { env } });
+	const second = await prismic("login", args, {
+		nodeOptions: { env: { ...env, PRISMIC_AGENT_WAIT_MS: "30000" } },
+	});
 	expect(second.exitCode, second.stderr).toBe(0);
 	expect(getUserCode(second.stderr)).toBe(getUserCode(first.stderr));
 	expect(auth0.requestsTo("/oauth/device/code")).toHaveLength(1);
@@ -128,6 +130,7 @@ it("explains a login that Auth0 refused", async ({ expect, prismic, logout, auth
 		],
 	] as const;
 
+	const outputs = [];
 	for (const [answer, message] of answers) {
 		const proc = prismic("login");
 		const output = captureOutput(proc);
@@ -135,9 +138,24 @@ it("explains a login that Auth0 refused", async ({ expect, prismic, logout, auth
 		answer();
 		expect((await proc).exitCode).toBe(1);
 		expect(output()).toContain(message);
+		outputs.push(output());
 	}
 	// Each refused code was deleted, so each run started a new one.
 	expect(auth0.requestsTo("/oauth/device/code")).toHaveLength(4);
+	for (const { device_code } of auth0.requestsTo("/oauth/token")) {
+		expect(outputs.join("\n")).not.toContain(device_code);
+	}
+});
+
+it("stops a login when another command logs out", async ({ expect, prismic, logout }) => {
+	await logout();
+	const proc = prismic("login");
+	const output = captureOutput(proc);
+	await waitForLoginPrompt(expect, output);
+	const { exitCode: logoutExitCode, stderr } = await prismic("logout");
+	expect(logoutExitCode, stderr).toBe(0);
+	expect((await proc).exitCode).toBe(1);
+	expect(output()).toContain("A logout cancelled this login. Run the command again to log in.");
 });
 
 it("explains a login that isn't set up", async ({ expect, host, prismic, logout }) => {

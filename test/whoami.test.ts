@@ -55,11 +55,18 @@ it("reports a Write API token", async ({ expect, prismic, repo, writeToken }) =>
 	expect(stdout).toContain(repo);
 });
 
-it("refreshes a login about to expire", async ({ expect, prismic, login, auth0 }) => {
+it("refreshes a login about to expire, once for parallel commands", async ({
+	expect,
+	prismic,
+	login,
+	auth0,
+}) => {
 	// The fake Auth0 refreshes to the e2e token.
 	const { email } = await login({ accessToken: "stale-token", expiresAt: Date.now() + 60_000 });
-	const { stdout, stderr, exitCode } = await prismic("whoami");
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain(email);
+	const results = await Promise.all([prismic("whoami"), prismic("whoami")]);
+	for (const { stdout, stderr, exitCode } of results) {
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(email);
+	}
 	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
 });

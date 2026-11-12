@@ -4,6 +4,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 
 import {
+	CredentialsError,
 	lockLogin,
 	prepareLogin,
 	readCredentials,
@@ -108,10 +109,11 @@ async function getSessionToken(
 	try {
 		return await renewal;
 	} catch (error) {
-		// Without Auth0, the current token works until it expires, unless a
-		// server already refused it.
+		// Without Auth0 or the saved login, the current token works until it
+		// expires, unless a server already refused it.
 		const token = getUnexpiredToken(session);
-		if (error instanceof DeviceFlowError && token && !forceRefresh) return token;
+		const isRenewalError = error instanceof DeviceFlowError || error instanceof CredentialsError;
+		if (isRenewalError && token && !forceRefresh) return token;
 		throw error;
 	}
 }
@@ -159,8 +161,14 @@ function getUnexpiredToken(session: Session, marginMs = 0): string | undefined {
 
 export async function onUnauthorized<T>(
 	retry: (init?: Pick<RequestInit, "headers">) => Promise<T>,
+	sent: Headers,
 ): Promise<T | undefined> {
 	if (env.PRISMIC_TOKEN || process.env.CI) return;
+	// A parallel request may have renewed the token since this one was sent.
+	const current = await getToken();
+	if (current && sent.get("Authorization") !== `Bearer ${current}`) {
+		return retry({ headers: { Authorization: `Bearer ${current}` } });
+	}
 	if (!reauthentication && !(await isTokenRejected())) return;
 	reauthentication ??= reauthenticate().finally(() => (reauthentication = undefined));
 	const token = await reauthentication;
@@ -196,7 +204,8 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	// An agent stops before its command times out, then runs the command again
 	// to continue. Without a terminal, nobody may be there to approve, so it
 	// stops the same way.
-	const isPerson = detectAgent() === undefined && process.stdin.isTTY === true;
+	const isPerson =
+		detectAgent() === undefined && process.stdin.isTTY === true && process.stderr.isTTY === true;
 	const login: Login = {
 		host,
 		auth0,
@@ -246,7 +255,8 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 		throw new CommandError("A logout cancelled this login. Run the command again to log in.");
 	}
 	const { token, email, store, storeReason } = outcome;
-	recordLogin({ result: "success", resumed, startedAt, store, storeReason });
+	// A command that only waited for another command's login doesn't count it.
+	if (login.pending) recordLogin({ result: "success", resumed, startedAt, store, storeReason });
 	console.error(`Logged in to Prismic as ${email}`);
 	return token;
 }
@@ -295,11 +305,13 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 		} else {
 			const { pending } = started;
 			if (pending.deviceCode !== login.shown?.deviceCode) printLoginPrompt(pending);
-			if (options.browser) {
-				openBrowser(new URL(pending.verificationUriComplete ?? pending.verificationUri));
+			const url = new URL(pending.verificationUriComplete ?? pending.verificationUri);
+			// openBrowser() runs a shell, so the URL from Auth0 must hold no shell syntax.
+			if (options.browser && url.protocol === "https:" && /^[\w\-.:/?=&%~+]+$/.test(url.href)) {
+				openBrowser(url);
 			}
 			const tokens = await pollUntilApproved(login, pending);
-			if (!tokens) return { status: "wait-limit" };
+			if ("status" in tokens) return tokens;
 			const stored = await saveLogin(login, pending, tokens);
 			if (!stored) return { status: "logged-out" };
 			saved = stored;
@@ -362,12 +374,13 @@ async function startLogin(login: Login): Promise<StartedLogin> {
 			return { status: "saved", token, store: current.store, storeReason: current.storeReason };
 		}
 
-		const pending = await startDeviceLogin(LOGIN_PARAMS, login.auth0);
+		const pending = { ...(await startDeviceLogin(LOGIN_PARAMS, login.auth0)), host: login.host };
 		login.pending = pending;
 		login.startedAt = pending.startedAt;
 		const store = await prepareLogin(lock);
-		// The current session works until the new login replaces it.
-		const session = current?.session ?? { host: login.host, ...login.auth0 };
+		// The current session works until the new login replaces it, even on
+		// another host.
+		const session = stored?.session ?? { host: login.host, ...login.auth0 };
 		await writeCredentials(lock, { ...store, session: { ...session, pendingLogin: pending } });
 		return { status: "pending", pending };
 	});
@@ -379,7 +392,7 @@ function getResumableLogin(session: Session, login: Login): PendingLogin | undef
 	const { pendingLogin } = session;
 	if (
 		pendingLogin &&
-		session.host === login.host &&
+		pendingLogin.host === login.host &&
 		pendingLogin.auth0Domain === login.auth0.auth0Domain &&
 		pendingLogin.clientId === login.auth0.clientId &&
 		pendingLogin.expiresAt > Date.now()
@@ -399,25 +412,38 @@ function printLoginPrompt(pending: PendingLogin): void {
 	`);
 }
 
-// Returns nothing when an agent's wait ends first. The pending login stays, so
-// the next run continues it.
+// Stops early when an agent's wait ends, which keeps the pending login for the
+// next run, or when a logout deletes the pending login.
 async function pollUntilApproved(
 	login: Login,
 	pending: PendingLogin,
-): Promise<DeviceLoginTokens | undefined> {
-	const signal = Number.isFinite(login.deadline)
+): Promise<DeviceLoginTokens | { status: "wait-limit" | "logged-out" }> {
+	const loggedOut = new AbortController();
+	const watcher = setInterval(async () => {
+		const stored = await readCredentials().catch(() => undefined);
+		if (stored && stored.login?.session.pendingLogin?.deviceCode !== pending.deviceCode) {
+			loggedOut.abort();
+		}
+	}, PENDING_POLL_MS);
+	const deadline = Number.isFinite(login.deadline)
 		? AbortSignal.timeout(Math.max(0, login.deadline - Date.now()))
 		: undefined;
 	try {
 		return await pollDeviceLogin(pending, {
-			signal,
-			onUpdate: (next) => setPendingLogin(pending, next),
+			signal: deadline ? AbortSignal.any([deadline, loggedOut.signal]) : loggedOut.signal,
+			onUpdate: (next) => setPendingLogin(pending, { ...next, host: login.host }),
 		});
 	} catch (error) {
-		if (signal?.aborted) return;
-		// The code can't be used anymore.
-		if (error instanceof DeviceFlowError) await setPendingLogin(pending, undefined);
+		if (error instanceof DeviceFlowError) {
+			// The code can't be used anymore.
+			await setPendingLogin(pending, undefined);
+			throw error;
+		}
+		if (loggedOut.signal.aborted) return { status: "logged-out" };
+		if (deadline?.aborted) return { status: "wait-limit" };
 		throw error;
+	} finally {
+		clearInterval(watcher);
 	}
 }
 
@@ -425,7 +451,7 @@ async function pollUntilApproved(
 // replaced it.
 async function setPendingLogin(
 	current: PendingLogin,
-	next: PendingLogin | undefined,
+	next: Session["pendingLogin"],
 ): Promise<void> {
 	await withCredentialsLock(async (lock) => {
 		const stored = (await readCredentials()).login;

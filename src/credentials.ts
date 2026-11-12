@@ -39,7 +39,9 @@ const SessionSchema = z.object({
 	refreshToken: z.optional(z.string()),
 	/** Milliseconds since the epoch, from the local time of receipt. */
 	expiresAt: z.optional(z.number()),
-	pendingLogin: z.optional(PendingLoginSchema),
+	// Its host can differ from the session's, which works until the new login
+	// replaces it.
+	pendingLogin: z.optional(z.extend(PendingLoginSchema, { host: z.string() })),
 });
 export type Session = z.infer<typeof SessionSchema>;
 

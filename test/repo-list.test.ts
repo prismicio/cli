@@ -76,7 +76,8 @@ it("logs in again and continues when the session ended", async ({
 });
 
 it("doesn't log in when Auth0 can't be reached", async ({ expect, prismic, login, auth0 }) => {
-	await login({ expiresAt: Date.now() - 1000 });
+	// The server refuses the token, so the CLI must renew it.
+	await login({ accessToken: "rejected-token" });
 	auth0.respondOnce("/oauth/token", { status: 503 });
 	const { stderr, exitCode } = await prismic("repo", ["list"], {
 		nodeOptions: { env: { CI: "" } },

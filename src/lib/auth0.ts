@@ -55,7 +55,7 @@ export async function startDeviceLogin(
 	const response = await request(url, {
 		method: "POST",
 		body: new URLSearchParams({ client_id: config.clientId, ...params }),
-		signal: getRequestSignal(),
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		schema: DeviceCodeSchema,
 	}).catch((error) => {
 		const reason = getFailureReason(error) ?? (isTransient(error) ? "unavailable" : undefined);
@@ -93,7 +93,10 @@ export async function pollDeviceLogin(
 	let current = pending;
 	let delayMs = current.intervalMs;
 
+	// The signal stops the wait between requests. A request in flight finishes,
+	// because Auth0 may have spent the code on it.
 	while (true) {
+		signal?.throwIfAborted();
 		if (Date.now() >= current.expiresAt) throw new DeviceFlowError("expired");
 
 		try {
@@ -105,7 +108,7 @@ export async function pollDeviceLogin(
 					device_code: current.deviceCode,
 					client_id: current.clientId,
 				}),
-				signal: getRequestSignal(signal),
+				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 				schema: DeviceTokenSchema,
 			});
 			return {
@@ -114,7 +117,6 @@ export async function pollDeviceLogin(
 				expiresAt: Date.now() + tokens.expires_in * 1000,
 			};
 		} catch (error) {
-			signal?.throwIfAborted();
 			const retryAfterMs = getRetryAfterMs(error);
 			const code = getOAuthError(error)?.error;
 			if (code === "authorization_pending") {
@@ -160,7 +162,7 @@ export async function refreshAccessToken(
 			refresh_token: refreshToken,
 			client_id: config.clientId,
 		}),
-		signal: getRequestSignal(),
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		schema: RefreshedTokenSchema,
 	}).catch((error) => {
 		if (getOAuthError(error)?.error === "invalid_grant") return undefined;
@@ -179,15 +181,10 @@ export async function revokeRefreshToken(refreshToken: string, config: Auth0Conf
 	await request(url, {
 		method: "POST",
 		body: new URLSearchParams({ client_id: config.clientId, token: refreshToken }),
-		signal: getRequestSignal(),
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 	}).catch((error) => {
 		throw new DeviceFlowError(isTransient(error) ? "unavailable" : "misconfigured", error);
 	});
-}
-
-function getRequestSignal(signal?: AbortSignal): AbortSignal {
-	const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
-	return signal ? AbortSignal.any([timeout, signal]) : timeout;
 }
 
 // Tests use a local server over HTTP.
