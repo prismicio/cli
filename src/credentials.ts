@@ -12,7 +12,6 @@ import {
 	CREDENTIALS_PATH,
 	ENCRYPTED_CREDENTIALS_PATH,
 } from "./config";
-import { env } from "./env";
 import { exists } from "./lib/file";
 import { stringify } from "./lib/json";
 import { KeyringError, systemKeyring, type KeyringErrorReason } from "./lib/keyring";
@@ -43,7 +42,6 @@ const SessionSchema = z.object({
 export type Session = z.infer<typeof SessionSchema>;
 
 const FallbackReasonSchema = z.enum([
-	"forced",
 	"wsl",
 	"secret-service-missing",
 	"locked",
@@ -53,9 +51,7 @@ const FallbackReasonSchema = z.enum([
 ]);
 export type FallbackReason = z.infer<typeof FallbackReasonSchema>;
 
-// Fits both "No usable keychain (…)" and "file (…)".
 export const FALLBACK_DESCRIPTIONS: Record<FallbackReason, string> = {
-	forced: "set by PRISMIC_CREDENTIALS_STORE",
 	wsl: "WSL",
 	"secret-service-missing": "Secret Service isn't available",
 	locked: "the keychain is locked",
@@ -119,7 +115,7 @@ export async function readCredentials(): Promise<StoredCredentials> {
 	};
 }
 
-const FALLBACK_REASONS: Record<KeyringErrorReason, Exclude<FallbackReason, "forced">> = {
+const FALLBACK_REASONS: Record<KeyringErrorReason, FallbackReason> = {
 	"module-missing": "module-missing",
 	unavailable: "secret-service-missing",
 	locked: "locked",
@@ -127,28 +123,13 @@ const FALLBACK_REASONS: Record<KeyringErrorReason, Exclude<FallbackReason, "forc
 	timeout: "timeout",
 };
 
-// Only a login calls this, under the lock it keeps until it writes, so `auto`
-// falls back to a file only at login.
+// Only a login calls this, under the lock it keeps until it writes, so a login
+// falls back to a file only when it starts.
 export async function prepareLogin(): Promise<
-	{ store: "keyring" } | { store: "file"; storeReason: FallbackReason; warning?: string }
+	{ store: "keyring" } | { store: "file"; storeReason: FallbackReason }
 > {
-	const setting = env.PRISMIC_CREDENTIALS_STORE || "auto";
-	if (setting !== "auto" && setting !== "keyring" && setting !== "file") {
-		throw new CredentialsError(
-			"invalid-setting",
-			`PRISMIC_CREDENTIALS_STORE must be auto, keyring or file, not "${setting}".`,
-		);
-	}
-	if (setting === "file") return { store: "file", storeReason: "forced" };
-
-	const fallback = (reason: Exclude<FallbackReason, "forced">) => ({
-		store: "file" as const,
-		storeReason: reason,
-		warning: `No usable keychain (${FALLBACK_DESCRIPTIONS[reason]}). Saved your login in ${fileURLToPath(CREDENTIALS_PATH)}, readable only by you.`,
-	});
-
-	if (setting === "auto" && process.platform === "linux" && /microsoft/i.test(release())) {
-		return fallback("wsl");
+	if (process.platform === "linux" && /microsoft/i.test(release())) {
+		return { store: "file", storeReason: "wsl" };
 	}
 
 	try {
@@ -164,15 +145,7 @@ export async function prepareLogin(): Promise<
 		return { store: "keyring" };
 	} catch (error) {
 		if (!(error instanceof KeyringError)) throw error;
-		const reason = FALLBACK_REASONS[error.reason];
-		if (setting === "keyring") {
-			throw new CredentialsError(
-				"keychain-unavailable",
-				`PRISMIC_CREDENTIALS_STORE is keyring, but there's no usable keychain (${FALLBACK_DESCRIPTIONS[reason]}). Set it to auto or file to save your login in a file readable only by you.`,
-				{ cause: error },
-			);
-		}
-		return fallback(reason);
+		return { store: "file", storeReason: FALLBACK_REASONS[error.reason] };
 	}
 }
 
@@ -233,7 +206,6 @@ export async function lockCredentials(config: { timeoutMs: number }): Promise<Lo
 }
 
 export type CredentialsErrorReason =
-	| "invalid-setting"
 	| "unsupported-version"
 	| "unsafe-file"
 	| "lock-lost"
@@ -292,9 +264,11 @@ function keyringFailure(error: unknown, action: "read" | "delete" = "read"): unk
 		"keychain-unavailable",
 		"the keychain isn't available. Try again",
 	];
+	// A new login saves to a file when the keychain can't be used.
+	const alternative = action === "read" ? ", or run `prismic login` again" : "";
 	return new CredentialsError(
 		reason,
-		`Can't ${action} your Prismic key because ${why}, or log in again with PRISMIC_CREDENTIALS_STORE=file.`,
+		`Can't ${action} your Prismic key because ${why}${alternative}.`,
 		{ cause: error },
 	);
 }

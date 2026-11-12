@@ -44,7 +44,7 @@ vi.mock("../src/lib/keyring", async (importOriginal) => {
 
 const DECRYPT_ERROR = "Your Prismic login can't be decrypted. Run `prismic login` again.";
 const LOCKED_ERROR =
-	"Can't read your Prismic key because the keychain is locked in this session. Unlock it and try again, or log in again with PRISMIC_CREDENTIALS_STORE=file.";
+	"Can't read your Prismic key because the keychain is locked in this session. Unlock it and try again, or run `prismic login` again.";
 
 const session = {
 	host: "prismic.io",
@@ -60,10 +60,9 @@ const session = {
 process.env.PROD = "false";
 
 // Imports the store as a new process would, with its own config directory.
-async function loadStore(dir: URL, setting = "") {
+async function loadStore(dir: URL) {
 	vi.resetModules();
 	process.env.PRISMIC_CONFIG_DIR = fileURLToPath(dir);
-	process.env.PRISMIC_CREDENTIALS_STORE = setting;
 	return import("../src/credentials");
 }
 
@@ -153,7 +152,7 @@ describe("credential store", { concurrent: false }, () => {
 		expect((await (await loadStore(home)).readCredentials()).login?.session).toEqual(session);
 	});
 
-	it("auto falls back to a plaintext file when the keychain fails at login", async ({ home }) => {
+	it("falls back to a plaintext file when the keychain fails at login", async ({ home }) => {
 		const cases = [
 			["module-missing", "module-missing"],
 			["unavailable", "secret-service-missing"],
@@ -163,16 +162,9 @@ describe("credential store", { concurrent: false }, () => {
 		] as const;
 		for (const [keyringReason, reason] of cases) {
 			keychain.fail.set = keyringReason;
-			const store = await loadStore(new URL(`${reason}/`, home), "auto");
+			const store = await loadStore(new URL(`${reason}/`, home));
 
-			const choice = await logIn(store);
-			expect(choice).toMatchObject({ store: "file", storeReason: reason });
-			expect(choice).toHaveProperty(
-				"warning",
-				expect.stringMatching(
-					/^No usable keychain \(.+\)\. Saved your login in .+credentials\.json, readable only by you\.$/,
-				),
-			);
+			expect(await logIn(store)).toEqual({ store: "file", storeReason: reason });
 			expect(await (await loadStore(new URL(`${reason}/`, home))).readCredentials()).toEqual({
 				host: session.host,
 				login: { store: "file", storeReason: reason, session },
@@ -180,54 +172,42 @@ describe("credential store", { concurrent: false }, () => {
 		}
 	});
 
-	it("keyring mode fails instead of falling back", async ({ home }) => {
-		keychain.fail.set = "locked";
-		const store = await loadStore(home, "keyring");
-		await expect(store.prepareLogin()).rejects.toMatchObject({
-			reason: "keychain-unavailable",
-			message: expect.stringContaining("no usable keychain (the keychain is locked)"),
-		});
-	});
-
-	it("file mode keeps everything in credentials.json and never touches the keychain", async ({
+	it("keeps a file login in credentials.json and never reads the keychain for it", async ({
 		home,
 	}) => {
-		keychain.fail = { get: "rejected", set: "rejected", delete: "rejected" };
-		const store = await loadStore(home, "file");
-
-		expect(await logIn(store)).toEqual({ store: "file", storeReason: "forced" });
+		keychain.fail.set = "unavailable";
+		expect(await logIn(await loadStore(home))).toEqual({
+			store: "file",
+			storeReason: "secret-service-missing",
+		});
 		expect(JSON.parse(await readFile(new URL("credentials.json", home), "utf8"))).toEqual({
 			version: 2,
 			store: "file",
-			storeReason: "forced",
+			storeReason: "secret-service-missing",
 			...session,
 		});
 		expect(await readdir(home)).not.toContain("credentials.enc");
-		expect(await store.readCredentials()).toEqual({
+
+		keychain.fail = { get: "rejected", set: "rejected", delete: "rejected" };
+		expect(await (await loadStore(home)).readCredentials()).toEqual({
 			host: session.host,
-			login: { store: "file", storeReason: "forced", session },
+			login: { store: "file", storeReason: "secret-service-missing", session },
 		});
 	});
 
-	it("never switches modes after login, and a failed key read isn't a logout", async ({ home }) => {
-		await logIn(await loadStore(home, "auto"));
+	it("reports a failed key read after login, never a logout", async ({ home }) => {
+		await logIn(await loadStore(home));
 
-		// The setting only matters at login.
 		keychain.fail.get = "locked";
-		await expect((await loadStore(home, "file")).readCredentials()).rejects.toMatchObject({
+		await expect((await loadStore(home)).readCredentials()).rejects.toMatchObject({
 			reason: "locked",
 			message: LOCKED_ERROR,
 		});
 
 		keychain.fail.get = "timeout";
-		await expect((await loadStore(home, "file")).readCredentials()).rejects.toMatchObject({
+		await expect((await loadStore(home)).readCredentials()).rejects.toMatchObject({
 			reason: "timeout",
 		});
-	});
-
-	it("rejects an unknown setting", async ({ home }) => {
-		const store = await loadStore(home, "keychain");
-		await expect(store.prepareLogin()).rejects.toMatchObject({ reason: "invalid-setting" });
 	});
 
 	it("reuses one key per config directory", async ({ home }) => {
@@ -354,7 +334,7 @@ describe("credential store", { concurrent: false }, () => {
 	});
 
 	it("drops writes from a process that lost the lock", async ({ home }) => {
-		const store = await loadStore(home, "file");
+		const store = await loadStore(home);
 		const stalled = await store.lockCredentials({ timeoutMs: 5_000 });
 
 		// Another process took the lock over.
