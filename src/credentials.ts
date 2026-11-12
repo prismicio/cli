@@ -185,7 +185,7 @@ export async function clearCredentials(lock: Lock): Promise<void> {
 		.delete(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, { timeoutMs: KEYCHAIN_TIMEOUT_MS })
 		.catch((error) => {
 			if (!(error instanceof KeyringError)) throw error;
-			console.warn(`Can't delete your Prismic key because ${getKeychainProblem(error)}.`);
+			console.warn("Can't delete your Prismic key from the keychain. Your next login reuses it.");
 		});
 }
 
@@ -230,7 +230,7 @@ async function requireKey(): Promise<Buffer> {
 		if (!(error instanceof KeyringError)) throw error;
 		// A new login saves to a file when the keychain can't be used.
 		throw new CredentialsError(
-			`Can't read your Prismic key because ${getKeychainProblem(error)}, or run \`prismic login\` again.`,
+			`Can't read your Prismic key because ${KEYCHAIN_FAILURES[error.reason] ?? "the keychain isn't available. Try again"}, or run \`prismic login\` again.`,
 			{ cause: error },
 		);
 	});
@@ -254,10 +254,6 @@ const KEYCHAIN_FAILURES: Partial<Record<KeyringErrorReason, string>> = {
 	locked: "the keychain is locked in this session. Unlock it and try again",
 	timeout: "the keychain didn't respond. Try again",
 };
-
-function getKeychainProblem(error: KeyringError): string {
-	return KEYCHAIN_FAILURES[error.reason] ?? "the keychain isn't available. Try again";
-}
 
 function undecryptable(): Error {
 	return new CredentialsError("Your Prismic login can't be decrypted. Run `prismic login` again.");

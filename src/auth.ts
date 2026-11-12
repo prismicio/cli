@@ -170,15 +170,15 @@ export async function onUnauthorized<T>(
 	if (current && sent.get("Authorization") !== `Bearer ${current}`) {
 		return retry({ headers: { Authorization: `Bearer ${current}` } });
 	}
-	if (!reauthentication && !(await isTokenRejected())) return;
+	if (!reauthentication && !(await isTokenRejected(current))) return;
 	reauthentication ??= reauthenticate().finally(() => (reauthentication = undefined));
 	const token = await reauthentication;
 	return retry({ headers: { Authorization: `Bearer ${token}` } });
 }
 
-async function isTokenRejected(): Promise<boolean> {
+async function isTokenRejected(token: string | undefined): Promise<boolean> {
 	try {
-		await validateToken(await getToken(), { host: await getHost() });
+		await validateToken(token, { host: await getHost() });
 		return false;
 	} catch (error) {
 		return error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError;

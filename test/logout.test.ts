@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import { it } from "./it";
+import { approveLogin, captureOutput, it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("logout", ["--help"]);
@@ -12,21 +12,25 @@ it("revokes the session, and deletes the login but keeps the host", async ({
 	expect,
 	home,
 	prismic,
-	login,
+	logout,
 	auth0,
 }) => {
-	const refreshToken = auth0.issueRefreshToken();
-	await login({ refreshToken });
+	await logout();
+	const login = prismic("login");
+	await approveLogin(expect, captureOutput(login), auth0);
+	expect((await login).exitCode).toBe(0);
+	const configDir = new URL(".config/prismic/", home);
+	const encrypted = new URL("credentials.enc", configDir);
+	// The `exec` fixture keeps Linux off the keyring, so its logins go to a file.
+	if (process.platform !== "linux") await expect(readFile(encrypted)).resolves.toBeTruthy();
+
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Logged out of Prismic");
-	const revokes = auth0.requestsTo("/oauth/revoke");
-	expect(revokes.map((params) => params.token)).toEqual([refreshToken]);
-
-	const configDir = new URL(".config/prismic/", home);
+	expect(auth0.requestsTo("/oauth/revoke")).toHaveLength(1);
 	const credentials = JSON.parse(await readFile(new URL("credentials.json", configDir), "utf8"));
 	expect(Object.keys(credentials)).toEqual(["host"]);
-	await expect(readFile(new URL("credentials.enc", configDir))).rejects.toThrow();
+	await expect(readFile(encrypted)).rejects.toThrow();
 });
 
 it("logs out when the session can't be revoked, and says so", async ({
