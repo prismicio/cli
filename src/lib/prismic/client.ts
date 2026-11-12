@@ -3,12 +3,13 @@ import { createHash } from "node:crypto";
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
-import { request } from "../request";
+import { request, type RequestOptions } from "../request";
 import { appendTrailingSlash } from "../url";
 
 type Config = {
-	token: string | undefined;
+	getToken: () => Promise<string | undefined>;
 	host: string;
+	onUnauthorized?: RequestOptions["onUnauthorized"];
 };
 
 type RepositoryConfig = Config & { repo: string };
@@ -56,7 +57,8 @@ const UserRepositorySchema = z.object({
 export async function getUserProfile(config: Config): Promise<Profile> {
 	const url = new URL("user/profile", getUserServiceUrl(config.host));
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: ProfileSchema,
 		unknownErrorMessage: "Failed to load your profile",
 	});
@@ -67,7 +69,8 @@ export async function getUserRepositories(
 ): Promise<{ repositories: z.infer<typeof UserRepositorySchema>[] }> {
 	const url = new URL("user/repositories", getUserServiceUrl(config.host));
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.object({ repositories: z.array(UserRepositorySchema) }),
 		unknownErrorMessage: "Failed to load your repositories",
 	});
@@ -93,11 +96,12 @@ const RepositorySchema = z.object({
 
 export type Repository = z.infer<typeof RepositorySchema>;
 
-export function getRepository(config: RepositoryConfig): Promise<Repository> {
+export async function getRepository(config: RepositoryConfig): Promise<Repository> {
 	const url = new URL("", getRepositoryServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		onUnauthorized: config.onUnauthorized,
 		schema: RepositorySchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
@@ -112,7 +116,8 @@ export async function enableTypeBuilder(
 	await request(url, {
 		method: "PATCH",
 		json: { framework },
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
 }
@@ -126,7 +131,8 @@ export async function getOnboardingState(config: RepositoryConfig): Promise<Onbo
 	const url = new URL("onboarding", getRepositoryServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: OnboardingStateSchema,
 	});
 }
@@ -142,7 +148,8 @@ export async function toggleOnboardingStep(
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
 		method: "PATCH",
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: OnboardingStateSchema,
 	});
 }
@@ -153,20 +160,22 @@ function getRepositoryServiceUrl(host: string): URL {
 
 export type CustomTypesConfig = RepositoryConfig & { releaseId?: string };
 
-export function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
+export async function getCustomTypes(config: CustomTypesConfig): Promise<DynamicCustomTypeModel[]> {
 	const url = new URL("customtypes", getCustomTypesServiceUrl(config.host));
 	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	return request<DynamicCustomTypeModel[]>(url, {
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
 }
 
-export function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]> {
+export async function getSlices(config: CustomTypesConfig): Promise<SharedSliceModel[]> {
 	const url = new URL("slices", getCustomTypesServiceUrl(config.host));
 	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	return request<SharedSliceModel[]>(url, {
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
 }
@@ -186,7 +195,8 @@ export async function bulkUpdateModels(
 	await request(url, {
 		method: "POST",
 		json: { changes },
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to update models",
 	});
@@ -220,7 +230,8 @@ export async function deleteSliceScreenshots(
 	await request(url, {
 		method: "POST",
 		json: { sliceId },
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		onUnauthorized: config.onUnauthorized,
 	});
 }
 
@@ -259,13 +270,14 @@ export async function uploadSliceScreenshot(
 	return url;
 }
 
-function getScreenshotUploadForm(
+async function getScreenshotUploadForm(
 	config: RepositoryConfig,
 ): Promise<z.infer<typeof ScreenshotPresignedUrlResponseSchema>> {
 	const url = new URL("presigned-url", getScreenshotServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}`, repository: config.repo },
+		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		onUnauthorized: config.onUnauthorized,
 		schema: ScreenshotPresignedUrlResponseSchema,
 	});
 }
@@ -298,7 +310,8 @@ export async function getLocales(config: RepositoryConfig): Promise<{ results: L
 	const url = new URL("repository/locales", getLocaleServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.object({ results: z.array(LocaleSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load locales",
@@ -318,7 +331,8 @@ export async function upsertLocale(
 			isMaster: locale.isMaster ?? false,
 			...(locale.customName ? { customName: locale.customName } : {}),
 		},
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: LocaleSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to save locale",
@@ -333,7 +347,8 @@ export async function deleteLocale(code: string, config: RepositoryConfig): Prom
 	url.searchParams.set("repository", config.repo);
 	await request(url, {
 		method: "DELETE",
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Locale not found: ${code}`,
 		unknownErrorMessage: "Failed to remove locale",
 	});
@@ -357,7 +372,8 @@ export async function getPreviews(config: RepositoryConfig): Promise<{ results: 
 		getRepositoryDomainUrl(config.repo, config.host),
 	);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.object({ results: z.array(PreviewSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load previews",
@@ -380,7 +396,8 @@ export async function addPreview(
 			websiteURL: previewConfig.websiteURL,
 			resolverPath: previewConfig.resolverPath,
 		},
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to add preview",
 	});
@@ -394,7 +411,8 @@ export async function deletePreview(id: string, config: RepositoryConfig): Promi
 	await request(url, {
 		method: "POST",
 		json: {},
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Preview not found: ${id}`,
 		unknownErrorMessage: "Failed to remove preview",
 	});
@@ -413,7 +431,8 @@ export async function getEnvironments(
 ): Promise<{ results: Environment[] }> {
 	const url = new URL("core/environments", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.object({ results: z.array(EnvironmentSchema) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
@@ -424,7 +443,8 @@ export async function getSimulatorUrl(
 ): Promise<{ simulator_url?: string }> {
 	const url = new URL("core/repository", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.object({ simulator_url: z.optional(z.string()) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load simulator URL",
@@ -439,7 +459,8 @@ export async function setSimulatorUrl(
 	await request(url, {
 		method: "PATCH",
 		json: { simulator_url: simulatorUrl },
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to set simulator URL",
 	});
@@ -453,7 +474,8 @@ export async function getDocumentTotalByCustomType(
 	return request(url, {
 		method: "POST",
 		json: { customTypes: [customTypeId], limit: 0 },
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.object({ total: z.number() }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
@@ -467,7 +489,8 @@ export async function createRelease(
 	return request(url, {
 		method: "POST",
 		json: release,
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.looseObject({ id: z.string() }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create a release",
@@ -481,7 +504,8 @@ export async function deleteRelease(id: string, config: RepositoryConfig): Promi
 	);
 	await request(url, {
 		method: "DELETE",
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Release not found: ${id}`,
 		unknownErrorMessage: "Failed to delete the release",
 	});
@@ -510,10 +534,11 @@ const WebhookSchema = z.object({
 });
 type Webhook = z.infer<typeof WebhookSchema>;
 
-export function getWebhooks(config: RepositoryConfig): Promise<Webhook[]> {
+export async function getWebhooks(config: RepositoryConfig): Promise<Webhook[]> {
 	const url = new URL("app/settings/webhooks", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.array(WebhookSchema),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load webhooks",
@@ -532,7 +557,8 @@ export async function createWebhook(
 	await request(url, {
 		method: "POST",
 		body,
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create webhook",
 	});
@@ -551,7 +577,8 @@ export async function updateWebhook(
 	await request(url, {
 		method: "POST",
 		body,
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Webhook not found: ${id}`,
 		unknownErrorMessage: "Failed to update webhook",
 	});
@@ -564,7 +591,8 @@ export async function deleteWebhook(id: string, config: RepositoryConfig): Promi
 	);
 	await request(url, {
 		method: "POST",
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Webhook not found: ${id}`,
 		unknownErrorMessage: "Failed to delete webhook",
 	});
@@ -614,13 +642,14 @@ const WriteTokensInfoSchema = z.object({
 });
 type WriteTokensInfo = z.infer<typeof WriteTokensInfoSchema>;
 
-export function getOAuthApps(config: RepositoryConfig): Promise<OAuthApp[]> {
+export async function getOAuthApps(config: RepositoryConfig): Promise<OAuthApp[]> {
 	const url = new URL(
 		"settings/security/contentapi",
 		getRepositoryDomainUrl(config.repo, config.host),
 	);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.array(OAuthAppSchema),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load OAuth apps",
@@ -635,7 +664,8 @@ export async function createOAuthApp(name: string, config: RepositoryConfig): Pr
 	return request(url, {
 		method: "POST",
 		json: { app_name: name },
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: OAuthAppSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create OAuth app",
@@ -654,7 +684,8 @@ export async function createOAuthAuthorization(
 	return request(url, {
 		method: "POST",
 		json: { app: appId, scope },
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: AccessTokenSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create token",
@@ -671,19 +702,21 @@ export async function deleteOAuthAuthorization(
 	);
 	await request(url, {
 		method: "DELETE",
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Token not found: ${authId}`,
 		unknownErrorMessage: "Failed to delete token",
 	});
 }
 
-export function getWriteTokens(config: RepositoryConfig): Promise<WriteTokensInfo> {
+export async function getWriteTokens(config: RepositoryConfig): Promise<WriteTokensInfo> {
 	const url = new URL(
 		"settings/security/customtypesapi",
 		getRepositoryDomainUrl(config.repo, config.host),
 	);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: WriteTokensInfoSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load write tokens",
@@ -698,7 +731,8 @@ export async function createWriteToken(
 	return request(url, {
 		method: "POST",
 		json: { app_name: name },
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: WriteTokenSchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to create write token",
@@ -715,7 +749,8 @@ export async function deleteWriteToken(
 	);
 	await request(url, {
 		method: "DELETE",
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: "Token not found",
 		unknownErrorMessage: "Failed to delete write token",
 	});
@@ -726,7 +761,8 @@ export async function getRepositoryApiAccess(
 ): Promise<{ repository: { api_access: string } }> {
 	const url = new URL("syncState", getRepositoryDomainUrl(config.repo, config.host));
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.object({ repository: z.object({ api_access: z.string() }) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to load repository access",
@@ -746,7 +782,8 @@ export async function setRepositoryApiAccess(
 	await request(url, {
 		method: "POST",
 		json: { api_access: level },
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to set repository access",
 	});
@@ -762,7 +799,8 @@ export async function setRepositoryName(
 	return request(url, {
 		method: "POST",
 		body: formData,
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.object({ repository: z.object({ name: z.string() }) }),
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to set repository name",
@@ -781,7 +819,8 @@ export async function checkIsDomainAvailable(
 		getDashboardUrl(config.host),
 	);
 	return request(url, {
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		schema: z.boolean(),
 	});
 }
@@ -801,7 +840,8 @@ export async function createRepository(
 	await request(url, {
 		method: "POST",
 		json: { domain, name, framework, plan: "personal" },
-		headers: { Authorization: `Bearer ${config.token}` },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
 		unknownErrorMessage: "Failed to create repository",
 	});
 }

@@ -7,7 +7,7 @@ import { pascalCase } from "change-case";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { getCredentials } from "../auth";
+import { getHost, getToken } from "../auth";
 import { CommandError } from "../lib/command";
 import {
 	exists,
@@ -166,7 +166,7 @@ export abstract class Adapter {
 		}
 		if (setup) await this.setupProject();
 
-		const config = { repo: await getRepositoryName(), ...(await getCredentials()) };
+		const config = { repo: await getRepositoryName(), getToken, host: await getHost() };
 		if (!(await getSimulatorUrl(config)).simulator_url) {
 			await setSimulatorUrl(this.localSimulatorUrl, config);
 		}

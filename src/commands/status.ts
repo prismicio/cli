@@ -1,5 +1,5 @@
 import { getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getHost, getToken } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
@@ -40,7 +40,8 @@ export default createCommand(config, async ({ values }) => {
 	const activeEnvironment = await adapter.getEnvironment();
 	const { env, repo = env ?? activeEnvironment ?? repositoryName } = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
+	const token = await getToken();
 	const projectRoot = await findProjectRoot();
 
 	const [gitRoot, customTypeLibraries, sliceLibraries, local] = await Promise.all([
@@ -55,7 +56,7 @@ export default createCommand(config, async ({ values }) => {
 	if (token) {
 		const [session, remote] = await Promise.all([
 			validateToken(token, { host }),
-			getRemoteModels({ repo, token, host }),
+			getRemoteModels({ repo, getToken, host }),
 		]);
 		authenticatedAs =
 			session.type === "USER"

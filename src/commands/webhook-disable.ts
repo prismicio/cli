@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getWebhooks, updateWebhook } from "../lib/prismic/client";
 
@@ -29,8 +29,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [webhookUrl] = positionals;
 	const { env, repo = env ?? (await getActiveRepositoryName()) } = values;
 
-	const { token, host } = await getCredentials();
-	const webhooks = await getWebhooks({ repo, token, host });
+	const host = await getHost();
+	const webhooks = await getWebhooks({ repo, getToken, host, onUnauthorized });
 
 	const webhook = webhooks.find((w) => w.config.url === webhookUrl);
 	if (!webhook) {
@@ -47,7 +47,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const updatedConfig = structuredClone(webhook.config);
 	updatedConfig.active = false;
 
-	await updateWebhook(id, updatedConfig, { repo, token, host });
+	await updateWebhook(id, updatedConfig, { repo, getToken, host, onUnauthorized });
 
 	console.info(`Webhook disabled: ${webhookUrl}`);
 });

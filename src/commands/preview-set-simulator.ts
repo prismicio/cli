@@ -1,5 +1,5 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { setSimulatorUrl } from "../lib/prismic/client";
 
@@ -47,9 +47,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 	const simulatorUrl = parsed.toString();
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
-	await setSimulatorUrl(simulatorUrl, { repo, token, host });
+	await setSimulatorUrl(simulatorUrl, { repo, getToken, host, onUnauthorized });
 
 	console.info(`Simulator URL set: ${simulatorUrl}`);
 });

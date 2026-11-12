@@ -1,4 +1,4 @@
-import { getCredentials } from "./auth";
+import { getToken } from "./auth";
 import { env } from "./env";
 import { isInvalidAuthContextError } from "./lib/prismic/auth";
 import {
@@ -11,8 +11,7 @@ import { dedent } from "./lib/string";
 
 export async function getErrorMessage(error: unknown): Promise<string | undefined> {
 	if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
-		const { token } = await getCredentials();
-		if (!token) {
+		if (!(await getToken())) {
 			return "Not logged in. Run `prismic login` first.";
 		}
 		if (env.PRISMIC_TOKEN) {

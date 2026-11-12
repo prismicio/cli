@@ -1,5 +1,5 @@
 import { getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { diffModels, getRemoteModels } from "../lib/prismic/models";
@@ -42,7 +42,7 @@ export default createCommand(config, async ({ values }) => {
 		repo = env ?? (await adapter.getEnvironment()) ?? (await getRepositoryName()),
 	} = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 	const projectRoot = await findProjectRoot();
 
 	console.info(`Pulling from repository: ${repo}`);
@@ -85,7 +85,7 @@ export default createCommand(config, async ({ values }) => {
 	const [localCustomTypes, localSlices, remote] = await Promise.all([
 		adapter.getCustomTypes(),
 		adapter.getSlices(),
-		getRemoteModels({ repo, token, host }),
+		getRemoteModels({ repo, getToken, host, onUnauthorized }),
 	]);
 	const diff = diffModels(
 		remote,
@@ -123,8 +123,9 @@ export default createCommand(config, async ({ values }) => {
 
 	await completeOnboardingSteps(["connectPrismic"], {
 		repo: await getRepositoryName(),
-		token,
+		getToken,
 		host,
+		onUnauthorized,
 	}).catch(() => {});
 
 	const totalTypes = diff.customTypes.insert.length + diff.customTypes.update.length;
