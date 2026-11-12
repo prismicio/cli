@@ -145,7 +145,7 @@ export const it = test.extend<Fixtures>({
 		await use(auth0);
 		await auth0.close();
 	},
-	login: async ({ token, home, auth0 }, use) => {
+	login: async ({ token, home, auth0, host }, use) => {
 		await use(async (session = {}) => {
 			const configDir = new URL(".config/prismic/", home);
 			await mkdir(configDir, { recursive: true });
@@ -154,7 +154,7 @@ export const it = test.extend<Fixtures>({
 				JSON.stringify({
 					version: 2,
 					store: "file",
-					host: DEFUALT_PRISMIC_HOST,
+					host,
 					auth0Domain: auth0.auth0Domain,
 					clientId: auth0.clientId,
 					accessToken: token,

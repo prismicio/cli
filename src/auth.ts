@@ -96,7 +96,8 @@ async function getSessionToken(
 ): Promise<string | undefined> {
 	const { forceRefresh = false } = options;
 	const session = (await readCredentials()).login?.session;
-	if (!session?.refreshToken) return;
+	// Each host has its own Auth0 tenant, so a token works only on its own host.
+	if (!session?.refreshToken || session.host !== (await getHost())) return;
 
 	const freshToken = getUnexpiredToken(session, REFRESH_MARGIN_MS);
 	if (freshToken && !forceRefresh) return freshToken;
@@ -378,9 +379,11 @@ async function startLogin(login: Login): Promise<StartedLogin> {
 		login.pending = pending;
 		login.startedAt = pending.startedAt;
 		const store = await prepareLogin(lock);
-		// The current session works until the new login replaces it, even on
-		// another host.
-		const session = stored?.session ?? { host: login.host, ...login.auth0 };
+		// The current session and host stay until the new login replaces them.
+		const session = stored?.session ?? {
+			host: (await readLoginSummary()).host ?? login.host,
+			...login.auth0,
+		};
 		await writeCredentials(lock, { ...store, session: { ...session, pendingLogin: pending } });
 		return { status: "pending", pending };
 	});

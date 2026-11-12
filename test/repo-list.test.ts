@@ -86,3 +86,13 @@ it("doesn't log in when Auth0 can't be reached", async ({ expect, prismic, login
 	expect(stderr).toContain("Can't reach the Prismic login service.");
 	expect(stderr).not.toContain("Open this URL");
 });
+
+it("doesn't log in on CI", async ({ expect, prismic, login, auth0 }) => {
+	await login({ accessToken: "rejected-token" });
+	const { stderr, exitCode } = await prismic("repo", ["list"], {
+		nodeOptions: { env: { CI: "true" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).not.toContain("Open this URL");
+	expect(auth0.requestsTo("/oauth/token")).toHaveLength(0);
+});

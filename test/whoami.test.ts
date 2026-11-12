@@ -55,6 +55,20 @@ it("reports a Write API token", async ({ expect, prismic, repo, writeToken }) =>
 	expect(stdout).toContain(repo);
 });
 
+it("uses a token that hasn't expired when Auth0 can't be reached", async ({
+	expect,
+	prismic,
+	login,
+	auth0,
+}) => {
+	const { email } = await login({ expiresAt: Date.now() + 60_000 });
+	auth0.respondOnce("/oauth/token", { status: 503 });
+	const { stdout, stderr, exitCode } = await prismic("whoami");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(email);
+	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
+});
+
 it("refreshes a login about to expire, once for parallel commands", async ({
 	expect,
 	prismic,
