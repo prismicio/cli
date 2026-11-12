@@ -141,6 +141,41 @@ export async function pollDeviceLogin(
 	}
 }
 
+// Auth0 rotates refresh tokens, but OAuth lets a server keep the same one.
+const RefreshedTokenSchema = z.object({
+	access_token: z.string(),
+	refresh_token: z.optional(z.string()),
+	expires_in: z.number(),
+});
+
+// Returns nothing when Auth0 refuses the refresh token, since the session has
+// ended.
+export async function refreshAccessToken(
+	refreshToken: string,
+	config: Auth0Config,
+): Promise<DeviceLoginTokens | undefined> {
+	const url = new URL("oauth/token", getAuth0Url(config.auth0Domain));
+	const tokens = await request(url, {
+		method: "POST",
+		body: new URLSearchParams({
+			grant_type: "refresh_token",
+			refresh_token: refreshToken,
+			client_id: config.clientId,
+		}),
+		signal: getRequestSignal(),
+		schema: RefreshedTokenSchema,
+	}).catch((error) => {
+		if (getOAuthError(error)?.error === "invalid_grant") return undefined;
+		throw new DeviceFlowError(isTransient(error) ? "unavailable" : "misconfigured", error);
+	});
+	if (!tokens) return;
+	return {
+		accessToken: tokens.access_token,
+		refreshToken: tokens.refresh_token ?? refreshToken,
+		expiresAt: Date.now() + tokens.expires_in * 1000,
+	};
+}
+
 function getRequestSignal(signal?: AbortSignal): AbortSignal {
 	const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
 	return signal ? AbortSignal.any([timeout, signal]) : timeout;
