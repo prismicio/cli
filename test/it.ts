@@ -274,13 +274,20 @@ export function captureStdout(proc: Result): () => string {
 	return () => stdout;
 }
 
+export async function waitForLoginPrompt(
+	expect: ExpectStatic,
+	output: () => string,
+): Promise<void> {
+	await expect.poll(output, { timeout: 15_000 }).toContain("Waiting for the login");
+}
+
 // Approves the login a command waits for, as a person would in the browser.
 export async function approveLogin(
 	expect: ExpectStatic,
 	output: () => string,
 	auth0: FakeAuth0,
 ): Promise<void> {
-	await expect.poll(output, { timeout: 15_000 }).toContain("Waiting for the login");
+	await waitForLoginPrompt(expect, output);
 	auth0.approve();
 }
 

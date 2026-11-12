@@ -8,7 +8,7 @@ import { ANALYTICS_IDS_PATH } from "./config";
 import type { FallbackReason, StoreMode } from "./credentials";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { detectAgent } from "./lib/ai";
-import { DeviceFlowError } from "./lib/auth0";
+import { DeviceFlowError, type DeviceFlowErrorReason } from "./lib/auth0";
 import { readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { decodePayload } from "./lib/jwt";
@@ -61,7 +61,7 @@ let command: { type: string; watch?: boolean } | undefined;
 
 export async function initTracking(config: {
 	host: string;
-	token?: string;
+	loggedIn: boolean;
 	repo?: string;
 	userIntent?: string;
 	taskId?: string;
@@ -76,7 +76,7 @@ export async function initTracking(config: {
 	storeReason = config.storeReason;
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
 	agent = detectAgent();
-	auth = detectAuth(config.token);
+	auth = detectAuth(config.loggedIn);
 	({ runtime, runtimeProvider } = detectRuntime());
 
 	const storedIds = await readIds();
@@ -121,10 +121,9 @@ export async function forgetTrackedUser(): Promise<void> {
 	if (storedIds?.userId) await saveIds({ anonymousId: storedIds.anonymousId });
 }
 
-function detectAuth(token: string | undefined): string {
-	if (!token) return "none";
-	if (!env.PRISMIC_TOKEN) return "login";
-	const payload = decodePayload(token);
+function detectAuth(loggedIn: boolean): string {
+	if (!env.PRISMIC_TOKEN) return loggedIn ? "login" : "none";
+	const payload = decodePayload(env.PRISMIC_TOKEN);
 	if (!payload) return "unknown-token";
 	return payload.type === "machine2machine" ? "write-token" : "user-token";
 }
@@ -260,7 +259,7 @@ export function recordLogout(config: { revoked: boolean }): void {
 	revoked = config.revoked;
 }
 
-const LOGIN_RESULTS: Record<DeviceFlowError["reason"], LoginResult> = {
+const LOGIN_RESULTS: Record<DeviceFlowErrorReason, LoginResult> = {
 	expired: "expired",
 	declined: "declined",
 	"email-unverified": "email-unverified",

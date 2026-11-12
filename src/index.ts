@@ -13,7 +13,7 @@ import {
 import { cleanupLegacyAuthFile, getHost, getToken } from "./auth";
 import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
-import { CredentialsError, readCredentials } from "./credentials";
+import { CredentialsError, readLoginSummary } from "./credentials";
 import { env } from "./env";
 import { getErrorMessage } from "./error";
 import { detectAgent } from "./lib/ai";
@@ -92,13 +92,6 @@ const KNOWN_ERRORS = [
 
 const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError];
 
-// A login that Auth0 refuses as misconfigured needs a fix on Prismic's side.
-// The error holds only Auth0's error code, never a response body.
-function isReported(error: unknown): boolean {
-	if (error instanceof DeviceFlowError) return error.reason === "misconfigured";
-	return REPORTED_KNOWN_ERRORS.some((type) => error instanceof type);
-}
-
 await main();
 
 async function main(): Promise<void> {
@@ -160,13 +153,10 @@ async function main(): Promise<void> {
 
 	if (!help) {
 		const host = await getHost();
-		// Telemetry only needs what's saved. getToken() could refresh, which takes
-		// a lock and a request before every command. Commands report a saved
-		// login they can't read, so startup ignores it.
-		const login = env.PRISMIC_TOKEN
-			? undefined
-			: (await readCredentials().catch(() => undefined))?.login;
-		const token = env.PRISMIC_TOKEN || login?.session.accessToken;
+		// Only the plain-text part, so commands that don't use the login never
+		// wait on the keychain.
+		const saved = env.PRISMIC_TOKEN ? undefined : await readLoginSummary().catch(() => undefined);
+		const loggedIn = Boolean(env.PRISMIC_TOKEN || saved?.expiresAt);
 
 		const telemetryEnabled = env.PRISMIC_TELEMETRY_ENABLED ?? (await isTelemetryEnabled());
 		const sentryEnabled = env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD);
@@ -177,21 +167,23 @@ async function main(): Promise<void> {
 		if (telemetryEnabled) {
 			await initTracking({
 				host,
-				token,
+				loggedIn,
 				repo,
 				userIntent,
 				taskId,
-				store: login?.store,
-				storeReason: login?.storeReason,
+				store: saved?.store,
+				storeReason: saved?.storeReason,
 			});
 		}
 
-		if (token && (sentryEnabled || telemetryEnabled)) {
+		if (loggedIn && (sentryEnabled || telemetryEnabled)) {
 			const knownUserId = getTrackedUserId();
 
 			if (knownUserId) {
 				sentrySetUser({ id: knownUserId });
 			} else {
+				// Once after each login, which forgets the tracked user. This one
+				// reads the saved token.
 				getUserProfile({ getToken, host })
 					.then((profile) => {
 						trackUser(profile);
@@ -266,4 +258,11 @@ function getAgentOptionsError(taskId: string | undefined, userIntent: string | u
 	if (!taskId) return "missing --task-id";
 	if (!isTaskId(taskId)) return "--task-id must come from `prismic task-id`";
 	if (!userIntent) return "missing --user-intent";
+}
+
+// A login that Auth0 refuses as misconfigured needs a fix on Prismic's side.
+// The error holds only Auth0's error code, never a response body.
+function isReported(error: unknown): boolean {
+	if (error instanceof DeviceFlowError) return error.reason === "misconfigured";
+	return REPORTED_KNOWN_ERRORS.some((type) => error instanceof type);
 }

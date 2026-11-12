@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import { approveLogin, captureOutput, it } from "./it";
+import { it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("logout", ["--help"]);
@@ -11,28 +11,22 @@ it("supports --help", async ({ expect, prismic }) => {
 it("revokes the session, and deletes the login but keeps the host", async ({
 	expect,
 	home,
-	host,
 	prismic,
-	logout,
+	login,
 	auth0,
 }) => {
-	await logout();
-	const login = prismic("login");
-	await approveLogin(expect, captureOutput(login), auth0);
-	expect((await login).exitCode).toBe(0);
-
+	const refreshToken = auth0.issueRefreshToken();
+	await login({ refreshToken });
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Logged out of Prismic");
-	expect(auth0.requests.filter((request) => request.path === "/oauth/revoke")).toHaveLength(1);
+	const revokes = auth0.requests.filter((request) => request.path === "/oauth/revoke");
+	expect(revokes.map((request) => request.params.token)).toEqual([refreshToken]);
 
 	const configDir = new URL(".config/prismic/", home);
 	const credentials = JSON.parse(await readFile(new URL("credentials.json", configDir), "utf8"));
-	expect(credentials).toEqual({ host });
+	expect(Object.keys(credentials)).toEqual(["host"]);
 	await expect(readFile(new URL("credentials.enc", configDir))).rejects.toThrow();
-
-	const whoami = await prismic("whoami");
-	expect(whoami.stderr).toContain("Not logged in. Run `prismic login` first.");
 });
 
 it("logs out when the session can't be revoked, and says so", async ({

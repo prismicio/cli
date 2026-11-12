@@ -1,6 +1,6 @@
 import { getHost, getToken } from "./auth";
 import { env } from "./env";
-import { DeviceFlowError } from "./lib/auth0";
+import { DeviceFlowError, type DeviceFlowErrorReason } from "./lib/auth0";
 import { isInvalidAuthContextError } from "./lib/prismic/auth";
 import {
 	BadRequestError,
@@ -10,7 +10,7 @@ import {
 } from "./lib/request";
 import { dedent } from "./lib/string";
 
-const DEVICE_FLOW_MESSAGES: Record<Exclude<DeviceFlowError["reason"], "misconfigured">, string> = {
+const DEVICE_FLOW_MESSAGES: Record<Exclude<DeviceFlowErrorReason, "misconfigured">, string> = {
 	expired: "The login code expired. Run the command again.",
 	declined: "The login was declined in the browser.",
 	"email-unverified":

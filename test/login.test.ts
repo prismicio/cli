@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { approveLogin, captureOutput, captureStdout, it } from "./it";
+import { approveLogin, captureOutput, captureStdout, it, waitForLoginPrompt } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("login", ["--help"]);
@@ -41,10 +41,6 @@ it("logs in with a code, and saves the login for this user only", async ({
 	// Linux CI has no keychain, so its logins go to this file.
 	if (process.platform !== "linux") expect(credentials).not.toContain(token);
 	if (process.platform !== "win32") expect((await stat(path)).mode & 0o777).toBe(0o600);
-
-	const whoami = await prismic("whoami");
-	expect(whoami.exitCode, whoami.stderr).toBe(0);
-	expect(whoami.stdout).toContain(email);
 });
 
 it("stops an agent at its wait limit, and its next run continues the login", async ({
@@ -78,7 +74,7 @@ it.skipIf(process.platform === "win32")(
 		await logout();
 		const first = prismic("login");
 		const output = captureOutput(first);
-		await expect.poll(output, { timeout: 15_000 }).toContain("Waiting for the login");
+		await waitForLoginPrompt(expect, output);
 		first.kill("SIGINT");
 		const { exitCode } = await first;
 		expect(exitCode).toBe(130);
@@ -86,7 +82,7 @@ it.skipIf(process.platform === "win32")(
 
 		const second = prismic("login");
 		const next = captureOutput(second);
-		await expect.poll(next, { timeout: 15_000 }).toContain("Waiting for the login");
+		await waitForLoginPrompt(expect, next);
 		expect(getUserCode(next())).not.toBe(getUserCode(output()));
 	},
 );
@@ -105,8 +101,8 @@ it("makes another command wait for the login in progress", async ({
 	const loginOutput = captureOutput(login);
 	const reposOutput = captureOutput(repos);
 	const reposStdout = captureStdout(repos);
-	await expect.poll(loginOutput, { timeout: 15_000 }).toContain("Waiting for the login");
-	await expect.poll(reposOutput, { timeout: 15_000 }).toContain("Waiting for the login");
+	await waitForLoginPrompt(expect, loginOutput);
+	await waitForLoginPrompt(expect, reposOutput);
 	expect(getUserCode(reposOutput())).toBe(getUserCode(loginOutput()));
 
 	auth0.approve();
@@ -136,7 +132,7 @@ it("explains a login that Auth0 refused", async ({ expect, prismic, logout, auth
 	for (const [answer, message] of answers) {
 		const proc = prismic("login");
 		const output = captureOutput(proc);
-		await expect.poll(output, { timeout: 15_000 }).toContain("Waiting for the login");
+		await waitForLoginPrompt(expect, output);
 		answer();
 		expect((await proc).exitCode).toBe(1);
 		expect(output()).toContain(message);

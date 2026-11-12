@@ -18,7 +18,7 @@ const Env = z.object({
 	PRISMIC_TYPE_BUILDER_ENABLED: z.optional(z.stringbool()),
 	PRISMIC_SYNC_POLL_MS: z.optional(z.coerce.number().check(z.gte(100))),
 	// Tests only. Code reads them behind a literal `process.env.PROD` check, so
-	// production builds drop it.
+	// production builds drop that code.
 	PRISMIC_AUTH0_DOMAIN: z.optional(z.string()),
 	PRISMIC_AUTH0_CLIENT_ID: z.optional(z.string()),
 	PRISMIC_AGENT_WAIT_MS: z.optional(z.coerce.number().check(z.gte(1))),

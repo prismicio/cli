@@ -8,7 +8,7 @@ import {
 	lockLogin,
 	prepareLogin,
 	readCredentials,
-	readHost,
+	readLoginSummary,
 	writeCredentials,
 	type Session,
 	type StoredLogin,
@@ -42,6 +42,50 @@ const AGENT_WAIT_MS = (process.env.PROD === "false" && env.PRISMIC_AGENT_WAIT_MS
 const LOGIN_WAIT_MS = 15 * 60 * 1000;
 const PENDING_POLL_MS = 250;
 const LOGIN_PARAMS = { audience: "prismic.io", scope: "openid profile email offline_access" };
+const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
+
+// "ended" means Auth0 ended the session, so the caller can say the login
+// expired and start a new one.
+type SessionToken = { status: "active"; token: string } | { status: "none" } | { status: "ended" };
+
+type Login = {
+	host: string;
+	auth0: Auth0Config;
+	// Infinity for a person, who waits until the code expires.
+	deadline: number;
+	startedAt: number;
+	resumed: boolean;
+	// The saved token when the login started. Another command's login shows
+	// up as a different one.
+	tokenBefore?: string;
+	// Set once this command is the one that polls Auth0.
+	pending?: PendingLogin;
+};
+
+type LoginStore = Pick<StoredLogin, "store" | "storeReason">;
+type SavedLogin = LoginStore & { token: string };
+type LoginOutcome =
+	| ({ status: "logged-in"; email: string } & SavedLogin)
+	| { status: "wait-limit" }
+	| { status: "logged-out" };
+
+type LoginWait = {
+	waited: boolean;
+	// Another command's code, once this one showed it.
+	shown?: PendingLogin;
+};
+
+type StartedLogin =
+	| { status: "pending"; pending: PendingLogin; resumed: boolean }
+	| { status: "saved"; saved: SavedLogin }
+	| { status: "logged-out" };
+
+let renewal: Promise<SessionToken> | undefined;
+// A session that ended in this process stays "ended", so the login prompt can
+// say why.
+let ended = false;
+
+let reauthentication: Promise<string> | undefined;
 
 export async function getToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
@@ -50,17 +94,9 @@ export async function getToken(): Promise<string | undefined> {
 }
 
 export async function getHost(): Promise<string> {
-	return env.PRISMIC_HOST || (await readHost().catch(() => undefined)) || DEFAULT_PRISMIC_HOST;
+	if (env.PRISMIC_HOST) return env.PRISMIC_HOST;
+	return (await readLoginSummary().catch(() => undefined))?.host || DEFAULT_PRISMIC_HOST;
 }
-
-// "ended" means Auth0 ended the session, so the caller can say the login
-// expired and start a new one.
-type SessionToken = { status: "active"; token: string } | { status: "none" } | { status: "ended" };
-
-let renewal: Promise<SessionToken> | undefined;
-// A session that ended in this process stays "ended", so the login prompt can
-// say why.
-let ended = false;
 
 // `forceRefresh` renews a token that a server refused, even if it's not about
 // to expire.
@@ -140,8 +176,6 @@ function getUnexpiredToken(session: Session, marginMs = 0): string | undefined {
 	if (accessToken && expiresAt && expiresAt - marginMs > Date.now()) return accessToken;
 }
 
-let reauthentication: Promise<string> | undefined;
-
 export async function onUnauthorized<T>(
 	retry: (init?: Pick<RequestInit, "headers">) => Promise<T>,
 ): Promise<T | undefined> {
@@ -169,35 +203,6 @@ async function isTokenRejected(): Promise<boolean> {
 		return error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError;
 	}
 }
-
-type Login = {
-	host: string;
-	auth0: Auth0Config;
-	// Infinity for a person, who waits until the code expires.
-	deadline: number;
-	startedAt: number;
-	resumed: boolean;
-	// The saved token when the login started. Another command's login shows
-	// up as a different one.
-	tokenBefore?: string;
-	// Set once this command is the one that polls Auth0.
-	pending?: PendingLogin;
-};
-
-type LoginStore = Pick<StoredLogin, "store" | "storeReason">;
-type SavedLogin = LoginStore & { token: string };
-type LoginOutcome = (SavedLogin & { email: string }) | "wait-limit" | "logged-out";
-
-type LoginWait = {
-	waited: boolean;
-	// Another command's code, once this one showed it.
-	shown?: PendingLogin;
-};
-
-type StartedLogin =
-	| { status: "pending"; pending: PendingLogin }
-	| { status: "saved"; saved: SavedLogin }
-	| { status: "logged-out" };
 
 // Native client IDs are public.
 function getAuth0Config(host: string): Auth0Config | undefined {
@@ -268,14 +273,14 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	}
 
 	const { resumed, startedAt } = login;
-	if (outcome === "wait-limit") {
+	if (outcome.status === "wait-limit") {
 		recordLogin({ result: "wait-limit", resumed, startedAt });
 		return endCommand(
 			"Waiting for approval. After the user approves, run the same command again. It continues this login.",
 			1,
 		);
 	}
-	if (outcome === "logged-out") {
+	if (outcome.status === "logged-out") {
 		recordLogin({ result: "cancelled", resumed, startedAt });
 		throw new CommandError("A logout cancelled this login. Run the command again to log in.");
 	}
@@ -297,22 +302,25 @@ async function endCommand(message: string, exitCode: number): Promise<never> {
 
 async function completeLogin(login: Login, options: { browser: boolean }): Promise<LoginOutcome> {
 	const loginLock = await lockLoginAfterOthers(login);
-	if (!loginLock) return "wait-limit";
+	if (!loginLock) return { status: "wait-limit" };
 
 	let saved: SavedLogin;
 	try {
 		const started = await startLogin(login, loginLock.wait);
-		if (started.status === "logged-out") return "logged-out";
+		if (started.status === "logged-out") return started;
 		if (started.status === "saved") {
 			saved = started.saved;
 		} else {
 			const { pending } = started;
+			login.pending = pending;
+			login.startedAt = pending.startedAt;
+			login.resumed = started.resumed;
 			if (pending.deviceCode !== loginLock.wait.shown?.deviceCode) printLoginPrompt(pending);
 			if (options.browser) openBrowser(new URL(getDeviceLoginPrompt(pending).url));
 			const tokens = await pollUntilApproved(login, pending);
-			if (!tokens) return "wait-limit";
+			if (!tokens) return { status: "wait-limit" };
 			const store = await saveLogin(login, pending, tokens);
-			if (!store) return "logged-out";
+			if (!store) return { status: "logged-out" };
 			saved = { ...store, token: tokens.accessToken };
 		}
 	} finally {
@@ -323,7 +331,7 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 	// signup, so it runs right after a login saves its tokens.
 	await forgetTrackedUser();
 	const { email } = await getUserProfile({ getToken: async () => saved.token, host: login.host });
-	return { ...saved, email };
+	return { status: "logged-in", ...saved, email };
 }
 
 // One command polls Auth0 per config directory. Another command that needs a
@@ -354,9 +362,7 @@ async function lockLoginAfterOthers(
 	}
 }
 
-// Resumes the saved login, or starts one and saves it so a later run can
-// continue it. Or finds that another command logged in, or that a logout
-// cancelled the login this one waited for.
+// A new code is saved, so a later run can continue it.
 async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> {
 	const lock = await lockCredentials();
 	try {
@@ -366,12 +372,7 @@ async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> 
 		if (wait.shown && credentials && !credentials.login) return { status: "logged-out" };
 		const stored = credentials?.login;
 		const resumable = stored && getResumableLogin(stored.session, login);
-		if (resumable) {
-			login.pending = resumable;
-			login.startedAt = resumable.startedAt;
-			login.resumed = true;
-			return { status: "pending", pending: resumable };
-		}
+		if (resumable) return { status: "pending", pending: resumable, resumed: true };
 		const current = stored?.session.host === login.host ? stored : undefined;
 		const token = current && getUnexpiredToken(current.session);
 		if (wait.waited && token && token !== login.tokenBefore) {
@@ -380,8 +381,6 @@ async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> 
 		}
 
 		const pending = await startDeviceLogin(LOGIN_PARAMS, login.auth0);
-		login.pending = pending;
-		login.startedAt = pending.startedAt;
 		const store = await prepareLogin(lock);
 		// The current session works until the new login replaces it.
 		const session = current?.session ?? { host: login.host, ...login.auth0 };
@@ -390,7 +389,7 @@ async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> 
 			session: { ...session, pendingLogin: pending },
 		});
 		if (warning) console.warn(warning);
-		return { status: "pending", pending };
+		return { status: "pending", pending, resumed: false };
 	} finally {
 		await lock.release();
 	}
@@ -498,8 +497,6 @@ async function saveLogin(
 		await lock.release();
 	}
 }
-
-const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 
 export async function cleanupLegacyAuthFile(): Promise<void> {
 	let contents: string;

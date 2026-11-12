@@ -36,7 +36,6 @@ const SessionSchema = z.object({
 	host: z.string(),
 	auth0Domain: z.string(),
 	clientId: z.string(),
-	email: z.optional(z.string()),
 	accessToken: z.optional(z.string()),
 	refreshToken: z.optional(z.string()),
 	/** Milliseconds since the epoch, from the local time of receipt. */
@@ -61,13 +60,22 @@ const CredentialsVersionSchema = z.looseObject({
 	storeReason: z.optional(z.unknown()),
 });
 const CredentialsHostSchema = z.looseObject({ host: z.optional(z.string()) });
+// What every login keeps in plain text. A field that doesn't match reads as
+// missing.
+const LoginSummarySchema = z.looseObject({
+	host: z.catch(z.optional(z.string()), undefined),
+	store: z.catch(z.optional(z.enum(["keyring", "file"])), undefined),
+	storeReason: z.catch(z.optional(FallbackReasonSchema), undefined),
+	/** Set while a session has tokens. */
+	expiresAt: z.catch(z.optional(z.number()), undefined),
+});
 
 export type StoreMode = "keyring" | "file";
 
 // `storeReason` says why a login went to a file, for telemetry.
 export type StoredLogin = { store: StoreMode; storeReason?: FallbackReason; session: Session };
 
-export type StoredCredentials = {
+type StoredCredentials = {
 	host?: string;
 	login?: StoredLogin;
 };
@@ -110,10 +118,16 @@ export async function readCredentials(): Promise<StoredCredentials> {
 	};
 }
 
-// Every version keeps the host in plain text, so reading it needs no key.
-export async function readHost(): Promise<string | undefined> {
+// Reads what's in plain text, so it never needs the keychain.
+export async function readLoginSummary(): Promise<{
+	host?: string;
+	store?: StoreMode;
+	storeReason?: FallbackReason;
+	expiresAt?: number;
+}> {
 	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH));
-	return z.safeParse(CredentialsHostSchema, json).data?.host;
+	const { host, store, storeReason, expiresAt } = z.safeParse(LoginSummarySchema, json).data ?? {};
+	return { host, store, storeReason, expiresAt };
 }
 
 const FALLBACK_REASONS: Record<KeyringErrorReason, FallbackReason> = {
@@ -159,14 +173,11 @@ export async function writeCredentials(
 	const { store, storeReason, session } = login;
 	let safe;
 	if (store === "keyring") {
-		const { host, email, expiresAt, auth0Domain, clientId } = session;
+		const { host, expiresAt, auth0Domain, clientId } = session;
 		safe = await writePrivateFiles(lock, [
 			// credentials.enc is authoritative, so it's written first.
 			[ENCRYPTED_CREDENTIALS_PATH, encrypt(JSON.stringify(session), await requireKey())],
-			[
-				CREDENTIALS_PATH,
-				stringify({ version: 2, host, email, expiresAt, store, auth0Domain, clientId }),
-			],
+			[CREDENTIALS_PATH, stringify({ version: 2, host, expiresAt, store, auth0Domain, clientId })],
 		]);
 	} else {
 		safe = await writePrivateFiles(lock, [
@@ -182,7 +193,9 @@ export async function writeCredentials(
 	};
 }
 
-export async function clearCredentials(lock: Lock): Promise<void> {
+// The login is gone either way, so a key the keychain won't delete only gets a
+// warning.
+export async function clearCredentials(lock: Lock): Promise<{ warning?: string }> {
 	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH).catch(() => undefined));
 	const host = z.safeParse(CredentialsHostSchema, json).data?.host;
 	const hadKey =
@@ -193,14 +206,19 @@ export async function clearCredentials(lock: Lock): Promise<void> {
 	else await removeFile(lock, CREDENTIALS_PATH);
 	await removeFile(lock, ENCRYPTED_CREDENTIALS_PATH);
 
-	if (!hadKey) return;
+	if (!hadKey) return {};
 	key = undefined;
 	await assertHeld(lock);
-	await systemKeyring
-		.delete(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, { timeoutMs: KEYCHAIN_TIMEOUT_MS })
-		.catch((error) => {
-			throw keyringFailure(error, "delete");
+	try {
+		await systemKeyring.delete(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, {
+			timeoutMs: KEYCHAIN_TIMEOUT_MS,
 		});
+		return {};
+	} catch (error) {
+		const failure = keyringFailure(error, "delete");
+		if (failure instanceof CredentialsError) return { warning: failure.message };
+		throw failure;
+	}
 }
 
 export async function lockCredentials(): Promise<Lock> {

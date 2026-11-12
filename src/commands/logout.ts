@@ -38,10 +38,8 @@ export default createCommand(config, async () => {
 				`Couldn't revoke your session because ${getProblem(error)}. It stays valid until it expires.`,
 			);
 		}
-		await clearCredentials(lock).catch((error) => {
-			if (!(error instanceof CredentialsError && error.reason in KEYCHAIN_PROBLEMS)) throw error;
-			console.warn(error.message);
-		});
+		const { warning } = await clearCredentials(lock);
+		if (warning) console.warn(warning);
 		await forgetTrackedUser();
 	} finally {
 		await lock.release();

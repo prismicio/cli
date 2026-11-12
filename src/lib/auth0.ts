@@ -246,7 +246,7 @@ function getRetryAfterMs(error: unknown): number {
 	return 0;
 }
 
-type DeviceFlowErrorReason =
+export type DeviceFlowErrorReason =
 	| "expired"
 	| "declined"
 	| "email-unverified"
