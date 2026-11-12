@@ -8,14 +8,22 @@ import * as z from "zod/mini";
 
 import { CREDENTIALS_PATH } from "./config";
 import {
+	clearCredentials,
+	CredentialsError,
 	lockCredentials,
 	readCredentials as readStoredCredentials,
 	writeCredentials,
+	type CredentialsErrorReason,
 	type Session,
 	type StoredLogin,
 } from "./credentials";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
-import { type Auth0Config, DeviceFlowError, refreshAccessToken } from "./lib/auth0";
+import {
+	type Auth0Config,
+	DeviceFlowError,
+	refreshAccessToken,
+	revokeRefreshToken,
+} from "./lib/auth0";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import type { Lock } from "./lib/lock";
@@ -24,7 +32,7 @@ import {
 	getUserProfile,
 	validateToken,
 } from "./lib/prismic/client";
-import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
+import { ForbiddenRequestError, RequestError, UnauthorizedRequestError } from "./lib/request";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 
@@ -199,6 +207,56 @@ export async function logout(): Promise<boolean> {
 	}
 }
 
+const KEYCHAIN_PROBLEMS: Partial<Record<CredentialsErrorReason, string>> = {
+	locked: "the keychain is locked",
+	timeout: "the keychain didn't respond",
+	"keychain-unavailable": "the keychain isn't available",
+};
+
+export async function endSession(): Promise<{ revoked: boolean; warnings: string[] }> {
+	let revoked = false;
+	const warnings: string[] = [];
+	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+	try {
+		try {
+			const session = (await readStoredCredentials()).login?.session;
+			if (session?.refreshToken) {
+				const { refreshToken, auth0Domain, clientId } = session;
+				await revokeRefreshToken(refreshToken, { auth0Domain, clientId });
+				revoked = true;
+			}
+		} catch (error) {
+			warnings.push(
+				`Couldn't revoke your session because ${getProblem(error)}. It stays valid until it expires.`,
+			);
+		}
+		await clearCredentials(lock).catch((error) => {
+			if (!(error instanceof CredentialsError && error.reason in KEYCHAIN_PROBLEMS)) throw error;
+			warnings.push(`Couldn't delete your Prismic key because ${getProblem(error)}.`);
+		});
+		await forgetTrackedUser();
+	} finally {
+		await lock.release();
+	}
+	if (env.PRISMIC_TOKEN) warnings.push("PRISMIC_TOKEN is still set, so commands still use it.");
+	return { revoked, warnings };
+}
+
+// The new login is saved before the previous one is revoked, so a failed
+// revoke only leaves the previous session to expire.
+export async function replaceSession(
+	lock: Lock,
+	storedLogin: StoredLogin,
+): Promise<{ warning?: string }> {
+	const previous = (await readStoredCredentials().catch(() => undefined))?.login?.session;
+	const { warning } = await writeCredentials(lock, storedLogin);
+	if (previous?.refreshToken) {
+		const { refreshToken, auth0Domain, clientId } = previous;
+		await revokeRefreshToken(refreshToken, { auth0Domain, clientId }).catch(() => {});
+	}
+	return { warning };
+}
+
 async function readCredentials(): Promise<Credentials | undefined> {
 	return readJsonFile(CREDENTIALS_PATH, { schema: CredentialsSchema }).catch(() => undefined);
 }
@@ -356,4 +414,18 @@ export function spawnTokenRefresh(): void {
 	} catch {
 		// Silent failure — never breaks the CLI.
 	}
+}
+
+function getProblem(error: unknown): string {
+	if (error instanceof CredentialsError) {
+		return KEYCHAIN_PROBLEMS[error.reason] ?? "the saved login can't be read";
+	}
+	if (error instanceof RequestError) return `the login service answered HTTP ${error.status}`;
+	if (
+		error instanceof TypeError ||
+		(error instanceof DOMException && error.name === "TimeoutError")
+	) {
+		return "the login service can't be reached";
+	}
+	return "of an unexpected error";
 }
