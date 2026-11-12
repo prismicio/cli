@@ -16,7 +16,6 @@ import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
 import { getErrorMessage } from "./error";
 import { detectAgent } from "./lib/ai";
-import { DeviceFlowError } from "./lib/auth0";
 import { CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
@@ -86,7 +85,6 @@ const KNOWN_ERRORS = [
 	ForbiddenRequestError,
 	BadRequestError,
 	UnknownRequestError,
-	DeviceFlowError,
 ];
 
 const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError];
@@ -204,10 +202,7 @@ async function main(): Promise<void> {
 
 		if (KNOWN_ERRORS.some((type) => error instanceof type)) {
 			console.error(message);
-			if (
-				REPORTED_KNOWN_ERRORS.some((type) => error instanceof type) ||
-				(error instanceof DeviceFlowError && error.reason === "misconfigured")
-			) {
+			if (REPORTED_KNOWN_ERRORS.some((type) => error instanceof type)) {
 				await sentryCaptureError(error);
 			}
 		} else {
