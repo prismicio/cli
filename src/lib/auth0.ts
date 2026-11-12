@@ -263,26 +263,9 @@ export class DeviceFlowError extends Error {
 
 	constructor(reason: DeviceFlowErrorReason, error?: unknown) {
 		const detail = error === undefined ? undefined : getDetail(error);
-		super(getMessage(reason, detail));
+		super(detail ? `${reason} (${detail})` : reason);
 		this.reason = reason;
 		this.detail = detail;
-	}
-}
-
-function getMessage(reason: DeviceFlowErrorReason, detail: string | undefined): string {
-	switch (reason) {
-		case "expired":
-			return "The device code expired.";
-		case "declined":
-			return "The login was declined.";
-		case "email-unverified":
-			return "The login was declined because the email address isn't verified.";
-		case "invalid-grant":
-			return "The device code is unknown or was already used.";
-		case "misconfigured":
-			return `Auth0 rejected the request (${detail}).`;
-		case "unavailable":
-			return `Auth0 can't be reached (${detail}).`;
 	}
 }
 

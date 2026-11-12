@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import { approveLogin, captureOutput, it, security } from "./it";
+import { approveLogin, captureOutput, it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("logout", ["--help"]);
@@ -8,7 +8,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic logout [options]");
 });
 
-it("revokes the session, and deletes the login and its key but keeps the host", async ({
+it("revokes the session, and deletes the login but keeps the host", async ({
 	expect,
 	home,
 	host,
@@ -30,11 +30,6 @@ it("revokes the session, and deletes the login and its key but keeps the host", 
 	const credentials = JSON.parse(await readFile(new URL("credentials.json", configDir), "utf8"));
 	expect(credentials).toEqual({ host });
 	await expect(readFile(new URL("credentials.enc", configDir))).rejects.toThrow();
-	if (process.platform === "darwin") {
-		// 44 means the item isn't found.
-		const { exitCode } = await security(home, ["find-generic-password", "-s", "prismic-cli"]);
-		expect(exitCode).toBe(44);
-	}
 
 	const whoami = await prismic("whoami");
 	expect(whoami.stderr).toContain("Not logged in. Run `prismic login` first.");

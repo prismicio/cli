@@ -153,7 +153,9 @@ async function main(): Promise<void> {
 
 	if (!help) {
 		const host = await getHost();
-		// Commands report a saved login they can't read, so startup ignores it.
+		// Telemetry only needs what's saved. getToken() could refresh, which takes
+		// a lock and a request before every command. Commands report a saved
+		// login they can't read, so startup ignores it.
 		const login = env.PRISMIC_TOKEN
 			? undefined
 			: (await readCredentials().catch(() => undefined))?.login;

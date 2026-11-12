@@ -31,6 +31,7 @@ export type Fixtures = {
 	project: URL;
 	exec: typeof x;
 	prismic: typeof x;
+	keychain: void;
 	/** A fake Auth0 tenant. `prismic` logs in with it, and gets the e2e user's token. */
 	auth0: FakeAuth0;
 	/** Saves a login in a file, as when no keychain is usable. */
@@ -68,10 +69,7 @@ export const it = test.extend<Fixtures>({
 	// oxlint-disable-next-line no-empty-pattern
 	home: async ({}, use) => {
 		const dir = await mkdtemp(join(tmpdir(), "prismic-test-"));
-		const home = pathToFileURL(dir + "/");
-		const keychain = process.platform === "darwin" ? await createKeychain(home) : undefined;
-		await use(home);
-		await keychain?.delete();
+		await use(pathToFileURL(dir + "/"));
 		try {
 			await rm(dir, { recursive: true, force: true });
 		} catch {
@@ -123,6 +121,23 @@ export const it = test.extend<Fixtures>({
 	// oxlint-disable-next-line no-empty-pattern
 	token: async ({}, use) => {
 		await use(inject("token"));
+	},
+	// On macOS, the CLI's keychain calls follow HOME. A keychain inside the test's
+	// HOME keeps them off the user's keychain. Without one, macOS opens a dialog
+	// asking where to save.
+	keychain: async ({ home }, use) => {
+		if (process.platform !== "darwin") return use();
+		const path = fileURLToPath(new URL("Library/Keychains/prismic-test.keychain-db", home));
+		await mkdir(new URL("Library/Keychains/", home), { recursive: true });
+		// `security` drops its settings when this folder is missing.
+		await mkdir(new URL("Library/Preferences/", home), { recursive: true });
+		await security(home, ["create-keychain", "-p", "", path]);
+		await security(home, ["list-keychains", "-d", "user", "-s", path]);
+		await security(home, ["default-keychain", "-s", path]);
+		// Without a timeout, it never locks, so it never asks for its password.
+		await security(home, ["set-keychain-settings", path]);
+		await use();
+		await security(home, ["delete-keychain", path]);
 	},
 	auth0: async ({ token }, use) => {
 		const auth0 = await createFakeAuth0({ accessToken: token, interval: 0.1 });
@@ -182,7 +197,7 @@ export const it = test.extend<Fixtures>({
 			if (proc.exitCode === undefined) proc.kill();
 		}
 	},
-	prismic: async ({ home, login, exec, auth0 }, use) => {
+	prismic: async ({ home, login, exec, auth0, keychain: _keychain }, use) => {
 		await login();
 		const configDir = new URL(".config/prismic/", home);
 		await use((command, args = [], options) =>
@@ -269,35 +284,12 @@ export async function approveLogin(
 	auth0.approve();
 }
 
-export function getUserCode(output: string): string | undefined {
-	return output.match(/the code ([A-Z0-9]{4}-[A-Z0-9]{4})/)?.[1];
-}
-
 // Runs `security` with the test's HOME, so it only sees the test's keychain.
-export function security(home: URL, args: string[]): Result {
-	return x("/usr/bin/security", args, {
+async function security(home: URL, args: string[]): Promise<void> {
+	await x("/usr/bin/security", args, {
 		nodeOptions: { env: { ...process.env, HOME: fileURLToPath(home) } },
+		throwOnError: true,
 	});
-}
-
-// On macOS, the CLI's keychain calls follow HOME. A keychain inside the test's
-// HOME keeps them off the user's keychain. Without one, macOS opens a dialog
-// asking where to save.
-async function createKeychain(home: URL): Promise<{ delete: () => Promise<unknown> }> {
-	const path = fileURLToPath(new URL("Library/Keychains/prismic-test.keychain-db", home));
-	await mkdir(new URL("Library/Keychains/", home), { recursive: true });
-	// `security` drops its settings when this folder is missing.
-	await mkdir(new URL("Library/Preferences/", home), { recursive: true });
-	const run = async (args: string[]) => {
-		const { exitCode, stderr } = await security(home, args);
-		if (exitCode !== 0) throw new Error(`security ${args[0]} failed: ${stderr}`);
-	};
-	await run(["create-keychain", "-p", "", path]);
-	await run(["list-keychains", "-d", "user", "-s", path]);
-	await run(["default-keychain", "-s", path]);
-	// Without a timeout, it never locks, so it never asks for its password.
-	await run(["set-keychain-settings", path]);
-	return { delete: () => run(["delete-keychain", path]).catch(() => {}) };
 }
 
 export function buildCustomType(

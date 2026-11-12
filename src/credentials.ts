@@ -22,6 +22,9 @@ import { acquireLock, type Lock } from "./lib/lock";
 const KEYCHAIN_SERVICE = "prismic-cli";
 const KEYCHAIN_ACCOUNT = `cli:${createHash("sha256").update(fileURLToPath(CONFIG_DIR)).digest("hex").slice(0, 16)}`;
 const KEYCHAIN_LOGIN_TIMEOUT_MS = 5_000;
+// Holders keep it for about one request, and a stale lock is recovered after
+// 10 seconds.
+const CREDENTIALS_LOCK_TIMEOUT_MS = 30_000;
 // Leaves time to answer the keychain's unlock dialog.
 const KEYCHAIN_TIMEOUT_MS = 30_000;
 
@@ -200,9 +203,9 @@ export async function clearCredentials(lock: Lock): Promise<void> {
 		});
 }
 
-export async function lockCredentials(config: { timeoutMs: number }): Promise<Lock> {
+export async function lockCredentials(): Promise<Lock> {
 	await ensurePrivateDir();
-	return acquireLock(CREDENTIALS_LOCK_PATH, config);
+	return acquireLock(CREDENTIALS_LOCK_PATH, { timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
 }
 
 // A login holds this one while it waits for approval, so one command polls for

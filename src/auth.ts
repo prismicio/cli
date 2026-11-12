@@ -4,15 +4,12 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 
 import {
-	clearCredentials,
-	CredentialsError,
 	lockCredentials,
 	lockLogin,
 	prepareLogin,
 	readCredentials,
 	readHost,
 	writeCredentials,
-	type CredentialsErrorReason,
 	type Session,
 	type StoredLogin,
 } from "./credentials";
@@ -39,13 +36,9 @@ import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser, getLoginResult, recordLogin, trackCommandEnd } from "./tracking";
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
-const CREDENTIALS_LOCK_TIMEOUT_MS = 30_000;
-// Below Claude Code's 2-minute command timeout. Tests shorten it, and
-// production builds drop that branch.
-const AGENT_WAIT_MS =
-	process.env.PROD === "false" && process.env.PRISMIC_AGENT_WAIT_MS
-		? Number(process.env.PRISMIC_AGENT_WAIT_MS)
-		: 90_000;
+// Below Claude Code's 2-minute command timeout. Tests shorten it.
+// `process.env.PROD` is read literally, so production builds drop the branch.
+const AGENT_WAIT_MS = (process.env.PROD === "false" && env.PRISMIC_AGENT_WAIT_MS) || 90_000;
 // Auth0's device codes expire after 15 minutes.
 const LOGIN_WAIT_MS = 15 * 60 * 1000;
 const PENDING_POLL_MS = 250;
@@ -63,12 +56,11 @@ export async function getHost(): Promise<string> {
 
 // Native client IDs are public.
 function getAuth0Config(host: string): Auth0Config | undefined {
-	// Tests log in with a fake Auth0 server. Production builds drop this branch.
-	if (process.env.PROD === "false" && process.env.PRISMIC_AUTH0_DOMAIN) {
-		return {
-			auth0Domain: process.env.PRISMIC_AUTH0_DOMAIN,
-			clientId: process.env.PRISMIC_AUTH0_CLIENT_ID ?? "",
-		};
+	// Tests log in with a fake Auth0 server. In a release, a stray variable must
+	// never send a real login to another tenant, so production builds drop this
+	// branch: `process.env.PROD` is read literally.
+	if (process.env.PROD === "false" && env.PRISMIC_AUTH0_DOMAIN) {
+		return { auth0Domain: env.PRISMIC_AUTH0_DOMAIN, clientId: env.PRISMIC_AUTH0_CLIENT_ID ?? "" };
 	}
 	if (host === "prismic.io") {
 		return { auth0Domain: "auth0.prismic.io", clientId: "V1yuPKJOHhuHNMR4Oeo2fj5uTCfVebny" };
@@ -121,7 +113,7 @@ async function getSessionToken(options: { forceRefresh?: boolean } = {}): Promis
 }
 
 async function renewSession(staleToken: string | undefined): Promise<SessionToken> {
-	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+	const lock = await lockCredentials();
 	try {
 		const { login: storedLogin } = await readCredentials();
 		return await renewLogin(lock, storedLogin, staleToken, { canRetry: true });
@@ -215,8 +207,16 @@ type Login = {
 	pending?: PendingLogin;
 };
 
-type SavedLogin = Pick<StoredLogin, "store" | "storeReason"> & { token: string };
+type LoginStore = Pick<StoredLogin, "store" | "storeReason">;
+type SavedLogin = LoginStore & { token: string };
 type CompletedLogin = SavedLogin & { email: string };
+
+type LoginLock = {
+	lock: Lock;
+	waited: boolean;
+	// Another command's code, once this one showed it.
+	shown?: PendingLogin;
+};
 
 // The prompt and the result go to stderr, so a command that logs in on its own
 // keeps its output clean.
@@ -226,7 +226,8 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	if (!auth0) throw new CommandError(`Login isn't available for ${host}. Use PRISMIC_TOKEN.`);
 
 	// An agent stops before its command times out, then runs the command again
-	// to continue.
+	// to continue. Without a terminal, nobody may be there to approve, so it
+	// stops the same way.
 	const isPerson = detectAgent() === undefined && process.stdin.isTTY === true;
 	const login: Login = {
 		host,
@@ -295,18 +296,18 @@ async function completeLogin(
 	login: Login,
 	options: { browser: boolean },
 ): Promise<CompletedLogin | "wait-limit" | "logged-out"> {
-	const other = await lockLoginAfterOthers(login);
-	if (!other) return "wait-limit";
+	const loginLock = await lockLoginAfterOthers(login);
+	if (!loginLock) return "wait-limit";
 
 	let saved: SavedLogin;
 	try {
-		const started = await startLogin(login, other);
+		const started = await startLogin(login, loginLock);
 		if (started === "logged-out") return started;
 		if ("token" in started) {
 			saved = started;
 		} else {
 			const { pending } = started;
-			if (pending.deviceCode !== other.shown?.deviceCode) printLoginPrompt(pending);
+			if (pending.deviceCode !== loginLock.shown?.deviceCode) printLoginPrompt(pending);
 			if (options.browser) openBrowser(new URL(getDeviceLoginPrompt(pending).url));
 			const tokens = await pollUntilApproved(login, pending);
 			if (!tokens) return "wait-limit";
@@ -315,7 +316,7 @@ async function completeLogin(
 			saved = { ...store, token: tokens.accessToken };
 		}
 	} finally {
-		await other.lock.release();
+		await loginLock.lock.release();
 	}
 
 	// The profile request also creates the Prismic user for a new social or SSO
@@ -325,24 +326,17 @@ async function completeLogin(
 	return { ...saved, email };
 }
 
-type LoginLock = {
-	lock: Lock;
-	waited: boolean;
-	// The other command's code, once this one showed it.
-	shown?: PendingLogin;
-};
-
 // One command polls Auth0 per config directory. Another command that needs a
 // login shows the same code and waits for the first one, as long as its own
 // login would. Returns nothing when an agent's wait ends first.
 async function lockLoginAfterOthers(login: Login): Promise<LoginLock | undefined> {
 	const waitUntil = Math.min(login.deadline, Date.now() + LOGIN_WAIT_MS);
-	const other: Omit<LoginLock, "lock"> = { waited: false };
+	const wait: Omit<LoginLock, "lock"> = { waited: false };
 	while (true) {
 		// Until the other command saves its code, look for it between tries.
-		const timeoutMs = other.shown ? waitUntil - Date.now() : 0;
+		const timeoutMs = wait.shown ? waitUntil - Date.now() : 0;
 		try {
-			return { ...other, lock: await lockLogin({ timeoutMs }) };
+			return { ...wait, lock: await lockLogin({ timeoutMs }) };
 		} catch (error) {
 			if (!(error instanceof LockTimeoutError)) throw error;
 			if (Date.now() >= login.deadline) return;
@@ -350,10 +344,10 @@ async function lockLoginAfterOthers(login: Login): Promise<LoginLock | undefined
 			if (Date.now() >= waitUntil) throw new DeviceFlowError("expired");
 		}
 
-		other.waited = true;
+		wait.waited = true;
 		const session = (await readCredentials().catch(() => undefined))?.login?.session;
-		other.shown = session && getResumableLogin(session, login);
-		if (other.shown) printLoginPrompt(other.shown);
+		wait.shown = session && getResumableLogin(session, login);
+		if (wait.shown) printLoginPrompt(wait.shown);
 		else await sleep(PENDING_POLL_MS);
 	}
 }
@@ -364,28 +358,31 @@ async function lockLoginAfterOthers(login: Login): Promise<LoginLock | undefined
 // and "logged-out" when a logout cancelled the login it waited for.
 async function startLogin(
 	login: Login,
-	other: Omit<LoginLock, "lock">,
+	wait: Omit<LoginLock, "lock">,
 ): Promise<{ pending: PendingLogin } | SavedLogin | "logged-out"> {
-	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+	const lock = await lockCredentials();
 	try {
 		// A saved login that can't be read doesn't stop a new one.
 		const credentials = await readCredentials().catch(() => undefined);
 		// A failed login keeps the saved login, but a logout deletes it.
-		if (other.shown && credentials && !credentials.login) return "logged-out";
+		if (wait.shown && credentials && !credentials.login) return "logged-out";
 		const stored = credentials?.login;
 		const resumable = stored && getResumableLogin(stored.session, login);
 		if (resumable) {
-			Object.assign(login, { pending: resumable, startedAt: resumable.startedAt, resumed: true });
+			login.pending = resumable;
+			login.startedAt = resumable.startedAt;
+			login.resumed = true;
 			return { pending: resumable };
 		}
 		const current = stored?.session.host === login.host ? stored : undefined;
 		const token = current && getUnexpiredToken(current.session);
-		if (other.waited && token && token !== login.tokenBefore) {
+		if (wait.waited && token && token !== login.tokenBefore) {
 			return { token, store: current.store, storeReason: current.storeReason };
 		}
 
 		const pending = await startDeviceLogin(LOGIN_PARAMS, login.auth0);
-		Object.assign(login, { pending, startedAt: pending.startedAt });
+		login.pending = pending;
+		login.startedAt = pending.startedAt;
 		const store = await prepareLogin(lock);
 		// The current session works until the new login replaces it.
 		const session = current?.session ?? { host: login.host, ...login.auth0 };
@@ -453,7 +450,7 @@ async function setPendingLogin(
 	current: PendingLogin,
 	next: PendingLogin | undefined,
 ): Promise<void> {
-	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+	const lock = await lockCredentials();
 	try {
 		const stored = (await readCredentials()).login;
 		if (stored?.session.pendingLogin?.deviceCode !== current.deviceCode) return;
@@ -468,8 +465,8 @@ async function saveLogin(
 	login: Login,
 	pending: PendingLogin,
 	tokens: DeviceLoginTokens,
-): Promise<Pick<StoredLogin, "store" | "storeReason"> | undefined> {
-	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+): Promise<LoginStore | undefined> {
+	const lock = await lockCredentials();
 	try {
 		const { auth0Domain, clientId } = pending;
 		// A saved login that can't be read can't have been logged out.
@@ -503,41 +500,6 @@ async function saveLogin(
 	}
 }
 
-const KEYCHAIN_PROBLEMS: Partial<Record<CredentialsErrorReason, string>> = {
-	locked: "the keychain is locked",
-	timeout: "the keychain didn't respond",
-	"keychain-unavailable": "the keychain isn't available",
-};
-
-export async function endSession(): Promise<{ revoked: boolean; warnings: string[] }> {
-	let revoked = false;
-	const warnings: string[] = [];
-	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
-	try {
-		try {
-			const session = (await readCredentials()).login?.session;
-			if (session?.refreshToken) {
-				const { refreshToken, auth0Domain, clientId } = session;
-				await revokeRefreshToken(refreshToken, { auth0Domain, clientId });
-				revoked = true;
-			}
-		} catch (error) {
-			warnings.push(
-				`Couldn't revoke your session because ${getProblem(error)}. It stays valid until it expires.`,
-			);
-		}
-		await clearCredentials(lock).catch((error) => {
-			if (!(error instanceof CredentialsError && error.reason in KEYCHAIN_PROBLEMS)) throw error;
-			warnings.push(`Couldn't delete your Prismic key because ${getProblem(error)}.`);
-		});
-		await forgetTrackedUser();
-	} finally {
-		await lock.release();
-	}
-	if (env.PRISMIC_TOKEN) warnings.push("PRISMIC_TOKEN is still set, so commands still use it.");
-	return { revoked, warnings };
-}
-
 const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 
 export async function cleanupLegacyAuthFile(): Promise<void> {
@@ -560,16 +522,4 @@ export async function cleanupLegacyAuthFile(): Promise<void> {
 	try {
 		await rm(LEGACY_AUTH_FILE_PATH, { force: true });
 	} catch {}
-}
-
-function getProblem(error: unknown): string {
-	if (error instanceof CredentialsError) {
-		return KEYCHAIN_PROBLEMS[error.reason] ?? "the saved login can't be read";
-	}
-	if (error instanceof DeviceFlowError) {
-		return error.reason === "unavailable"
-			? "the login service can't be reached"
-			: `the login service answered ${error.detail}`;
-	}
-	return "of an unexpected error";
 }

@@ -22,7 +22,7 @@ export type FakeAuth0Response = {
 export type FakeAuth0 = {
 	auth0Domain: string;
 	clientId: string;
-	requests: { path: string; params: Record<string, string>; at: number }[];
+	requests: { path: string; params: Record<string, string> }[];
 	approve: (options?: { userCode?: string }) => void;
 	deny: (options?: { userCode?: string; description?: string }) => void;
 	expire: (options?: { userCode?: string }) => void;
@@ -53,7 +53,7 @@ export async function createFakeAuth0(options: FakeAuth0Options = {}): Promise<F
 		let body = "";
 		for await (const chunk of req) body += chunk;
 		const params = Object.fromEntries(new URLSearchParams(body));
-		requests.push({ path, params, at: Date.now() });
+		requests.push({ path, params });
 
 		const response = responses.get(path)?.shift();
 		if (response) {

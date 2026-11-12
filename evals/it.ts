@@ -55,6 +55,7 @@ export const it = base.extend<{
 			project,
 			login,
 			auth0,
+			keychain: _keychain,
 			exec,
 			task,
 			repo,
