@@ -115,7 +115,7 @@ describe("login details on the End event", { concurrent: false }, () => {
 
 	it("maps device flow errors onto login results", async ({ expect, home }) => {
 		const tracking = await loadTracking(home);
-		const { DeviceFlowError } = await import("../src/lib/prismic/device-flow");
+		const { DeviceFlowError } = await import("../src/lib/auth0");
 		const reasons = [
 			"expired",
 			"declined",
@@ -127,7 +127,7 @@ describe("login details on the End event", { concurrent: false }, () => {
 
 		const results = reasons.map((reason) => [
 			reason,
-			tracking.getLoginResult(new DeviceFlowError(reason, "prismic.io")),
+			tracking.getLoginResult(new DeviceFlowError(reason)),
 		]);
 		expect(Object.fromEntries(results)).toEqual({
 			expired: "expired",

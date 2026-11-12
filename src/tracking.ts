@@ -8,11 +8,11 @@ import { ANALYTICS_IDS_PATH } from "./config";
 import type { FallbackReason, StoreMode } from "./credentials";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { detectAgent } from "./lib/ai";
+import type { DeviceFlowError } from "./lib/auth0";
 import { readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { decodePayload } from "./lib/jwt";
 import type { Profile } from "./lib/prismic/client";
-import type { DeviceFlowError } from "./lib/prismic/device-flow";
 import { initSegment, trackEvent, trackIdentity } from "./lib/segment";
 import { appendTrailingSlash } from "./lib/url";
 
