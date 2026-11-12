@@ -1,9 +1,8 @@
 import { rm } from "node:fs/promises";
 
 import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from "../adapters";
-import { createLoginSession, getHost, getToken } from "../auth";
+import { getHost, getToken, logIn } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
-import { openBrowser } from "../lib/browser";
 import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 import {
 	getInstallCommand,
@@ -122,19 +121,8 @@ export default createCommand(config, async ({ values }) => {
 	} catch (error) {
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			if (env.PRISMIC_TOKEN) throw error;
-			console.info("Not logged in. Starting login...");
-			const { email } = await createLoginSession({
-				onReady: (url) => {
-					if (noBrowser) {
-						console.info(`Open this URL to log in: ${url}`);
-					} else {
-						console.info("Opening browser to complete login...");
-						console.info(`If the browser doesn't open, visit: ${url}`);
-						openBrowser(url);
-					}
-				},
-			});
-			console.info(`Logged in as ${email}`);
+			console.error("You are not logged in.");
+			await logIn({ browser: !noBrowser });
 		} else {
 			throw error;
 		}

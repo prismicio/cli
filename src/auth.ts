@@ -1,63 +1,69 @@
-import { spawn } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
-import { createServer } from "node:http";
 import { homedir } from "node:os";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 
-import * as z from "zod/mini";
-
-import { CREDENTIALS_PATH } from "./config";
 import {
 	clearCredentials,
 	CredentialsError,
 	lockCredentials,
-	readCredentials as readStoredCredentials,
+	lockLogin,
+	prepareLogin,
+	readCredentials,
+	readHost,
 	writeCredentials,
 	type CredentialsErrorReason,
 	type Session,
 	type StoredLogin,
 } from "./credentials";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
+import { detectAgent } from "./lib/ai";
 import {
 	type Auth0Config,
+	type DeviceLoginTokens,
 	DeviceFlowError,
+	getDeviceLoginPrompt,
+	type PendingLogin,
+	pollDeviceLogin,
 	refreshAccessToken,
 	revokeRefreshToken,
+	startDeviceLogin,
 } from "./lib/auth0";
-import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
-import { stringify } from "./lib/json";
-import type { Lock } from "./lib/lock";
-import {
-	refreshToken as baseRefreshToken,
-	getUserProfile,
-	validateToken,
-} from "./lib/prismic/client";
-import { ForbiddenRequestError, RequestError, UnauthorizedRequestError } from "./lib/request";
+import { openBrowser } from "./lib/browser";
+import { CommandError } from "./lib/command";
+import { type Lock, LockTimeoutError } from "./lib/lock";
+import { getUserProfile, validateToken } from "./lib/prismic/client";
+import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
+import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
-import { forgetTrackedUser } from "./tracking";
+import { forgetTrackedUser, getLoginResult, recordLogin, trackCommandEnd } from "./tracking";
 
-const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
-const PREFERRED_PORT = 5555;
-const LOGIN_SOURCE = "prismic-cli";
 const CREDENTIALS_LOCK_TIMEOUT_MS = 30_000;
-
-const CredentialsSchema = z.looseObject({
-	token: z.optional(z.string().check(z.minLength(1))),
-	host: z.optional(z.string().check(z.minLength(1))),
-});
-type Credentials = z.infer<typeof CredentialsSchema>;
+// Below Claude Code's 2-minute command timeout.
+const AGENT_WAIT_MS = 90_000;
+// Auth0's device codes expire after 15 minutes.
+const LOGIN_WAIT_MS = 15 * 60 * 1000;
+const LOGIN_PARAMS = { audience: "prismic.io", scope: "openid profile email offline_access" };
 
 export async function getToken(): Promise<string | undefined> {
-	return env.PRISMIC_TOKEN || (await readCredentials())?.token;
+	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
+	const session = await getSessionToken();
+	if (session.status === "active") return session.token;
 }
 
 export async function getHost(): Promise<string> {
-	return env.PRISMIC_HOST || (await readCredentials())?.host || DEFAULT_PRISMIC_HOST;
+	return env.PRISMIC_HOST || (await readHost().catch(() => undefined)) || DEFAULT_PRISMIC_HOST;
 }
 
 // Native client IDs are public.
-export function getAuth0Config(host: string): Auth0Config | undefined {
+function getAuth0Config(host: string): Auth0Config | undefined {
+	// Tests log in with a fake Auth0 server. Production builds drop this branch.
+	if (process.env.PROD === "false" && process.env.PRISMIC_AUTH0_DOMAIN) {
+		return {
+			auth0Domain: process.env.PRISMIC_AUTH0_DOMAIN,
+			clientId: process.env.PRISMIC_AUTH0_CLIENT_ID ?? "",
+		};
+	}
 	if (host === "prismic.io") {
 		return { auth0Domain: "auth0.prismic.io", clientId: "V1yuPKJOHhuHNMR4Oeo2fj5uTCfVebny" };
 	}
@@ -74,21 +80,19 @@ export function getAuth0Config(host: string): Auth0Config | undefined {
 
 // "ended" means Auth0 ended the session, so the caller can say the login
 // expired and start a new one.
-export type SessionToken =
-	| { status: "active"; token: string }
-	| { status: "none" }
-	| { status: "ended" };
+type SessionToken = { status: "active"; token: string } | { status: "none" } | { status: "ended" };
 
 let renewal: Promise<SessionToken> | undefined;
+// A session that ended in this process stays "ended", so the login prompt can
+// say why.
+let ended = false;
 
 // `forceRefresh` renews a token that a server refused, even if it's not about
 // to expire.
-export async function getSessionToken(
-	options: { forceRefresh?: boolean } = {},
-): Promise<SessionToken> {
+async function getSessionToken(options: { forceRefresh?: boolean } = {}): Promise<SessionToken> {
 	const { forceRefresh = false } = options;
-	const session = (await readStoredCredentials()).login?.session;
-	if (!session?.refreshToken) return { status: "none" };
+	const session = (await readCredentials()).login?.session;
+	if (!session?.refreshToken) return { status: ended ? "ended" : "none" };
 
 	const freshToken = getUnexpiredToken(session, REFRESH_MARGIN_MS);
 	if (freshToken && !forceRefresh) return { status: "active", token: freshToken };
@@ -96,7 +100,9 @@ export async function getSessionToken(
 	// Parallel calls share one renewal.
 	renewal ??= renewSession(session.accessToken).finally(() => (renewal = undefined));
 	try {
-		return await renewal;
+		const result = await renewal;
+		if (result.status === "ended") ended = true;
+		return result;
 	} catch (error) {
 		// Without Auth0, the current token works until it expires, unless a
 		// server already refused it.
@@ -111,7 +117,7 @@ export async function getSessionToken(
 async function renewSession(staleToken: string | undefined): Promise<SessionToken> {
 	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
 	try {
-		const { login: storedLogin } = await readStoredCredentials();
+		const { login: storedLogin } = await readCredentials();
 		return await renewLogin(lock, storedLogin, staleToken, { canRetry: true });
 	} finally {
 		await lock.release();
@@ -141,7 +147,7 @@ async function renewLogin(
 	// If the refresh token changed meanwhile, retry once with it, but only while
 	// holding the lock: using it without saving the result would end that
 	// session.
-	const latest = (await readStoredCredentials()).login;
+	const latest = (await readCredentials()).login;
 	if (options.canRetry && latest?.session.refreshToken !== refreshToken && (await lock.isHeld())) {
 		return renewLogin(lock, latest, staleToken, { canRetry: false });
 	}
@@ -159,30 +165,25 @@ function getUnexpiredToken(session: Session, marginMs = 0): string | undefined {
 	if (accessToken && expiresAt && expiresAt - marginMs > Date.now()) return accessToken;
 }
 
-export async function refreshToken(): Promise<string | undefined> {
-	if (env.PRISMIC_TOKEN) return;
-	const token = await getToken();
-	if (!token) return;
-	const host = await getHost();
-	const newToken = await baseRefreshToken(token, { host });
-	await saveCredentials({ token: newToken, host });
-	return newToken;
-}
-
-let login: Promise<unknown> | undefined;
+let reauthentication: Promise<string> | undefined;
 
 export async function onUnauthorized<T>(
 	retry: (init?: Pick<RequestInit, "headers">) => Promise<T>,
 ): Promise<T | undefined> {
 	if (env.PRISMIC_TOKEN || process.env.CI) return;
-	if (!login && !(await isTokenRejected())) return;
-	login ??= createLoginSession({
-		onReady: (url) => console.error(`Your login is missing or expired. Log in to continue: ${url}`),
-	}).finally(() => {
-		login = undefined;
-	});
-	await login;
-	return retry({ headers: { Authorization: `Bearer ${await getToken()}` } });
+	if (!reauthentication && !(await isTokenRejected())) return;
+	reauthentication ??= reauthenticate().finally(() => (reauthentication = undefined));
+	const token = await reauthentication;
+	return retry({ headers: { Authorization: `Bearer ${token}` } });
+}
+
+// A refused token gets one refresh. A login starts only when the session is
+// over, never when Auth0 can't be reached.
+async function reauthenticate(): Promise<string> {
+	const session = await getSessionToken({ forceRefresh: true });
+	if (session.status === "active") return session.token;
+	console.error(session.status === "ended" ? "Your login expired." : "You are not logged in.");
+	return logIn();
 }
 
 async function isTokenRejected(): Promise<boolean> {
@@ -194,17 +195,269 @@ async function isTokenRejected(): Promise<boolean> {
 	}
 }
 
-export async function logout(): Promise<boolean> {
-	const credentialsExist = await exists(CREDENTIALS_PATH);
-	if (!credentialsExist) return true;
+const WAIT_LIMIT_MESSAGE =
+	"Waiting for approval. After the user approves, run the same command again. It continues this login.";
 
+type Login = {
+	host: string;
+	auth0: Auth0Config;
+	// Infinity for a person, who waits until the code expires.
+	deadline: number;
+	startedAt: number;
+	resumed: boolean;
+	// Set once this command is the one that polls Auth0.
+	pending?: PendingLogin;
+};
+
+type SavedLogin = Pick<StoredLogin, "store" | "storeReason"> & { token: string };
+type CompletedLogin = SavedLogin & { email: string };
+
+// The prompt and the result go to stderr, so a command that logs in on its own
+// keeps its output clean.
+export async function logIn(options: { browser?: boolean } = {}): Promise<string> {
+	const host = await getHost();
+	const auth0 = getAuth0Config(host);
+	if (!auth0) throw new CommandError(`Login isn't available for ${host}. Use PRISMIC_TOKEN.`);
+
+	// An agent stops before its command times out, then runs the command again
+	// to continue.
+	const isPerson = detectAgent() === undefined && process.stdin.isTTY === true;
+	const login: Login = {
+		host,
+		auth0,
+		deadline: isPerson ? Infinity : Date.now() + AGENT_WAIT_MS,
+		startedAt: Date.now(),
+		resumed: false,
+	};
+
+	// Ctrl-C ends the command, even when the login runs inside a request whose
+	// errors the command ignores.
+	const onInterrupt = async (): Promise<void> => {
+		console.error("\nLogin cancelled.");
+		if (login.pending) await setPendingLogin(login.pending, undefined).catch(() => {});
+		recordLogin({ result: "cancelled", resumed: login.resumed, startedAt: login.startedAt });
+		process.exitCode = 130;
+		trackCommandEnd();
+		process.exit();
+	};
+	process.once("SIGINT", onInterrupt);
+
+	let completed: CompletedLogin | undefined;
 	try {
-		await rm(CREDENTIALS_PATH, { force: true });
-		await forgetTrackedUser();
-		return true;
-	} catch {
-		return false;
+		completed = await completeLogin(login, { browser: Boolean(options.browser) && isPerson });
+	} catch (error) {
+		recordLogin({
+			result: getLoginResult(error),
+			resumed: login.resumed,
+			startedAt: login.startedAt,
+		});
+		throw error;
+	} finally {
+		process.off("SIGINT", onInterrupt);
 	}
+
+	const { resumed, startedAt } = login;
+	if (!completed) {
+		recordLogin({ result: "wait-limit", resumed, startedAt });
+		throw new CommandError(WAIT_LIMIT_MESSAGE);
+	}
+	const { token, email, store, storeReason } = completed;
+	recordLogin({ result: "success", resumed, startedAt, store, storeReason });
+	console.error(`Logged in to Prismic as ${email}`);
+	return token;
+}
+
+// Returns nothing when an agent's wait ends before the approval.
+async function completeLogin(
+	login: Login,
+	options: { browser: boolean },
+): Promise<CompletedLogin | undefined> {
+	const other = await lockLoginAfterOthers(login);
+	if (!other) return;
+
+	let saved: SavedLogin;
+	try {
+		const started = await startLogin(login, { waited: other.waited });
+		if ("token" in started) {
+			saved = started;
+		} else {
+			const { pending } = started;
+			if (pending.deviceCode !== other.shown?.deviceCode) printLoginPrompt(pending);
+			if (options.browser) openBrowser(new URL(getDeviceLoginPrompt(pending).url));
+			const tokens = await pollUntilApproved(login, pending);
+			if (!tokens) return;
+			saved = { ...(await saveLogin(login, pending, tokens)), token: tokens.accessToken };
+		}
+	} finally {
+		await other.lock.release();
+	}
+
+	const { email } = await finishLogin({ token: saved.token, host: login.host });
+	return { ...saved, email };
+}
+
+// One command polls Auth0 per config directory. Another command that needs a
+// login shows the same code and waits for the first one, as long as its own
+// login would. Returns nothing when an agent's wait ends first.
+async function lockLoginAfterOthers(
+	login: Login,
+): Promise<{ lock: Lock; waited: boolean; shown?: PendingLogin } | undefined> {
+	try {
+		return { lock: await lockLogin({ timeoutMs: 0 }), waited: false };
+	} catch (error) {
+		if (!(error instanceof LockTimeoutError)) throw error;
+	}
+
+	const session = (await readCredentials().catch(() => undefined))?.login?.session;
+	const shown = session && getResumableLogin(session, login);
+	if (shown) printLoginPrompt(shown);
+	const timeoutMs = Math.min(login.deadline - Date.now(), LOGIN_WAIT_MS);
+	try {
+		return { lock: await lockLogin({ timeoutMs }), waited: true, shown };
+	} catch (error) {
+		if (error instanceof LockTimeoutError && Date.now() >= login.deadline) return;
+		throw error;
+	}
+}
+
+// Resumes the saved login, or starts one and saves it so a later run can
+// continue it. prepareLogin and that write share one lock hold. Returns the
+// saved login instead when another command logged in while this one waited.
+async function startLogin(
+	login: Login,
+	options: { waited: boolean },
+): Promise<{ pending: PendingLogin } | SavedLogin> {
+	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+	try {
+		// A saved login that can't be read doesn't stop a new one.
+		const stored = (await readCredentials().catch(() => undefined))?.login;
+		const resumable = stored && getResumableLogin(stored.session, login);
+		if (resumable) {
+			Object.assign(login, { pending: resumable, startedAt: resumable.startedAt, resumed: true });
+			return { pending: resumable };
+		}
+		const current = stored?.session.host === login.host ? stored : undefined;
+		if (options.waited && current?.session.accessToken) {
+			const { store, storeReason } = current;
+			return { token: current.session.accessToken, store, storeReason };
+		}
+
+		const pending = await startDeviceLogin(LOGIN_PARAMS, login.auth0);
+		Object.assign(login, { pending, startedAt: pending.startedAt });
+		const store = await prepareLogin(lock);
+		// The current session works until the new login replaces it.
+		const session = current?.session ?? { host: login.host, ...login.auth0 };
+		await writeCredentials(lock, { ...store, session: { ...session, pendingLogin: pending } });
+		return { pending };
+	} finally {
+		await lock.release();
+	}
+}
+
+// A pending login is bound to its host, Auth0 domain and client ID, and its
+// expiry never moves.
+function getResumableLogin(session: Session, login: Login): PendingLogin | undefined {
+	const { pendingLogin } = session;
+	if (
+		pendingLogin &&
+		session.host === login.host &&
+		pendingLogin.auth0Domain === login.auth0.auth0Domain &&
+		pendingLogin.clientId === login.auth0.clientId &&
+		pendingLogin.expiresAt > Date.now()
+	) {
+		return pendingLogin;
+	}
+}
+
+function printLoginPrompt(pending: PendingLogin): void {
+	const { url, userCode, codeInUrl } = getDeviceLoginPrompt(pending);
+	const minutes = Math.max(1, Math.ceil((pending.expiresAt - Date.now()) / 60_000));
+	console.error(dedent`
+		Open this URL on any device to log in:
+		  ${url}
+		${codeInUrl ? `Check that the page shows the code ${userCode}.` : `Enter the code ${userCode}.`}
+		Waiting for the login (the code expires in ${minutes} ${minutes === 1 ? "minute" : "minutes"})...
+	`);
+}
+
+// Returns nothing when an agent's wait ends first. The pending login stays, so
+// the next run continues it.
+async function pollUntilApproved(
+	login: Login,
+	pending: PendingLogin,
+): Promise<DeviceLoginTokens | undefined> {
+	const signal = Number.isFinite(login.deadline)
+		? AbortSignal.timeout(Math.max(0, login.deadline - Date.now()))
+		: undefined;
+	try {
+		return await pollDeviceLogin(pending, {
+			signal,
+			onUpdate: async (next) => {
+				login.pending = next;
+				await setPendingLogin(pending, next).catch(() => {});
+			},
+		});
+	} catch (error) {
+		if (signal?.aborted) return;
+		// The code can't be used anymore.
+		if (error instanceof DeviceFlowError) await setPendingLogin(pending, undefined).catch(() => {});
+		throw error;
+	}
+}
+
+// Leaves the saved pending login alone if another command replaced it.
+async function setPendingLogin(
+	current: PendingLogin,
+	next: PendingLogin | undefined,
+): Promise<void> {
+	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+	try {
+		const stored = (await readCredentials()).login;
+		if (stored?.session.pendingLogin?.deviceCode !== current.deviceCode) return;
+		await writeCredentials(lock, { ...stored, session: { ...stored.session, pendingLogin: next } });
+	} finally {
+		await lock.release();
+	}
+}
+
+// prepareLogin runs again in this lock hold, since a logout may have deleted
+// the key while the login waited.
+async function saveLogin(
+	login: Login,
+	pending: PendingLogin,
+	tokens: DeviceLoginTokens,
+): Promise<Pick<StoredLogin, "store" | "storeReason">> {
+	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+	try {
+		const store = await prepareLogin(lock);
+		const { auth0Domain, clientId } = pending;
+		const session = { host: login.host, auth0Domain, clientId, ...tokens };
+		const { warning } = await replaceSession(lock, { ...store, session });
+		if (warning) console.warn(warning);
+		return store;
+	} finally {
+		await lock.release();
+	}
+}
+
+// The new login is saved before the previous one is revoked, so a failed
+// revoke only leaves the previous session to expire.
+async function replaceSession(lock: Lock, storedLogin: StoredLogin): Promise<{ warning?: string }> {
+	const previous = (await readCredentials().catch(() => undefined))?.login?.session;
+	const { warning } = await writeCredentials(lock, storedLogin);
+	if (previous?.refreshToken) {
+		const { refreshToken, auth0Domain, clientId } = previous;
+		await revokeRefreshToken(refreshToken, { auth0Domain, clientId }).catch(() => {});
+	}
+	return { warning };
+}
+
+// The profile request also creates the Prismic user for a new social or SSO
+// signup, so it runs right after a login saves its tokens.
+async function finishLogin(config: { token: string; host: string }): Promise<{ email: string }> {
+	await forgetTrackedUser();
+	const profile = await getUserProfile({ getToken: async () => config.token, host: config.host });
+	return { email: profile.email };
 }
 
 const KEYCHAIN_PROBLEMS: Partial<Record<CredentialsErrorReason, string>> = {
@@ -219,7 +472,7 @@ export async function endSession(): Promise<{ revoked: boolean; warnings: string
 	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
 	try {
 		try {
-			const session = (await readStoredCredentials()).login?.session;
+			const session = (await readCredentials()).login?.session;
 			if (session?.refreshToken) {
 				const { refreshToken, auth0Domain, clientId } = session;
 				await revokeRefreshToken(refreshToken, { auth0Domain, clientId });
@@ -240,139 +493,6 @@ export async function endSession(): Promise<{ revoked: boolean; warnings: string
 	}
 	if (env.PRISMIC_TOKEN) warnings.push("PRISMIC_TOKEN is still set, so commands still use it.");
 	return { revoked, warnings };
-}
-
-// The new login is saved before the previous one is revoked, so a failed
-// revoke only leaves the previous session to expire.
-export async function replaceSession(
-	lock: Lock,
-	storedLogin: StoredLogin,
-): Promise<{ warning?: string }> {
-	const previous = (await readStoredCredentials().catch(() => undefined))?.login?.session;
-	const { warning } = await writeCredentials(lock, storedLogin);
-	if (previous?.refreshToken) {
-		const { refreshToken, auth0Domain, clientId } = previous;
-		await revokeRefreshToken(refreshToken, { auth0Domain, clientId }).catch(() => {});
-	}
-	return { warning };
-}
-
-async function readCredentials(): Promise<Credentials | undefined> {
-	return readJsonFile(CREDENTIALS_PATH, { schema: CredentialsSchema }).catch(() => undefined);
-}
-
-async function saveCredentials(credentials: Credentials): Promise<void> {
-	await writeFileRecursive(CREDENTIALS_PATH, stringify(credentials));
-}
-
-export async function createLoginSession(options: {
-	onReady: (url: URL) => void;
-}): Promise<{ email: string }> {
-	const host = await getHost();
-	const corsOrigin = `https://${host}`;
-
-	return new Promise((resolve, reject) => {
-		const server = createServer((req, res) => {
-			if (req.method === "OPTIONS") {
-				res.writeHead(204, {
-					"Access-Control-Allow-Origin": corsOrigin,
-					"Access-Control-Allow-Methods": "POST, OPTIONS",
-					"Access-Control-Allow-Headers": "Content-Type",
-				});
-				res.end();
-				return;
-			}
-
-			if (req.method === "POST") {
-				const respond = (status: number, body: unknown): void => {
-					res.writeHead(status, {
-						"Access-Control-Allow-Origin": corsOrigin,
-						"Content-Type": "application/json",
-					});
-					res.end(JSON.stringify(body));
-				};
-
-				let body = "";
-
-				req.on("data", (chunk) => {
-					body += chunk.toString();
-				});
-
-				req.on("end", async () => {
-					try {
-						const { cookies, email } = JSON.parse(body);
-
-						const cookie: string | undefined = cookies.find((c: string) =>
-							c.startsWith("prismic-auth="),
-						);
-						const token = cookie?.split(";")[0]?.replace(/^prismic-auth=/, "");
-
-						if (!token) {
-							respond(400, { error: "Invalid request" });
-							return;
-						}
-
-						await saveCredentials({ token, host });
-						await forgetTrackedUser();
-
-						respond(200, { success: true });
-
-						clearTimeout(timeoutId);
-						server.close();
-						resolve({ email });
-					} catch {
-						respond(400, { error: "Invalid request" });
-					}
-				});
-
-				return;
-			}
-
-			res.writeHead(404);
-			res.end();
-		});
-
-		const timeoutId = setTimeout(() => {
-			server.close();
-			reject(new Error("Login timed out. Please try again."));
-		}, LOGIN_TIMEOUT_MS);
-
-		const onListening = async (): Promise<void> => {
-			const address = server.address();
-			if (!address || typeof address === "string") {
-				clearTimeout(timeoutId);
-				server.close();
-				reject(new Error("Failed to start login server"));
-				return;
-			}
-
-			const url = await buildLoginUrl(host, address.port);
-			options.onReady(url);
-		};
-
-		server.on("error", (error: NodeJS.ErrnoException) => {
-			if (error.code === "EADDRINUSE" && server.listening === false) {
-				server.listen(0, "0.0.0.0");
-			} else {
-				clearTimeout(timeoutId);
-				reject(error);
-			}
-		});
-
-		server.once("listening", onListening);
-		server.listen(PREFERRED_PORT, "0.0.0.0");
-	});
-}
-
-// The profile request also creates the Prismic user for a new social or SSO
-// signup, so it runs right after a login saves its tokens.
-export async function finishLogin(config: {
-	token: string;
-	host: string;
-}): Promise<{ email: string }> {
-	await forgetTrackedUser();
-	const profile = await getUserProfile({ getToken: async () => config.token, host: config.host });
-	return { email: profile.email };
 }
 
 const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
@@ -399,33 +519,14 @@ export async function cleanupLegacyAuthFile(): Promise<void> {
 	} catch {}
 }
 
-async function buildLoginUrl(host: string, port: number): Promise<URL> {
-	const url = new URL("dashboard/cli/login", `https://${host}/`);
-	url.searchParams.set("source", LOGIN_SOURCE);
-	url.searchParams.set("port", port.toString());
-	return url;
-}
-
-export function spawnTokenRefresh(): void {
-	try {
-		const script = fileURLToPath(new URL("./subprocesses/refreshToken.mjs", import.meta.url));
-		const child = spawn(process.execPath, [script], { detached: true, stdio: "ignore" });
-		child.unref();
-	} catch {
-		// Silent failure — never breaks the CLI.
-	}
-}
-
 function getProblem(error: unknown): string {
 	if (error instanceof CredentialsError) {
 		return KEYCHAIN_PROBLEMS[error.reason] ?? "the saved login can't be read";
 	}
-	if (error instanceof RequestError) return `the login service answered HTTP ${error.status}`;
-	if (
-		error instanceof TypeError ||
-		(error instanceof DOMException && error.name === "TimeoutError")
-	) {
-		return "the login service can't be reached";
+	if (error instanceof DeviceFlowError) {
+		return error.reason === "unavailable"
+			? "the login service can't be reached"
+			: `the login service answered ${error.detail}`;
 	}
 	return "of an unexpected error";
 }

@@ -1,6 +1,4 @@
-import { writeFile } from "node:fs/promises";
-
-import { captureOutput, completeLogin, it } from "./it";
+import { captureOutput, it } from "./it";
 import { createWebhook } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -30,19 +28,20 @@ it("lists webhooks as JSON", async ({ expect, prismic, repo, token, host }) => {
 	expect(parsed).toEqual(expect.arrayContaining([expect.objectContaining({ url })]));
 });
 
-it("logs in again and continues when the repository rejects the token", async ({
+it("renews a token the repository rejects, and continues without a login", async ({
 	expect,
 	prismic,
-	home,
-	host,
-	token,
+	login,
+	auth0,
 }) => {
-	await writeFile(
-		new URL(".config/prismic/credentials.json", home),
-		JSON.stringify({ token: "expired-token", host }),
-	);
+	await login({ accessToken: "rejected-token" });
 	const proc = prismic("webhook", ["list"], { nodeOptions: { env: { CI: "" } } });
-	await completeLogin(expect, captureOutput(proc), token);
-	const { stderr, exitCode } = await proc;
-	expect(exitCode, stderr).toBe(0);
+	const output = captureOutput(proc);
+	const { exitCode } = await proc;
+	expect(exitCode, output()).toBe(0);
+	expect(output()).not.toContain("Open this URL");
+	const refreshes = auth0.requests.filter(
+		(request) => request.params.grant_type === "refresh_token",
+	);
+	expect(refreshes).toHaveLength(1);
 });

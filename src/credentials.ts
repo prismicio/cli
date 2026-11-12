@@ -11,6 +11,7 @@ import {
 	CREDENTIALS_LOCK_PATH,
 	CREDENTIALS_PATH,
 	ENCRYPTED_CREDENTIALS_PATH,
+	LOGIN_LOCK_PATH,
 } from "./config";
 import { PendingLoginSchema } from "./lib/auth0";
 import { exists } from "./lib/file";
@@ -106,6 +107,12 @@ export async function readCredentials(): Promise<StoredCredentials> {
 	};
 }
 
+// Every version keeps the host in plain text, so reading it needs no key.
+export async function readHost(): Promise<string | undefined> {
+	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH));
+	return z.safeParse(CredentialsHostSchema, json).data?.host;
+}
+
 const FALLBACK_REASONS: Record<KeyringErrorReason, FallbackReason> = {
 	"module-missing": "module-missing",
 	unavailable: "secret-service-missing",
@@ -114,9 +121,9 @@ const FALLBACK_REASONS: Record<KeyringErrorReason, FallbackReason> = {
 	timeout: "timeout",
 };
 
-// Only a login calls this, under the lock it keeps until it writes, so a login
-// falls back to a file only when it starts. Holding the lock means two logins
-// can't each create a key and then encrypt with the one that lost.
+// Only a login calls this, in the same lock hold as the write that uses its
+// key, so two logins can't each create a key and then encrypt with the one
+// that lost, and a logout can't delete the key in between.
 export async function prepareLogin(
 	lock: Lock,
 ): Promise<{ store: "keyring" } | { store: "file"; storeReason: FallbackReason }> {
@@ -196,6 +203,13 @@ export async function clearCredentials(lock: Lock): Promise<void> {
 export async function lockCredentials(config: { timeoutMs: number }): Promise<Lock> {
 	await ensurePrivateDir();
 	return acquireLock(CREDENTIALS_LOCK_PATH, config);
+}
+
+// A login holds this one while it waits for approval, so one command polls for
+// a config directory, and others can still refresh or log out meanwhile.
+export async function lockLogin(config: { timeoutMs: number }): Promise<Lock> {
+	await ensurePrivateDir();
+	return acquireLock(LOGIN_LOCK_PATH, config);
 }
 
 export type CredentialsErrorReason =

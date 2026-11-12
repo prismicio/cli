@@ -38,5 +38,5 @@ it("does not log in when the repository is not accessible", async ({ expect, pri
 	);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("You do not have access to this repository");
-	expect(stderr).not.toContain("Log in to continue");
+	expect(stderr).not.toContain("Open this URL");
 });

@@ -20,10 +20,11 @@ export const PendingLoginSchema = z.object({
 	verificationUriComplete: z.optional(z.string()),
 	expiresAt: z.number(),
 	intervalMs: z.number(),
+	startedAt: z.number(),
 });
 export type PendingLogin = z.infer<typeof PendingLoginSchema>;
 
-type DeviceLoginTokens = {
+export type DeviceLoginTokens = {
 	accessToken: string;
 	refreshToken: string;
 	expiresAt: number;
@@ -61,6 +62,7 @@ export async function startDeviceLogin(
 		verificationUriComplete: response.verification_uri_complete,
 		expiresAt: Date.now() + response.expires_in * 1000,
 		intervalMs: response.interval !== undefined ? response.interval * 1000 : DEFAULT_INTERVAL_MS,
+		startedAt: Date.now(),
 	};
 }
 
@@ -182,6 +184,8 @@ export async function revokeRefreshToken(refreshToken: string, config: Auth0Conf
 		method: "POST",
 		body: new URLSearchParams({ client_id: config.clientId, token: refreshToken }),
 		signal: getRequestSignal(),
+	}).catch((error) => {
+		throw new DeviceFlowError(isTransient(error) ? "unavailable" : "misconfigured", error);
 	});
 }
 

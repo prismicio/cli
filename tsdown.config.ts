@@ -5,7 +5,6 @@ const PROD = process.env.MODE === "production";
 export default defineConfig({
 	entry: {
 		index: "./src/index.ts",
-		"subprocesses/refreshToken": "./src/subprocesses/refreshToken.ts",
 		"subprocesses/sendSegmentEvents": "./src/subprocesses/sendSegmentEvents.ts",
 		"subprocesses/updateVersionState": "./src/subprocesses/updateVersionState.ts",
 	},

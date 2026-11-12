@@ -22,11 +22,13 @@ export type FakeAuth0Response = {
 export type FakeAuth0 = {
 	auth0Domain: string;
 	clientId: string;
-	requests: { path: string; params: Record<string, string> }[];
+	requests: { path: string; params: Record<string, string>; at: number }[];
 	approve: (options?: { userCode?: string }) => void;
 	deny: (options?: { userCode?: string; description?: string }) => void;
 	expire: (options?: { userCode?: string }) => void;
 	respondOnce: (path: string, response: FakeAuth0Response) => void;
+	/** A refresh token the server accepts, for a login a test saves itself. */
+	issueRefreshToken: () => string;
 	close: () => Promise<void>;
 };
 
@@ -51,7 +53,7 @@ export async function createFakeAuth0(options: FakeAuth0Options = {}): Promise<F
 		let body = "";
 		for await (const chunk of req) body += chunk;
 		const params = Object.fromEntries(new URLSearchParams(body));
-		requests.push({ path, params });
+		requests.push({ path, params, at: Date.now() });
 
 		const response = responses.get(path)?.shift();
 		if (response) {
@@ -163,6 +165,11 @@ export async function createFakeAuth0(options: FakeAuth0Options = {}): Promise<F
 		},
 		respondOnce: (path, response) => {
 			responses.set(path, [...(responses.get(path) ?? []), response]);
+		},
+		issueRefreshToken: () => {
+			const refreshToken = randomToken(32);
+			refreshTokens.add(refreshToken);
+			return refreshToken;
 		},
 		close: async () => {
 			server.closeAllConnections();

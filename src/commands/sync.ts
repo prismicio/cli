@@ -51,7 +51,7 @@ export default createCommand(config, async ({ values }) => {
 	trackCommandStart("sync", { watch: true });
 	process.on("SIGINT", () => {
 		console.info("\nWatch stopped. Goodbye!");
-		trackCommandEnd("sync", { watch: true });
+		trackCommandEnd();
 		process.exit(0);
 	});
 
