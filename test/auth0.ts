@@ -29,10 +29,10 @@ type DeviceCode = {
 };
 
 export async function createFakeAuth0(options: {
-	accessToken?: string;
-	interval?: number;
+	accessToken: string;
+	interval: number;
 }): Promise<FakeAuth0> {
-	const { accessToken, interval = 1 } = options;
+	const { accessToken, interval } = options;
 	const clientId = `fake-${randomToken(8)}`;
 	const requests: FakeAuth0["requests"] = [];
 	const responses = new Map<string, FakeAuth0Response[]>();
@@ -121,7 +121,7 @@ export async function createFakeAuth0(options: {
 		const refreshToken = randomToken(32);
 		refreshTokens.add(refreshToken);
 		send(res, 200, {
-			access_token: accessToken ?? randomToken(32),
+			access_token: accessToken,
 			refresh_token: refreshToken,
 			expires_in: 3600,
 			token_type: "Bearer",

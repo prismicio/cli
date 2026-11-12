@@ -11,6 +11,14 @@ const MAX_BACKOFF_MS = 60_000;
 
 export type Auth0Config = { auth0Domain: string; clientId: string };
 
+export type DeviceFlowErrorReason =
+	| "expired"
+	| "declined"
+	| "email-unverified"
+	| "invalid-grant"
+	| "misconfigured"
+	| "unavailable";
+
 export const PendingLoginSchema = z.object({
 	auth0Domain: z.string(),
 	clientId: z.string(),
@@ -245,14 +253,6 @@ function getRetryAfterMs(error: unknown): number {
 	if (Number.isFinite(date)) return Math.max(0, date - Date.now());
 	return 0;
 }
-
-export type DeviceFlowErrorReason =
-	| "expired"
-	| "declined"
-	| "email-unverified"
-	| "invalid-grant"
-	| "misconfigured"
-	| "unavailable";
 
 // `error` isn't kept as `cause`, since Sentry reports causes and they can hold
 // response details. `detail` is the Auth0 error code or HTTP status.

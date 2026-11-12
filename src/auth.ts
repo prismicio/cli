@@ -35,7 +35,7 @@ import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser, getLoginResult, recordLogin, trackCommandEnd } from "./tracking";
 
-const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
+const REFRESH_MARGIN_MS = 5 * 60 * 1000;
 // Below Claude Code's 2-minute command timeout.
 const AGENT_WAIT_MS = (process.env.PROD === "false" && env.PRISMIC_AGENT_WAIT_MS) || 90_000;
 // Auth0's device codes expire after 15 minutes.
@@ -77,7 +77,7 @@ type LoginWait = {
 
 type StartedLogin =
 	| { status: "pending"; pending: PendingLogin; resumed: boolean }
-	| { status: "saved"; saved: SavedLogin }
+	| ({ status: "saved" } & SavedLogin)
 	| { status: "logged-out" };
 
 let renewal: Promise<SessionToken> | undefined;
@@ -309,7 +309,7 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 		const started = await startLogin(login, loginLock.wait);
 		if (started.status === "logged-out") return started;
 		if (started.status === "saved") {
-			saved = started.saved;
+			saved = started;
 		} else {
 			const { pending } = started;
 			login.pending = pending;
@@ -331,7 +331,7 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 	// signup, so it runs right after a login saves its tokens.
 	await forgetTrackedUser();
 	const { email } = await getUserProfile({ getToken: async () => saved.token, host: login.host });
-	return { status: "logged-in", ...saved, email };
+	return { ...saved, status: "logged-in", email };
 }
 
 // One command polls Auth0 per config directory. Another command that needs a
@@ -376,8 +376,7 @@ async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> 
 		const current = stored?.session.host === login.host ? stored : undefined;
 		const token = current && getUnexpiredToken(current.session);
 		if (wait.waited && token && token !== login.tokenBefore) {
-			const { store, storeReason } = current;
-			return { status: "saved", saved: { token, store, storeReason } };
+			return { status: "saved", token, store: current.store, storeReason: current.storeReason };
 		}
 
 		const pending = await startDeviceLogin(LOGIN_PARAMS, login.auth0);

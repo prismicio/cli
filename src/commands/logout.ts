@@ -1,7 +1,6 @@
 import {
 	clearCredentials,
 	CredentialsError,
-	type CredentialsErrorReason,
 	lockCredentials,
 	readCredentials,
 } from "../credentials";
@@ -9,12 +8,6 @@ import { env } from "../env";
 import { DeviceFlowError, revokeRefreshToken } from "../lib/auth0";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { forgetTrackedUser, recordLogout } from "../tracking";
-
-const KEYCHAIN_PROBLEMS: Partial<Record<CredentialsErrorReason, string>> = {
-	locked: "the keychain is locked",
-	timeout: "the keychain didn't respond",
-	"keychain-unavailable": "the keychain isn't available",
-};
 
 const config = {
 	name: "prismic logout",
@@ -50,9 +43,7 @@ export default createCommand(config, async () => {
 });
 
 function getProblem(error: CredentialsError | DeviceFlowError): string {
-	if (error instanceof CredentialsError) {
-		return KEYCHAIN_PROBLEMS[error.reason] ?? "the saved login can't be read";
-	}
+	if (error instanceof CredentialsError) return "the saved login can't be read";
 	return error.reason === "unavailable"
 		? "the login service can't be reached"
 		: `the login service answered ${error.detail}`;

@@ -59,32 +59,39 @@ const CredentialsVersionSchema = z.looseObject({
 	store: z.optional(z.unknown()),
 	storeReason: z.optional(z.unknown()),
 });
-const CredentialsHostSchema = z.looseObject({ host: z.optional(z.string()) });
+const StoreModeSchema = z.enum(["keyring", "file"]);
+export type StoreMode = z.infer<typeof StoreModeSchema>;
+
 // What every login keeps in plain text. A field that doesn't match reads as
 // missing.
-const LoginSummarySchema = z.looseObject({
+const LoginSummarySchema = z.object({
 	host: z.catch(z.optional(z.string()), undefined),
-	store: z.catch(z.optional(z.enum(["keyring", "file"])), undefined),
+	store: z.catch(z.optional(StoreModeSchema), undefined),
 	storeReason: z.catch(z.optional(FallbackReasonSchema), undefined),
 	/** Set while a session has tokens. */
 	expiresAt: z.catch(z.optional(z.number()), undefined),
 });
-
-export type StoreMode = "keyring" | "file";
+export type LoginSummary = z.infer<typeof LoginSummarySchema>;
 
 // `storeReason` says why a login went to a file, for telemetry.
 export type StoredLogin = { store: StoreMode; storeReason?: FallbackReason; session: Session };
 
-type StoredCredentials = {
-	host?: string;
-	login?: StoredLogin;
-};
+export type CredentialsErrorReason =
+	| "busy"
+	| "unsupported-version"
+	| "unsafe-file"
+	| "lock-lost"
+	| "locked"
+	| "timeout"
+	| "keychain-unavailable"
+	| "missing-key"
+	| "decrypt-failed";
 
 let key: Buffer | undefined;
 let warnedUnsafe = false;
 
 // A login that exists but can't be read throws, never reads as logged out.
-export async function readCredentials(): Promise<StoredCredentials> {
+export async function readCredentials(): Promise<{ login?: StoredLogin }> {
 	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH));
 	const file = z.safeParse(CredentialsVersionSchema, json);
 	if (!file.success) return {};
@@ -92,10 +99,7 @@ export async function readCredentials(): Promise<StoredCredentials> {
 
 	// Without a version, the file has only `host` (website generator), or is
 	// version 1, whose token expires within hours and can't be refreshed.
-	if (version === undefined) {
-		const host = z.safeParse(CredentialsHostSchema, json).data?.host;
-		return host ? { host } : {};
-	}
+	if (version === undefined) return {};
 	if (version !== 2) {
 		throw new CredentialsError(
 			"unsupported-version",
@@ -112,22 +116,13 @@ export async function readCredentials(): Promise<StoredCredentials> {
 
 	// An unknown reason reads as none.
 	const reason = store === "file" ? z.safeParse(FallbackReasonSchema, storeReason).data : undefined;
-	return {
-		host: session.data.host,
-		login: { store, ...(reason ? { storeReason: reason } : {}), session: session.data },
-	};
+	return { login: { store, ...(reason ? { storeReason: reason } : {}), session: session.data } };
 }
 
 // Reads what's in plain text, so it never needs the keychain.
-export async function readLoginSummary(): Promise<{
-	host?: string;
-	store?: StoreMode;
-	storeReason?: FallbackReason;
-	expiresAt?: number;
-}> {
+export async function readLoginSummary(): Promise<LoginSummary> {
 	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH));
-	const { host, store, storeReason, expiresAt } = z.safeParse(LoginSummarySchema, json).data ?? {};
-	return { host, store, storeReason, expiresAt };
+	return z.safeParse(LoginSummarySchema, json).data ?? {};
 }
 
 const FALLBACK_REASONS: Record<KeyringErrorReason, FallbackReason> = {
@@ -197,7 +192,7 @@ export async function writeCredentials(
 // warning.
 export async function clearCredentials(lock: Lock): Promise<{ warning?: string }> {
 	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH).catch(() => undefined));
-	const host = z.safeParse(CredentialsHostSchema, json).data?.host;
+	const host = z.safeParse(LoginSummarySchema, json).data?.host;
 	const hadKey =
 		z.safeParse(CredentialsVersionSchema, json).data?.store === "keyring" ||
 		(await exists(ENCRYPTED_CREDENTIALS_PATH));
@@ -240,17 +235,6 @@ export async function lockLogin(config: { timeoutMs: number }): Promise<Lock> {
 	await ensurePrivateDir();
 	return acquireLock(LOGIN_LOCK_PATH, config);
 }
-
-export type CredentialsErrorReason =
-	| "busy"
-	| "unsupported-version"
-	| "unsafe-file"
-	| "lock-lost"
-	| "locked"
-	| "timeout"
-	| "keychain-unavailable"
-	| "missing-key"
-	| "decrypt-failed";
 
 export class CredentialsError extends Error {
 	name = "CredentialsError";
