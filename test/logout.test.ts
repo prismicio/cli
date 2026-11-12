@@ -40,7 +40,7 @@ it("logs out when the session can't be revoked, and says so", async ({
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Logged out of Prismic");
 	expect(stderr).toContain(
-		"Couldn't revoke your session because the login service can't be reached. It stays valid until it expires.",
+		"Couldn't revoke your session because the Prismic login service can't be reached. It stays valid until it expires.",
 	);
 	const credentials = await readFile(new URL(".config/prismic/credentials.json", home), "utf8");
 	expect(credentials).not.toContain("accessToken");
