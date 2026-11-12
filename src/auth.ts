@@ -76,7 +76,7 @@ type LoginWait = {
 };
 
 type StartedLogin =
-	| { status: "pending"; pending: PendingLogin; resumed: boolean }
+	| { status: "pending"; pending: PendingLogin }
 	| ({ status: "saved" } & SavedLogin)
 	| { status: "logged-out" };
 
@@ -312,9 +312,6 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 			saved = started;
 		} else {
 			const { pending } = started;
-			login.pending = pending;
-			login.startedAt = pending.startedAt;
-			login.resumed = started.resumed;
 			if (pending.deviceCode !== loginLock.wait.shown?.deviceCode) printLoginPrompt(pending);
 			if (options.browser) openBrowser(new URL(getDeviceLoginPrompt(pending).url));
 			const tokens = await pollUntilApproved(login, pending);
@@ -362,7 +359,8 @@ async function lockLoginAfterOthers(
 	}
 }
 
-// A new code is saved, so a later run can continue it.
+// A new code is saved, so a later run can continue it. The login gets its code
+// while the lock is held, so a Ctrl-C right after still finds it to delete.
 async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> {
 	const lock = await lockCredentials();
 	try {
@@ -372,7 +370,12 @@ async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> 
 		if (wait.shown && credentials && !credentials.login) return { status: "logged-out" };
 		const stored = credentials?.login;
 		const resumable = stored && getResumableLogin(stored.session, login);
-		if (resumable) return { status: "pending", pending: resumable, resumed: true };
+		if (resumable) {
+			login.pending = resumable;
+			login.startedAt = resumable.startedAt;
+			login.resumed = true;
+			return { status: "pending", pending: resumable };
+		}
 		const current = stored?.session.host === login.host ? stored : undefined;
 		const token = current && getUnexpiredToken(current.session);
 		if (wait.waited && token && token !== login.tokenBefore) {
@@ -380,6 +383,8 @@ async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> 
 		}
 
 		const pending = await startDeviceLogin(LOGIN_PARAMS, login.auth0);
+		login.pending = pending;
+		login.startedAt = pending.startedAt;
 		const store = await prepareLogin(lock);
 		// The current session works until the new login replaces it.
 		const session = current?.session ?? { host: login.host, ...login.auth0 };
@@ -388,7 +393,7 @@ async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> 
 			session: { ...session, pendingLogin: pending },
 		});
 		if (warning) console.warn(warning);
-		return { status: "pending", pending, resumed: false };
+		return { status: "pending", pending };
 	} finally {
 		await lock.release();
 	}
