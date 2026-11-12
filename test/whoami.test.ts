@@ -96,8 +96,9 @@ it("refreshes a login about to expire, once for parallel commands", async ({
 	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
 });
 
-// Some agent sandboxes can't write to the home folder.
-it.skipIf(process.platform === "win32")(
+// Some agent sandboxes can't write to the home folder. Folder modes don't
+// apply on Windows or to root.
+it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
 	"works in a config folder it can't write, until the token expires",
 	async ({ expect, home, prismic, login, auth0 }) => {
 		const configDir = new URL(".config/prismic/", home);
