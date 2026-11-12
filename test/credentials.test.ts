@@ -67,8 +67,8 @@ async function loadStore(dir: URL) {
 }
 
 async function logIn(store: Awaited<ReturnType<typeof loadStore>>, saved: Session = session) {
-	const choice = await store.prepareLogin();
 	const lock = await store.lockCredentials({ timeoutMs: 5_000 });
+	const choice = await store.prepareLogin(lock);
 	await store.writeCredentials(lock, { ...choice, session: saved });
 	await lock.release();
 	return choice;
@@ -330,6 +330,16 @@ describe("credential store", { concurrent: false }, () => {
 		await expect(read("newer", JSON.stringify({ version: 3 }))).rejects.toMatchObject({
 			reason: "unsupported-version",
 		});
+	});
+
+	it("creates a key only under a lock it still holds", async ({ home }) => {
+		const store = await loadStore(home);
+		const stalled = await store.lockCredentials({ timeoutMs: 5_000 });
+		// Another process took the lock over.
+		await rm(new URL("credentials.lock", home), { recursive: true });
+
+		await expect(store.prepareLogin(stalled)).rejects.toMatchObject({ reason: "lock-lost" });
+		expect(keychain.items.size).toBe(0);
 	});
 
 	it("drops writes from a process that lost the lock", async ({ home }) => {

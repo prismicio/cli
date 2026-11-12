@@ -115,10 +115,11 @@ const FALLBACK_REASONS: Record<KeyringErrorReason, FallbackReason> = {
 };
 
 // Only a login calls this, under the lock it keeps until it writes, so a login
-// falls back to a file only when it starts.
-export async function prepareLogin(): Promise<
-	{ store: "keyring" } | { store: "file"; storeReason: FallbackReason }
-> {
+// falls back to a file only when it starts. Holding the lock means two logins
+// can't each create a key and then encrypt with the one that lost.
+export async function prepareLogin(
+	lock: Lock,
+): Promise<{ store: "keyring" } | { store: "file"; storeReason: FallbackReason }> {
 	if (process.platform === "linux" && /microsoft/i.test(release())) {
 		return { store: "file", storeReason: "wsl" };
 	}
@@ -128,6 +129,7 @@ export async function prepareLogin(): Promise<
 		key = undefined;
 		if (!(await readKey(KEYCHAIN_LOGIN_TIMEOUT_MS))) {
 			const newKey = randomBytes(32);
+			await assertHeld(lock);
 			await systemKeyring.set(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, newKey.toString("base64"), {
 				timeoutMs: KEYCHAIN_LOGIN_TIMEOUT_MS,
 			});
