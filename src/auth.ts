@@ -1,5 +1,6 @@
 import { readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
+import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -43,6 +44,7 @@ const CREDENTIALS_LOCK_TIMEOUT_MS = 30_000;
 const AGENT_WAIT_MS = 90_000;
 // Auth0's device codes expire after 15 minutes.
 const LOGIN_WAIT_MS = 15 * 60 * 1000;
+const PENDING_POLL_MS = 250;
 const LOGIN_PARAMS = { audience: "prismic.io", scope: "openid profile email offline_access" };
 
 export async function getToken(): Promise<string | undefined> {
@@ -291,7 +293,7 @@ async function completeLogin(
 
 	let saved: SavedLogin;
 	try {
-		const started = await startLogin(login, { waited: other.waited });
+		const started = await startLogin(login, other);
 		if ("token" in started) {
 			saved = started;
 		} else {
@@ -312,33 +314,37 @@ async function completeLogin(
 	return { ...saved, email };
 }
 
+type LoginLock = {
+	lock: Lock;
+	waited: boolean;
+	// The other command's code, once this one showed it.
+	shown?: PendingLogin;
+	// The saved token when this one started waiting.
+	tokenBefore?: string;
+};
+
 // One command polls Auth0 per config directory. Another command that needs a
 // login shows the same code and waits for the first one, as long as its own
 // login would. Returns nothing when an agent's wait ends first.
-async function lockLoginAfterOthers(
-	login: Login,
-): Promise<{ lock: Lock; waited: boolean; shown?: PendingLogin } | undefined> {
-	try {
-		return { lock: await lockLogin({ timeoutMs: 0 }), waited: false };
-	} catch (error) {
-		if (!(error instanceof LockTimeoutError)) throw error;
-	}
+async function lockLoginAfterOthers(login: Login): Promise<LoginLock | undefined> {
+	const waitUntil = Math.min(login.deadline, Date.now() + LOGIN_WAIT_MS);
+	const other: Omit<LoginLock, "lock"> = { waited: false };
+	while (true) {
+		// Until the other command saves its code, look for it between tries.
+		const timeoutMs = other.shown ? waitUntil - Date.now() : 0;
+		try {
+			return { ...other, lock: await lockLogin({ timeoutMs }) };
+		} catch (error) {
+			if (!(error instanceof LockTimeoutError)) throw error;
+			if (Date.now() >= login.deadline) return;
+			if (Date.now() >= waitUntil) throw error;
+		}
 
-	// The other command saves its code under this lock, so it's there once the
-	// lock is free.
-	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
-	const session = await readCredentials()
-		.then((credentials) => credentials.login?.session)
-		.catch(() => undefined)
-		.finally(() => lock.release());
-	const shown = session && getResumableLogin(session, login);
-	if (shown) printLoginPrompt(shown);
-	const timeoutMs = Math.min(login.deadline - Date.now(), LOGIN_WAIT_MS);
-	try {
-		return { lock: await lockLogin({ timeoutMs }), waited: true, shown };
-	} catch (error) {
-		if (error instanceof LockTimeoutError && Date.now() >= login.deadline) return;
-		throw error;
+		const session = (await readCredentials().catch(() => undefined))?.login?.session;
+		if (!other.waited) Object.assign(other, { waited: true, tokenBefore: session?.accessToken });
+		other.shown = session && getResumableLogin(session, login);
+		if (other.shown) printLoginPrompt(other.shown);
+		else await sleep(PENDING_POLL_MS);
 	}
 }
 
@@ -347,7 +353,7 @@ async function lockLoginAfterOthers(
 // saved login instead when another command logged in while this one waited.
 async function startLogin(
 	login: Login,
-	options: { waited: boolean },
+	other: Omit<LoginLock, "lock">,
 ): Promise<{ pending: PendingLogin } | SavedLogin> {
 	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
 	try {
@@ -359,9 +365,9 @@ async function startLogin(
 			return { pending: resumable };
 		}
 		const current = stored?.session.host === login.host ? stored : undefined;
-		if (options.waited && current?.session.accessToken) {
-			const { store, storeReason } = current;
-			return { token: current.session.accessToken, store, storeReason };
+		const token = current && getUnexpiredToken(current.session);
+		if (other.waited && token && token !== other.tokenBefore) {
+			return { token, store: current.store, storeReason: current.storeReason };
 		}
 
 		const pending = await startDeviceLogin(LOGIN_PARAMS, login.auth0);

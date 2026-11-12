@@ -146,13 +146,13 @@ it("makes another command wait for the login in progress", async ({
 	repo,
 }) => {
 	await logout();
+	// Both start before either has a code.
 	const login = prismic("login");
-	const loginOutput = captureOutput(login);
-	await expect.poll(loginOutput, { timeout: 15_000 }).toContain("Waiting for the login");
-
 	const repos = prismic("repo", ["list", "--json"], { nodeOptions: { env: { CI: "" } } });
+	const loginOutput = captureOutput(login);
 	const reposOutput = captureOutput(repos);
 	const reposStdout = captureStdout(repos);
+	await expect.poll(loginOutput, { timeout: 15_000 }).toContain("Waiting for the login");
 	await expect.poll(reposOutput, { timeout: 15_000 }).toContain("Waiting for the login");
 	expect(getUserCode(reposOutput())).toBe(getUserCode(loginOutput()));
 
@@ -163,6 +163,34 @@ it("makes another command wait for the login in progress", async ({
 		expect.arrayContaining([expect.objectContaining({ domain: repo })]),
 	);
 	expect(auth0.requests.filter((request) => request.path === "/oauth/device/code")).toHaveLength(1);
+});
+
+it("starts its own login when the login it waited for fails", async ({
+	expect,
+	prismic,
+	login,
+	auth0,
+}) => {
+	// An expired token stays saved when a login fails.
+	await login({ expiresAt: Date.now() - 1000 });
+	const first = prismic("login");
+	const firstOutput = captureOutput(first);
+	await expect.poll(firstOutput, { timeout: 15_000 }).toContain("Waiting for the login");
+	const second = prismic("login");
+	const secondOutput = captureOutput(second);
+	await expect.poll(secondOutput, { timeout: 15_000 }).toContain("Waiting for the login");
+
+	auth0.deny();
+	expect((await first).exitCode).toBe(1);
+	expect(firstOutput()).toContain("The login was declined in the browser.");
+	await expect
+		.poll(() => secondOutput().split("Waiting for the login").length, { timeout: 15_000 })
+		.toBe(3);
+	expect(getUserCode(secondOutput().split("Waiting for the login")[1])).not.toBe(
+		getUserCode(firstOutput()),
+	);
+	auth0.approve();
+	expect((await second).exitCode, secondOutput()).toBe(0);
 });
 
 it("drops a login that a logout cancelled while it waited", async ({
@@ -243,7 +271,8 @@ it("explains a login that Auth0 refused, without reporting it", async ({
 	}
 	// Each refused code was deleted, so each run started a new one.
 	expect(auth0.requests.filter((request) => request.path === "/oauth/device/code")).toHaveLength(4);
-	expect(sentry.events).toHaveLength(0);
+	// Windows doesn't resolve `sentry.localhost`.
+	if (process.platform !== "win32") expect(sentry.events).toHaveLength(0);
 });
 
 it("reports a login that isn't set up, with only Auth0's error code", async ({
@@ -263,10 +292,13 @@ it("reports a login that isn't set up, with only Auth0's error code", async ({
 	expect(stderr).toContain(
 		`Login isn't set up correctly for ${host} (invalid_client). Report this: https://github.com/prismicio/cli/issues`,
 	);
-	expect(sentry.events).toHaveLength(1);
-	expect(sentry.events[0]).toContain("invalid_client");
-	// The fake's error description is only in the response body.
-	expect(sentry.events[0]).not.toContain("Unknown client.");
+	// Windows doesn't resolve `sentry.localhost`.
+	if (process.platform !== "win32") {
+		expect(sentry.events).toHaveLength(1);
+		expect(sentry.events[0]).toContain("invalid_client");
+		// The fake's error description is only in the response body.
+		expect(sentry.events[0]).not.toContain("Unknown client.");
+	}
 });
 
 it("revokes the previous session after a new login", async ({ expect, prismic, login, auth0 }) => {
