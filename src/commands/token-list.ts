@@ -1,8 +1,8 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getOAuthApps, getWriteTokens } from "../lib/prismic/clients/wroom";
+import { getOAuthApps, getWriteTokens } from "../lib/prismic/client";
 import { formatTable } from "../lib/string";
 
 const config = {
@@ -28,11 +28,11 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { env, repo = env ?? (await getActiveRepositoryName()), json } = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
 	const [apps, writeTokensInfo] = await Promise.all([
-		getOAuthApps({ repo, token, host }),
-		getWriteTokens({ repo, token, host }),
+		getOAuthApps({ repo, getToken, host, onUnauthorized }),
+		getWriteTokens({ repo, getToken, host, onUnauthorized }),
 	]);
 
 	const accessTokens = apps.flatMap((app) =>

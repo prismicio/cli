@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import * as z from "zod/mini";
 
 import { type Adapter, getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CONFIG_DIR } from "../config";
 import { env } from "../env";
 import { getErrorMessage } from "../error";
@@ -13,8 +13,7 @@ import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError, exclusiveOptions } from "../lib/command";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
-import { createRelease, deleteRelease } from "../lib/prismic/clients/core";
-import type { CustomTypesConfig } from "../lib/prismic/clients/custom-types";
+import { createRelease, type CustomTypesConfig, deleteRelease } from "../lib/prismic/client";
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,
@@ -67,11 +66,10 @@ export default createCommand(config, async ({ values }) => {
 		new: newSession,
 		"no-browser": noBrowser,
 	} = values;
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
 	const sessionPath = await getSessionPath();
 	const previous = await resolvePreviousSession(adapter, sessionPath, {
-		token,
 		host,
 		continueSession,
 		newSession,
@@ -83,9 +81,9 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Continuing your session for ${repo}...`);
 	} else {
 		console.info(`Preparing your session for ${repo}...`);
-		session = await createSession({ repo, token, host });
+		session = await createSession({ repo, getToken, host });
 	}
-	const release = { repo, token, host, releaseId: session.releaseId };
+	const release = { repo, getToken, host, onUnauthorized, releaseId: session.releaseId };
 	const sync = (push = true) =>
 		syncModels(adapter, release, session, sessionPath, {
 			push,
@@ -174,14 +172,14 @@ async function saveSession(sessionPath: URL, session: Session): Promise<void> {
 	await writeFileRecursive(sessionPath, stringify(session));
 }
 
-async function createSession({ repo, token, host }: CustomTypesConfig): Promise<Session> {
-	const releaseId = await createRelease(
+async function createSession({ repo, getToken, host }: CustomTypesConfig): Promise<Session> {
+	const release = await createRelease(
 		{ label: "prismic dev", hidden: true },
-		{ repo, token, host },
+		{ repo, getToken, host, onUnauthorized },
 	).catch((error) => {
 		throw explainRequestError(error);
 	});
-	return { repo, releaseId, pid: process.pid, synced: {} };
+	return { repo, releaseId: release.id, pid: process.pid, synced: {} };
 }
 
 async function endSession({ releaseId, ...config }: Release, sessionPath: URL): Promise<void> {
@@ -193,13 +191,12 @@ async function resolvePreviousSession(
 	adapter: Adapter,
 	sessionPath: URL,
 	options: {
-		token: string | undefined;
 		host: string;
 		continueSession?: boolean;
 		newSession?: boolean;
 	},
 ): Promise<Session | undefined> {
-	const { token, host, continueSession, newSession } = options;
+	const { host, continueSession, newSession } = options;
 	const previous = await readSession(sessionPath);
 	if (previous && isRunning(previous.pid)) {
 		throw new CommandError(
@@ -219,7 +216,7 @@ async function resolvePreviousSession(
 	if (!newSession) {
 		const unpulled = await hasUnpulledChanges(
 			adapter,
-			{ repo: previous.repo, token, host, releaseId: previous.releaseId },
+			{ repo: previous.repo, getToken, host, onUnauthorized, releaseId: previous.releaseId },
 			previous.synced,
 		);
 		if (unpulled) {
@@ -228,7 +225,12 @@ async function resolvePreviousSession(
 			);
 		}
 	}
-	await deleteRelease(previous.releaseId, { repo: previous.repo, token, host }).catch(() => {});
+	await deleteRelease(previous.releaseId, {
+		repo: previous.repo,
+		getToken,
+		host,
+		onUnauthorized,
+	}).catch(() => {});
 }
 
 async function hasUnpulledChanges(

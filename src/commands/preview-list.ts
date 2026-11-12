@@ -1,8 +1,8 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getPreviews, getSimulatorUrl } from "../lib/prismic/clients/core";
+import { getPreviews, getSimulatorUrl } from "../lib/prismic/client";
 import { formatTable } from "../lib/string";
 
 const config = {
@@ -28,11 +28,11 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { env, repo = env ?? (await getActiveRepositoryName()), json } = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
-	const [previews, simulatorUrl] = await Promise.all([
-		getPreviews({ repo, token, host }),
-		getSimulatorUrl({ repo, token, host }),
+	const [{ results: previews }, { simulator_url: simulatorUrl }] = await Promise.all([
+		getPreviews({ repo, getToken, host, onUnauthorized }),
+		getSimulatorUrl({ repo, getToken, host, onUnauthorized }),
 	]);
 
 	if (json) {

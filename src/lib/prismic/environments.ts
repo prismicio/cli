@@ -1,17 +1,12 @@
 import { dedent } from "../string";
-import { validateToken } from "./clients/auth";
-import { type Environment, getEnvironments } from "./clients/core";
+import { type Environment, getEnvironments, validateToken } from "./client";
 
-export async function getUserEnvironments(config: {
-	repo: string;
-	token: string | undefined;
-	host: string;
-}): Promise<Environment[]> {
-	const { repo, token, host } = config;
-	const [session, environments] = await Promise.all([
-		validateToken(token, { host }),
-		getEnvironments({ repo, token, host }),
-	]);
+export async function getUserEnvironments(
+	config: Parameters<typeof getEnvironments>[0],
+): Promise<Environment[]> {
+	// Validate after the request, which can log in and change the token.
+	const { results: environments } = await getEnvironments(config);
+	const session = await validateToken(await config.getToken(), config);
 	if (session.type === "Machine2Machine") {
 		return environments.filter((environment) => environment.domain === session.domain);
 	}

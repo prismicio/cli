@@ -1,4 +1,6 @@
-import { it } from "./it";
+import { writeFile } from "node:fs/promises";
+
+import { captureOutput, completeLogin, it } from "./it";
 import { createWebhook } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -26,4 +28,21 @@ it("lists webhooks as JSON", async ({ expect, prismic, repo, token, host }) => {
 	expect(exitCode, stderr).toBe(0);
 	const parsed = JSON.parse(stdout);
 	expect(parsed).toEqual(expect.arrayContaining([expect.objectContaining({ url })]));
+});
+
+it("logs in again and continues when the repository rejects the token", async ({
+	expect,
+	prismic,
+	home,
+	host,
+	token,
+}) => {
+	await writeFile(
+		new URL(".config/prismic/credentials.json", home),
+		JSON.stringify({ token: "expired-token", host }),
+	);
+	const proc = prismic("webhook", ["list"], { nodeOptions: { env: { CI: "" } } });
+	await completeLogin(expect, captureOutput(proc), token);
+	const { stderr, exitCode } = await proc;
+	expect(exitCode, stderr).toBe(0);
 });

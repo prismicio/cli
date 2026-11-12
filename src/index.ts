@@ -10,7 +10,7 @@ import {
 	NoSupportedFrameworkError,
 	SliceNotFoundError,
 } from "./adapters";
-import { cleanupLegacyAuthFile, getCredentials, spawnTokenRefresh } from "./auth";
+import { cleanupLegacyAuthFile, getHost, getToken, spawnTokenRefresh } from "./auth";
 import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { env } from "./env";
@@ -19,8 +19,7 @@ import { detectAgent } from "./lib/ai";
 import { CommandError } from "./lib/command";
 import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
-import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
-import { getProfile } from "./lib/prismic/clients/user";
+import { getUserProfile, UnsupportedFileTypeError } from "./lib/prismic/client";
 import { InvalidEnvironmentError } from "./lib/prismic/environments";
 import {
 	FieldExistsError,
@@ -150,7 +149,8 @@ async function main(): Promise<void> {
 	}
 
 	if (!help) {
-		const { token, host } = await getCredentials();
+		const host = await getHost();
+		const token = await getToken();
 
 		const telemetryEnabled = env.PRISMIC_TELEMETRY_ENABLED ?? (await isTelemetryEnabled());
 		const sentryEnabled = env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD);
@@ -176,7 +176,7 @@ async function main(): Promise<void> {
 				if (knownUserId) {
 					sentrySetUser({ id: knownUserId });
 				} else if (!exp || exp > now) {
-					getProfile({ token, host })
+					getUserProfile({ getToken, host })
 						.then((profile) => {
 							trackUser(profile);
 							sentrySetUser({ id: profile.shortId });
