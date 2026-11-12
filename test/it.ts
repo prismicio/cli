@@ -39,7 +39,7 @@ export type Fixtures = {
 		accessToken?: string;
 		refreshToken?: string;
 		expiresAt?: number;
-	}) => Promise<{ token: string; email: string }>;
+	}) => Promise<{ email: string }>;
 	logout: () => Promise<void>;
 	token: string;
 	password: string;
@@ -124,7 +124,8 @@ export const it = test.extend<Fixtures>({
 	},
 	// On macOS, the CLI's keychain calls follow HOME. A keychain inside the test's
 	// HOME keeps them off the user's keychain. Without one, macOS opens a dialog
-	// asking where to save.
+	// asking where to save. Windows has no such setting, so its tests use the
+	// Credential Manager.
 	keychain: async ({ home }, use) => {
 		if (process.platform !== "darwin") return use();
 		const path = fileURLToPath(new URL("Library/Keychains/prismic-test.keychain-db", home));
@@ -162,7 +163,7 @@ export const it = test.extend<Fixtures>({
 					...session,
 				}),
 			);
-			return { token, email: E2E_PRISMIC_EMAIL };
+			return { email: E2E_PRISMIC_EMAIL };
 		});
 	},
 	logout: async ({ home }, use) => {
@@ -289,14 +290,6 @@ export async function approveLogin(
 ): Promise<void> {
 	await waitForLoginPrompt(expect, output);
 	auth0.approve();
-}
-
-// Runs `security` with the test's HOME, so it only sees the test's keychain.
-async function security(home: URL, args: string[]): Promise<void> {
-	await x("/usr/bin/security", args, {
-		nodeOptions: { env: { ...process.env, HOME: fileURLToPath(home) } },
-		throwOnError: true,
-	});
 }
 
 export function buildCustomType(
@@ -434,4 +427,12 @@ async function getConfig(project: URL): Promise<{ libraries?: string[] }> {
 	const path = new URL("prismic.config.json", project);
 	const raw = await readFile(path, "utf8");
 	return JSON.parse(raw);
+}
+
+// Runs `security` with the test's HOME, so it only sees the test's keychain.
+async function security(home: URL, args: string[]): Promise<void> {
+	await x("/usr/bin/security", args, {
+		nodeOptions: { env: { ...process.env, HOME: fileURLToPath(home) } },
+		throwOnError: true,
+	});
 }

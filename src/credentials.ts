@@ -22,8 +22,7 @@ import { acquireLock, type Lock, LockTimeoutError } from "./lib/lock";
 const KEYCHAIN_SERVICE = "prismic-cli";
 const KEYCHAIN_ACCOUNT = `cli:${createHash("sha256").update(fileURLToPath(CONFIG_DIR)).digest("hex").slice(0, 16)}`;
 const KEYCHAIN_LOGIN_TIMEOUT_MS = 5_000;
-// Holders keep it for about one request, and a stale lock is recovered after
-// 10 seconds.
+// Holders keep it for about one request.
 const CREDENTIALS_LOCK_TIMEOUT_MS = 30_000;
 // Leaves time to answer the keychain's unlock dialog.
 const KEYCHAIN_TIMEOUT_MS = 30_000;
@@ -71,12 +70,12 @@ const LoginSummarySchema = z.object({
 	/** Set while a session has tokens. */
 	expiresAt: z.catch(z.optional(z.number()), undefined),
 });
-export type LoginSummary = z.infer<typeof LoginSummarySchema>;
+type LoginSummary = z.infer<typeof LoginSummarySchema>;
 
 // `storeReason` says why a login went to a file, for telemetry.
 export type StoredLogin = { store: StoreMode; storeReason?: FallbackReason; session: Session };
 
-export type CredentialsErrorReason =
+type CredentialsErrorReason =
 	| "busy"
 	| "unsupported-version"
 	| "unsafe-file"

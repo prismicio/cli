@@ -204,27 +204,6 @@ async function isTokenRejected(): Promise<boolean> {
 	}
 }
 
-// Native client IDs are public.
-function getAuth0Config(host: string): Auth0Config | undefined {
-	// Tests log in with a fake Auth0 server. In a release, a stray variable must
-	// never send a real login to another tenant.
-	if (process.env.PROD === "false" && env.PRISMIC_AUTH0_DOMAIN) {
-		return { auth0Domain: env.PRISMIC_AUTH0_DOMAIN, clientId: env.PRISMIC_AUTH0_CLIENT_ID ?? "" };
-	}
-	if (host === "prismic.io") {
-		return { auth0Domain: "auth0.prismic.io", clientId: "V1yuPKJOHhuHNMR4Oeo2fj5uTCfVebny" };
-	}
-	if (host === "wroom.io" || host === "devops-wroom.com") {
-		return { auth0Domain: "auth0.wroom.io", clientId: "UKxsYw8EcAspkUPRvoFkrO1aj9cA3zkd" };
-	}
-	if (/^[a-z0-9-]+-wroom\.com$/.test(host)) {
-		return {
-			auth0Domain: "auth0.platform-wroom.com",
-			clientId: "Opbx7JjftGb5sgjIWKVx0XDBSrW37say",
-		};
-	}
-}
-
 // The prompt and the result go to stderr, so a command that logs in on its own
 // keeps its output clean.
 export async function logIn(options: { browser?: boolean } = {}): Promise<string> {
@@ -298,6 +277,27 @@ async function endCommand(message: string, exitCode: number): Promise<never> {
 	// Exiting right after a write can drop it from a pipe.
 	await new Promise((resolve) => process.stderr.write(`${message}\n`, resolve));
 	process.exit();
+}
+
+// Native client IDs are public.
+function getAuth0Config(host: string): Auth0Config | undefined {
+	// Tests log in with a fake Auth0 server. In a release, a stray variable must
+	// never send a real login to another tenant.
+	if (process.env.PROD === "false" && env.PRISMIC_AUTH0_DOMAIN) {
+		return { auth0Domain: env.PRISMIC_AUTH0_DOMAIN, clientId: env.PRISMIC_AUTH0_CLIENT_ID ?? "" };
+	}
+	if (host === "prismic.io") {
+		return { auth0Domain: "auth0.prismic.io", clientId: "V1yuPKJOHhuHNMR4Oeo2fj5uTCfVebny" };
+	}
+	if (host === "wroom.io" || host === "devops-wroom.com") {
+		return { auth0Domain: "auth0.wroom.io", clientId: "UKxsYw8EcAspkUPRvoFkrO1aj9cA3zkd" };
+	}
+	if (/^[a-z0-9-]+-wroom\.com$/.test(host)) {
+		return {
+			auth0Domain: "auth0.platform-wroom.com",
+			clientId: "Opbx7JjftGb5sgjIWKVx0XDBSrW37say",
+		};
+	}
 }
 
 async function completeLogin(login: Login, options: { browser: boolean }): Promise<LoginOutcome> {

@@ -38,7 +38,7 @@ it("logs in with a code, and saves the login for this user only", async ({
 
 	const path = new URL(".config/prismic/credentials.json", home);
 	const credentials = await readFile(path, "utf8");
-	// Linux CI has no keychain, so its logins go to this file.
+	// The `exec` fixture keeps Linux off the keyring, so its logins go to this file.
 	if (process.platform !== "linux") expect(credentials).not.toContain(token);
 	if (process.platform !== "win32") expect((await stat(path)).mode & 0o777).toBe(0o600);
 });

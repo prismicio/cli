@@ -45,6 +45,6 @@ export default createCommand(config, async () => {
 function getProblem(error: CredentialsError | DeviceFlowError): string {
 	if (error instanceof CredentialsError) return "the saved login can't be read";
 	return error.reason === "unavailable"
-		? "the login service can't be reached"
-		: `the login service answered ${error.detail}`;
+		? "the Prismic login service can't be reached"
+		: `the Prismic login service answered ${error.detail}`;
 }
