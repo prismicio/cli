@@ -208,6 +208,9 @@ type Login = {
 	deadline: number;
 	startedAt: number;
 	resumed: boolean;
+	// The saved token when the login started. Another command's login shows
+	// up as a different one.
+	tokenBefore?: string;
 	// Set once this command is the one that polls Auth0.
 	pending?: PendingLogin;
 };
@@ -231,6 +234,7 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 		deadline: isPerson ? Infinity : Date.now() + AGENT_WAIT_MS,
 		startedAt: Date.now(),
 		resumed: false,
+		tokenBefore: (await readCredentials().catch(() => undefined))?.login?.session.accessToken,
 	};
 
 	// Ctrl-C during a login runs only this handler, so a command that stops on
@@ -319,8 +323,6 @@ type LoginLock = {
 	waited: boolean;
 	// The other command's code, once this one showed it.
 	shown?: PendingLogin;
-	// The saved token when this one started waiting.
-	tokenBefore?: string;
 };
 
 // One command polls Auth0 per config directory. Another command that needs a
@@ -340,8 +342,8 @@ async function lockLoginAfterOthers(login: Login): Promise<LoginLock | undefined
 			if (Date.now() >= waitUntil) throw error;
 		}
 
+		other.waited = true;
 		const session = (await readCredentials().catch(() => undefined))?.login?.session;
-		if (!other.waited) Object.assign(other, { waited: true, tokenBefore: session?.accessToken });
 		other.shown = session && getResumableLogin(session, login);
 		if (other.shown) printLoginPrompt(other.shown);
 		else await sleep(PENDING_POLL_MS);
@@ -366,7 +368,7 @@ async function startLogin(
 		}
 		const current = stored?.session.host === login.host ? stored : undefined;
 		const token = current && getUnexpiredToken(current.session);
-		if (other.waited && token && token !== other.tokenBefore) {
+		if (other.waited && token && token !== login.tokenBefore) {
 			return { token, store: current.store, storeReason: current.storeReason };
 		}
 
