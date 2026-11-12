@@ -5,6 +5,9 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 const OWNER_FILENAME = "owner.json";
+// Claiming a new lock takes milliseconds, so a lock without an owner after
+// this long was left by a process that died before claiming it.
+const UNCLAIMED_MS = 1_000;
 
 type Owner = { id: string; pid: number; hostname: string };
 
@@ -88,9 +91,11 @@ async function recoverIfStale(path: URL, staleMs: number): Promise<boolean> {
 		.catch(() => undefined);
 	if (!touched) return true; // Released in the meantime.
 
-	const isOld = Date.now() - touched.mtimeMs > staleMs;
+	const ageMs = Date.now() - touched.mtimeMs;
+	const isOld = ageMs > staleMs;
+	const isUnclaimed = !owner && ageMs > UNCLAIMED_MS;
 	const isOrphan = owner?.hostname === hostname() && !isAlive(owner.pid);
-	if (!isOld && !isOrphan) return false;
+	if (!isOld && !isUnclaimed && !isOrphan) return false;
 
 	// Only one waiter can rename a given lock away.
 	const stalePath = new URL(`${path.href}.stale-${randomUUID()}`);

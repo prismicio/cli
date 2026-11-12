@@ -4,7 +4,7 @@
 
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, utimes, writeFile } from "node:fs/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
@@ -123,6 +123,18 @@ it("keeps the heartbeat after the lock briefly disappears", async ({ home }) => 
 	);
 	expect(await holder.isHeld()).toBe(true);
 	await holder.release();
+});
+
+it("takes over a lock that no process claimed", async ({ home }) => {
+	const path = new URL("test.lock", home);
+	// A process died between creating the lock and writing its owner.
+	await mkdir(path);
+	const past = new Date(Date.now() - 2_000);
+	await utimes(path, past, past);
+
+	const lock = await acquireLock(path, { timeoutMs: 1_000, staleMs: 60_000 });
+	expect(await lock.isHeld()).toBe(true);
+	await lock.release();
 });
 
 it("waits for a live holder, then times out", async ({ home }) => {
