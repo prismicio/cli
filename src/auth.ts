@@ -7,10 +7,18 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as z from "zod/mini";
 
 import { CREDENTIALS_PATH } from "./config";
+import {
+	lockCredentials,
+	readCredentials as readStoredCredentials,
+	writeCredentials,
+	type Session,
+	type StoredLogin,
+} from "./credentials";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
-import type { Auth0Config } from "./lib/auth0";
+import { type Auth0Config, DeviceFlowError, refreshAccessToken } from "./lib/auth0";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
+import type { Lock } from "./lib/lock";
 import {
 	refreshToken as baseRefreshToken,
 	getUserProfile,
@@ -21,8 +29,10 @@ import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
 
 const LOGIN_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
+const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
 const PREFERRED_PORT = 5555;
 const LOGIN_SOURCE = "prismic-cli";
+const CREDENTIALS_LOCK_TIMEOUT_MS = 30_000;
 
 const CredentialsSchema = z.looseObject({
 	token: z.optional(z.string().check(z.minLength(1))),
@@ -52,6 +62,93 @@ export function getAuth0Config(host: string): Auth0Config | undefined {
 			clientId: "Opbx7JjftGb5sgjIWKVx0XDBSrW37say",
 		};
 	}
+}
+
+// "ended" means Auth0 ended the session, so the caller can say the login
+// expired and start a new one.
+export type SessionToken =
+	| { status: "active"; token: string }
+	| { status: "none" }
+	| { status: "ended" };
+
+let renewal: Promise<SessionToken> | undefined;
+
+// `forceRefresh` renews a token that a server refused, even if it's not about
+// to expire.
+export async function getSessionToken(
+	options: { forceRefresh?: boolean } = {},
+): Promise<SessionToken> {
+	const { forceRefresh = false } = options;
+	const session = (await readStoredCredentials()).login?.session;
+	if (!session?.refreshToken) return { status: "none" };
+
+	const freshToken = getUnexpiredToken(session, REFRESH_MARGIN_MS);
+	if (freshToken && !forceRefresh) return { status: "active", token: freshToken };
+
+	// Parallel calls share one renewal.
+	renewal ??= renewSession(session.accessToken).finally(() => (renewal = undefined));
+	try {
+		return await renewal;
+	} catch (error) {
+		// Without Auth0, the current token works until it expires, unless a
+		// server already refused it.
+		const token = getUnexpiredToken(session);
+		if (error instanceof DeviceFlowError && token && !forceRefresh) {
+			return { status: "active", token };
+		}
+		throw error;
+	}
+}
+
+async function renewSession(staleToken: string | undefined): Promise<SessionToken> {
+	const lock = await lockCredentials({ timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+	try {
+		const { login: storedLogin } = await readStoredCredentials();
+		return await renewLogin(lock, storedLogin, staleToken, { canRetry: true });
+	} finally {
+		await lock.release();
+	}
+}
+
+async function renewLogin(
+	lock: Lock,
+	storedLogin: StoredLogin | undefined,
+	staleToken: string | undefined,
+	options: { canRetry: boolean },
+): Promise<SessionToken> {
+	const session = storedLogin?.session;
+	if (!storedLogin || !session?.refreshToken) return { status: "none" };
+
+	// Another process renewed it while this one waited for the lock.
+	const freshToken = getUnexpiredToken(session, REFRESH_MARGIN_MS);
+	if (freshToken && freshToken !== staleToken) return { status: "active", token: freshToken };
+
+	const { refreshToken, auth0Domain, clientId, host } = session;
+	const tokens = await refreshAccessToken(refreshToken, { auth0Domain, clientId });
+	if (tokens) {
+		await writeCredentials(lock, { ...storedLogin, session: { ...session, ...tokens } });
+		return { status: "active", token: tokens.accessToken };
+	}
+
+	// If the refresh token changed meanwhile, retry once with it, but only while
+	// holding the lock: using it without saving the result would end that
+	// session.
+	const latest = (await readStoredCredentials()).login;
+	if (options.canRetry && latest?.session.refreshToken !== refreshToken && (await lock.isHeld())) {
+		return renewLogin(lock, latest, staleToken, { canRetry: false });
+	}
+
+	// The write fails if another process took the lock over.
+	await writeCredentials(lock, {
+		...storedLogin,
+		session: { host, auth0Domain, clientId, pendingLogin: session.pendingLogin },
+	});
+	return { status: "ended" };
+}
+
+function getUnexpiredToken(session: Session, marginMs = 0): string | undefined {
+	const { accessToken, expiresAt } = session;
+	if (accessToken && expiresAt && expiresAt - marginMs > Date.now()) return accessToken;
 }
 
 export async function refreshToken(): Promise<string | undefined> {
