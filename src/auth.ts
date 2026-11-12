@@ -11,7 +11,11 @@ import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import type { Auth0Config } from "./lib/auth0";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
-import { refreshToken as baseRefreshToken, validateToken } from "./lib/prismic/client";
+import {
+	refreshToken as baseRefreshToken,
+	getUserProfile,
+	validateToken,
+} from "./lib/prismic/client";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser } from "./tracking";
@@ -203,6 +207,17 @@ export async function createLoginSession(options: {
 		server.once("listening", onListening);
 		server.listen(PREFERRED_PORT, "0.0.0.0");
 	});
+}
+
+// The profile request also creates the Prismic user for a new social or SSO
+// signup, so it runs right after a login saves its tokens.
+export async function finishLogin(config: {
+	token: string;
+	host: string;
+}): Promise<{ email: string }> {
+	await forgetTrackedUser();
+	const profile = await getUserProfile({ getToken: async () => config.token, host: config.host });
+	return { email: profile.email };
 }
 
 const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
