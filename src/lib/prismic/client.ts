@@ -38,6 +38,67 @@ function getAuthServiceUrl(host: string): URL {
 	return new URL(`https://auth.${host}/`);
 }
 
+const AUTH0_TIMEOUT_MS = 10_000;
+
+export type Auth0Config = { auth0Domain: string; clientId: string; signal?: AbortSignal };
+
+const DeviceCodeSchema = z.object({
+	device_code: z.string(),
+	user_code: z.string(),
+	verification_uri: z.string(),
+	verification_uri_complete: z.optional(z.string()),
+	expires_in: z.number(),
+	interval: z.optional(z.number()),
+});
+type DeviceCode = z.infer<typeof DeviceCodeSchema>;
+
+export async function requestDeviceCode(
+	params: { audience: string; scope: string },
+	config: Auth0Config,
+): Promise<DeviceCode> {
+	const url = new URL("oauth/device/code", getAuth0Url(config.auth0Domain));
+	return request(url, {
+		method: "POST",
+		body: new URLSearchParams({ client_id: config.clientId, ...params }),
+		signal: getAuth0Signal(config.signal),
+		schema: DeviceCodeSchema,
+	});
+}
+
+const DeviceTokenSchema = z.object({
+	access_token: z.string(),
+	refresh_token: z.string(),
+	expires_in: z.number(),
+});
+type DeviceToken = z.infer<typeof DeviceTokenSchema>;
+
+export async function requestDeviceToken(
+	deviceCode: string,
+	config: Auth0Config,
+): Promise<DeviceToken> {
+	const url = new URL("oauth/token", getAuth0Url(config.auth0Domain));
+	return request(url, {
+		method: "POST",
+		body: new URLSearchParams({
+			grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+			device_code: deviceCode,
+			client_id: config.clientId,
+		}),
+		signal: getAuth0Signal(config.signal),
+		schema: DeviceTokenSchema,
+	});
+}
+
+function getAuth0Signal(signal: AbortSignal | undefined): AbortSignal {
+	const timeout = AbortSignal.timeout(AUTH0_TIMEOUT_MS);
+	return signal ? AbortSignal.any([timeout, signal]) : timeout;
+}
+
+// Tests use a local server over HTTP.
+function getAuth0Url(auth0Domain: string): URL {
+	return new URL(/^https?:\/\//.test(auth0Domain) ? auth0Domain : `https://${auth0Domain}/`);
+}
+
 const ProfileSchema = z.object({
 	email: z.string(),
 	shortId: z.string(),

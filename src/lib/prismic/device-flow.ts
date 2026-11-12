@@ -3,13 +3,11 @@ import { setTimeout as sleep } from "node:timers/promises";
 import * as z from "zod/mini";
 
 import { RequestError } from "../request";
-import { requestDeviceCode, requestDeviceToken } from "./clients/auth0";
+import { type Auth0Config, requestDeviceCode, requestDeviceToken } from "./client";
 
 const DEFAULT_INTERVAL_MS = 5_000;
 const SLOW_DOWN_MS = 5_000;
 const MAX_BACKOFF_MS = 60_000;
-
-type Auth0Config = { auth0Domain: string; clientId: string };
 
 export const PendingLoginSchema = z.object({
 	host: z.string(),
@@ -32,7 +30,7 @@ type DeviceLoginTokens = {
 
 export function getAuth0Config(
 	host: string,
-	overrides: Partial<Auth0Config> = {},
+	overrides: { auth0Domain?: string; clientId?: string } = {},
 ): Auth0Config | undefined {
 	const known = getKnownAuth0Config(host);
 	const auth0Domain = overrides.auth0Domain || known?.auth0Domain;
