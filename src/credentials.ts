@@ -53,17 +53,13 @@ const FallbackReasonSchema = z.enum([
 ]);
 export type FallbackReason = z.infer<typeof FallbackReasonSchema>;
 
-const CredentialsVersionSchema = z.looseObject({
-	version: z.optional(z.unknown()),
-	store: z.optional(z.unknown()),
-	storeReason: z.optional(z.unknown()),
-});
 const StoreModeSchema = z.enum(["keyring", "file"]);
 export type StoreMode = z.infer<typeof StoreModeSchema>;
 
 // What every login keeps in plain text. A field that doesn't match reads as
 // missing.
 const LoginSummarySchema = z.object({
+	version: z.optional(z.unknown()),
 	host: z.catch(z.optional(z.string()), undefined),
 	store: z.catch(z.optional(StoreModeSchema), undefined),
 	storeReason: z.catch(z.optional(FallbackReasonSchema), undefined),
@@ -75,37 +71,23 @@ type LoginSummary = z.infer<typeof LoginSummarySchema>;
 // `storeReason` says why a login went to a file, for telemetry.
 export type StoredLogin = { store: StoreMode; storeReason?: FallbackReason; session: Session };
 
-type CredentialsErrorReason =
-	| "busy"
-	| "unsupported-version"
-	| "unsafe-file"
-	| "lock-lost"
-	| "locked"
-	| "timeout"
-	| "keychain-unavailable"
-	| "missing-key"
-	| "decrypt-failed";
-
 let key: Buffer | undefined;
 let warnedUnsafe = false;
 
 // A login that exists but can't be read throws, never reads as logged out.
 export async function readCredentials(): Promise<{ login?: StoredLogin }> {
 	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH));
-	const file = z.safeParse(CredentialsVersionSchema, json);
-	if (!file.success) return {};
-	const { version, store, storeReason } = file.data;
+	const { version, store, storeReason } = z.safeParse(LoginSummarySchema, json).data ?? {};
 
 	// Without a version, the file has only `host` (website generator), or is
 	// version 1, whose token expires within hours and can't be refreshed.
 	if (version === undefined) return {};
 	if (version !== 2) {
 		throw new CredentialsError(
-			"unsupported-version",
 			"Your Prismic login was saved by a newer version of the CLI. Update the CLI, or run `prismic login` again.",
 		);
 	}
-	if (store !== "keyring" && store !== "file") throw undecryptable();
+	if (!store) throw undecryptable();
 
 	const session = z.safeParse(
 		SessionSchema,
@@ -113,14 +95,14 @@ export async function readCredentials(): Promise<{ login?: StoredLogin }> {
 	);
 	if (!session.success) throw undecryptable();
 
-	// An unknown reason reads as none.
-	const reason = store === "file" ? z.safeParse(FallbackReasonSchema, storeReason).data : undefined;
+	const reason = store === "file" ? storeReason : undefined;
 	return { login: { store, ...(reason ? { storeReason: reason } : {}), session: session.data } };
 }
 
-// Reads what's in plain text, so it never needs the keychain.
+// Reads what's in plain text, so it never needs the keychain. A file it can't
+// read reads as empty.
 export async function readLoginSummary(): Promise<LoginSummary> {
-	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH));
+	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH).catch(() => undefined));
 	return z.safeParse(LoginSummarySchema, json).data ?? {};
 }
 
@@ -160,10 +142,8 @@ export async function prepareLogin(
 	}
 }
 
-export async function writeCredentials(
-	lock: Lock,
-	login: StoredLogin,
-): Promise<{ warning?: string }> {
+// Warns once per process when the disk can't keep the files private.
+export async function writeCredentials(lock: Lock, login: StoredLogin): Promise<void> {
 	const { store, storeReason, session } = login;
 	let safe;
 	if (store === "keyring") {
@@ -180,39 +160,33 @@ export async function writeCredentials(
 		await removeFile(lock, ENCRYPTED_CREDENTIALS_PATH);
 	}
 
-	if (safe || warnedUnsafe) return {};
+	if (safe || warnedUnsafe) return;
 	warnedUnsafe = true;
-	return {
-		warning: `Can't make ${fileURLToPath(CREDENTIALS_PATH)} readable only by you on this disk. Set PRISMIC_CONFIG_DIR to a private folder on another disk.`,
-	};
+	console.warn(
+		`Can't make ${fileURLToPath(CREDENTIALS_PATH)} readable only by you on this disk. Set PRISMIC_CONFIG_DIR to a private folder on another disk.`,
+	);
 }
 
 // The login is gone either way, so a key the keychain won't delete only gets a
 // warning.
-export async function clearCredentials(lock: Lock): Promise<{ warning?: string }> {
-	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH).catch(() => undefined));
-	const host = z.safeParse(LoginSummarySchema, json).data?.host;
-	const hadKey =
-		z.safeParse(CredentialsVersionSchema, json).data?.store === "keyring" ||
-		(await exists(ENCRYPTED_CREDENTIALS_PATH));
+export async function clearCredentials(lock: Lock): Promise<void> {
+	const { host, store } = await readLoginSummary();
+	const hadKey = store === "keyring" || (await exists(ENCRYPTED_CREDENTIALS_PATH));
 
 	if (host) await writePrivateFiles(lock, [[CREDENTIALS_PATH, stringify({ host })]]);
 	else await removeFile(lock, CREDENTIALS_PATH);
 	await removeFile(lock, ENCRYPTED_CREDENTIALS_PATH);
 
-	if (!hadKey) return {};
+	if (!hadKey) return;
 	key = undefined;
 	await assertHeld(lock);
-	try {
-		await systemKeyring.delete(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, {
-			timeoutMs: KEYCHAIN_TIMEOUT_MS,
+	await systemKeyring
+		.delete(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, { timeoutMs: KEYCHAIN_TIMEOUT_MS })
+		.catch((error) => {
+			const failure = keyringFailure(error, "delete");
+			if (!(failure instanceof CredentialsError)) throw failure;
+			console.warn(failure.message);
 		});
-		return {};
-	} catch (error) {
-		const failure = keyringFailure(error, "delete");
-		if (failure instanceof CredentialsError) return { warning: failure.message };
-		throw failure;
-	}
 }
 
 export async function lockCredentials(): Promise<Lock> {
@@ -221,7 +195,6 @@ export async function lockCredentials(): Promise<Lock> {
 		(error) => {
 			if (!(error instanceof LockTimeoutError)) throw error;
 			throw new CredentialsError(
-				"busy",
 				"Another Prismic command is still using your login. Run the command again.",
 			);
 		},
@@ -237,12 +210,6 @@ export async function lockLogin(config: { timeoutMs: number }): Promise<Lock> {
 
 export class CredentialsError extends Error {
 	name = "CredentialsError";
-	reason: CredentialsErrorReason;
-
-	constructor(reason: CredentialsErrorReason, message: string, options?: ErrorOptions) {
-		super(message, options);
-		this.reason = reason;
-	}
 }
 
 async function readKey(timeoutMs: number): Promise<Buffer | undefined> {
@@ -257,7 +224,7 @@ async function requireKey(): Promise<Buffer> {
 	const currentKey = await readKey(KEYCHAIN_TIMEOUT_MS).catch((error) => {
 		throw keyringFailure(error);
 	});
-	if (!currentKey) throw undecryptable("missing-key");
+	if (!currentKey) throw undecryptable();
 	return currentKey;
 }
 
@@ -273,31 +240,23 @@ async function decryptSession(): Promise<string | undefined> {
 	return decrypt(encrypted, await requireKey());
 }
 
-const KEYCHAIN_FAILURES: Partial<Record<KeyringErrorReason, [CredentialsErrorReason, string]>> = {
-	locked: ["locked", "the keychain is locked in this session. Unlock it and try again"],
-	timeout: ["timeout", "the keychain didn't respond. Try again"],
+const KEYCHAIN_FAILURES: Partial<Record<KeyringErrorReason, string>> = {
+	locked: "the keychain is locked in this session. Unlock it and try again",
+	timeout: "the keychain didn't respond. Try again",
 };
 
 function keyringFailure(error: unknown, action: "read" | "delete" = "read"): unknown {
 	if (!(error instanceof KeyringError)) return error;
-	const [reason, why] = KEYCHAIN_FAILURES[error.reason] ?? [
-		"keychain-unavailable",
-		"the keychain isn't available. Try again",
-	];
+	const why = KEYCHAIN_FAILURES[error.reason] ?? "the keychain isn't available. Try again";
 	// A new login saves to a file when the keychain can't be used.
 	const alternative = action === "read" ? ", or run `prismic login` again" : "";
-	return new CredentialsError(
-		reason,
-		`Can't ${action} your Prismic key because ${why}${alternative}.`,
-		{ cause: error },
-	);
+	return new CredentialsError(`Can't ${action} your Prismic key because ${why}${alternative}.`, {
+		cause: error,
+	});
 }
 
-function undecryptable(reason: "missing-key" | "decrypt-failed" = "decrypt-failed"): Error {
-	return new CredentialsError(
-		reason,
-		"Your Prismic login can't be decrypted. Run `prismic login` again.",
-	);
+function undecryptable(): Error {
+	return new CredentialsError("Your Prismic login can't be decrypted. Run `prismic login` again.");
 }
 
 // Checked right before each rename or delete, so a stalled process can't
@@ -305,7 +264,6 @@ function undecryptable(reason: "missing-key" | "decrypt-failed" = "decrypt-faile
 async function assertHeld(lock: Lock): Promise<void> {
 	if (await lock.isHeld()) return;
 	throw new CredentialsError(
-		"lock-lost",
 		"Another Prismic command took over the login while this one stalled. Run the command again.",
 	);
 }
@@ -374,7 +332,6 @@ async function removeFile(lock: Lock, path: URL): Promise<void> {
 async function readPrivateFile(path: URL): Promise<Buffer | undefined> {
 	const unsafe = (why: string) =>
 		new CredentialsError(
-			"unsafe-file",
 			`Refusing to read ${fileURLToPath(path)} because ${why}. Delete it and run \`prismic login\` again.`,
 		);
 

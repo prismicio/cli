@@ -25,10 +25,10 @@ export class KeyringError extends Error {
 
 type KeyringOptions = { timeoutMs: number };
 
-export type Keyring = {
+type Keyring = {
 	get(service: string, account: string, options: KeyringOptions): Promise<string | undefined>;
 	set(service: string, account: string, password: string, options: KeyringOptions): Promise<void>;
-	delete(service: string, account: string, options: KeyringOptions): Promise<boolean>;
+	delete(service: string, account: string, options: KeyringOptions): Promise<void>;
 };
 
 // Keychain items trust the binary that created them. With a native module,
@@ -48,8 +48,7 @@ const macosKeyring: Keyring = {
 		await security(["-i"], command, options);
 	},
 	async delete(service, account, options) {
-		const args = ["delete-generic-password", "-s", service, "-a", account];
-		return (await security(args, undefined, options)) !== undefined;
+		await security(["delete-generic-password", "-s", service, "-a", account], undefined, options);
 	},
 };
 
@@ -91,7 +90,7 @@ const napiKeyring: Keyring = {
 		);
 	},
 	async delete(service, account, options) {
-		return napiCall(service, account, options, (entry, signal) => entry.deleteCredential(signal));
+		await napiCall(service, account, options, (entry, signal) => entry.deleteCredential(signal));
 	},
 };
 

@@ -21,8 +21,7 @@ export default createCommand(config, async () => {
 		try {
 			const session = (await readCredentials()).login?.session;
 			if (session?.refreshToken) {
-				const { refreshToken, auth0Domain, clientId } = session;
-				await revokeRefreshToken(refreshToken, { auth0Domain, clientId });
+				await revokeRefreshToken(session.refreshToken, session);
 				revoked = true;
 			}
 		} catch (error) {
@@ -31,8 +30,7 @@ export default createCommand(config, async () => {
 				`Couldn't revoke your session because ${getProblem(error)}. It stays valid until it expires.`,
 			);
 		}
-		const { warning } = await clearCredentials(lock);
-		if (warning) console.warn(warning);
+		await clearCredentials(lock);
 		await forgetTrackedUser();
 	} finally {
 		await lock.release();

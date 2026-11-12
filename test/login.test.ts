@@ -65,7 +65,7 @@ it("stops an agent at its wait limit, and its next run continues the login", asy
 	const second = await prismic("login", args, { nodeOptions: { env } });
 	expect(second.exitCode, second.stderr).toBe(0);
 	expect(getUserCode(second.stderr)).toBe(getUserCode(first.stderr));
-	expect(auth0.requests.filter((request) => request.path === "/oauth/device/code")).toHaveLength(1);
+	expect(auth0.requestsTo("/oauth/device/code")).toHaveLength(1);
 });
 
 it.skipIf(process.platform === "win32")(
@@ -111,7 +111,7 @@ it("makes another command wait for the login in progress", async ({
 	expect(JSON.parse(reposStdout())).toEqual(
 		expect.arrayContaining([expect.objectContaining({ domain: repo })]),
 	);
-	expect(auth0.requests.filter((request) => request.path === "/oauth/device/code")).toHaveLength(1);
+	expect(auth0.requestsTo("/oauth/device/code")).toHaveLength(1);
 });
 
 it("explains a login that Auth0 refused", async ({ expect, prismic, logout, auth0 }) => {
@@ -138,7 +138,7 @@ it("explains a login that Auth0 refused", async ({ expect, prismic, logout, auth
 		expect(output()).toContain(message);
 	}
 	// Each refused code was deleted, so each run started a new one.
-	expect(auth0.requests.filter((request) => request.path === "/oauth/device/code")).toHaveLength(4);
+	expect(auth0.requestsTo("/oauth/device/code")).toHaveLength(4);
 });
 
 it("explains a login that isn't set up", async ({ expect, host, prismic, logout }) => {
@@ -159,7 +159,7 @@ it("revokes the previous session after a new login", async ({ expect, prismic, l
 	const proc = prismic("login");
 	await approveLogin(expect, captureOutput(proc), auth0);
 	expect((await proc).exitCode).toBe(0);
-	const revokes = auth0.requests.filter((request) => request.path === "/oauth/revoke");
+	const revokes = auth0.requestsTo("/oauth/revoke");
 	expect(revokes.map((request) => request.params.token)).toEqual([refreshToken]);
 });
 

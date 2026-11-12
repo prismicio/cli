@@ -141,7 +141,7 @@ export const it = test.extend<Fixtures>({
 		await security(home, ["delete-keychain", path]);
 	},
 	auth0: async ({ token }, use) => {
-		const auth0 = await createFakeAuth0({ accessToken: token, interval: 0.1 });
+		const auth0 = await createFakeAuth0({ accessToken: token });
 		await use(auth0);
 		await auth0.close();
 	},

@@ -5,12 +5,16 @@ import type { AddressInfo } from "node:net";
 // A fake Auth0 tenant for login tests. A real device login needs a person to
 // approve it in a browser, so automated tests can't use Auth0 itself.
 
+// Seconds between polls, short so tests don't wait.
+const INTERVAL = 0.1;
+
 type FakeAuth0Response = { status: number; body?: unknown };
 
 export type FakeAuth0 = {
 	auth0Domain: string;
 	clientId: string;
 	requests: { path: string; params: Record<string, string> }[];
+	requestsTo: (path: string) => { path: string; params: Record<string, string> }[];
 	approve: () => void;
 	deny: (options?: { description?: string }) => void;
 	expire: () => void;
@@ -22,17 +26,13 @@ export type FakeAuth0 = {
 
 type DeviceCode = {
 	deviceCode: string;
-	userCode: string;
 	expiresAt: number;
 	status: "pending" | "approved" | "denied" | "redeemed";
 	description?: string;
 };
 
-export async function createFakeAuth0(options: {
-	accessToken: string;
-	interval: number;
-}): Promise<FakeAuth0> {
-	const { accessToken, interval } = options;
+export async function createFakeAuth0(options: { accessToken: string }): Promise<FakeAuth0> {
+	const { accessToken } = options;
 	const clientId = `fake-${randomToken(8)}`;
 	const requests: FakeAuth0["requests"] = [];
 	const responses = new Map<string, FakeAuth0Response[]>();
@@ -59,23 +59,23 @@ export async function createFakeAuth0(options: {
 		switch (path) {
 			case "/oauth/device/code": {
 				const hex = randomBytes(4).toString("hex").toUpperCase();
+				const userCode = `${hex.slice(0, 4)}-${hex.slice(4)}`;
 				const code: DeviceCode = {
 					deviceCode: randomToken(32),
-					userCode: `${hex.slice(0, 4)}-${hex.slice(4)}`,
 					expiresAt: Date.now() + 900_000,
 					status: "pending",
 				};
 				codes.push(code);
 				const verificationUri = new URL("activate", auth0Domain);
 				const verificationUriComplete = new URL(verificationUri);
-				verificationUriComplete.searchParams.set("user_code", code.userCode);
+				verificationUriComplete.searchParams.set("user_code", userCode);
 				return send(res, 200, {
 					device_code: code.deviceCode,
-					user_code: code.userCode,
+					user_code: userCode,
 					verification_uri: verificationUri.href,
 					verification_uri_complete: verificationUriComplete.href,
 					expires_in: 900,
-					interval,
+					interval: INTERVAL,
 				});
 			}
 
@@ -147,6 +147,7 @@ export async function createFakeAuth0(options: {
 		auth0Domain,
 		clientId,
 		requests,
+		requestsTo: (path) => requests.filter((request) => request.path === path),
 		approve: () => {
 			latestCode().status = "approved";
 		},

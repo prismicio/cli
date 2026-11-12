@@ -20,7 +20,7 @@ it("revokes the session, and deletes the login but keeps the host", async ({
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Logged out of Prismic");
-	const revokes = auth0.requests.filter((request) => request.path === "/oauth/revoke");
+	const revokes = auth0.requestsTo("/oauth/revoke");
 	expect(revokes.map((request) => request.params.token)).toEqual([refreshToken]);
 
 	const configDir = new URL(".config/prismic/", home);

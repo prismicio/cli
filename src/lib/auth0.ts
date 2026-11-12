@@ -74,18 +74,6 @@ export async function startDeviceLogin(
 	};
 }
 
-export function getDeviceLoginPrompt(pending: PendingLogin): {
-	url: string;
-	userCode: string;
-	codeInUrl: boolean;
-} {
-	return {
-		url: pending.verificationUriComplete ?? pending.verificationUri,
-		userCode: pending.userCode,
-		codeInUrl: pending.verificationUriComplete !== undefined,
-	};
-}
-
 const DeviceTokenSchema = z.object({
 	access_token: z.string(),
 	refresh_token: z.string(),

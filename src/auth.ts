@@ -19,7 +19,6 @@ import {
 	type Auth0Config,
 	type DeviceLoginTokens,
 	DeviceFlowError,
-	getDeviceLoginPrompt,
 	type PendingLogin,
 	pollDeviceLogin,
 	refreshAccessToken,
@@ -58,6 +57,10 @@ type Login = {
 	// The saved token when the login started. Another command's login shows
 	// up as a different one.
 	tokenBefore?: string;
+	// Whether this command waited for another command's login, and that
+	// command's code once this one showed it.
+	waited: boolean;
+	shown?: PendingLogin;
 	// Set once this command is the one that polls Auth0.
 	pending?: PendingLogin;
 };
@@ -68,12 +71,6 @@ type LoginOutcome =
 	| ({ status: "logged-in"; email: string } & SavedLogin)
 	| { status: "wait-limit" }
 	| { status: "logged-out" };
-
-type LoginWait = {
-	waited: boolean;
-	// Another command's code, once this one showed it.
-	shown?: PendingLogin;
-};
 
 type StartedLogin =
 	| { status: "pending"; pending: PendingLogin }
@@ -149,7 +146,7 @@ async function renewLogin(
 	if (freshToken && freshToken !== staleToken) return { status: "active", token: freshToken };
 
 	const { refreshToken, auth0Domain, clientId, host } = session;
-	const tokens = await refreshAccessToken(refreshToken, { auth0Domain, clientId });
+	const tokens = await refreshAccessToken(refreshToken, session);
 	if (tokens) {
 		await writeCredentials(lock, { ...storedLogin, session: { ...session, ...tokens } });
 		return { status: "active", token: tokens.accessToken };
@@ -222,6 +219,7 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 		deadline: isPerson ? Infinity : Date.now() + AGENT_WAIT_MS,
 		startedAt: Date.now(),
 		resumed: false,
+		waited: false,
 		tokenBefore: (await readCredentials().catch(() => undefined))?.login?.session.accessToken,
 	};
 
@@ -306,14 +304,16 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 
 	let saved: SavedLogin;
 	try {
-		const started = await startLogin(login, loginLock.wait);
+		const started = await startLogin(login);
 		if (started.status === "logged-out") return started;
 		if (started.status === "saved") {
 			saved = started;
 		} else {
 			const { pending } = started;
-			if (pending.deviceCode !== loginLock.wait.shown?.deviceCode) printLoginPrompt(pending);
-			if (options.browser) openBrowser(new URL(getDeviceLoginPrompt(pending).url));
+			if (pending.deviceCode !== login.shown?.deviceCode) printLoginPrompt(pending);
+			if (options.browser) {
+				openBrowser(new URL(pending.verificationUriComplete ?? pending.verificationUri));
+			}
 			const tokens = await pollUntilApproved(login, pending);
 			if (!tokens) return { status: "wait-limit" };
 			const store = await saveLogin(login, pending, tokens);
@@ -321,7 +321,7 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 			saved = { ...store, token: tokens.accessToken };
 		}
 	} finally {
-		await loginLock.lock.release();
+		await loginLock.release();
 	}
 
 	// The profile request also creates the Prismic user for a new social or SSO
@@ -334,16 +334,13 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 // One command polls Auth0 per config directory. Another command that needs a
 // login shows the same code and waits for the first one, as long as its own
 // login would. Returns nothing when an agent's wait ends first.
-async function lockLoginAfterOthers(
-	login: Login,
-): Promise<{ lock: Lock; wait: LoginWait } | undefined> {
+async function lockLoginAfterOthers(login: Login): Promise<Lock | undefined> {
 	const waitUntil = Math.min(login.deadline, Date.now() + LOGIN_WAIT_MS);
-	const wait: LoginWait = { waited: false };
 	while (true) {
 		// Until the other command saves its code, look for it between tries.
-		const timeoutMs = wait.shown ? waitUntil - Date.now() : 0;
+		const timeoutMs = login.shown ? waitUntil - Date.now() : 0;
 		try {
-			return { lock: await lockLogin({ timeoutMs }), wait };
+			return await lockLogin({ timeoutMs });
 		} catch (error) {
 			if (!(error instanceof LockTimeoutError)) throw error;
 			if (Date.now() >= login.deadline) return;
@@ -351,23 +348,23 @@ async function lockLoginAfterOthers(
 			if (Date.now() >= waitUntil) throw new DeviceFlowError("expired");
 		}
 
-		wait.waited = true;
+		login.waited = true;
 		const session = (await readCredentials().catch(() => undefined))?.login?.session;
-		wait.shown = session && getResumableLogin(session, login);
-		if (wait.shown) printLoginPrompt(wait.shown);
+		login.shown = session && getResumableLogin(session, login);
+		if (login.shown) printLoginPrompt(login.shown);
 		else await sleep(PENDING_POLL_MS);
 	}
 }
 
 // A new code is saved, so a later run can continue it. The login gets its code
 // while the lock is held, so a Ctrl-C right after still finds it to delete.
-async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> {
+async function startLogin(login: Login): Promise<StartedLogin> {
 	const lock = await lockCredentials();
 	try {
 		// A saved login that can't be read doesn't stop a new one.
 		const credentials = await readCredentials().catch(() => undefined);
 		// A failed login keeps the saved login, but a logout deletes it.
-		if (wait.shown && credentials && !credentials.login) return { status: "logged-out" };
+		if (login.shown && credentials && !credentials.login) return { status: "logged-out" };
 		const stored = credentials?.login;
 		const resumable = stored && getResumableLogin(stored.session, login);
 		if (resumable) {
@@ -378,7 +375,7 @@ async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> 
 		}
 		const current = stored?.session.host === login.host ? stored : undefined;
 		const token = current && getUnexpiredToken(current.session);
-		if (wait.waited && token && token !== login.tokenBefore) {
+		if (login.waited && token && token !== login.tokenBefore) {
 			return { status: "saved", token, store: current.store, storeReason: current.storeReason };
 		}
 
@@ -388,11 +385,7 @@ async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> 
 		const store = await prepareLogin(lock);
 		// The current session works until the new login replaces it.
 		const session = current?.session ?? { host: login.host, ...login.auth0 };
-		const { warning } = await writeCredentials(lock, {
-			...store,
-			session: { ...session, pendingLogin: pending },
-		});
-		if (warning) console.warn(warning);
+		await writeCredentials(lock, { ...store, session: { ...session, pendingLogin: pending } });
 		return { status: "pending", pending };
 	} finally {
 		await lock.release();
@@ -415,12 +408,12 @@ function getResumableLogin(session: Session, login: Login): PendingLogin | undef
 }
 
 function printLoginPrompt(pending: PendingLogin): void {
-	const { url, userCode, codeInUrl } = getDeviceLoginPrompt(pending);
+	const { userCode, verificationUri, verificationUriComplete } = pending;
 	const minutes = Math.max(1, Math.ceil((pending.expiresAt - Date.now()) / 60_000));
 	console.error(dedent`
 		Open this URL on any device to log in:
-		  ${url}
-		${codeInUrl ? `Check that the page shows the code ${userCode}.` : `Enter the code ${userCode}.`}
+		  ${verificationUriComplete ?? verificationUri}
+		${verificationUriComplete !== undefined ? `Check that the page shows the code ${userCode}.` : `Enter the code ${userCode}.`}
 		Waiting for the login (the code expires in ${minutes} ${minutes === 1 ? "minute" : "minutes"})...
 	`);
 }
@@ -474,7 +467,7 @@ async function saveLogin(
 		// A saved login that can't be read can't have been logged out.
 		const stored = await readCredentials().catch(() => undefined);
 		if (stored && stored.login?.session.pendingLogin?.deviceCode !== pending.deviceCode) {
-			await revokeRefreshToken(tokens.refreshToken, { auth0Domain, clientId }).catch(() => {});
+			await revokeRefreshToken(tokens.refreshToken, pending).catch(() => {});
 			return;
 		}
 
@@ -485,16 +478,12 @@ async function saveLogin(
 			? { store: stored.login.store, storeReason: stored.login.storeReason }
 			: await prepareLogin(lock);
 		const session = { host: login.host, auth0Domain, clientId, ...tokens };
-		const { warning } = await writeCredentials(lock, { ...store, session });
-		if (warning) console.warn(warning);
+		await writeCredentials(lock, { ...store, session });
 		// The new login is saved first, so a failed revoke only leaves the
 		// previous session to expire.
 		const previous = stored?.login?.session;
 		if (previous?.refreshToken) {
-			await revokeRefreshToken(previous.refreshToken, {
-				auth0Domain: previous.auth0Domain,
-				clientId: previous.clientId,
-			}).catch(() => {});
+			await revokeRefreshToken(previous.refreshToken, previous).catch(() => {});
 		}
 		return store;
 	} finally {
