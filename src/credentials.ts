@@ -357,6 +357,11 @@ async function readPrivateFile(path: URL): Promise<Buffer | undefined> {
 		const { code } = error as NodeJS.ErrnoException;
 		if (code === "ENOENT") return undefined;
 		if (code === "ELOOP") throw unsafe("it's a symbolic link");
+		if (code === "EACCES" || code === "EPERM") {
+			throw new CredentialsError(
+				`Can't read ${fileURLToPath(path)}. Delete it and run \`prismic login\` again.`,
+			);
+		}
 		throw error;
 	}
 

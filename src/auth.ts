@@ -60,6 +60,8 @@ type Login = {
 	shown?: PendingLogin;
 	// Set once this command is the one that polls Auth0.
 	pending?: PendingLogin;
+	// Ctrl-C deletes the pending login too, which isn't a logout.
+	cancelled?: boolean;
 };
 
 type SavedLogin = Pick<StoredLogin, "store" | "storeReason"> & { token: string };
@@ -227,6 +229,7 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	const handlers = process.rawListeners("SIGINT") as NodeJS.SignalsListener[];
 	process.removeAllListeners("SIGINT");
 	process.once("SIGINT", async () => {
+		login.cancelled = true;
 		console.error();
 		if (login.pending) await setPendingLogin(login.pending, undefined);
 		recordLogin({ result: "cancelled", resumed: login.resumed, startedAt: login.startedAt });
@@ -429,6 +432,7 @@ async function pollUntilApproved(
 	const loggedOut = new AbortController();
 	const watcher = setInterval(async () => {
 		const stored = await readCredentials().catch(() => undefined);
+		if (login.cancelled) return;
 		if (stored && stored.login?.session.pendingLogin?.deviceCode !== pending.deviceCode) {
 			loggedOut.abort();
 		}

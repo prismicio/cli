@@ -1,3 +1,5 @@
+import { chmod } from "node:fs/promises";
+
 import { it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -93,3 +95,27 @@ it("refreshes a login about to expire, once for parallel commands", async ({
 	}
 	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
 });
+
+// Some agent sandboxes can't write to the home folder.
+it.skipIf(process.platform === "win32")(
+	"works in a config folder it can't write, until the token expires",
+	async ({ expect, home, prismic, login }) => {
+		const configDir = new URL(".config/prismic/", home);
+		const { email } = await login({ expiresAt: Date.now() + 60_000 });
+		await chmod(configDir, 0o500);
+		try {
+			const fresh = await prismic("whoami");
+			expect(fresh.exitCode, fresh.stderr).toBe(0);
+			expect(fresh.stdout).toContain(email);
+
+			await chmod(configDir, 0o700);
+			await login({ expiresAt: Date.now() - 1000 });
+			await chmod(configDir, 0o500);
+			const expired = await prismic("whoami");
+			expect(expired.exitCode).toBe(1);
+			expect(expired.stderr).toContain("Set PRISMIC_CONFIG_DIR to a folder you can write to.");
+		} finally {
+			await chmod(configDir, 0o700);
+		}
+	},
+);
