@@ -214,7 +214,7 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	process.removeAllListeners("SIGINT");
 	process.once("SIGINT", async () => {
 		console.error();
-		if (login.pending) await setPendingLogin(login.pending, undefined).catch(() => {});
+		if (login.pending) await setPendingLogin(login.pending, undefined);
 		recordLogin({ result: "cancelled", resumed: login.resumed, startedAt: login.startedAt });
 		await endCommand("Login cancelled.", 130);
 	});
@@ -412,26 +412,27 @@ async function pollUntilApproved(
 	try {
 		return await pollDeviceLogin(pending, {
 			signal,
-			onUpdate: (next) => setPendingLogin(pending, next).catch(() => {}),
+			onUpdate: (next) => setPendingLogin(pending, next),
 		});
 	} catch (error) {
 		if (signal?.aborted) return;
 		// The code can't be used anymore.
-		if (error instanceof DeviceFlowError) await setPendingLogin(pending, undefined).catch(() => {});
+		if (error instanceof DeviceFlowError) await setPendingLogin(pending, undefined);
 		throw error;
 	}
 }
 
-// Leaves the saved pending login alone if another command replaced it.
+// Best effort. Leaves the saved pending login alone if another command
+// replaced it.
 async function setPendingLogin(
 	current: PendingLogin,
 	next: PendingLogin | undefined,
 ): Promise<void> {
-	return withCredentialsLock(async (lock) => {
+	await withCredentialsLock(async (lock) => {
 		const stored = (await readCredentials()).login;
 		if (stored?.session.pendingLogin?.deviceCode !== current.deviceCode) return;
 		await writeCredentials(lock, { ...stored, session: { ...stored.session, pendingLogin: next } });
-	});
+	}).catch(() => {});
 }
 
 // Returns nothing when a logout deleted the pending login while it waited.

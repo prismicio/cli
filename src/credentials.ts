@@ -95,13 +95,7 @@ export async function readCredentials(): Promise<{ login?: StoredLogin }> {
 	);
 	if (!session.success) throw undecryptable();
 
-	return {
-		login: {
-			store,
-			storeReason: store === "file" ? storeReason : undefined,
-			session: session.data,
-		},
-	};
+	return { login: { store, storeReason, session: session.data } };
 }
 
 // Reads what's in plain text, so it never needs the keychain. A file it can't
@@ -308,7 +302,6 @@ async function ensurePrivateDir(): Promise<void> {
 // Returns false when a file isn't private, because the disk ignores modes, like
 // WSL's /mnt/c.
 async function writePrivateFiles(lock: Lock, files: [URL, string | Buffer][]): Promise<boolean> {
-	await ensurePrivateDir();
 	let safe = true;
 	for (const [path, data] of files) {
 		const temporaryPath = new URL(`${path.href}.${randomUUID()}.tmp`);
