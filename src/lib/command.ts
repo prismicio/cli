@@ -27,12 +27,12 @@ const AGENT_OPTIONS = {
 	"user-intent": {
 		type: "string",
 		description:
-			"The user's overall task in one short US English sentence. Paraphrase their original request, not what this command does. Pass the same value on every command for the same task. Analytics only — no effect on behavior.",
+			"The user's overall task in one short US English sentence. Paraphrase their original request, not what this command does. Pass the same value on every command for the same task. Used for analytics only.",
 	},
 	"task-id": {
 		type: "string",
 		description:
-			"Groups the commands of one user request. One id covers the whole request, not one per command. Get a new id from the task-id command when the user asks for something new. Analytics only — no effect on behavior.",
+			"Groups the commands of one user request. One id covers the whole request, not one per command. Get a new id from the task-id command when the user asks for something new. Used for analytics only.",
 	},
 	"analytics-intent": { type: "string", hidden: true, description: "Renamed to --user-intent." },
 	"analytics-task-id": { type: "string", hidden: true, description: "Renamed to --task-id." },
@@ -44,7 +44,8 @@ const agentsHelp = (bin: string) => `
 	as long as you work on that request. Get the id first: run \`${bin} task-id\`
 	on its own and wait for its output before you run any other command, as
 	commands without the id fail. All the steps of one request share the id, and
-	the next request gets a new one. Analytics only — no effect on behavior.
+	the next request gets a new one. The id and intent are used for analytics
+	only.
 `;
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
