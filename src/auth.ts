@@ -382,7 +382,11 @@ async function startLogin(
 		const store = await prepareLogin(lock);
 		// The current session works until the new login replaces it.
 		const session = current?.session ?? { host: login.host, ...login.auth0 };
-		await writeCredentials(lock, { ...store, session: { ...session, pendingLogin: pending } });
+		const { warning } = await writeCredentials(lock, {
+			...store,
+			session: { ...session, pendingLogin: pending },
+		});
+		if (warning) console.warn(warning);
 		return { pending };
 	} finally {
 		await lock.release();
