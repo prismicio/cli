@@ -190,8 +190,7 @@ export async function clearCredentials(lock: Lock): Promise<void> {
 }
 
 export async function withCredentialsLock<T>(callback: (lock: Lock) => Promise<T>): Promise<T> {
-	await ensurePrivateDir();
-	const lock = await acquireLock(CREDENTIALS_LOCK_PATH, {
+	const lock = await lockConfigDir(CREDENTIALS_LOCK_PATH, {
 		timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS,
 	}).catch((error) => {
 		if (!(error instanceof LockTimeoutError)) throw error;
@@ -209,8 +208,22 @@ export async function withCredentialsLock<T>(callback: (lock: Lock) => Promise<T
 // A login holds this one while it waits for approval, so one command polls for
 // a config directory, and others can still refresh or log out meanwhile.
 export async function lockLogin(config: { timeoutMs: number }): Promise<Lock> {
-	await ensurePrivateDir();
-	return acquireLock(LOGIN_LOCK_PATH, config);
+	return lockConfigDir(LOGIN_LOCK_PATH, config);
+}
+
+// A config folder the CLI can't write, as in some agent sandboxes, isn't a bug.
+async function lockConfigDir(path: URL, config: { timeoutMs: number }): Promise<Lock> {
+	try {
+		await ensurePrivateDir();
+		return await acquireLock(path, config);
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code !== "EACCES" && code !== "EPERM" && code !== "EROFS") throw error;
+		throw new CredentialsError(
+			`Can't write to ${fileURLToPath(CONFIG_DIR).replace(/[/\\]$/, "")}. Set PRISMIC_CONFIG_DIR to a folder you can write to.`,
+			{ cause: error },
+		);
+	}
 }
 
 export class CredentialsError extends Error {

@@ -105,6 +105,8 @@ async function getSessionToken(
 	// Parallel calls share one renewal.
 	renewal ??= withCredentialsLock(async (lock) => {
 		const { login } = await readCredentials();
+		// Another command may have saved a login for another host meanwhile.
+		if (login?.session.host !== session.host) return;
 		return renewLogin(lock, login, session.accessToken, { canRetry: true });
 	}).finally(() => (renewal = undefined));
 	try {

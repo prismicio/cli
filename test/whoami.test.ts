@@ -20,6 +20,15 @@ it("fails when not logged in", async ({ expect, prismic, logout }) => {
 	expect(stderr).toContain("Not logged in. Run `prismic login` first.");
 });
 
+it("doesn't send a login's token to another host", async ({ expect, prismic, login, host }) => {
+	await login({ host: "example.com" });
+	const { stderr, exitCode } = await prismic("whoami", [], {
+		nodeOptions: { env: { PRISMIC_HOST: host } },
+	});
+	expect(exitCode).not.toBe(0);
+	expect(stderr).toContain("Not logged in. Run `prismic login` first.");
+});
+
 it("reports invalid PRISMIC_TOKEN", async ({ expect, prismic, logout }) => {
 	await logout();
 	const { stderr, exitCode } = await prismic("whoami", [], {

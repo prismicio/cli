@@ -148,8 +148,8 @@ const RefreshedTokenSchema = z.object({
 	expires_in: z.number(),
 });
 
-// Returns nothing when Auth0 refuses the refresh token, since the session has
-// ended.
+// Returns nothing when Auth0 refuses the refresh token, or an Auth0 Action
+// denies it, since the session has ended.
 export async function refreshAccessToken(
 	refreshToken: string,
 	config: Auth0Config,
@@ -165,7 +165,8 @@ export async function refreshAccessToken(
 		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		schema: RefreshedTokenSchema,
 	}).catch((error) => {
-		if (getOAuthError(error)?.error === "invalid_grant") return undefined;
+		const code = getOAuthError(error)?.error;
+		if (code === "invalid_grant" || code === "access_denied") return undefined;
 		throw new DeviceFlowError(isTransient(error) ? "unavailable" : "misconfigured", error);
 	});
 	if (!tokens) return;
