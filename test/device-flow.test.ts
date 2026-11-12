@@ -5,63 +5,22 @@ import { describe, type TestContext } from "vitest";
 
 import {
 	DeviceFlowError,
-	getAuth0Config,
 	getDeviceLoginPrompt,
 	pollDeviceLogin,
 	startDeviceLogin,
-} from "../src/lib/prismic/device-flow";
+} from "../src/lib/auth0";
 import { createFakeAuth0, type FakeAuth0, type FakeAuth0Options } from "./auth0";
 import { it } from "./it";
 
-const PRODUCTION = {
-	auth0Domain: "auth0.prismic.io",
-	clientId: "V1yuPKJOHhuHNMR4Oeo2fj5uTCfVebny",
-};
-const STAGING = { auth0Domain: "auth0.wroom.io", clientId: "UKxsYw8EcAspkUPRvoFkrO1aj9cA3zkd" };
-const DEVELOPMENT = {
-	auth0Domain: "auth0.platform-wroom.com",
-	clientId: "Opbx7JjftGb5sgjIWKVx0XDBSrW37say",
-};
-
-describe("getAuth0Config", () => {
-	it("maps each host to its tenant", ({ expect }) => {
-		expect(getAuth0Config("prismic.io")).toEqual(PRODUCTION);
-		expect(getAuth0Config("wroom.io")).toEqual(STAGING);
-		expect(getAuth0Config("devops-wroom.com")).toEqual(STAGING);
-		expect(getAuth0Config("platform-wroom.com")).toEqual(DEVELOPMENT);
-		expect(getAuth0Config("dev-tools-wroom.com")).toEqual(DEVELOPMENT);
-		expect(getAuth0Config("marketing-tools-wroom.com")).toEqual(DEVELOPMENT);
-		expect(getAuth0Config("example.com")).toBeUndefined();
-		expect(getAuth0Config("repo.platform-wroom.com")).toBeUndefined();
-	});
-
-	it("applies overrides", ({ expect }) => {
-		const auth0Domain = "auth.example.com";
-		expect(getAuth0Config("example.com", { auth0Domain, clientId: "id" })).toEqual({
-			auth0Domain,
-			clientId: "id",
-		});
-		expect(getAuth0Config("prismic.io", { auth0Domain })).toEqual({ ...PRODUCTION, auth0Domain });
-		expect(getAuth0Config("example.com", { auth0Domain })).toBeUndefined();
-		expect(getAuth0Config("prismic.io", { auth0Domain: "", clientId: "" })).toEqual(PRODUCTION);
-	});
-});
+const PARAMS = { audience: "prismic.io", scope: "openid profile email offline_access" };
 
 describe("startDeviceLogin", () => {
-	it("requests a code with a refresh token for the prismic.io API", async ({
-		expect,
-		onTestFinished,
-	}) => {
+	it("requests a code for the given audience and scope", async ({ expect, onTestFinished }) => {
 		const { auth0, start } = await setup(onTestFinished, { interval: 7 });
 		const startedAt = Date.now();
 		const pending = await start();
-		expect(auth0.requests[0].params).toMatchObject({
-			client_id: auth0.clientId,
-			audience: "prismic.io",
-			scope: "openid profile email offline_access",
-		});
+		expect(auth0.requests[0].params).toEqual({ client_id: auth0.clientId, ...PARAMS });
 		expect(pending).toMatchObject({
-			host: "prismic.io",
 			auth0Domain: auth0.auth0Domain,
 			clientId: auth0.clientId,
 			verificationUri: `${auth0.auth0Domain}/activate`,
@@ -100,25 +59,18 @@ describe("startDeviceLogin", () => {
 
 	it("reports a client that isn't set up", async ({ expect, onTestFinished }) => {
 		const { auth0 } = await setup(onTestFinished);
-		const error = await startDeviceLogin({
-			host: "prismic.io",
+		const error = await startDeviceLogin(PARAMS, {
 			auth0Domain: auth0.auth0Domain,
 			clientId: "unknown",
 		}).catch((error) => error);
 		expect(error).toBeInstanceOf(DeviceFlowError);
-		expect(error).toMatchObject({ reason: "misconfigured" });
-		expect(error.message).toBe(
-			"Login isn't set up correctly for prismic.io (invalid_client). Report this.",
-		);
+		expect(error).toMatchObject({ reason: "misconfigured", detail: "invalid_client" });
 	});
+
 	it("reports an unreachable login service", async ({ expect, onTestFinished }) => {
 		const { auth0, start } = await setup(onTestFinished);
 		auth0.respondOnce("/oauth/device/code", { status: 503 });
-		await expect(start()).rejects.toMatchObject({
-			reason: "unavailable",
-			message:
-				"Can't reach the login service for prismic.io (HTTP 503). Try again in a few minutes.",
-		});
+		await expect(start()).rejects.toMatchObject({ reason: "unavailable", detail: "HTTP 503" });
 	});
 });
 
@@ -208,7 +160,7 @@ describe("pollDeviceLogin", () => {
 		auth0.expire();
 		await expect(pollDeviceLogin(pending)).rejects.toMatchObject({
 			reason: "expired",
-			message: "The login code expired. Run the command again.",
+			detail: "expired_token",
 		});
 		await expect(pollDeviceLogin({ ...pending, expiresAt: Date.now() })).rejects.toMatchObject({
 			reason: "expired",
@@ -220,16 +172,11 @@ describe("pollDeviceLogin", () => {
 		const { auth0, start } = await setup(onTestFinished);
 		const declined = await start();
 		auth0.deny({ userCode: declined.userCode });
-		await expect(pollDeviceLogin(declined)).rejects.toMatchObject({
-			reason: "declined",
-			message: "The login was declined in the browser.",
-		});
+		await expect(pollDeviceLogin(declined)).rejects.toMatchObject({ reason: "declined" });
 		const unverified = await start();
 		auth0.deny({ userCode: unverified.userCode, description: "email_verification_failed" });
 		await expect(pollDeviceLogin(unverified)).rejects.toMatchObject({
 			reason: "email-unverified",
-			message:
-				"Prismic sent you an email to verify your address. Verify it, then run the command again.",
 		});
 	});
 
@@ -249,18 +196,14 @@ describe("pollDeviceLogin", () => {
 			body: { error: "unauthorized_client", error_description: pending.deviceCode },
 		});
 		const error = await pollDeviceLogin(pending).catch((error) => error);
-		expect(error).toMatchObject({ reason: "misconfigured" });
-		expect(error.message).toBe(
-			"Login isn't set up correctly for prismic.io (unauthorized_client). Report this.",
-		);
+		expect(error).toMatchObject({ reason: "misconfigured", detail: "unauthorized_client" });
+		expect(error.message).not.toContain(pending.deviceCode);
 		expect(error.cause).toBeUndefined();
 		auth0.respondOnce("/oauth/token", { status: 404, body: pending.deviceCode });
-		await expect(pollDeviceLogin(pending)).rejects.toMatchObject({
-			message: "Login isn't set up correctly for prismic.io (HTTP 404). Report this.",
-		});
+		await expect(pollDeviceLogin(pending)).rejects.toMatchObject({ detail: "HTTP 404" });
 		auth0.respondOnce("/oauth/token", { status: 200, body: { access_token: "a", expires_in: 60 } });
 		await expect(pollDeviceLogin(pending)).rejects.toMatchObject({
-			message: "Login isn't set up correctly for prismic.io (unexpected response). Report this.",
+			detail: "unexpected response",
 		});
 	});
 
@@ -277,11 +220,7 @@ async function setup(onTestFinished: TestContext["onTestFinished"], options?: Fa
 	const auth0 = await createFakeAuth0({ interval: 0, ...options });
 	onTestFinished(() => auth0.close());
 	const start = () =>
-		startDeviceLogin({
-			host: "prismic.io",
-			auth0Domain: auth0.auth0Domain,
-			clientId: auth0.clientId,
-		});
+		startDeviceLogin(PARAMS, { auth0Domain: auth0.auth0Domain, clientId: auth0.clientId });
 	return { auth0, start };
 }
 

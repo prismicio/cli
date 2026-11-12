@@ -2,15 +2,16 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import * as z from "zod/mini";
 
-import { RequestError } from "../request";
-import { type Auth0Config, requestDeviceCode, requestDeviceToken } from "./client";
+import { request, RequestError } from "./request";
 
+const REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_INTERVAL_MS = 5_000;
 const SLOW_DOWN_MS = 5_000;
 const MAX_BACKOFF_MS = 60_000;
 
+export type Auth0Config = { auth0Domain: string; clientId: string };
+
 export const PendingLoginSchema = z.object({
-	host: z.string(),
 	auth0Domain: z.string(),
 	clientId: z.string(),
 	deviceCode: z.string(),
@@ -28,32 +29,32 @@ type DeviceLoginTokens = {
 	expiresAt: number;
 };
 
-export function getAuth0Config(
-	host: string,
-	overrides: { auth0Domain?: string; clientId?: string } = {},
-): Auth0Config | undefined {
-	const known = getKnownAuth0Config(host);
-	const auth0Domain = overrides.auth0Domain || known?.auth0Domain;
-	const clientId = overrides.clientId || known?.clientId;
-	if (!auth0Domain || !clientId) return undefined;
-	return { auth0Domain, clientId };
-}
+const DeviceCodeSchema = z.object({
+	device_code: z.string(),
+	user_code: z.string(),
+	verification_uri: z.string(),
+	verification_uri_complete: z.optional(z.string()),
+	expires_in: z.number(),
+	interval: z.optional(z.number()),
+});
 
 export async function startDeviceLogin(
-	config: Auth0Config & { host: string },
+	params: { audience: string; scope: string },
+	config: Auth0Config,
 ): Promise<PendingLogin> {
-	const { host, auth0Domain, clientId } = config;
-	const response = await requestDeviceCode(
-		{ audience: "prismic.io", scope: "openid profile email offline_access" },
-		{ auth0Domain, clientId },
-	).catch((error) => {
+	const url = new URL("oauth/device/code", getAuth0Url(config.auth0Domain));
+	const response = await request(url, {
+		method: "POST",
+		body: new URLSearchParams({ client_id: config.clientId, ...params }),
+		signal: getRequestSignal(),
+		schema: DeviceCodeSchema,
+	}).catch((error) => {
 		const reason = getFailureReason(error) ?? (isTransient(error) ? "unavailable" : undefined);
-		throw reason ? new DeviceFlowError(reason, host, error) : error;
+		throw reason ? new DeviceFlowError(reason, error) : error;
 	});
 	return {
-		host,
-		auth0Domain,
-		clientId,
+		auth0Domain: config.auth0Domain,
+		clientId: config.clientId,
 		deviceCode: response.device_code,
 		userCode: response.user_code,
 		verificationUri: response.verification_uri,
@@ -75,6 +76,12 @@ export function getDeviceLoginPrompt(pending: PendingLogin): {
 	};
 }
 
+const DeviceTokenSchema = z.object({
+	access_token: z.string(),
+	refresh_token: z.string(),
+	expires_in: z.number(),
+});
+
 // Polls before waiting, so a resumed login that was already approved
 // completes at once.
 export async function pollDeviceLogin(
@@ -89,13 +96,19 @@ export async function pollDeviceLogin(
 	let delayMs = current.intervalMs;
 
 	while (true) {
-		if (Date.now() >= current.expiresAt) throw new DeviceFlowError("expired", current.host);
+		if (Date.now() >= current.expiresAt) throw new DeviceFlowError("expired");
 
 		try {
-			const tokens = await requestDeviceToken(current.deviceCode, {
-				auth0Domain: current.auth0Domain,
-				clientId: current.clientId,
-				signal,
+			const url = new URL("oauth/token", getAuth0Url(current.auth0Domain));
+			const tokens = await request(url, {
+				method: "POST",
+				body: new URLSearchParams({
+					grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+					device_code: current.deviceCode,
+					client_id: current.clientId,
+				}),
+				signal: getRequestSignal(signal),
+				schema: DeviceTokenSchema,
 			});
 			return {
 				accessToken: tokens.access_token,
@@ -114,7 +127,7 @@ export async function pollDeviceLogin(
 				delayMs = Math.max(current.intervalMs, retryAfterMs);
 			} else {
 				const reason = getFailureReason(error);
-				if (reason) throw new DeviceFlowError(reason, current.host, error);
+				if (reason) throw new DeviceFlowError(reason, error);
 				if (!isTransient(error)) throw error;
 				const backoffMs = Math.min(MAX_BACKOFF_MS, Math.max(delayMs, 1000) * 2);
 				delayMs = Math.max(current.intervalMs, backoffMs, retryAfterMs);
@@ -128,20 +141,14 @@ export async function pollDeviceLogin(
 	}
 }
 
-// Native client IDs are public.
-function getKnownAuth0Config(host: string): Auth0Config | undefined {
-	if (host === "prismic.io") {
-		return { auth0Domain: "auth0.prismic.io", clientId: "V1yuPKJOHhuHNMR4Oeo2fj5uTCfVebny" };
-	}
-	if (host === "wroom.io" || host === "devops-wroom.com") {
-		return { auth0Domain: "auth0.wroom.io", clientId: "UKxsYw8EcAspkUPRvoFkrO1aj9cA3zkd" };
-	}
-	if (/^[a-z0-9-]+-wroom\.com$/.test(host)) {
-		return {
-			auth0Domain: "auth0.platform-wroom.com",
-			clientId: "Opbx7JjftGb5sgjIWKVx0XDBSrW37say",
-		};
-	}
+function getRequestSignal(signal?: AbortSignal): AbortSignal {
+	const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+	return signal ? AbortSignal.any([timeout, signal]) : timeout;
+}
+
+// Tests use a local server over HTTP.
+function getAuth0Url(auth0Domain: string): URL {
+	return new URL(/^https?:\/\//.test(auth0Domain) ? auth0Domain : `https://${auth0Domain}/`);
 }
 
 function getFailureReason(error: unknown): DeviceFlowErrorReason | undefined {
@@ -200,31 +207,34 @@ type DeviceFlowErrorReason =
 	| "unavailable";
 
 // `error` isn't kept as `cause`, since Sentry reports causes and they can hold
-// response details.
+// response details. `detail` is the Auth0 error code or HTTP status.
 export class DeviceFlowError extends Error {
 	name = "DeviceFlowError";
 	reason: DeviceFlowErrorReason;
+	detail: string | undefined;
 
-	constructor(reason: DeviceFlowErrorReason, host: string, error?: unknown) {
-		super(getMessage(reason, host, error));
+	constructor(reason: DeviceFlowErrorReason, error?: unknown) {
+		const detail = error === undefined ? undefined : getDetail(error);
+		super(getMessage(reason, detail));
 		this.reason = reason;
+		this.detail = detail;
 	}
 }
 
-function getMessage(reason: DeviceFlowErrorReason, host: string, error: unknown): string {
+function getMessage(reason: DeviceFlowErrorReason, detail: string | undefined): string {
 	switch (reason) {
 		case "expired":
-			return "The login code expired. Run the command again.";
+			return "The device code expired.";
 		case "declined":
-			return "The login was declined in the browser.";
+			return "The login was declined.";
 		case "email-unverified":
-			return "Prismic sent you an email to verify your address. Verify it, then run the command again.";
+			return "The login was declined because the email address isn't verified.";
 		case "invalid-grant":
-			return "The login code is no longer valid. Run the command again.";
+			return "The device code is unknown or was already used.";
 		case "misconfigured":
-			return `Login isn't set up correctly for ${host} (${getDetail(error)}). Report this.`;
+			return `Auth0 rejected the request (${detail}).`;
 		case "unavailable":
-			return `Can't reach the login service for ${host} (${getDetail(error)}). Try again in a few minutes.`;
+			return `Auth0 can't be reached (${detail}).`;
 	}
 }
 

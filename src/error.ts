@@ -1,5 +1,6 @@
-import { getToken } from "./auth";
+import { getHost, getToken } from "./auth";
 import { env } from "./env";
+import { DeviceFlowError } from "./lib/auth0";
 import { isInvalidAuthContextError } from "./lib/prismic/auth";
 import {
 	BadRequestError,
@@ -38,6 +39,23 @@ export async function getErrorMessage(error: unknown): Promise<string | undefine
 			  URL:     ${url}
 			  Report:  https://github.com/prismicio/cli/issues
 		`;
+	}
+
+	if (error instanceof DeviceFlowError) {
+		switch (error.reason) {
+			case "expired":
+				return "The login code expired. Run the command again.";
+			case "declined":
+				return "The login was declined in the browser.";
+			case "email-unverified":
+				return "Prismic sent you an email to verify your address. Verify it, then run the command again.";
+			case "invalid-grant":
+				return "The login code is no longer valid. Run the command again.";
+			case "misconfigured":
+				return `Login isn't set up correctly for ${await getHost()} (${error.detail}). Report this.`;
+			case "unavailable":
+				return `Can't reach the login service for ${await getHost()} (${error.detail}). Try again in a few minutes.`;
+		}
 	}
 
 	if (error instanceof Error) {

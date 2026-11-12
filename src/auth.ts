@@ -8,6 +8,7 @@ import * as z from "zod/mini";
 
 import { CREDENTIALS_PATH } from "./config";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
+import type { Auth0Config } from "./lib/auth0";
 import { exists, readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { refreshToken as baseRefreshToken, validateToken } from "./lib/prismic/client";
@@ -31,6 +32,22 @@ export async function getToken(): Promise<string | undefined> {
 
 export async function getHost(): Promise<string> {
 	return env.PRISMIC_HOST || (await readCredentials())?.host || DEFAULT_PRISMIC_HOST;
+}
+
+// Native client IDs are public.
+export function getAuth0Config(host: string): Auth0Config | undefined {
+	if (host === "prismic.io") {
+		return { auth0Domain: "auth0.prismic.io", clientId: "V1yuPKJOHhuHNMR4Oeo2fj5uTCfVebny" };
+	}
+	if (host === "wroom.io" || host === "devops-wroom.com") {
+		return { auth0Domain: "auth0.wroom.io", clientId: "UKxsYw8EcAspkUPRvoFkrO1aj9cA3zkd" };
+	}
+	if (/^[a-z0-9-]+-wroom\.com$/.test(host)) {
+		return {
+			auth0Domain: "auth0.platform-wroom.com",
+			clientId: "Opbx7JjftGb5sgjIWKVx0XDBSrW37say",
+		};
+	}
 }
 
 export async function refreshToken(): Promise<string | undefined> {
