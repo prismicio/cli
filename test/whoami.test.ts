@@ -99,7 +99,7 @@ it("refreshes a login about to expire, once for parallel commands", async ({
 // Some agent sandboxes can't write to the home folder.
 it.skipIf(process.platform === "win32")(
 	"works in a config folder it can't write, until the token expires",
-	async ({ expect, home, prismic, login }) => {
+	async ({ expect, home, prismic, login, auth0 }) => {
 		const configDir = new URL(".config/prismic/", home);
 		const { email } = await login({ expiresAt: Date.now() + 60_000 });
 		await chmod(configDir, 0o500);
@@ -107,6 +107,8 @@ it.skipIf(process.platform === "win32")(
 			const fresh = await prismic("whoami");
 			expect(fresh.exitCode, fresh.stderr).toBe(0);
 			expect(fresh.stdout).toContain(email);
+			// A refresh it can't save would lose the new refresh token.
+			expect(auth0.requestsTo("/oauth/token")).toHaveLength(0);
 
 			await chmod(configDir, 0o700);
 			await login({ expiresAt: Date.now() - 1000 });
