@@ -3,7 +3,7 @@ import { createCommand, type CommandConfig } from "../lib/command";
 
 const config = {
 	name: "prismic login",
-	description: "Log in to Prismic via browser.",
+	description: "Log in to Prismic. Prints a URL and a code to approve in a browser.",
 	options: {
 		"no-browser": { type: "boolean", description: "Skip opening the browser automatically" },
 	},
