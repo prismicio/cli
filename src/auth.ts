@@ -197,10 +197,6 @@ async function isTokenRejected(): Promise<boolean> {
 	}
 }
 
-const WAIT_LIMIT_MESSAGE =
-	"Waiting for approval. After the user approves, run the same command again. It continues this login.";
-const LOGGED_OUT_MESSAGE = "A logout cancelled this login. Run the command again to log in.";
-
 type Login = {
 	host: string;
 	auth0: Auth0Config;
@@ -266,11 +262,14 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	const { resumed, startedAt } = login;
 	if (outcome === "wait-limit") {
 		recordLogin({ result: "wait-limit", resumed, startedAt });
-		return endCommand(WAIT_LIMIT_MESSAGE, 1);
+		return endCommand(
+			"Waiting for approval. After the user approves, run the same command again. It continues this login.",
+			1,
+		);
 	}
 	if (outcome === "logged-out") {
 		recordLogin({ result: "cancelled", resumed, startedAt });
-		throw new CommandError(LOGGED_OUT_MESSAGE);
+		throw new CommandError("A logout cancelled this login. Run the command again to log in.");
 	}
 	const { token, email, store, storeReason } = outcome;
 	recordLogin({ result: "success", resumed, startedAt, store, storeReason });
@@ -315,7 +314,10 @@ async function completeLogin(
 		await other.lock.release();
 	}
 
-	const { email } = await finishLogin({ token: saved.token, host: login.host });
+	// The profile request also creates the Prismic user for a new social or SSO
+	// signup, so it runs right after a login saves its tokens.
+	await forgetTrackedUser();
+	const { email } = await getUserProfile({ getToken: async () => saved.token, host: login.host });
 	return { ...saved, email };
 }
 
@@ -431,10 +433,7 @@ async function pollUntilApproved(
 	try {
 		return await pollDeviceLogin(pending, {
 			signal,
-			onUpdate: async (next) => {
-				login.pending = next;
-				await setPendingLogin(pending, next).catch(() => {});
-			},
+			onUpdate: (next) => setPendingLogin(pending, next).catch(() => {}),
 		});
 	} catch (error) {
 		if (signal?.aborted) return;
@@ -492,14 +491,6 @@ async function saveLogin(
 	} finally {
 		await lock.release();
 	}
-}
-
-// The profile request also creates the Prismic user for a new social or SSO
-// signup, so it runs right after a login saves its tokens.
-async function finishLogin(config: { token: string; host: string }): Promise<{ email: string }> {
-	await forgetTrackedUser();
-	const profile = await getUserProfile({ getToken: async () => config.token, host: config.host });
-	return { email: profile.email };
 }
 
 const KEYCHAIN_PROBLEMS: Partial<Record<CredentialsErrorReason, string>> = {
