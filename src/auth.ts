@@ -61,8 +61,7 @@ type Login = {
 	pending?: PendingLogin;
 };
 
-type LoginStore = Pick<StoredLogin, "store" | "storeReason">;
-type SavedLogin = LoginStore & { token: string };
+type SavedLogin = Pick<StoredLogin, "store" | "storeReason"> & { token: string };
 type LoginOutcome =
 	| ({ status: "logged-in"; email: string } & SavedLogin)
 	| { status: "wait-limit" }
@@ -301,9 +300,9 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 			}
 			const tokens = await pollUntilApproved(login, pending);
 			if (!tokens) return { status: "wait-limit" };
-			const store = await saveLogin(login, pending, tokens);
-			if (!store) return { status: "logged-out" };
-			saved = { ...store, token: tokens.accessToken };
+			const stored = await saveLogin(login, pending, tokens);
+			if (!stored) return { status: "logged-out" };
+			saved = stored;
 		}
 	} finally {
 		await loginLock.release();
@@ -440,9 +439,8 @@ async function saveLogin(
 	login: Login,
 	pending: PendingLogin,
 	tokens: DeviceLoginTokens,
-): Promise<LoginStore | undefined> {
+): Promise<SavedLogin | undefined> {
 	return withCredentialsLock(async (lock) => {
-		const { auth0Domain, clientId } = pending;
 		// A saved login that can't be read can't have been logged out.
 		const stored = await readCredentials().catch(() => undefined);
 		if (stored && stored.login?.session.pendingLogin?.deviceCode !== pending.deviceCode) {
@@ -456,7 +454,7 @@ async function saveLogin(
 		const store = stored?.login
 			? { store: stored.login.store, storeReason: stored.login.storeReason }
 			: await prepareLogin(lock);
-		const session = { host: login.host, auth0Domain, clientId, ...tokens };
+		const session = { host: login.host, ...login.auth0, ...tokens };
 		await writeCredentials(lock, { ...store, session });
 		// The new login is saved first, so a failed revoke only leaves the
 		// previous session to expire.
@@ -464,7 +462,7 @@ async function saveLogin(
 		if (previous?.refreshToken) {
 			await revokeRefreshToken(previous.refreshToken, previous).catch(() => {});
 		}
-		return store;
+		return { ...store, token: tokens.accessToken };
 	});
 }
 

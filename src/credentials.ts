@@ -182,9 +182,8 @@ export async function clearCredentials(lock: Lock): Promise<void> {
 	await systemKeyring
 		.delete(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT, { timeoutMs: KEYCHAIN_TIMEOUT_MS })
 		.catch((error) => {
-			const failure = keyringFailure(error, "delete");
-			if (!(failure instanceof CredentialsError)) throw failure;
-			console.warn(failure.message);
+			if (!(error instanceof KeyringError)) throw error;
+			console.warn(`Can't delete your Prismic key because ${getKeychainProblem(error)}.`);
 		});
 }
 
@@ -226,7 +225,12 @@ async function readKey(timeoutMs: number): Promise<Buffer | undefined> {
 
 async function requireKey(): Promise<Buffer> {
 	const currentKey = await readKey(KEYCHAIN_TIMEOUT_MS).catch((error) => {
-		throw keyringFailure(error);
+		if (!(error instanceof KeyringError)) throw error;
+		// A new login saves to a file when the keychain can't be used.
+		throw new CredentialsError(
+			`Can't read your Prismic key because ${getKeychainProblem(error)}, or run \`prismic login\` again.`,
+			{ cause: error },
+		);
 	});
 	if (!currentKey) throw undecryptable();
 	return currentKey;
@@ -249,14 +253,8 @@ const KEYCHAIN_FAILURES: Partial<Record<KeyringErrorReason, string>> = {
 	timeout: "the keychain didn't respond. Try again",
 };
 
-function keyringFailure(error: unknown, action: "read" | "delete" = "read"): unknown {
-	if (!(error instanceof KeyringError)) return error;
-	const why = KEYCHAIN_FAILURES[error.reason] ?? "the keychain isn't available. Try again";
-	// A new login saves to a file when the keychain can't be used.
-	const alternative = action === "read" ? ", or run `prismic login` again" : "";
-	return new CredentialsError(`Can't ${action} your Prismic key because ${why}${alternative}.`, {
-		cause: error,
-	});
+function getKeychainProblem(error: KeyringError): string {
+	return KEYCHAIN_FAILURES[error.reason] ?? "the keychain isn't available. Try again";
 }
 
 function undecryptable(): Error {
