@@ -155,8 +155,8 @@ async function main(): Promise<void> {
 		const host = await getHost();
 		// Only the plain-text part, so commands that don't use the login never
 		// wait on the keychain.
-		const summary = env.PRISMIC_TOKEN ? undefined : await readLoginSummary().catch(() => undefined);
-		const loggedIn = Boolean(env.PRISMIC_TOKEN || summary?.expiresAt);
+		const summary = env.PRISMIC_TOKEN ? {} : await readLoginSummary();
+		const loggedIn = Boolean(env.PRISMIC_TOKEN || summary.expiresAt);
 
 		const telemetryEnabled = env.PRISMIC_TELEMETRY_ENABLED ?? (await isTelemetryEnabled());
 		const sentryEnabled = env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD);
@@ -171,8 +171,8 @@ async function main(): Promise<void> {
 				repo,
 				userIntent,
 				taskId,
-				store: summary?.store,
-				storeReason: summary?.storeReason,
+				store: summary.store,
+				storeReason: summary.storeReason,
 			});
 		}
 

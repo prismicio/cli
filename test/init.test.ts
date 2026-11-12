@@ -265,10 +265,7 @@ it("renews a rejected token instead of logging in again", async ({
 	const output = captureOutput(proc);
 	expect((await proc).exitCode, output()).toBe(0);
 	expect(output()).not.toContain("Open this URL");
-	const refreshes = auth0.requests.filter(
-		(request) => request.params.grant_type === "refresh_token",
-	);
-	expect(refreshes).toHaveLength(1);
+	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
 }, 60_000);
 
 it("fails if repo is not in the user's account", async ({ expect, project, prismic }) => {

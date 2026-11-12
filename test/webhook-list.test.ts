@@ -40,8 +40,5 @@ it("renews a token the repository rejects, and continues without a login", async
 	const { exitCode } = await proc;
 	expect(exitCode, output()).toBe(0);
 	expect(output()).not.toContain("Open this URL");
-	const refreshes = auth0.requests.filter(
-		(request) => request.params.grant_type === "refresh_token",
-	);
-	expect(refreshes).toHaveLength(1);
+	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
 });

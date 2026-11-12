@@ -261,18 +261,13 @@ export async function failInstall(project: URL): Promise<void> {
 	await writeFile(new URL("npm.cmd", bin), "@exit /b 1\r\n");
 }
 
-export function captureOutput(proc: Result): () => string {
+// tinyexec's own output misses what a capture read first.
+export function captureOutput(proc: Result, options: { stderr?: boolean } = {}): () => string {
+	const { stderr = true } = options;
 	let output = "";
 	proc.process?.stdout?.on("data", (c: Buffer) => (output += c.toString()));
-	proc.process?.stderr?.on("data", (c: Buffer) => (output += c.toString()));
+	if (stderr) proc.process?.stderr?.on("data", (c: Buffer) => (output += c.toString()));
 	return () => output;
-}
-
-// tinyexec's own output misses what a capture read first.
-export function captureStdout(proc: Result): () => string {
-	let stdout = "";
-	proc.process?.stdout?.on("data", (c: Buffer) => (stdout += c.toString()));
-	return () => stdout;
 }
 
 export async function waitForLoginPrompt(

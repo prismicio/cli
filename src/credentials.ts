@@ -95,8 +95,13 @@ export async function readCredentials(): Promise<{ login?: StoredLogin }> {
 	);
 	if (!session.success) throw undecryptable();
 
-	const reason = store === "file" ? storeReason : undefined;
-	return { login: { store, ...(reason ? { storeReason: reason } : {}), session: session.data } };
+	return {
+		login: {
+			store,
+			storeReason: store === "file" ? storeReason : undefined,
+			session: session.data,
+		},
+	};
 }
 
 // Reads what's in plain text, so it never needs the keychain. A file it can't
@@ -189,16 +194,21 @@ export async function clearCredentials(lock: Lock): Promise<void> {
 		});
 }
 
-export async function lockCredentials(): Promise<Lock> {
+export async function withCredentialsLock<T>(callback: (lock: Lock) => Promise<T>): Promise<T> {
 	await ensurePrivateDir();
-	return acquireLock(CREDENTIALS_LOCK_PATH, { timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS }).catch(
-		(error) => {
-			if (!(error instanceof LockTimeoutError)) throw error;
-			throw new CredentialsError(
-				"Another Prismic command is still using your login. Run the command again.",
-			);
-		},
-	);
+	const lock = await acquireLock(CREDENTIALS_LOCK_PATH, {
+		timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS,
+	}).catch((error) => {
+		if (!(error instanceof LockTimeoutError)) throw error;
+		throw new CredentialsError(
+			"Another Prismic command is still using your login. Run the command again.",
+		);
+	});
+	try {
+		return await callback(lock);
+	} finally {
+		await lock.release();
+	}
 }
 
 // A login holds this one while it waits for approval, so one command polls for

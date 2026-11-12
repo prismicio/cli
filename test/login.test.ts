@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 
-import { approveLogin, captureOutput, captureStdout, it, waitForLoginPrompt } from "./it";
+import { approveLogin, captureOutput, it, waitForLoginPrompt } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("login", ["--help"]);
@@ -30,8 +30,7 @@ it("logs in with a code, and saves the login for this user only", async ({
 	);
 	expect(output()).toContain(`Check that the page shows the code ${getUserCode(output())}.`);
 	expect(output()).toContain(`Logged in to Prismic as ${email}`);
-	const deviceCode = auth0.requests.find((request) => request.params.device_code)?.params
-		.device_code;
+	const deviceCode = auth0.requestsTo("/oauth/token")[0]?.device_code;
 	expect(deviceCode).toBeDefined();
 	expect(output()).not.toContain(deviceCode);
 	expect(output()).not.toContain(token);
@@ -100,7 +99,7 @@ it("makes another command wait for the login in progress", async ({
 	const repos = prismic("repo", ["list", "--json"], { nodeOptions: { env: { CI: "" } } });
 	const loginOutput = captureOutput(login);
 	const reposOutput = captureOutput(repos);
-	const reposStdout = captureStdout(repos);
+	const reposStdout = captureOutput(repos, { stderr: false });
 	await waitForLoginPrompt(expect, loginOutput);
 	await waitForLoginPrompt(expect, reposOutput);
 	expect(getUserCode(reposOutput())).toBe(getUserCode(loginOutput()));
@@ -160,7 +159,7 @@ it("revokes the previous session after a new login", async ({ expect, prismic, l
 	await approveLogin(expect, captureOutput(proc), auth0);
 	expect((await proc).exitCode).toBe(0);
 	const revokes = auth0.requestsTo("/oauth/revoke");
-	expect(revokes.map((request) => request.params.token)).toEqual([refreshToken]);
+	expect(revokes.map((params) => params.token)).toEqual([refreshToken]);
 });
 
 function getUserCode(output: string): string | undefined {

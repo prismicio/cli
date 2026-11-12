@@ -13,8 +13,8 @@ type FakeAuth0Response = { status: number; body?: unknown };
 export type FakeAuth0 = {
 	auth0Domain: string;
 	clientId: string;
-	requests: { path: string; params: Record<string, string> }[];
-	requestsTo: (path: string) => { path: string; params: Record<string, string> }[];
+	/** The form fields of each request to this path, in order. */
+	requestsTo: (path: string) => Record<string, string>[];
 	approve: () => void;
 	deny: (options?: { description?: string }) => void;
 	expire: () => void;
@@ -34,7 +34,7 @@ type DeviceCode = {
 export async function createFakeAuth0(options: { accessToken: string }): Promise<FakeAuth0> {
 	const { accessToken } = options;
 	const clientId = `fake-${randomToken(8)}`;
-	const requests: FakeAuth0["requests"] = [];
+	const requests: { path: string; params: Record<string, string> }[] = [];
 	const responses = new Map<string, FakeAuth0Response[]>();
 	const codes: DeviceCode[] = [];
 	const refreshTokens = new Set<string>();
@@ -146,8 +146,8 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 	return {
 		auth0Domain,
 		clientId,
-		requests,
-		requestsTo: (path) => requests.filter((request) => request.path === path),
+		requestsTo: (path) =>
+			requests.filter((request) => request.path === path).map((request) => request.params),
 		approve: () => {
 			latestCode().status = "approved";
 		},

@@ -61,8 +61,5 @@ it("refreshes a login about to expire", async ({ expect, prismic, login, auth0 }
 	const { stdout, stderr, exitCode } = await prismic("whoami");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(email);
-	const refreshes = auth0.requests.filter(
-		(request) => request.params.grant_type === "refresh_token",
-	);
-	expect(refreshes).toHaveLength(1);
+	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
 });

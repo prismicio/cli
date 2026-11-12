@@ -1,8 +1,8 @@
 import {
 	clearCredentials,
 	CredentialsError,
-	lockCredentials,
 	readCredentials,
+	withCredentialsLock,
 } from "../credentials";
 import { env } from "../env";
 import { DeviceFlowError, revokeRefreshToken } from "../lib/auth0";
@@ -16,8 +16,7 @@ const config = {
 
 export default createCommand(config, async () => {
 	let revoked = false;
-	const lock = await lockCredentials();
-	try {
+	await withCredentialsLock(async (lock) => {
 		try {
 			const session = (await readCredentials()).login?.session;
 			if (session?.refreshToken) {
@@ -32,9 +31,7 @@ export default createCommand(config, async () => {
 		}
 		await clearCredentials(lock);
 		await forgetTrackedUser();
-	} finally {
-		await lock.release();
-	}
+	});
 	recordLogout({ revoked });
 	if (env.PRISMIC_TOKEN) console.warn("PRISMIC_TOKEN is still set, so commands still use it.");
 	console.info("Logged out of Prismic");

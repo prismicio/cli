@@ -85,9 +85,9 @@ const DeviceTokenSchema = z.object({
 export async function pollDeviceLogin(
 	pending: PendingLogin,
 	options: {
-		signal?: AbortSignal;
-		onUpdate?: (pending: PendingLogin) => void | Promise<void>;
-	} = {},
+		signal: AbortSignal | undefined;
+		onUpdate: (pending: PendingLogin) => void | Promise<void>;
+	},
 ): Promise<DeviceLoginTokens> {
 	const { signal, onUpdate } = options;
 	let current = pending;
@@ -121,7 +121,7 @@ export async function pollDeviceLogin(
 				delayMs = Math.max(current.intervalMs, retryAfterMs);
 			} else if (code === "slow_down") {
 				current = { ...current, intervalMs: current.intervalMs + SLOW_DOWN_MS };
-				await onUpdate?.(current);
+				await onUpdate(current);
 				delayMs = Math.max(current.intervalMs, retryAfterMs);
 			} else {
 				const reason = getFailureReason(error);

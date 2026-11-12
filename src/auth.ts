@@ -4,11 +4,11 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 
 import {
-	lockCredentials,
 	lockLogin,
 	prepareLogin,
 	readCredentials,
 	readLoginSummary,
+	withCredentialsLock,
 	writeCredentials,
 	type Session,
 	type StoredLogin,
@@ -43,10 +43,6 @@ const PENDING_POLL_MS = 250;
 const LOGIN_PARAMS = { audience: "prismic.io", scope: "openid profile email offline_access" };
 const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 
-// "ended" means Auth0 ended the session, so the caller can say the login
-// expired and start a new one.
-type SessionToken = { status: "active"; token: string } | { status: "none" } | { status: "ended" };
-
 type Login = {
 	host: string;
 	auth0: Auth0Config;
@@ -77,58 +73,47 @@ type StartedLogin =
 	| ({ status: "saved" } & SavedLogin)
 	| { status: "logged-out" };
 
-let renewal: Promise<SessionToken> | undefined;
-// A session that ended in this process stays "ended", so the login prompt can
-// say why.
+let renewal: Promise<string | undefined> | undefined;
+// Auth0 ended the saved session in this process, so the login prompt can say
+// why.
 let ended = false;
 
 let reauthentication: Promise<string> | undefined;
 
 export async function getToken(): Promise<string | undefined> {
-	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
-	const session = await getSessionToken();
-	if (session.status === "active") return session.token;
+	return env.PRISMIC_TOKEN || getSessionToken();
 }
 
 export async function getHost(): Promise<string> {
 	if (env.PRISMIC_HOST) return env.PRISMIC_HOST;
-	return (await readLoginSummary().catch(() => undefined))?.host || DEFAULT_PRISMIC_HOST;
+	return (await readLoginSummary()).host || DEFAULT_PRISMIC_HOST;
 }
 
 // `forceRefresh` renews a token that a server refused, even if it's not about
-// to expire.
-async function getSessionToken(options: { forceRefresh?: boolean } = {}): Promise<SessionToken> {
+// to expire. Returns nothing without a session.
+async function getSessionToken(
+	options: { forceRefresh?: boolean } = {},
+): Promise<string | undefined> {
 	const { forceRefresh = false } = options;
 	const session = (await readCredentials()).login?.session;
-	if (!session?.refreshToken) return { status: ended ? "ended" : "none" };
+	if (!session?.refreshToken) return;
 
 	const freshToken = getUnexpiredToken(session, REFRESH_MARGIN_MS);
-	if (freshToken && !forceRefresh) return { status: "active", token: freshToken };
+	if (freshToken && !forceRefresh) return freshToken;
 
 	// Parallel calls share one renewal.
-	renewal ??= renewSession(session.accessToken).finally(() => (renewal = undefined));
+	renewal ??= withCredentialsLock(async (lock) => {
+		const { login } = await readCredentials();
+		return renewLogin(lock, login, session.accessToken, { canRetry: true });
+	}).finally(() => (renewal = undefined));
 	try {
-		const result = await renewal;
-		if (result.status === "ended") ended = true;
-		return result;
+		return await renewal;
 	} catch (error) {
 		// Without Auth0, the current token works until it expires, unless a
 		// server already refused it.
 		const token = getUnexpiredToken(session);
-		if (error instanceof DeviceFlowError && token && !forceRefresh) {
-			return { status: "active", token };
-		}
+		if (error instanceof DeviceFlowError && token && !forceRefresh) return token;
 		throw error;
-	}
-}
-
-async function renewSession(staleToken: string | undefined): Promise<SessionToken> {
-	const lock = await lockCredentials();
-	try {
-		const { login: storedLogin } = await readCredentials();
-		return await renewLogin(lock, storedLogin, staleToken, { canRetry: true });
-	} finally {
-		await lock.release();
 	}
 }
 
@@ -137,19 +122,19 @@ async function renewLogin(
 	storedLogin: StoredLogin | undefined,
 	staleToken: string | undefined,
 	options: { canRetry: boolean },
-): Promise<SessionToken> {
+): Promise<string | undefined> {
 	const session = storedLogin?.session;
-	if (!storedLogin || !session?.refreshToken) return { status: "none" };
+	if (!storedLogin || !session?.refreshToken) return;
 
 	// Another process renewed it while this one waited for the lock.
 	const freshToken = getUnexpiredToken(session, REFRESH_MARGIN_MS);
-	if (freshToken && freshToken !== staleToken) return { status: "active", token: freshToken };
+	if (freshToken && freshToken !== staleToken) return freshToken;
 
 	const { refreshToken, auth0Domain, clientId, host } = session;
 	const tokens = await refreshAccessToken(refreshToken, session);
 	if (tokens) {
 		await writeCredentials(lock, { ...storedLogin, session: { ...session, ...tokens } });
-		return { status: "active", token: tokens.accessToken };
+		return tokens.accessToken;
 	}
 
 	// If the refresh token changed meanwhile, retry once with it, but only while
@@ -165,7 +150,7 @@ async function renewLogin(
 		...storedLogin,
 		session: { host, auth0Domain, clientId, pendingLogin: session.pendingLogin },
 	});
-	return { status: "ended" };
+	ended = true;
 }
 
 function getUnexpiredToken(session: Session, marginMs = 0): string | undefined {
@@ -195,9 +180,9 @@ async function isTokenRejected(): Promise<boolean> {
 // A refused token gets one refresh. A login starts only when the session is
 // over, never when Auth0 can't be reached.
 export async function reauthenticate(options: { browser?: boolean } = {}): Promise<string> {
-	const session = await getSessionToken({ forceRefresh: true });
-	if (session.status === "active") return session.token;
-	console.error(session.status === "ended" ? "Your login expired." : "You are not logged in.");
+	const token = await getSessionToken({ forceRefresh: true });
+	if (token) return token;
+	console.error(ended ? "Your login expired." : "You are not logged in.");
 	return logIn(options);
 }
 
@@ -359,8 +344,7 @@ async function lockLoginAfterOthers(login: Login): Promise<Lock | undefined> {
 // A new code is saved, so a later run can continue it. The login gets its code
 // while the lock is held, so a Ctrl-C right after still finds it to delete.
 async function startLogin(login: Login): Promise<StartedLogin> {
-	const lock = await lockCredentials();
-	try {
+	return withCredentialsLock(async (lock) => {
 		// A saved login that can't be read doesn't stop a new one.
 		const credentials = await readCredentials().catch(() => undefined);
 		// A failed login keeps the saved login, but a logout deletes it.
@@ -387,9 +371,7 @@ async function startLogin(login: Login): Promise<StartedLogin> {
 		const session = current?.session ?? { host: login.host, ...login.auth0 };
 		await writeCredentials(lock, { ...store, session: { ...session, pendingLogin: pending } });
 		return { status: "pending", pending };
-	} finally {
-		await lock.release();
-	}
+	});
 }
 
 // A pending login is bound to its host, Auth0 domain and client ID, and its
@@ -445,14 +427,11 @@ async function setPendingLogin(
 	current: PendingLogin,
 	next: PendingLogin | undefined,
 ): Promise<void> {
-	const lock = await lockCredentials();
-	try {
+	return withCredentialsLock(async (lock) => {
 		const stored = (await readCredentials()).login;
 		if (stored?.session.pendingLogin?.deviceCode !== current.deviceCode) return;
 		await writeCredentials(lock, { ...stored, session: { ...stored.session, pendingLogin: next } });
-	} finally {
-		await lock.release();
-	}
+	});
 }
 
 // Returns nothing when a logout deleted the pending login while it waited.
@@ -461,8 +440,7 @@ async function saveLogin(
 	pending: PendingLogin,
 	tokens: DeviceLoginTokens,
 ): Promise<LoginStore | undefined> {
-	const lock = await lockCredentials();
-	try {
+	return withCredentialsLock(async (lock) => {
 		const { auth0Domain, clientId } = pending;
 		// A saved login that can't be read can't have been logged out.
 		const stored = await readCredentials().catch(() => undefined);
@@ -486,9 +464,7 @@ async function saveLogin(
 			await revokeRefreshToken(previous.refreshToken, previous).catch(() => {});
 		}
 		return store;
-	} finally {
-		await lock.release();
-	}
+	});
 }
 
 export async function cleanupLegacyAuthFile(): Promise<void> {

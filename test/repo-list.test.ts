@@ -1,4 +1,4 @@
-import { approveLogin, captureOutput, captureStdout, it } from "./it";
+import { approveLogin, captureOutput, it } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("repo", ["list", "--help"]);
@@ -45,7 +45,7 @@ it("logs in and continues when not logged in", async ({ expect, prismic, logout,
 	await logout();
 	const proc = prismic("repo", ["list", "--json"], { nodeOptions: { env: { CI: "" } } });
 	const output = captureOutput(proc);
-	const stdout = captureStdout(proc);
+	const stdout = captureOutput(proc, { stderr: false });
 	await approveLogin(expect, output, auth0);
 	const { exitCode } = await proc;
 	expect(exitCode, output()).toBe(0);
