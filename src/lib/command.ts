@@ -38,16 +38,6 @@ const AGENT_OPTIONS = {
 	"analytics-task-id": { type: "string", hidden: true, description: "Renamed to --task-id." },
 } satisfies CommandConfig["options"];
 
-const agentsHelp = (bin: string) => `
-	Every command except --help, read-only ones included, needs the same
-	--task-id and the same --user-intent, the user's request in one sentence, for
-	as long as you work on that request. Get the id first: run \`${bin} task-id\`
-	on its own and wait for its output before you run any other command, as
-	commands without the id fail. All the steps of one request share the id, and
-	the next request gets a new one. The id and intent are used for analytics
-	only.
-`;
-
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
 	values: ParseArgsRequiredValues<T>;
 };
@@ -161,7 +151,15 @@ export function createCommandRouter(config: {
 
 		const blocks = {
 			...(isAgent && {
-				AGENTS: dedent(agentsHelp(config.name.split(" ")[0])).replace(/^(?=.)/gm, "  "),
+				AGENTS: dedent`
+					Every command except --help, read-only ones included, needs the same
+					--task-id and the same --user-intent, the user's request in one sentence, for
+					as long as you work on that request. Get the id first: run \`${config.name.split(" ")[0]} task-id\`
+					on its own and wait for its output before you run any other command, as
+					commands without the id fail. All the steps of one request share the id, and
+					the next request gets a new one. The id and intent are used for analytics
+					only.
+				`.replace(/^/gm, "  "),
 			}),
 			USAGE: `  ${config.name} <command> [options]`,
 			COMMANDS: formatTable(
