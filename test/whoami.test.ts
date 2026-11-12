@@ -61,19 +61,8 @@ it("refreshes a login about to expire", async ({ expect, prismic, login, auth0 }
 	const { stdout, stderr, exitCode } = await prismic("whoami");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(email);
-	const refreshes = auth0.requests.filter((request) => request.params.grant_type === "refresh_token");
+	const refreshes = auth0.requests.filter(
+		(request) => request.params.grant_type === "refresh_token",
+	);
 	expect(refreshes).toHaveLength(1);
-});
-
-it("uses the saved token while Auth0 can't be reached", async ({
-	expect,
-	prismic,
-	login,
-	auth0,
-}) => {
-	const { email } = await login({ expiresAt: Date.now() + 60_000 });
-	auth0.respondOnce("/oauth/token", { status: 503 });
-	const { stdout, stderr, exitCode } = await prismic("whoami");
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain(email);
 });

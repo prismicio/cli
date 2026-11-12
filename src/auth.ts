@@ -36,8 +36,7 @@ import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser, getLoginResult, recordLogin, trackCommandEnd } from "./tracking";
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000; // 5 minutes
-// Below Claude Code's 2-minute command timeout. Tests shorten it.
-// `process.env.PROD` is read literally, so production builds drop the branch.
+// Below Claude Code's 2-minute command timeout.
 const AGENT_WAIT_MS = (process.env.PROD === "false" && env.PRISMIC_AGENT_WAIT_MS) || 90_000;
 // Auth0's device codes expire after 15 minutes.
 const LOGIN_WAIT_MS = 15 * 60 * 1000;
@@ -52,28 +51,6 @@ export async function getToken(): Promise<string | undefined> {
 
 export async function getHost(): Promise<string> {
 	return env.PRISMIC_HOST || (await readHost().catch(() => undefined)) || DEFAULT_PRISMIC_HOST;
-}
-
-// Native client IDs are public.
-function getAuth0Config(host: string): Auth0Config | undefined {
-	// Tests log in with a fake Auth0 server. In a release, a stray variable must
-	// never send a real login to another tenant, so production builds drop this
-	// branch: `process.env.PROD` is read literally.
-	if (process.env.PROD === "false" && env.PRISMIC_AUTH0_DOMAIN) {
-		return { auth0Domain: env.PRISMIC_AUTH0_DOMAIN, clientId: env.PRISMIC_AUTH0_CLIENT_ID ?? "" };
-	}
-	if (host === "prismic.io") {
-		return { auth0Domain: "auth0.prismic.io", clientId: "V1yuPKJOHhuHNMR4Oeo2fj5uTCfVebny" };
-	}
-	if (host === "wroom.io" || host === "devops-wroom.com") {
-		return { auth0Domain: "auth0.wroom.io", clientId: "UKxsYw8EcAspkUPRvoFkrO1aj9cA3zkd" };
-	}
-	if (/^[a-z0-9-]+-wroom\.com$/.test(host)) {
-		return {
-			auth0Domain: "auth0.platform-wroom.com",
-			clientId: "Opbx7JjftGb5sgjIWKVx0XDBSrW37say",
-		};
-	}
 }
 
 // "ended" means Auth0 ended the session, so the caller can say the login
@@ -209,18 +186,44 @@ type Login = {
 
 type LoginStore = Pick<StoredLogin, "store" | "storeReason">;
 type SavedLogin = LoginStore & { token: string };
-type CompletedLogin = SavedLogin & { email: string };
+type LoginOutcome = (SavedLogin & { email: string }) | "wait-limit" | "logged-out";
 
-type LoginLock = {
-	lock: Lock;
+type LoginWait = {
 	waited: boolean;
 	// Another command's code, once this one showed it.
 	shown?: PendingLogin;
 };
 
+type StartedLogin =
+	| { status: "pending"; pending: PendingLogin }
+	| { status: "saved"; saved: SavedLogin }
+	| { status: "logged-out" };
+
+// Native client IDs are public.
+function getAuth0Config(host: string): Auth0Config | undefined {
+	// Tests log in with a fake Auth0 server. In a release, a stray variable must
+	// never send a real login to another tenant.
+	if (process.env.PROD === "false" && env.PRISMIC_AUTH0_DOMAIN) {
+		return { auth0Domain: env.PRISMIC_AUTH0_DOMAIN, clientId: env.PRISMIC_AUTH0_CLIENT_ID ?? "" };
+	}
+	if (host === "prismic.io") {
+		return { auth0Domain: "auth0.prismic.io", clientId: "V1yuPKJOHhuHNMR4Oeo2fj5uTCfVebny" };
+	}
+	if (host === "wroom.io" || host === "devops-wroom.com") {
+		return { auth0Domain: "auth0.wroom.io", clientId: "UKxsYw8EcAspkUPRvoFkrO1aj9cA3zkd" };
+	}
+	if (/^[a-z0-9-]+-wroom\.com$/.test(host)) {
+		return {
+			auth0Domain: "auth0.platform-wroom.com",
+			clientId: "Opbx7JjftGb5sgjIWKVx0XDBSrW37say",
+		};
+	}
+}
+
 // The prompt and the result go to stderr, so a command that logs in on its own
 // keeps its output clean.
 export async function logIn(options: { browser?: boolean } = {}): Promise<string> {
+	const { browser = false } = options;
 	const host = await getHost();
 	const auth0 = getAuth0Config(host);
 	if (!auth0) throw new CommandError(`Login isn't available for ${host}. Use PRISMIC_TOKEN.`);
@@ -249,9 +252,9 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 		await endCommand("Login cancelled.", 130);
 	});
 
-	let outcome: CompletedLogin | "wait-limit" | "logged-out";
+	let outcome: LoginOutcome;
 	try {
-		outcome = await completeLogin(login, { browser: Boolean(options.browser) && isPerson });
+		outcome = await completeLogin(login, { browser: browser && isPerson });
 	} catch (error) {
 		recordLogin({
 			result: getLoginResult(error),
@@ -292,22 +295,19 @@ async function endCommand(message: string, exitCode: number): Promise<never> {
 	process.exit();
 }
 
-async function completeLogin(
-	login: Login,
-	options: { browser: boolean },
-): Promise<CompletedLogin | "wait-limit" | "logged-out"> {
+async function completeLogin(login: Login, options: { browser: boolean }): Promise<LoginOutcome> {
 	const loginLock = await lockLoginAfterOthers(login);
 	if (!loginLock) return "wait-limit";
 
 	let saved: SavedLogin;
 	try {
-		const started = await startLogin(login, loginLock);
-		if (started === "logged-out") return started;
-		if ("token" in started) {
-			saved = started;
+		const started = await startLogin(login, loginLock.wait);
+		if (started.status === "logged-out") return "logged-out";
+		if (started.status === "saved") {
+			saved = started.saved;
 		} else {
 			const { pending } = started;
-			if (pending.deviceCode !== loginLock.shown?.deviceCode) printLoginPrompt(pending);
+			if (pending.deviceCode !== loginLock.wait.shown?.deviceCode) printLoginPrompt(pending);
 			if (options.browser) openBrowser(new URL(getDeviceLoginPrompt(pending).url));
 			const tokens = await pollUntilApproved(login, pending);
 			if (!tokens) return "wait-limit";
@@ -329,14 +329,16 @@ async function completeLogin(
 // One command polls Auth0 per config directory. Another command that needs a
 // login shows the same code and waits for the first one, as long as its own
 // login would. Returns nothing when an agent's wait ends first.
-async function lockLoginAfterOthers(login: Login): Promise<LoginLock | undefined> {
+async function lockLoginAfterOthers(
+	login: Login,
+): Promise<{ lock: Lock; wait: LoginWait } | undefined> {
 	const waitUntil = Math.min(login.deadline, Date.now() + LOGIN_WAIT_MS);
-	const wait: Omit<LoginLock, "lock"> = { waited: false };
+	const wait: LoginWait = { waited: false };
 	while (true) {
 		// Until the other command saves its code, look for it between tries.
 		const timeoutMs = wait.shown ? waitUntil - Date.now() : 0;
 		try {
-			return { ...wait, lock: await lockLogin({ timeoutMs }) };
+			return { lock: await lockLogin({ timeoutMs }), wait };
 		} catch (error) {
 			if (!(error instanceof LockTimeoutError)) throw error;
 			if (Date.now() >= login.deadline) return;
@@ -353,31 +355,28 @@ async function lockLoginAfterOthers(login: Login): Promise<LoginLock | undefined
 }
 
 // Resumes the saved login, or starts one and saves it so a later run can
-// continue it. prepareLogin and that write share one lock hold. Returns the
-// saved login instead when another command logged in while this one waited,
-// and "logged-out" when a logout cancelled the login it waited for.
-async function startLogin(
-	login: Login,
-	wait: Omit<LoginLock, "lock">,
-): Promise<{ pending: PendingLogin } | SavedLogin | "logged-out"> {
+// continue it. Or finds that another command logged in, or that a logout
+// cancelled the login this one waited for.
+async function startLogin(login: Login, wait: LoginWait): Promise<StartedLogin> {
 	const lock = await lockCredentials();
 	try {
 		// A saved login that can't be read doesn't stop a new one.
 		const credentials = await readCredentials().catch(() => undefined);
 		// A failed login keeps the saved login, but a logout deletes it.
-		if (wait.shown && credentials && !credentials.login) return "logged-out";
+		if (wait.shown && credentials && !credentials.login) return { status: "logged-out" };
 		const stored = credentials?.login;
 		const resumable = stored && getResumableLogin(stored.session, login);
 		if (resumable) {
 			login.pending = resumable;
 			login.startedAt = resumable.startedAt;
 			login.resumed = true;
-			return { pending: resumable };
+			return { status: "pending", pending: resumable };
 		}
 		const current = stored?.session.host === login.host ? stored : undefined;
 		const token = current && getUnexpiredToken(current.session);
 		if (wait.waited && token && token !== login.tokenBefore) {
-			return { token, store: current.store, storeReason: current.storeReason };
+			const { store, storeReason } = current;
+			return { status: "saved", saved: { token, store, storeReason } };
 		}
 
 		const pending = await startDeviceLogin(LOGIN_PARAMS, login.auth0);
@@ -391,7 +390,7 @@ async function startLogin(
 			session: { ...session, pendingLogin: pending },
 		});
 		if (warning) console.warn(warning);
-		return { pending };
+		return { status: "pending", pending };
 	} finally {
 		await lock.release();
 	}

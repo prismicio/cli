@@ -17,7 +17,7 @@ import { PendingLoginSchema } from "./lib/auth0";
 import { exists } from "./lib/file";
 import { stringify } from "./lib/json";
 import { KeyringError, systemKeyring, type KeyringErrorReason } from "./lib/keyring";
-import { acquireLock, type Lock } from "./lib/lock";
+import { acquireLock, type Lock, LockTimeoutError } from "./lib/lock";
 
 const KEYCHAIN_SERVICE = "prismic-cli";
 const KEYCHAIN_ACCOUNT = `cli:${createHash("sha256").update(fileURLToPath(CONFIG_DIR)).digest("hex").slice(0, 16)}`;
@@ -205,7 +205,15 @@ export async function clearCredentials(lock: Lock): Promise<void> {
 
 export async function lockCredentials(): Promise<Lock> {
 	await ensurePrivateDir();
-	return acquireLock(CREDENTIALS_LOCK_PATH, { timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS });
+	return acquireLock(CREDENTIALS_LOCK_PATH, { timeoutMs: CREDENTIALS_LOCK_TIMEOUT_MS }).catch(
+		(error) => {
+			if (!(error instanceof LockTimeoutError)) throw error;
+			throw new CredentialsError(
+				"busy",
+				"Another Prismic command is still using your login. Run the command again.",
+			);
+		},
+	);
 }
 
 // A login holds this one while it waits for approval, so one command polls for
@@ -216,6 +224,7 @@ export async function lockLogin(config: { timeoutMs: number }): Promise<Lock> {
 }
 
 export type CredentialsErrorReason =
+	| "busy"
 	| "unsupported-version"
 	| "unsafe-file"
 	| "lock-lost"

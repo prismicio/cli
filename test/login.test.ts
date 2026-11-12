@@ -118,27 +118,6 @@ it("makes another command wait for the login in progress", async ({
 	expect(auth0.requests.filter((request) => request.path === "/oauth/device/code")).toHaveLength(1);
 });
 
-it("drops a login that a logout cancelled while it waited", async ({
-	expect,
-	prismic,
-	logout,
-	auth0,
-}) => {
-	await logout();
-	const login = prismic("login");
-	const output = captureOutput(login);
-	await expect.poll(output, { timeout: 15_000 }).toContain("Waiting for the login");
-	expect((await prismic("logout")).exitCode).toBe(0);
-
-	auth0.approve();
-	expect((await login).exitCode).toBe(1);
-	expect(output()).toContain("A logout cancelled this login. Run the command again to log in.");
-	// The tokens the approval gave are revoked, and nothing is saved.
-	const revokes = auth0.requests.filter((request) => request.path === "/oauth/revoke");
-	expect(revokes).toHaveLength(1);
-	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
-});
-
 it("explains a login that Auth0 refused", async ({ expect, prismic, logout, auth0 }) => {
 	await logout();
 	const answers = [

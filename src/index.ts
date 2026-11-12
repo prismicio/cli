@@ -92,6 +92,13 @@ const KNOWN_ERRORS = [
 
 const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError];
 
+// A login that Auth0 refuses as misconfigured needs a fix on Prismic's side.
+// The error holds only Auth0's error code, never a response body.
+function isReported(error: unknown): boolean {
+	if (error instanceof DeviceFlowError) return error.reason === "misconfigured";
+	return REPORTED_KNOWN_ERRORS.some((type) => error instanceof type);
+}
+
 await main();
 
 async function main(): Promise<void> {
@@ -259,11 +266,4 @@ function getAgentOptionsError(taskId: string | undefined, userIntent: string | u
 	if (!taskId) return "missing --task-id";
 	if (!isTaskId(taskId)) return "--task-id must come from `prismic task-id`";
 	if (!userIntent) return "missing --user-intent";
-}
-
-// A login that Auth0 refuses as misconfigured needs a fix on Prismic's side.
-// The error holds only Auth0's error code, never a response body.
-function isReported(error: unknown): boolean {
-	if (error instanceof DeviceFlowError) return error.reason === "misconfigured";
-	return REPORTED_KNOWN_ERRORS.some((type) => error instanceof type);
 }

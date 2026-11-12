@@ -22,8 +22,10 @@ const DEVICE_FLOW_MESSAGES: Record<Exclude<DeviceFlowError["reason"], "misconfig
 
 export async function getErrorMessage(error: unknown): Promise<string | undefined> {
 	if (error instanceof DeviceFlowError) {
-		if (error.reason !== "misconfigured") return DEVICE_FLOW_MESSAGES[error.reason];
-		return `Login isn't set up correctly for ${await getHost()} (${error.detail}). Report this: https://github.com/prismicio/cli/issues`;
+		if (error.reason === "misconfigured") {
+			return `Login isn't set up correctly for ${await getHost()} (${error.detail}). Report this: https://github.com/prismicio/cli/issues`;
+		}
+		return DEVICE_FLOW_MESSAGES[error.reason];
 	}
 
 	if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {

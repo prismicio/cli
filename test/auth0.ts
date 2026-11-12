@@ -1,31 +1,19 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import { setTimeout as sleep } from "node:timers/promises";
 
 // A fake Auth0 tenant for login tests. A real device login needs a person to
 // approve it in a browser, so automated tests can't use Auth0 itself.
 
-export type FakeAuth0Options = {
-	accessToken?: string;
-	expiresIn?: number;
-	interval?: number;
-};
-
-export type FakeAuth0Response = {
-	status: number;
-	body?: unknown;
-	headers?: Record<string, string>;
-	delayMs?: number;
-};
+type FakeAuth0Response = { status: number; body?: unknown };
 
 export type FakeAuth0 = {
 	auth0Domain: string;
 	clientId: string;
 	requests: { path: string; params: Record<string, string> }[];
-	approve: (options?: { userCode?: string }) => void;
-	deny: (options?: { userCode?: string; description?: string }) => void;
-	expire: (options?: { userCode?: string }) => void;
+	approve: () => void;
+	deny: (options?: { description?: string }) => void;
+	expire: () => void;
 	respondOnce: (path: string, response: FakeAuth0Response) => void;
 	/** A refresh token the server accepts, for a login a test saves itself. */
 	issueRefreshToken: () => string;
@@ -40,8 +28,11 @@ type DeviceCode = {
 	description?: string;
 };
 
-export async function createFakeAuth0(options: FakeAuth0Options = {}): Promise<FakeAuth0> {
-	const { accessToken, expiresIn = 3600, interval = 1 } = options;
+export async function createFakeAuth0(options: {
+	accessToken?: string;
+	interval?: number;
+}): Promise<FakeAuth0> {
+	const { accessToken, interval = 1 } = options;
 	const clientId = `fake-${randomToken(8)}`;
 	const requests: FakeAuth0["requests"] = [];
 	const responses = new Map<string, FakeAuth0Response[]>();
@@ -57,8 +48,7 @@ export async function createFakeAuth0(options: FakeAuth0Options = {}): Promise<F
 
 		const response = responses.get(path)?.shift();
 		if (response) {
-			if (response.delayMs) await sleep(response.delayMs);
-			send(res, response.status, response.body, response.headers);
+			send(res, response.status, response.body);
 			return;
 		}
 
@@ -133,14 +123,15 @@ export async function createFakeAuth0(options: FakeAuth0Options = {}): Promise<F
 		send(res, 200, {
 			access_token: accessToken ?? randomToken(32),
 			refresh_token: refreshToken,
-			expires_in: expiresIn,
+			expires_in: 3600,
 			token_type: "Bearer",
 		});
 	}
 
-	function findCode(userCode = codes.at(-1)?.userCode): DeviceCode {
-		const code = codes.find((code) => code.userCode === userCode);
-		if (!code) throw new Error(`No device code ${userCode ?? "issued yet"}`);
+	// Like a person, tests answer the latest code.
+	function latestCode(): DeviceCode {
+		const code = codes.at(-1);
+		if (!code) throw new Error("No device code issued yet");
 		return code;
 	}
 
@@ -152,16 +143,16 @@ export async function createFakeAuth0(options: FakeAuth0Options = {}): Promise<F
 		auth0Domain,
 		clientId,
 		requests,
-		approve: ({ userCode } = {}) => {
-			findCode(userCode).status = "approved";
+		approve: () => {
+			latestCode().status = "approved";
 		},
-		deny: ({ userCode, description } = {}) => {
-			const code = findCode(userCode);
+		deny: ({ description } = {}) => {
+			const code = latestCode();
 			code.status = "denied";
 			code.description = description;
 		},
-		expire: ({ userCode } = {}) => {
-			findCode(userCode).expiresAt = Date.now();
+		expire: () => {
+			latestCode().expiresAt = Date.now();
 		},
 		respondOnce: (path, response) => {
 			responses.set(path, [...(responses.get(path) ?? []), response]);
@@ -178,14 +169,9 @@ export async function createFakeAuth0(options: FakeAuth0Options = {}): Promise<F
 	};
 }
 
-function send(
-	res: ServerResponse,
-	status: number,
-	body?: unknown,
-	headers: Record<string, string> = {},
-): void {
+function send(res: ServerResponse, status: number, body?: unknown): void {
 	if (res.destroyed) return;
-	res.writeHead(status, { "Content-Type": "application/json", ...headers });
+	res.writeHead(status, { "Content-Type": "application/json" });
 	res.end(body === undefined ? undefined : JSON.stringify(body));
 }
 
