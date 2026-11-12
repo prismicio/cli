@@ -107,9 +107,7 @@ export async function readCredentials(): Promise<StoredCredentials> {
 
 	const session = z.safeParse(
 		SessionSchema,
-		store === "file"
-			? json
-			: parseJson(decrypt(await readPrivateFile(ENCRYPTED_CREDENTIALS_PATH), await requireKey())),
+		store === "file" ? json : parseJson(await decryptSession()),
 	);
 	if (!session.success) throw undecryptable();
 
@@ -269,6 +267,18 @@ async function requireKey(): Promise<Buffer> {
 	});
 	if (!currentKey) throw undecryptable("missing-key");
 	return currentKey;
+}
+
+async function decryptSession(): Promise<string | undefined> {
+	const encrypted = await readPrivateFile(ENCRYPTED_CREDENTIALS_PATH);
+	const wasCached = key !== undefined;
+	const plaintext = decrypt(encrypted, await requireKey());
+	if (plaintext || !wasCached) return plaintext;
+
+	// Another process may have logged in again, with a new key, since this one
+	// read it.
+	key = undefined;
+	return decrypt(encrypted, await requireKey());
 }
 
 const KEYCHAIN_FAILURES: Partial<Record<KeyringErrorReason, [CredentialsErrorReason, string]>> = {

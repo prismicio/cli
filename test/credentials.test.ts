@@ -252,6 +252,20 @@ describe("credential store", { concurrent: false }, () => {
 		expect((await (await loadStore(home)).readCredentials()).login?.session).toEqual(session);
 	});
 
+	it("reads the new key after another process logged out and in again", async ({ home }) => {
+		const store = await loadStore(home);
+		await logIn(store);
+		expect((await store.readCredentials()).login?.session).toEqual(session);
+
+		const other = await loadStore(home);
+		const lock = await other.lockCredentials({ timeoutMs: 5_000 });
+		await other.clearCredentials(lock);
+		await lock.release();
+		await logIn(other, { ...session, accessToken: "new-access-token" });
+
+		expect((await store.readCredentials()).login?.session.accessToken).toBe("new-access-token");
+	});
+
 	it.skipIf(process.platform === "win32")(
 		"writes a private directory and private files through temporary files",
 		async ({ home }) => {
