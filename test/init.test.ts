@@ -250,6 +250,27 @@ it("logs in when not logged in, even on CI", async ({
 	expect(JSON.parse(configRaw).repositoryName).toBe(repo);
 }, 60_000);
 
+it("renews a rejected token instead of logging in again", async ({
+	expect,
+	project,
+	prismic,
+	login,
+	auth0,
+	repo,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	await login({ accessToken: "rejected-token" });
+
+	const proc = prismic("init", ["--repo", repo, "--no-setup"]);
+	const output = captureOutput(proc);
+	expect((await proc).exitCode, output()).toBe(0);
+	expect(output()).not.toContain("Open this URL");
+	const refreshes = auth0.requests.filter(
+		(request) => request.params.grant_type === "refresh_token",
+	);
+	expect(refreshes).toHaveLength(1);
+}, 60_000);
+
 it("fails if repo is not in the user's account", async ({ expect, project, prismic }) => {
 	await rm(new URL("prismic.config.json", project));
 	const { exitCode, stderr } = await prismic("init", ["--repo", "nonexistent-repo-xyz-12345"]);

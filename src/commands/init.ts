@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 
 import { type Adapter, FRAMEWORKS, getAdapter, NoSupportedFrameworkError } from "../adapters";
-import { getHost, getToken, logIn } from "../auth";
+import { getHost, getToken, reauthenticate } from "../auth";
 import { DEFAULT_PRISMIC_HOST, env } from "../env";
 import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 import {
@@ -121,8 +121,7 @@ export default createCommand(config, async ({ values }) => {
 	} catch (error) {
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			if (env.PRISMIC_TOKEN) throw error;
-			console.error("You are not logged in.");
-			await logIn({ browser: !noBrowser });
+			await reauthenticate({ browser: !noBrowser });
 		} else {
 			throw error;
 		}

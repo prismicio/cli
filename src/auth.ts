@@ -181,11 +181,11 @@ export async function onUnauthorized<T>(
 
 // A refused token gets one refresh. A login starts only when the session is
 // over, never when Auth0 can't be reached.
-async function reauthenticate(): Promise<string> {
+export async function reauthenticate(options: { browser?: boolean } = {}): Promise<string> {
 	const session = await getSessionToken({ forceRefresh: true });
 	if (session.status === "active") return session.token;
 	console.error(session.status === "ended" ? "Your login expired." : "You are not logged in.");
-	return logIn();
+	return logIn(options);
 }
 
 async function isTokenRejected(): Promise<boolean> {
@@ -342,7 +342,8 @@ async function lockLoginAfterOthers(login: Login): Promise<LoginLock | undefined
 		} catch (error) {
 			if (!(error instanceof LockTimeoutError)) throw error;
 			if (Date.now() >= login.deadline) return;
-			if (Date.now() >= waitUntil) throw error;
+			// The other command's code expired by now.
+			if (Date.now() >= waitUntil) throw new DeviceFlowError("expired");
 		}
 
 		other.waited = true;
@@ -474,7 +475,12 @@ async function saveLogin(
 			return;
 		}
 
-		const store = await prepareLogin(lock);
+		// Without a logout, the key that saved the pending login is still valid,
+		// and reading it again could fall back to a file if the keychain locked
+		// during the wait.
+		const store = stored?.login
+			? { store: stored.login.store, storeReason: stored.login.storeReason }
+			: await prepareLogin(lock);
 		const session = { host: login.host, auth0Domain, clientId, ...tokens };
 		const { warning } = await writeCredentials(lock, { ...store, session });
 		if (warning) console.warn(warning);
