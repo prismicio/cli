@@ -117,12 +117,16 @@ export async function createFakeAuth0(options: {
 		send(res, 404);
 	});
 
-	function sendTokens(res: ServerResponse): void {
+	function issueRefreshToken(): string {
 		const refreshToken = randomToken(32);
 		refreshTokens.add(refreshToken);
+		return refreshToken;
+	}
+
+	function sendTokens(res: ServerResponse): void {
 		send(res, 200, {
 			access_token: accessToken,
-			refresh_token: refreshToken,
+			refresh_token: issueRefreshToken(),
 			expires_in: 3600,
 			token_type: "Bearer",
 		});
@@ -157,11 +161,7 @@ export async function createFakeAuth0(options: {
 		respondOnce: (path, response) => {
 			responses.set(path, [...(responses.get(path) ?? []), response]);
 		},
-		issueRefreshToken: () => {
-			const refreshToken = randomToken(32);
-			refreshTokens.add(refreshToken);
-			return refreshToken;
-		},
+		issueRefreshToken,
 		close: async () => {
 			server.closeAllConnections();
 			await new Promise((resolve) => server.close(resolve));

@@ -186,15 +186,6 @@ export async function onUnauthorized<T>(
 	return retry({ headers: { Authorization: `Bearer ${token}` } });
 }
 
-// A refused token gets one refresh. A login starts only when the session is
-// over, never when Auth0 can't be reached.
-export async function reauthenticate(options: { browser?: boolean } = {}): Promise<string> {
-	const session = await getSessionToken({ forceRefresh: true });
-	if (session.status === "active") return session.token;
-	console.error(session.status === "ended" ? "Your login expired." : "You are not logged in.");
-	return logIn(options);
-}
-
 async function isTokenRejected(): Promise<boolean> {
 	try {
 		await validateToken(await getToken(), { host: await getHost() });
@@ -202,6 +193,15 @@ async function isTokenRejected(): Promise<boolean> {
 	} catch (error) {
 		return error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError;
 	}
+}
+
+// A refused token gets one refresh. A login starts only when the session is
+// over, never when Auth0 can't be reached.
+export async function reauthenticate(options: { browser?: boolean } = {}): Promise<string> {
+	const session = await getSessionToken({ forceRefresh: true });
+	if (session.status === "active") return session.token;
+	console.error(session.status === "ended" ? "Your login expired." : "You are not logged in.");
+	return logIn(options);
 }
 
 // The prompt and the result go to stderr, so a command that logs in on its own
@@ -269,16 +269,6 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	return token;
 }
 
-// Ends the command at once, even inside a request whose errors the command
-// catches, like sync's loop.
-async function endCommand(message: string, exitCode: number): Promise<never> {
-	process.exitCode = exitCode;
-	trackCommandEnd({ error: message });
-	// Exiting right after a write can drop it from a pipe.
-	await new Promise((resolve) => process.stderr.write(`${message}\n`, resolve));
-	process.exit();
-}
-
 // Native client IDs are public.
 function getAuth0Config(host: string): Auth0Config | undefined {
 	// Tests log in with a fake Auth0 server. In a release, a stray variable must
@@ -298,6 +288,16 @@ function getAuth0Config(host: string): Auth0Config | undefined {
 			clientId: "Opbx7JjftGb5sgjIWKVx0XDBSrW37say",
 		};
 	}
+}
+
+// Ends the command at once, even inside a request whose errors the command
+// catches, like sync's loop.
+async function endCommand(message: string, exitCode: number): Promise<never> {
+	process.exitCode = exitCode;
+	trackCommandEnd({ error: message });
+	// Exiting right after a write can drop it from a pipe.
+	await new Promise((resolve) => process.stderr.write(`${message}\n`, resolve));
+	process.exit();
 }
 
 async function completeLogin(login: Login, options: { browser: boolean }): Promise<LoginOutcome> {
