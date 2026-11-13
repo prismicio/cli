@@ -43,9 +43,9 @@ it("shows the AGENTS section in help only when an agent is detected", async ({
 		await prismic("init", ["--help"], { nodeOptions: { env: { AI_AGENT: "test-agent" } } })
 	).stdout;
 	const humanHelp = (await prismic("init", ["--help"])).stdout;
-	expect(agentHelp).toContain("AGENTS");
-	expect(agentHelp).toContain("Do not ask the user");
-	expect(agentHelp.indexOf("AGENTS")).toBeLessThan(agentHelp.indexOf("USAGE"));
+	expect(agentHelp.match(/^AGENTS$/gm)).toHaveLength(1);
+	expect(agentHelp).toContain("used for analytics\n  only.\n\n  Do not ask the user");
+	expect(agentHelp.indexOf("Do not ask the user")).toBeLessThan(agentHelp.indexOf("USAGE"));
 	expect(humanHelp).not.toContain("AGENTS");
 	expect(humanHelp).not.toContain("Do not ask the user");
 });
