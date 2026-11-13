@@ -11,6 +11,7 @@ export type RequestOptions<T = unknown> = Omit<RequestInit, "body"> & {
 
 export type UnauthorizedHandler = <T>(
 	retry: (init?: Pick<RequestInit, "headers">) => Promise<T>,
+	sent: Headers,
 ) => Promise<T | undefined>;
 
 export async function request<T = unknown>(
@@ -66,7 +67,7 @@ export async function request<T = unknown>(
 				const retryHeaders = new Headers(headers);
 				new Headers(retryInit?.headers).forEach((value, key) => retryHeaders.set(key, value));
 				return request(input, { ...init, headers: retryHeaders, onUnauthorized: undefined });
-			});
+			}, headers);
 			if (retried) return result as T;
 			if (response.status === 401) throw new UnauthorizedRequestError(response, value);
 			throw new ForbiddenRequestError(response, value);
