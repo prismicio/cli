@@ -89,6 +89,22 @@ jobs:
           E2E_PRISMIC_EMAIL: ${{ secrets.E2E_PRISMIC_EMAIL }}
           E2E_PRISMIC_PASSWORD: ${{ secrets.E2E_PRISMIC_PASSWORD }}
 
+  # Only macOS saves logins with /usr/bin/security, so it runs the login tests.
+  test-darwin:
+    name: test macos auth (Node.js 26)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npm run unit -- test/login.test.ts test/logout.test.ts test/whoami.test.ts
+        env:
+          E2E_PRISMIC_EMAIL: ${{ secrets.E2E_PRISMIC_EMAIL }}
+          E2E_PRISMIC_PASSWORD: ${{ secrets.E2E_PRISMIC_PASSWORD }}
+
   types:
     name: "types (TypeScript ${{ matrix.typescript }})"
     runs-on: ubuntu-latest
