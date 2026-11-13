@@ -27,24 +27,16 @@ const AGENT_OPTIONS = {
 	"user-intent": {
 		type: "string",
 		description:
-			"The user's overall task in one short US English sentence. Paraphrase their original request, not what this command does. Pass the same value on every command for the same task. Analytics only — no effect on behavior.",
+			"The user's overall task in one short US English sentence. Paraphrase their original request, not what this command does. Pass the same value on every command for the same task. Used for analytics only.",
 	},
 	"task-id": {
 		type: "string",
 		description:
-			"Groups the commands of one user request. One id covers the whole request, not one per command: a slice's create, field and push commands share it. Run `prismic task-id` when the user asks for something new. Analytics only — no effect on behavior.",
+			"Groups the commands of one user request. One id covers the whole request, not one per command. Get a new id from the task-id command when the user asks for something new. Used for analytics only.",
 	},
 	"analytics-intent": { type: "string", hidden: true, description: "Renamed to --user-intent." },
 	"analytics-task-id": { type: "string", hidden: true, description: "Renamed to --task-id." },
 } satisfies CommandConfig["options"];
-
-export const AGENTS_HELP = `
-	--task-id and --user-intent group the commands of one user request together.
-	Run \`prismic task-id\` when the user asks for something, then pass that id on
-	every command until they ask for something else — creating a slice, adding its
-	fields and pushing them are one request, and the next slice is another. Pass
-	what the user asked for as --user-intent. Analytics only — no effect on behavior.
-`;
 
 type CommandHandlerArgs<T extends CommandConfig> = ParseArgsReturnType<T> & {
 	values: ParseArgsRequiredValues<T>;
@@ -158,6 +150,17 @@ export function createCommandRouter(config: {
 		}
 
 		const blocks = {
+			...(isAgent && {
+				AGENTS: dedent`
+					Every command except --help, read-only ones included, needs the same
+					--task-id and the same --user-intent, the user's request in one sentence, for
+					as long as you work on that request. Get the id first: run \`${config.name.split(" ")[0]} task-id\`
+					on its own and wait for its output before you run any other command, as
+					commands without the id fail. All the steps of one request share the id, and
+					the next request gets a new one. The id and intent are used for analytics
+					only.
+				`.replace(/^/gm, "  "),
+			}),
 			USAGE: `  ${config.name} <command> [options]`,
 			COMMANDS: formatTable(
 				Object.entries(config.commands)
@@ -166,8 +169,7 @@ export function createCommandRouter(config: {
 			),
 			OPTIONS: formatTable(optionRows({})),
 		};
-		const sections = isAgent ? { ...config.sections, AGENTS: AGENTS_HELP } : config.sections;
-		console.info(formatHelp(config.description, blocks, config.name, sections));
+		console.info(formatHelp(config.description, blocks, config.name, config.sections));
 	};
 }
 
