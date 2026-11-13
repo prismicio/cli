@@ -46,3 +46,41 @@ it("disconnects a slice from a type", async ({ expect, prismic, project }) => {
 	const choices = (updated.json.Main.slices as DynamicSlicesModel).config!.choices!;
 	expect(choices[slice.id]).toBeUndefined();
 });
+
+it("fails when the type has no slice zone", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	const customType = buildCustomType();
+
+	await writeLocalSlice(project, slice);
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("slice", [
+		"disconnect",
+		slice.id,
+		"--from",
+		customType.id,
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`"${customType.id}" has no slice zone, so no slice is connected to it.`);
+});
+
+it("lists the slice zones when --slice-zone matches none", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	const customType = buildCustomType({
+		json: { Main: { body: { type: "Slices", config: { choices: {} } } } },
+	});
+
+	await writeLocalSlice(project, slice);
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("slice", [
+		"disconnect",
+		slice.id,
+		"--from",
+		customType.id,
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(
+		`Slice zone "slices" not found in "${customType.id}". Use --slice-zone with one of: body.`,
+	);
+});
