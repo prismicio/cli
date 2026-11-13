@@ -7,6 +7,8 @@ import { dedent, formatTable } from "./string";
 export type CommandConfig = {
 	name: string;
 	description: string;
+	/** Help shown only to detected agents, after the shared text in the AGENTS section. */
+	agents?: string;
 	sections?: Record<string, string>;
 	positionals?: Record<string, { description: string; required?: boolean }>;
 	options?: Record<
@@ -86,6 +88,7 @@ export function createCommand<T extends CommandConfig>(
 		if (result.values.help) {
 			const names = Object.keys(positionals);
 			const blocks: Record<string, string> = {
+				...agentsBlock(config.name, config.agents),
 				USAGE: `  ${[config.name, ...names.map((name) => `<${name}>`), "[options]"].join(" ")}`,
 			};
 			if (names.length > 0) {
@@ -150,17 +153,7 @@ export function createCommandRouter(config: {
 		}
 
 		const blocks = {
-			...(isAgent && {
-				AGENTS: dedent`
-					Every command except --help, read-only ones included, needs the same
-					--task-id and the same --user-intent, the user's request in one sentence, for
-					as long as you work on that request. Get the id first: run \`${config.name.split(" ")[0]} task-id\`
-					on its own and wait for its output before you run any other command, as
-					commands without the id fail. All the steps of one request share the id, and
-					the next request gets a new one. The id and intent are used for analytics
-					only.
-				`.replace(/^/gm, "  "),
-			}),
+			...agentsBlock(config.name),
 			USAGE: `  ${config.name} <command> [options]`,
 			COMMANDS: formatTable(
 				Object.entries(config.commands)
@@ -171,6 +164,21 @@ export function createCommandRouter(config: {
 		};
 		console.info(formatHelp(config.description, blocks, config.name, config.sections));
 	};
+}
+
+function agentsBlock(name: string, extra?: string): { AGENTS?: string } {
+	if (!isAgent) return {};
+	const shared = dedent`
+		Every command except --help, read-only ones included, needs the same
+		--task-id and the same --user-intent, the user's request in one sentence, for
+		as long as you work on that request. Get the id first: run \`${name.split(" ")[0]} task-id\`
+		on its own and wait for its output before you run any other command, as
+		commands without the id fail. All the steps of one request share the id, and
+		the next request gets a new one. The id and intent are used for analytics
+		only.
+	`;
+	const text = extra ? `${shared}\n\n${dedent(extra)}` : shared;
+	return { AGENTS: text.replace(/^(?=.)/gm, "  ") };
 }
 
 function optionRows(options: NonNullable<CommandConfig["options"]>): string[][] {

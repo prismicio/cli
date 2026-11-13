@@ -37,7 +37,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const sliceZoneField = allFields[sliceZone];
 	if (!sliceZoneField || sliceZoneField.type !== "Slices") {
-		throw new CommandError(`Slice zone "${sliceZone}" not found in "${from}".`);
+		const sliceZoneIds = Object.keys(allFields).filter((key) => allFields[key].type === "Slices");
+		if (sliceZoneIds.length === 0) {
+			throw new CommandError(`"${from}" has no slice zone, so no slice is connected to it.`);
+		}
+		throw new CommandError(
+			`Slice zone "${sliceZone}" not found in "${from}". Use --slice-zone with one of: ${sliceZoneIds.join(", ")}.`,
+		);
 	}
 
 	if (!sliceZoneField.config?.choices || !(slice.id in sliceZoneField.config.choices)) {
