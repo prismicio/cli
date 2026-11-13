@@ -52,11 +52,9 @@ const config = {
 
 		Use --repo to connect to an existing repository instead. If a
 		slicemachine.config.json exists, its repository and settings will be
-		migrated.
-
-		Without --repo, init creates a new repository, even if the project used
-		another one before. Use --repo only for a repository the user names. Do
-		not ask the user which to use.
+		migrated. Otherwise, init creates a new repository, even if the project
+		used another one before. If a prismic.config.json exists, init requires
+		--repo.
 
 		Run \`prismic docs view cli#set-up-a-type-builder-project\` for details.
 	`,
