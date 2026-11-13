@@ -117,16 +117,10 @@ it("shows the agent options and `task-id` in help only when an agent is detected
 		const agentStdout = (await prismic(root, args, agent)).stdout;
 		const humanStdout = (await prismic(root, args, human)).stdout;
 		expect(agentStdout).toContain("--task-id");
+		expect(agentStdout).not.toContain("--analytics-task-id");
 		expect(agentStdout.match(/^AGENTS$/gm)).toHaveLength(1);
 		expect(agentStdout.indexOf("AGENTS")).toBeLessThan(agentStdout.indexOf("USAGE"));
 		expect(humanStdout).not.toContain("--task-id");
 		expect(humanStdout).not.toContain("AGENTS");
 	}
-
-	const agentHelp = (await prismic("", ["--help"], agent)).stdout;
-	const humanHelp = (await prismic("", ["--help"], human)).stdout;
-	expect(agentHelp).toContain("AGENTS");
-	expect(agentHelp.indexOf("AGENTS")).toBeLessThan(agentHelp.indexOf("USAGE"));
-	expect(humanHelp).not.toContain("AGENTS");
-	expect(agentHelp).not.toContain("--analytics-task-id");
 });
