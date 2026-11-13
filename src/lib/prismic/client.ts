@@ -30,8 +30,10 @@ export async function validateToken(
 	config: { host: string },
 ): Promise<z.infer<typeof SessionSchema>> {
 	const url = new URL("validate", getAuthServiceUrl(config.host));
-	if (token) url.searchParams.set("token", token);
-	return request(url, { schema: SessionSchema });
+	return request(url, {
+		headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+		schema: SessionSchema,
+	});
 }
 
 function getAuthServiceUrl(host: string): URL {
