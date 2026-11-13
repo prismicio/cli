@@ -37,9 +37,10 @@ it("logs out when the session can't be revoked, and says so", async ({
 	expect,
 	home,
 	prismic,
-	auth0,
+	login,
 }) => {
-	auth0.respondOnce("/oauth/revoke", { status: 503 });
+	// The .invalid TLD never resolves, like a DNS failure when offline.
+	await login({ auth0Domain: "https://auth0.invalid" });
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Logged out of Prismic");

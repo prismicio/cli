@@ -37,6 +37,7 @@ export type Fixtures = {
 	/** Saves a login in a file, as when no keychain is usable. */
 	login: (session?: {
 		host?: string;
+		auth0Domain?: string;
 		accessToken?: string;
 		refreshToken?: string;
 		expiresAt?: number;

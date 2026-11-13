@@ -79,16 +79,25 @@ it("reports a Write API token", async ({ expect, prismic, repo, writeToken }) =>
 
 it("uses a token that hasn't expired when Auth0 can't be reached", async ({
 	expect,
+	home,
 	prismic,
 	login,
-	auth0,
 }) => {
-	const { email } = await login({ expiresAt: Date.now() + 60_000 });
-	auth0.respondOnce("/oauth/token", { status: 503 });
-	const { stdout, stderr, exitCode } = await prismic("whoami");
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain(email);
-	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
+	// The .invalid TLD never resolves, like a DNS failure when offline.
+	const auth0Domain = "https://auth0.invalid";
+	const { email } = await login({ auth0Domain, expiresAt: Date.now() + 60_000 });
+	const fresh = await prismic("whoami");
+	expect(fresh.exitCode, fresh.stderr).toBe(0);
+	expect(fresh.stdout).toContain(email);
+
+	await login({ auth0Domain, expiresAt: Date.now() - 1000 });
+	const expired = await prismic("whoami");
+	expect(expired.exitCode).toBe(1);
+	expect(expired.stderr).toContain(
+		"Can't reach the Prismic login service. Check your connection, then run the command again.",
+	);
+	const credentials = await readFile(new URL(".config/prismic/credentials.json", home), "utf8");
+	expect(JSON.parse(credentials).refreshToken).toBeDefined();
 });
 
 // Unlike the `login` fixture, `prismic login` saves to the keychain where one
