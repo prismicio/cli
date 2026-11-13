@@ -4,6 +4,7 @@ import { isInvalidAuthContextError } from "./lib/prismic/auth";
 import {
 	BadRequestError,
 	ForbiddenRequestError,
+	NetworkError,
 	UnauthorizedRequestError,
 	UnknownRequestError,
 } from "./lib/request";
@@ -24,6 +25,10 @@ export async function getErrorMessage(error: unknown): Promise<string | undefine
 			return "Your session is invalid or expired. Run `prismic login` to sign in again.";
 		}
 		return "You do not have access to this repository. Check the repository name or log in with an account that has access.";
+	}
+
+	if (error instanceof NetworkError) {
+		return "Can't reach Prismic. Check your connection, then run the command again.";
 	}
 
 	if (error instanceof BadRequestError || error instanceof UnknownRequestError) {
