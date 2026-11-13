@@ -22,7 +22,7 @@ import { acquireLock, type Lock, LockTimeoutError } from "./lib/lock";
 const KEYCHAIN_SERVICE = "prismic-cli";
 const KEYCHAIN_ACCOUNT = `cli:${createHash("sha256").update(fileURLToPath(CONFIG_DIR)).digest("hex").slice(0, 16)}`;
 const KEYCHAIN_LOGIN_TIMEOUT_MS = 5_000;
-// Holders keep it for about one request.
+// A holder keeps this lock for about one request.
 const CREDENTIALS_LOCK_TIMEOUT_MS = 30_000;
 // Leaves time to answer the keychain's unlock dialog.
 const KEYCHAIN_TIMEOUT_MS = 30_000;
@@ -39,8 +39,8 @@ const SessionSchema = z.object({
 	refreshToken: z.optional(z.string()),
 	/** Milliseconds since the epoch, from the local time of receipt. */
 	expiresAt: z.optional(z.number()),
-	// Its host can differ from the session's, which works until the new login
-	// replaces it.
+	// Can be for another host, because the current session stays until the new
+	// login saves.
 	pendingLogin: z.optional(z.extend(PendingLoginSchema, { host: z.string() })),
 });
 export type Session = z.infer<typeof SessionSchema>;
@@ -58,8 +58,8 @@ export type FallbackReason = z.infer<typeof FallbackReasonSchema>;
 const StoreModeSchema = z.enum(["keyring", "file"]);
 export type StoreMode = z.infer<typeof StoreModeSchema>;
 
-// What every login keeps in plain text. A field that doesn't match reads as
-// missing.
+// Every login keeps these fields in plain text. A field that doesn't match
+// reads as missing.
 const LoginSummarySchema = z.object({
 	version: z.optional(z.unknown()),
 	host: z.catch(z.optional(z.string()), undefined),
@@ -100,8 +100,8 @@ export async function readCredentials(): Promise<{ login?: StoredLogin }> {
 	return { login: { store, storeReason, session: session.data } };
 }
 
-// Reads what's in plain text, so it never needs the keychain. A file it can't
-// read reads as empty.
+// Reads only the plain-text fields, so it never needs the keychain. A file it
+// can't read counts as empty.
 export async function readLoginSummary(): Promise<LoginSummary> {
 	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH).catch(() => undefined));
 	return z.safeParse(LoginSummarySchema, json).data ?? {};
@@ -115,9 +115,9 @@ const FALLBACK_REASONS: Record<KeyringErrorReason, FallbackReason> = {
 	timeout: "timeout",
 };
 
-// Only a login calls this, in the same lock hold as the write that uses its
-// key, so two logins can't each create a key and then encrypt with the one
-// that lost, and a logout can't delete the key in between.
+// Picks where a new login is saved, and creates the key if needed. Call it in
+// the same lock hold as the write, so no other login or logout can change the
+// key in between.
 export async function prepareLogin(
 	lock: Lock,
 ): Promise<{ store: "keyring" } | { store: "file"; storeReason: FallbackReason }> {
@@ -168,8 +168,8 @@ export async function writeCredentials(lock: Lock, login: StoredLogin): Promise<
 	);
 }
 
-// The login is gone either way, so a key the keychain won't delete only gets a
-// warning.
+// Deletes the login and its key, but keeps the host. A key the keychain won't
+// delete only gets a warning, since the login is gone either way.
 export async function clearCredentials(lock: Lock): Promise<void> {
 	const { host, store } = await readLoginSummary();
 	const hadKey = store === "keyring" || (await exists(ENCRYPTED_CREDENTIALS_PATH));
@@ -205,13 +205,14 @@ export async function withCredentialsLock<T>(callback: (lock: Lock) => Promise<T
 	}
 }
 
-// A login holds this one while it waits for approval, so one command polls for
-// a config directory, and others can still refresh or log out meanwhile.
+// Takes the lock a login holds while it waits for approval. It's separate from
+// the credentials lock, so others can still refresh or log out meanwhile.
 export async function lockLogin(config: { timeoutMs: number }): Promise<Lock> {
 	return lockConfigDir(LOGIN_LOCK_PATH, config);
 }
 
-// A config folder the CLI can't write, as in some agent sandboxes, isn't a bug.
+// Turns a config folder the CLI can't write, as in some agent sandboxes, into a
+// clear error.
 async function lockConfigDir(path: URL, config: { timeoutMs: number }): Promise<Lock> {
 	try {
 		await ensurePrivateDir();

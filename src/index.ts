@@ -153,8 +153,8 @@ async function main(): Promise<void> {
 
 	if (!help) {
 		const host = await getHost();
-		// Only the plain-text part, so commands that don't use the login never
-		// wait on the keychain.
+		// Reads only the plain-text fields, so commands that don't use the login
+		// never wait on the keychain.
 		const summary = env.PRISMIC_TOKEN ? {} : await readLoginSummary();
 		const loggedIn = Boolean(env.PRISMIC_TOKEN || summary.expiresAt);
 
@@ -182,8 +182,8 @@ async function main(): Promise<void> {
 			if (knownUserId) {
 				sentrySetUser({ id: knownUserId });
 			} else {
-				// Once after each login, which forgets the tracked user. Unlike the
-				// summary above, this can read the keychain or refresh the token.
+				// Runs once after each login, which forgets the tracked user. Unlike the
+				// summary above, it can read the keychain or refresh the token.
 				getUserProfile({ getToken, host })
 					.then((profile) => {
 						trackUser(profile);
@@ -260,8 +260,8 @@ function getAgentOptionsError(taskId: string | undefined, userIntent: string | u
 	if (!userIntent) return "missing --user-intent";
 }
 
-// A login that Auth0 refuses as misconfigured needs a fix on Prismic's side.
-// The error holds only Auth0's error code, never a response body.
+// Reports a misconfigured login, which needs a fix on Prismic's side. Its error
+// holds only Auth0's error code, never a response body.
 function isReported(error: unknown): boolean {
 	if (error instanceof DeviceFlowError) return error.reason === "misconfigured";
 	return REPORTED_KNOWN_ERRORS.some((type) => error instanceof type);

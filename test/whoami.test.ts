@@ -94,7 +94,7 @@ it("refreshes a login saved by `prismic login`", async ({
 	const login = prismic("login");
 	const output = captureOutput(login);
 	await waitForLoginPrompt(expect, output);
-	// Inside the 5-minute refresh margin.
+	// Expires inside the 5-minute refresh margin.
 	auth0.approve({ expiresIn: 60 });
 	expect((await login).exitCode, output()).toBe(0);
 

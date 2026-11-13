@@ -36,7 +36,7 @@ import { appendTrailingSlash } from "./lib/url";
 import { forgetTrackedUser, getLoginResult, recordLogin, trackCommandEnd } from "./tracking";
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000;
-// Below Claude Code's 2-minute command timeout.
+// Agents stop before Claude Code's 2-minute command timeout.
 const AGENT_WAIT_MS = (process.env.PROD === "false" && env.PRISMIC_AGENT_WAIT_MS) || 90_000;
 // Auth0's device codes expire after 15 minutes.
 const LOGIN_WAIT_MS = 15 * 60 * 1000;
@@ -47,20 +47,19 @@ const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFile
 type Login = {
 	host: string;
 	auth0: Auth0Config;
-	// Infinity for a person, who waits until the code expires.
+	/** Infinity for a person, who waits until the code expires. */
 	deadline: number;
 	startedAt: number;
 	resumed: boolean;
-	// The saved token when the login started. Another command's login shows
-	// up as a different one.
+	/** The saved token at the start. A login saved by another command changes it. */
 	tokenBefore?: string;
-	// Whether this command waited for another command's login, and that
-	// command's code once this one showed it.
+	/** Whether this command waited for another command's login. */
 	waited: boolean;
+	/** The other command's pending login, once this command showed it. */
 	shown?: PendingLogin;
-	// Set once this command is the one that polls Auth0.
+	/** Set once this command polls Auth0. */
 	pending?: PendingLogin;
-	// Ctrl-C deletes the pending login too, which isn't a logout.
+	/** Set on Ctrl-C, so its cleanup doesn't read as a logout. */
 	cancelled?: boolean;
 };
 
@@ -76,8 +75,7 @@ type StartedLogin =
 	| { status: "logged-out" };
 
 let renewal: Promise<string | undefined> | undefined;
-// Auth0 ended the saved session in this process, so the login prompt can say
-// why.
+// Set when Auth0 ends the saved session, so the login prompt can say why.
 let ended = false;
 
 let reauthentication: Promise<string> | undefined;
@@ -89,14 +87,14 @@ export async function getToken(): Promise<string | undefined> {
 
 export async function getHost(): Promise<string> {
 	if (env.PRISMIC_HOST) return env.PRISMIC_HOST;
-	// Read once. A command keeps its host, and the session check with it, even
-	// if another command logs in to another host meanwhile.
+	// Read once, so a command keeps its host even if another command logs in to
+	// another host meanwhile.
 	savedHost ??= readLoginSummary().then((summary) => summary.host);
 	return (await savedHost) || DEFAULT_PRISMIC_HOST;
 }
 
-// `forceRefresh` renews a token that a server refused, even if it's not about
-// to expire. Returns nothing without a session.
+// Returns the session's token, renewed when it's about to expire, or when
+// `forceRefresh` is set because a server refused it.
 async function getSessionToken(
 	options: { forceRefresh?: boolean } = {},
 ): Promise<string | undefined> {
@@ -116,8 +114,8 @@ async function getSessionToken(
 	try {
 		return await renewal;
 	} catch (error) {
-		// Without Auth0 or the saved login, the current token works until it
-		// expires, unless a server already refused it.
+		// If the renewal fails, a token that hasn't expired still works, unless a
+		// server refused it.
 		const token = getUnexpiredToken(session);
 		const isRenewalError = error instanceof DeviceFlowError || error instanceof CredentialsError;
 		if (isRenewalError && token && !forceRefresh) return token;
@@ -146,9 +144,8 @@ async function renewLogin(
 		return tokens.accessToken;
 	}
 
-	// If the refresh token changed meanwhile, retry once with it, but only while
-	// holding the lock: using it without saving the result would end that
-	// session.
+	// A newer refresh token gets one retry, only under the lock, because a
+	// refresh that isn't saved would end that session.
 	const latest = (await readCredentials()).login;
 	if (options.canRetry && latest?.session.refreshToken !== refreshToken && (await lock.isHeld())) {
 		return renewLogin(lock, latest, staleToken, { canRetry: false });
@@ -192,8 +189,8 @@ async function isTokenRejected(token: string | undefined): Promise<boolean> {
 	}
 }
 
-// A refused token gets one refresh. A login starts only when the session is
-// over, never when Auth0 can't be reached.
+// Refreshes a refused token, and logs in only when the session is over, never
+// when Auth0 can't be reached.
 export async function reauthenticate(options: { browser?: boolean } = {}): Promise<string> {
 	const token = await getSessionToken({ forceRefresh: true });
 	if (token) return token;
@@ -201,7 +198,7 @@ export async function reauthenticate(options: { browser?: boolean } = {}): Promi
 	return logIn(options);
 }
 
-// The prompt and the result go to stderr, so a command that logs in on its own
+// Logs in with a link and a code on stderr, so a command that logs in on its own
 // keeps its output clean.
 export async function logIn(options: { browser?: boolean } = {}): Promise<string> {
 	const { browser = false } = options;
@@ -209,9 +206,8 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	const auth0 = getAuth0Config(host);
 	if (!auth0) throw new CommandError(`Login isn't available for ${host}. Use PRISMIC_TOKEN.`);
 
-	// An agent stops before its command times out, then runs the command again
-	// to continue. Without a terminal, nobody may be there to approve, so it
-	// stops the same way.
+	// An agent stops before its command times out and runs it again to continue.
+	// Without a terminal, nobody may be there to approve, so it stops too.
 	const isPerson =
 		detectAgent() === undefined && process.stdin.isTTY === true && process.stderr.isTTY === true;
 	const login: Login = {
@@ -224,8 +220,8 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 		tokenBefore: (await readCredentials().catch(() => undefined))?.login?.session.accessToken,
 	};
 
-	// Ctrl-C during a login runs only this handler, so a command that stops on
-	// Ctrl-C, like sync, can't exit before the login cleans up.
+	// Only this handler runs on Ctrl-C, so a command like sync can't exit before
+	// the login cleans up.
 	const handlers = process.rawListeners("SIGINT") as NodeJS.SignalsListener[];
 	process.removeAllListeners("SIGINT");
 	process.once("SIGINT", async () => {
@@ -272,8 +268,8 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 
 // Native client IDs are public.
 function getAuth0Config(host: string): Auth0Config | undefined {
-	// Tests log in with a fake Auth0 server. In a release, a stray variable must
-	// never send a real login to another tenant.
+	// Tests use a fake Auth0 server. Releases drop this branch, so a stray
+	// variable can't send a real login to another tenant.
 	if (process.env.PROD === "false" && env.PRISMIC_AUTH0_DOMAIN) {
 		return { auth0Domain: env.PRISMIC_AUTH0_DOMAIN, clientId: env.PRISMIC_AUTH0_CLIENT_ID ?? "" };
 	}
@@ -314,7 +310,7 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 		} else {
 			const { pending } = started;
 			if (pending.deviceCode !== login.shown?.deviceCode) printLoginPrompt(pending);
-			// openBrowser() runs a shell, so the URL from Auth0 must hold no shell
+			// openBrowser() runs a shell, so the URL from Auth0 can't contain shell
 			// syntax, including cmd.exe's %NAME%.
 			const href = pending.verificationUriComplete ?? pending.verificationUri;
 			if (options.browser && /^https:\/\/[\w\-.:/?=&~+]+$/.test(href) && URL.canParse(href)) {
@@ -337,9 +333,9 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 	return { ...saved, status: "logged-in", email };
 }
 
-// One command polls Auth0 per config directory. Another command that needs a
-// login shows the same code and waits for the first one, as long as its own
-// login would. Returns nothing when an agent's wait ends first.
+// Takes the login lock, so one command polls Auth0 per config folder. Others
+// show its code and wait as long as their own login would. Returns nothing
+// when an agent's wait ends first.
 async function lockLoginAfterOthers(login: Login): Promise<Lock | undefined> {
 	const waitUntil = Math.min(login.deadline, Date.now() + LOGIN_WAIT_MS);
 	while (true) {
@@ -362,8 +358,8 @@ async function lockLoginAfterOthers(login: Login): Promise<Lock | undefined> {
 	}
 }
 
-// A new code is saved, so a later run can continue it. The login gets its code
-// while the lock is held, so a Ctrl-C right after still finds it to delete.
+// Resumes the pending login, or starts and saves a new one so a later run can
+// continue it. Both happen under the lock, so a Ctrl-C right after can delete it.
 async function startLogin(login: Login): Promise<StartedLogin> {
 	return withCredentialsLock(async (lock) => {
 		// A saved login that can't be read doesn't stop a new one.
@@ -398,8 +394,8 @@ async function startLogin(login: Login): Promise<StartedLogin> {
 	});
 }
 
-// A pending login is bound to its host, Auth0 domain and client ID, and its
-// expiry never moves.
+// Returns the pending login if it matches this host, Auth0 domain and client
+// ID, and hasn't expired. Resuming it never moves its expiry.
 function getResumableLogin(session: Session, login: Login): PendingLogin | undefined {
 	const { pendingLogin } = session;
 	if (
@@ -424,8 +420,8 @@ function printLoginPrompt(pending: PendingLogin): void {
 	`);
 }
 
-// Stops early when an agent's wait ends, which keeps the pending login for the
-// next run, or when a logout deletes the pending login.
+// Polls until the login is approved. Stops early when an agent's wait ends,
+// keeping the pending login for the next run, or when a logout deletes it.
 async function pollUntilApproved(
 	login: Login,
 	pending: PendingLogin,
@@ -460,8 +456,8 @@ async function pollUntilApproved(
 	}
 }
 
-// Best effort. Leaves the saved pending login alone if another command
-// replaced it.
+// Updates or deletes the pending login, unless another command replaced it.
+// Errors are ignored.
 async function setPendingLogin(
 	current: PendingLogin,
 	next: Session["pendingLogin"],
@@ -473,7 +469,7 @@ async function setPendingLogin(
 	}).catch(() => {});
 }
 
-// Returns nothing when a logout deleted the pending login while it waited.
+// Saves the login. Returns nothing when a logout deleted the pending login.
 async function saveLogin(
 	login: Login,
 	pending: PendingLogin,
@@ -487,9 +483,8 @@ async function saveLogin(
 			return;
 		}
 
-		// Without a logout, the key that saved the pending login is still valid,
-		// and reading it again could fall back to a file if the keychain locked
-		// during the wait.
+		// Keeps the store the pending login used. Choosing again could fall back to
+		// a file if the keychain locked during the wait.
 		const store = stored?.login
 			? { store: stored.login.store, storeReason: stored.login.storeReason }
 			: await prepareLogin(lock);

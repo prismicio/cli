@@ -59,7 +59,7 @@ function security(
 ): Promise<string | undefined> {
 	return new Promise((resolve, reject) => {
 		const child = spawn("/usr/bin/security", args, {
-			// A Ctrl-C meant for the caller must not make the call fail.
+			// Runs in its own process group, so a Ctrl-C in the terminal can't make it fail.
 			detached: true,
 			signal: AbortSignal.timeout(options.timeoutMs),
 			stdio: ["pipe", "pipe", "ignore"],

@@ -93,8 +93,8 @@ export async function pollDeviceLogin(
 	let current = pending;
 	let delayMs = current.intervalMs;
 
-	// The signal stops the wait between requests. A request in flight finishes,
-	// because Auth0 may have spent the code on it.
+	// The signal stops the wait between requests, not a request in flight, which
+	// may have used up the code.
 	while (true) {
 		signal?.throwIfAborted();
 		if (Date.now() >= current.expiresAt) throw new DeviceFlowError("expired");

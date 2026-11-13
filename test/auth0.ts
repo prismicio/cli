@@ -5,7 +5,7 @@ import type { AddressInfo } from "node:net";
 // A fake Auth0 tenant for login tests. A real device login needs a person to
 // approve it in a browser, so automated tests can't use Auth0 itself.
 
-// Seconds between polls, short so tests don't wait.
+// Tests poll every 100 ms, so they don't wait.
 const INTERVAL = 0.1;
 
 type FakeAuth0Response = { status: number; body?: unknown };
@@ -15,7 +15,7 @@ export type FakeAuth0 = {
 	clientId: string;
 	/** The form fields of each request to this path, in order. */
 	requestsTo: (path: string) => Record<string, string>[];
-	/** `expiresIn` sets the access token's lifetime in seconds. */
+	/** Approves the latest code. `expiresIn` sets the token's lifetime in seconds. */
 	approve: (options?: { expiresIn?: number }) => void;
 	deny: (options?: { description?: string }) => void;
 	expire: () => void;

@@ -123,10 +123,8 @@ export const it = test.extend<Fixtures>({
 	token: async ({}, use) => {
 		await use(inject("token"));
 	},
-	// On macOS, the CLI's keychain calls follow HOME. A keychain inside the test's
-	// HOME keeps them off the user's keychain. Without one, macOS opens a dialog
-	// asking where to save. Windows has no such setting, so its tests use the
-	// Credential Manager.
+	// On macOS, `security` follows HOME, so a keychain in the test's HOME keeps
+	// tests off the user's keychain. Windows tests use the Credential Manager.
 	keychain: async ({ home }, use) => {
 		if (process.platform !== "darwin") return use();
 		const path = fileURLToPath(new URL("Library/Keychains/prismic-test.keychain-db", home));
@@ -262,7 +260,7 @@ export async function failInstall(project: URL): Promise<void> {
 	await writeFile(new URL("npm.cmd", bin), "@exit /b 1\r\n");
 }
 
-// tinyexec's own output misses what a capture read first.
+// Collects output as it arrives. After this, tinyexec's own result can miss some.
 export function captureOutput(proc: Result, options: { stderr?: boolean } = {}): () => string {
 	const { stderr = true } = options;
 	let output = "";
