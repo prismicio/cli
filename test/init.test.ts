@@ -35,6 +35,21 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic docs view cli#set-up-a-type-builder-project");
 });
 
+it("shows the AGENTS section in help only when an agent is detected", async ({
+	expect,
+	prismic,
+}) => {
+	const agentHelp = (
+		await prismic("init", ["--help"], { nodeOptions: { env: { AI_AGENT: "test-agent" } } })
+	).stdout;
+	const humanHelp = (await prismic("init", ["--help"])).stdout;
+	expect(agentHelp).toContain("AGENTS");
+	expect(agentHelp).toContain("Do not ask the user");
+	expect(agentHelp.indexOf("AGENTS")).toBeLessThan(agentHelp.indexOf("USAGE"));
+	expect(humanHelp).not.toContain("AGENTS");
+	expect(humanHelp).not.toContain("Do not ask the user");
+});
+
 it("fails if prismic.config.json already exists without --repo", async ({
 	expect,
 	prismic,

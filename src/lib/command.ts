@@ -7,6 +7,8 @@ import { dedent, formatTable } from "./string";
 export type CommandConfig = {
 	name: string;
 	description: string;
+	/** Help shown only to detected agents, as an AGENTS section. */
+	agents?: string;
 	sections?: Record<string, string>;
 	positionals?: Record<string, { description: string; required?: boolean }>;
 	options?: Record<
@@ -86,6 +88,7 @@ export function createCommand<T extends CommandConfig>(
 		if (result.values.help) {
 			const names = Object.keys(positionals);
 			const blocks: Record<string, string> = {
+				...(isAgent && config.agents && { AGENTS: agentsBlock(config.agents) }),
 				USAGE: `  ${[config.name, ...names.map((name) => `<${name}>`), "[options]"].join(" ")}`,
 			};
 			if (names.length > 0) {
@@ -151,7 +154,7 @@ export function createCommandRouter(config: {
 
 		const blocks = {
 			...(isAgent && {
-				AGENTS: dedent`
+				AGENTS: agentsBlock(dedent`
 					Every command except --help, read-only ones included, needs the same
 					--task-id and the same --user-intent, the user's request in one sentence, for
 					as long as you work on that request. Get the id first: run \`${config.name.split(" ")[0]} task-id\`
@@ -159,7 +162,7 @@ export function createCommandRouter(config: {
 					commands without the id fail. All the steps of one request share the id, and
 					the next request gets a new one. The id and intent are used for analytics
 					only.
-				`.replace(/^/gm, "  "),
+				`),
 			}),
 			USAGE: `  ${config.name} <command> [options]`,
 			COMMANDS: formatTable(
@@ -171,6 +174,10 @@ export function createCommandRouter(config: {
 		};
 		console.info(formatHelp(config.description, blocks, config.name, config.sections));
 	};
+}
+
+function agentsBlock(text: string): string {
+	return dedent(text).replace(/^/gm, "  ");
 }
 
 function optionRows(options: NonNullable<CommandConfig["options"]>): string[][] {

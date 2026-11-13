@@ -58,6 +58,10 @@ const config = {
 
 		Run \`prismic docs view cli#set-up-a-type-builder-project\` for details.
 	`,
+	agents: `
+		Do not ask the user whether to create a new repository or connect an
+		existing one. Use --repo only for a repository the user names, and run init.
+	`,
 	options: {
 		repo: {
 			type: "string",
