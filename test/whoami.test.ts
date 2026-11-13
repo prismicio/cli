@@ -54,6 +54,17 @@ it("uses PRISMIC_TOKEN env var when set", async ({ expect, prismic, login, logou
 	expect(stdout).toContain(email);
 });
 
+it("reports when Prismic can't be reached", async ({ expect, prismic }) => {
+	// The .invalid TLD never resolves, like a DNS failure when offline.
+	const { stderr, exitCode } = await prismic("whoami", [], {
+		nodeOptions: { env: { PRISMIC_HOST: "prismic.invalid" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(
+		"Can't reach Prismic. Check your connection, then run the command again.",
+	);
+});
+
 it("reports a Write API token", async ({ expect, prismic, repo, writeToken }) => {
 	const { stdout, stderr, exitCode } = await prismic("whoami", [], {
 		nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },

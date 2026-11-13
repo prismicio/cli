@@ -24,6 +24,7 @@ import {
 } from "../lib/prismic/models";
 import {
 	ForbiddenRequestError,
+	NetworkError,
 	NotFoundRequestError,
 	RequestError,
 	UnauthorizedRequestError,
@@ -360,7 +361,7 @@ async function syncUntilStopped(
 			const temporary =
 				error instanceof RequestError
 					? error.status >= 500 || error.status === 429
-					: error instanceof TypeError && error.message === "fetch failed";
+					: error instanceof NetworkError;
 			if (temporary && ++failures < 6) continue;
 			if (temporary) onUnreachable();
 			else await onError(error);
