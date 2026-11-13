@@ -40,7 +40,7 @@ const REFRESH_MARGIN_MS = 5 * 60 * 1000;
 const AGENT_WAIT_MS = (process.env.PROD === "false" && env.PRISMIC_AGENT_WAIT_MS) || 90_000;
 // Auth0's device codes expire after 15 minutes.
 const LOGIN_WAIT_MS = 15 * 60 * 1000;
-const PENDING_POLL_MS = 250;
+const PENDING_POLL_MS = 1000;
 const LOGIN_PARAMS = { audience: "prismic.io", scope: "openid profile email offline_access" };
 const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFileURL(homedir())));
 
