@@ -2,9 +2,12 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import * as z from "zod/mini";
 
+import packageJson from "../../package.json" with { type: "json" };
 import { NetworkError, request, RequestError } from "./request";
 
 const REQUEST_TIMEOUT_MS = 10_000;
+// Auth0 keeps it with the login, so the dashboard can tell a user's logins apart.
+const AUTH0_HEADERS = { "User-Agent": `prismic-cli/${packageJson.version} (${process.platform})` };
 const DEFAULT_INTERVAL_MS = 5_000;
 const SLOW_DOWN_MS = 5_000;
 const MAX_BACKOFF_MS = 60_000;
@@ -55,6 +58,7 @@ export async function startDeviceLogin(
 	const response = await request(url, {
 		method: "POST",
 		body: new URLSearchParams({ client_id: config.clientId, ...params }),
+		headers: AUTH0_HEADERS,
 		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		schema: DeviceCodeSchema,
 	}).catch((error) => {
@@ -108,6 +112,7 @@ export async function pollDeviceLogin(
 					device_code: current.deviceCode,
 					client_id: current.clientId,
 				}),
+				headers: AUTH0_HEADERS,
 				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 				schema: DeviceTokenSchema,
 			});
@@ -162,6 +167,7 @@ export async function refreshAccessToken(
 			refresh_token: refreshToken,
 			client_id: config.clientId,
 		}),
+		headers: AUTH0_HEADERS,
 		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		schema: RefreshedTokenSchema,
 	}).catch((error) => {
@@ -182,6 +188,7 @@ export async function revokeRefreshToken(refreshToken: string, config: Auth0Conf
 	await request(url, {
 		method: "POST",
 		body: new URLSearchParams({ client_id: config.clientId, token: refreshToken }),
+		headers: AUTH0_HEADERS,
 		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 	}).catch((error) => {
 		throw new DeviceFlowError(isTransient(error) ? "unavailable" : "misconfigured", error);

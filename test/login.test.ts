@@ -1,5 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 
+import packageJson from "../package.json" with { type: "json" };
 import { approveLogin, captureOutput, it, waitForLoginPrompt } from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -32,6 +33,10 @@ it("logs in with a code, and saves the login for this user only", async ({
 	expect(output()).toContain(`Logged in to Prismic as ${email}`);
 	const deviceCode = auth0.requestsTo("/oauth/token")[0]?.device_code;
 	expect(deviceCode).toBeDefined();
+	// The dashboard reads the version and platform from it.
+	expect(auth0.userAgentsTo("/oauth/token")[0]).toBe(
+		`prismic-cli/${packageJson.version} (${process.platform})`,
+	);
 	expect(output()).not.toContain(deviceCode);
 	expect(output()).not.toContain(token);
 

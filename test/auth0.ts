@@ -13,6 +13,7 @@ export type FakeAuth0 = {
 	auth0Domain: string;
 	clientId: string;
 	requestsTo: (path: string) => Record<string, string>[];
+	userAgentsTo: (path: string) => (string | undefined)[];
 	/** Approves the latest code. `expiresIn` sets the token's lifetime in seconds. */
 	approve: (options?: { expiresIn?: number }) => void;
 	deny: (options?: { description?: string }) => void;
@@ -34,7 +35,11 @@ type DeviceCode = {
 export async function createFakeAuth0(options: { accessToken: string }): Promise<FakeAuth0> {
 	const { accessToken } = options;
 	const clientId = `fake-${randomToken(8)}`;
-	const requests: { path: string; params: Record<string, string> }[] = [];
+	const requests: {
+		path: string;
+		params: Record<string, string>;
+		userAgent: string | undefined;
+	}[] = [];
 	const responses = new Map<string, FakeAuth0Response[]>();
 	const codes: DeviceCode[] = [];
 	const refreshTokens = new Set<string>();
@@ -44,7 +49,7 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 		let body = "";
 		for await (const chunk of req) body += chunk;
 		const params = Object.fromEntries(new URLSearchParams(body));
-		requests.push({ path, params });
+		requests.push({ path, params, userAgent: req.headers["user-agent"] });
 
 		const response = responses.get(path)?.shift();
 		if (response) {
@@ -147,6 +152,8 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 		clientId,
 		requestsTo: (path) =>
 			requests.filter((request) => request.path === path).map((request) => request.params),
+		userAgentsTo: (path) =>
+			requests.filter((request) => request.path === path).map((request) => request.userAgent),
 		approve: ({ expiresIn } = {}) => {
 			const code = latestCode();
 			code.status = "approved";
