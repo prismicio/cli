@@ -54,6 +54,8 @@ export const it = base.extend<{
 			bin,
 			project,
 			login,
+			auth0,
+			keychain: _keychain,
 			exec,
 			task,
 			repo,
@@ -112,6 +114,8 @@ export const it = base.extend<{
 				{ mode: 0o755 },
 			);
 			env.PRISMIC_CONFIG_DIR = fileURLToPath(new URL(".config/prismic/", home));
+			env.PRISMIC_AUTH0_DOMAIN = auth0.auth0Domain;
+			env.PRISMIC_AUTH0_CLIENT_ID = auth0.clientId;
 			env.PRISMIC_TYPE_BUILDER_ENABLED = "true";
 			env.PRISMIC_SENTRY_ENABLED = "false";
 			env.PRISMIC_TELEMETRY_ENABLED = "false";

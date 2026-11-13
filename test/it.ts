@@ -10,6 +10,7 @@ import { x } from "tinyexec";
 import type { ExpectStatic } from "vitest";
 import { inject, test } from "vitest";
 
+import { createFakeAuth0, type FakeAuth0 } from "./auth0";
 import {
 	createRepository,
 	createWriteToken,
@@ -30,7 +31,17 @@ export type Fixtures = {
 	project: URL;
 	exec: typeof x;
 	prismic: typeof x;
-	login: () => Promise<{ token: string; email: string }>;
+	keychain: void;
+	/** A fake Auth0 tenant. `prismic` logs in with it, and gets the e2e user's token. */
+	auth0: FakeAuth0;
+	/** Saves a login in a file, as when no keychain is usable. */
+	login: (session?: {
+		host?: string;
+		auth0Domain?: string;
+		accessToken?: string;
+		refreshToken?: string;
+		expiresAt?: number;
+	}) => Promise<{ email: string }>;
 	logout: () => Promise<void>;
 	token: string;
 	password: string;
@@ -113,20 +124,52 @@ export const it = test.extend<Fixtures>({
 	token: async ({}, use) => {
 		await use(inject("token"));
 	},
-	login: async ({ token, home }, use) => {
-		await use(async () => {
+	// On macOS, `security` follows HOME, so a keychain in the test's HOME keeps
+	// tests off the user's keychain. Windows tests use the Credential Manager.
+	keychain: async ({ home }, use) => {
+		if (process.platform !== "darwin") return use();
+		const path = fileURLToPath(new URL("Library/Keychains/prismic-test.keychain-db", home));
+		await mkdir(new URL("Library/Keychains/", home), { recursive: true });
+		// `security` drops its settings when this folder is missing.
+		await mkdir(new URL("Library/Preferences/", home), { recursive: true });
+		await security(home, ["create-keychain", "-p", "", path]);
+		await security(home, ["list-keychains", "-d", "user", "-s", path]);
+		await security(home, ["default-keychain", "-s", path]);
+		// Without a timeout, it never locks, so it never asks for its password.
+		await security(home, ["set-keychain-settings", path]);
+		await use();
+		await security(home, ["delete-keychain", path]);
+	},
+	auth0: async ({ token }, use) => {
+		const auth0 = await createFakeAuth0({ accessToken: token });
+		await use(auth0);
+		await auth0.close();
+	},
+	login: async ({ token, home, auth0, host }, use) => {
+		await use(async (session = {}) => {
 			const configDir = new URL(".config/prismic/", home);
 			await mkdir(configDir, { recursive: true });
 			await writeFile(
 				new URL("credentials.json", configDir),
-				JSON.stringify({ token, host: DEFUALT_PRISMIC_HOST }),
+				JSON.stringify({
+					version: 2,
+					store: "file",
+					host,
+					auth0Domain: auth0.auth0Domain,
+					clientId: auth0.clientId,
+					accessToken: token,
+					refreshToken: auth0.issueRefreshToken(),
+					expiresAt: Date.now() + 60 * 60 * 1000,
+					...session,
+				}),
 			);
-			return { token, email: E2E_PRISMIC_EMAIL };
+			return { email: E2E_PRISMIC_EMAIL };
 		});
 	},
 	logout: async ({ home }, use) => {
 		await use(async () => {
 			await rm(new URL(".config/prismic/credentials.json", home), { force: true });
+			await rm(new URL(".config/prismic/credentials.enc", home), { force: true });
 		});
 	},
 	exec: async ({ home, bin, project }, use) => {
@@ -139,6 +182,9 @@ export const it = test.extend<Fixtures>({
 					...options?.nodeOptions,
 					env: {
 						...process.env,
+						// Keeps the CLI off a Linux desktop's keyring. Logins go to a file,
+						// as on CI.
+						DBUS_SESSION_BUS_ADDRESS: "unix:path=/nonexistent",
 						...options?.nodeOptions?.env,
 						PATH: `${fileURLToPath(bin)}${delimiter}${process.env.PATH}`,
 						HOME: fileURLToPath(home),
@@ -152,7 +198,7 @@ export const it = test.extend<Fixtures>({
 			if (proc.exitCode === undefined) proc.kill();
 		}
 	},
-	prismic: async ({ home, login, exec }, use) => {
+	prismic: async ({ home, login, exec, auth0, keychain: _keychain }, use) => {
 		await login();
 		const configDir = new URL(".config/prismic/", home);
 		await use((command, args = [], options) =>
@@ -162,6 +208,8 @@ export const it = test.extend<Fixtures>({
 					...options?.nodeOptions,
 					env: {
 						AI_AGENT: "",
+						PRISMIC_AUTH0_DOMAIN: auth0.auth0Domain,
+						PRISMIC_AUTH0_CLIENT_ID: auth0.clientId,
 						PRISMIC_TYPE_BUILDER_ENABLED: "true",
 						PRISMIC_SENTRY_ENABLED: "false",
 						PRISMIC_TELEMETRY_ENABLED: "false",
@@ -213,25 +261,29 @@ export async function failInstall(project: URL): Promise<void> {
 	await writeFile(new URL("npm.cmd", bin), "@exit /b 1\r\n");
 }
 
-export function captureOutput(proc: Result): () => string {
+// tinyexec's own result can miss output that this collects.
+export function captureOutput(proc: Result, options: { stderr?: boolean } = {}): () => string {
+	const { stderr = true } = options;
 	let output = "";
 	proc.process?.stdout?.on("data", (c: Buffer) => (output += c.toString()));
-	proc.process?.stderr?.on("data", (c: Buffer) => (output += c.toString()));
+	if (stderr) proc.process?.stderr?.on("data", (c: Buffer) => (output += c.toString()));
 	return () => output;
 }
 
-export async function completeLogin(
+export async function waitForLoginPrompt(
 	expect: ExpectStatic,
 	output: () => string,
-	token: string,
 ): Promise<void> {
-	await expect.poll(output, { timeout: 15_000 }).toMatch(/port=(\d+)/);
-	const port = output().match(/port=(\d+)/)![1];
-	await fetch(`http://localhost:${port}`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ cookies: [`prismic-auth=${token}; path=/`], email: "test@example.com" }),
-	});
+	await expect.poll(output, { timeout: 15_000 }).toContain("Waiting for the login");
+}
+
+export async function approveLogin(
+	expect: ExpectStatic,
+	output: () => string,
+	auth0: FakeAuth0,
+): Promise<void> {
+	await waitForLoginPrompt(expect, output);
+	auth0.approve();
 }
 
 export function buildCustomType(
@@ -369,4 +421,12 @@ async function getConfig(project: URL): Promise<{ libraries?: string[] }> {
 	const path = new URL("prismic.config.json", project);
 	const raw = await readFile(path, "utf8");
 	return JSON.parse(raw);
+}
+
+// Runs `security` with the test's HOME, so it only sees the test's keychain.
+async function security(home: URL, args: string[]): Promise<void> {
+	await x("/usr/bin/security", args, {
+		nodeOptions: { env: { ...process.env, HOME: fileURLToPath(home) } },
+		throwOnError: true,
+	});
 }

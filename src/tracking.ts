@@ -8,7 +8,7 @@ import { ANALYTICS_IDS_PATH } from "./config";
 import type { FallbackReason, StoreMode } from "./credentials";
 import { DEFAULT_PRISMIC_HOST, env } from "./env";
 import { detectAgent } from "./lib/ai";
-import type { DeviceFlowError } from "./lib/auth0";
+import { DeviceFlowError, type DeviceFlowErrorReason } from "./lib/auth0";
 import { readJsonFile, writeFileRecursive } from "./lib/file";
 import { stringify } from "./lib/json";
 import { decodePayload } from "./lib/jwt";
@@ -35,7 +35,7 @@ const usesStoredUser = !env.PRISMIC_TOKEN;
 // it answers for the user who just left.
 let forgotUser = false;
 
-export type LoginResult =
+type LoginResult =
 	| "success"
 	| "expired"
 	| "declined"
@@ -56,10 +56,11 @@ let storeReason: FallbackReason | undefined;
 let login: { result: LoginResult; resumed: boolean; durationS: number } | undefined;
 let revoked: boolean | undefined;
 let ids: AnalyticsIds | undefined;
+let command: { type: string; watch?: boolean } | undefined;
 
 export async function initTracking(config: {
 	host: string;
-	token?: string;
+	loggedIn: boolean;
 	repo?: string;
 	userIntent?: string;
 	taskId?: string;
@@ -74,7 +75,7 @@ export async function initTracking(config: {
 	storeReason = config.storeReason;
 	const writeKey = host === DEFAULT_PRISMIC_HOST ? PROD_WRITE_KEY : STAGING_WRITE_KEY;
 	agent = detectAgent();
-	auth = detectAuth(config.token);
+	auth = detectAuth(config.loggedIn);
 	({ runtime, runtimeProvider } = detectRuntime());
 
 	const storedIds = await readIds();
@@ -119,10 +120,9 @@ export async function forgetTrackedUser(): Promise<void> {
 	if (storedIds?.userId) await saveIds({ anonymousId: storedIds.anonymousId });
 }
 
-function detectAuth(token: string | undefined): string {
-	if (!token) return "none";
-	if (!env.PRISMIC_TOKEN) return "login";
-	const payload = decodePayload(token);
+function detectAuth(loggedIn: boolean): string {
+	if (!env.PRISMIC_TOKEN) return loggedIn ? "login" : "none";
+	const payload = decodePayload(env.PRISMIC_TOKEN);
 	if (!payload) return "unknown-token";
 	return payload.type === "machine2machine" ? "write-token" : "user-token";
 }
@@ -188,11 +188,12 @@ async function saveIds(nextIds: AnalyticsIds): Promise<void> {
 	await writeFileRecursive(ANALYTICS_IDS_PATH, stringify(nextIds)).catch(() => {});
 }
 
-export function trackCommandStart(command: string, config: { watch?: boolean } = {}): void {
+export function trackCommandStart(type: string, config: { watch?: boolean } = {}): void {
 	const { watch } = config;
+	command = { type, watch };
 	trackEvent("Prismic CLI Start", {
 		properties: {
-			commandType: command,
+			commandType: type,
 			fullCommand: process.argv.join(" "),
 			repository,
 			watch,
@@ -207,15 +208,15 @@ export function trackCommandStart(command: string, config: { watch?: boolean } =
 	});
 }
 
-export function trackCommandEnd(
-	command: string,
-	config: { watch?: boolean; error?: unknown } = {},
-): void {
-	const { watch, error } = config;
+export function trackCommandEnd(config: { error?: unknown } = {}): void {
+	if (!command) return;
+	const { type, watch } = command;
+	command = undefined;
+	const { error } = config;
 	const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : undefined;
 	trackEvent("Prismic CLI End", {
 		properties: {
-			commandType: command,
+			commandType: type,
 			fullCommand: process.argv.join(" "),
 			success: !process.exitCode,
 			repository,
@@ -240,7 +241,7 @@ export function trackCommandEnd(
 
 // Adds to the command's End event. `startedAt` is saved with the pending login,
 // so a resumed login counts from its first run.
-export function trackLogin(config: {
+export function recordLogin(config: {
 	result: LoginResult;
 	resumed: boolean;
 	startedAt: number;
@@ -253,11 +254,11 @@ export function trackLogin(config: {
 }
 
 // Adds to the command's End event.
-export function trackLogout(config: { revoked: boolean }): void {
+export function recordLogout(config: { revoked: boolean }): void {
 	revoked = config.revoked;
 }
 
-const LOGIN_RESULTS: Record<DeviceFlowError["reason"], LoginResult> = {
+const LOGIN_RESULTS: Record<DeviceFlowErrorReason, LoginResult> = {
 	expired: "expired",
 	declined: "declined",
 	"email-unverified": "email-unverified",
@@ -266,8 +267,8 @@ const LOGIN_RESULTS: Record<DeviceFlowError["reason"], LoginResult> = {
 	unavailable: "error",
 };
 
-export function getLoginResult(error: DeviceFlowError): LoginResult {
-	return LOGIN_RESULTS[error.reason];
+export function getLoginResult(error: unknown): LoginResult {
+	return error instanceof DeviceFlowError ? LOGIN_RESULTS[error.reason] : "error";
 }
 
 const PrismicRcSchema = z.object({

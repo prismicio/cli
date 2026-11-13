@@ -8,28 +8,24 @@ const OWNER_FILENAME = "owner.json";
 // Claiming a new lock takes milliseconds, so a lock without an owner after
 // this long was left by a process that died before claiming it.
 const UNCLAIMED_MS = 1_000;
+const STALE_MS = 10_000;
+const HEARTBEAT_MS = 2_000;
 
 type Owner = { id: string; pid: number; hostname: string };
-
-export type LockOptions = {
-	timeoutMs: number;
-	staleMs?: number;
-	heartbeatMs?: number;
-};
 
 export type Lock = {
 	isHeld(): Promise<boolean>;
 	release(): Promise<void>;
 };
 
-export async function acquireLock(path: URL, options: LockOptions): Promise<Lock> {
-	const { timeoutMs, staleMs = 10_000, heartbeatMs = 2_000 } = options;
+export async function acquireLock(path: URL, options: { timeoutMs: number }): Promise<Lock> {
+	const { timeoutMs } = options;
 	const owner: Owner = { id: randomUUID(), pid: process.pid, hostname: hostname() };
 	const deadline = Date.now() + timeoutMs;
 
 	let delayMs = 25;
 	while (!(await tryCreate(path, owner))) {
-		if (await recoverIfStale(path, staleMs)) continue;
+		if (await recoverIfStale(path)) continue;
 		if (Date.now() >= deadline) {
 			throw new LockTimeoutError(`Timed out waiting for the lock at ${fileURLToPath(path)}.`);
 		}
@@ -48,7 +44,7 @@ export async function acquireLock(path: URL, options: LockOptions): Promise<Lock
 		if (!(await isHeld())) return;
 		const now = new Date();
 		await utimes(getOwnerPath(path), now, now).catch(() => {});
-	}, heartbeatMs);
+	}, HEARTBEAT_MS);
 	heartbeat.unref();
 
 	return {
@@ -84,7 +80,7 @@ async function tryCreate(path: URL, owner: Owner): Promise<boolean> {
 	}
 }
 
-async function recoverIfStale(path: URL, staleMs: number): Promise<boolean> {
+async function recoverIfStale(path: URL): Promise<boolean> {
 	const owner = await readOwner(path);
 	const touched = await stat(getOwnerPath(path))
 		.catch(() => stat(path))
@@ -92,7 +88,7 @@ async function recoverIfStale(path: URL, staleMs: number): Promise<boolean> {
 	if (!touched) return true; // Released in the meantime.
 
 	const ageMs = Date.now() - touched.mtimeMs;
-	const isOld = ageMs > staleMs;
+	const isOld = ageMs > STALE_MS;
 	const isUnclaimed = !owner && ageMs > UNCLAIMED_MS;
 	const isOrphan = owner?.hostname === hostname() && !isAlive(owner.pid);
 	if (!isOld && !isUnclaimed && !isOrphan) return false;

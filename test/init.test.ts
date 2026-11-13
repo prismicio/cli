@@ -3,6 +3,7 @@ import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { describe } from "vitest";
 
 import {
+	approveLogin,
 	buildCustomType,
 	captureOutput,
 	failInstall,
@@ -226,17 +227,46 @@ it("skips framework scaffolding with --no-setup", async ({ expect, project, pris
 	await expect(access(new URL("package-lock.json", project))).rejects.toThrow();
 }, 60_000);
 
-it("triggers login flow when not logged in", async ({ expect, project, prismic, logout, repo }) => {
+it("logs in when not logged in, even on CI", async ({
+	expect,
+	project,
+	prismic,
+	logout,
+	auth0,
+	repo,
+}) => {
 	await rm(new URL("prismic.config.json", project));
 	await logout();
 
-	const proc = prismic("init", ["--repo", repo, "--no-browser"]);
+	const proc = prismic("init", ["--repo", repo, "--no-browser", "--no-setup"], {
+		nodeOptions: { env: { CI: "true" } },
+	});
 	const output = captureOutput(proc);
+	await approveLogin(expect, output, auth0);
+	const { exitCode } = await proc;
+	expect(exitCode, output()).toBe(0);
+	expect(output()).toContain("Logged in to Prismic as");
+	const configRaw = await readFile(new URL("prismic.config.json", project), "utf-8");
+	expect(JSON.parse(configRaw).repositoryName).toBe(repo);
+}, 60_000);
 
-	// Verify login flow starts, then kill — no need to complete it
-	await expect.poll(output, { timeout: 15_000 }).toMatch(/port=(\d+)/);
-	proc.kill();
-});
+it("renews a rejected token instead of logging in again", async ({
+	expect,
+	project,
+	prismic,
+	login,
+	auth0,
+	repo,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	await login({ accessToken: "rejected-token" });
+
+	const proc = prismic("init", ["--repo", repo, "--no-setup"]);
+	const output = captureOutput(proc);
+	expect((await proc).exitCode, output()).toBe(0);
+	expect(output()).not.toContain("Open this URL");
+	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
+}, 60_000);
 
 it("fails if repo is not in the user's account", async ({ expect, project, prismic }) => {
 	await rm(new URL("prismic.config.json", project));

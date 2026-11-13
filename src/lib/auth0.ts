@@ -2,7 +2,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import * as z from "zod/mini";
 
-import { request, RequestError } from "./request";
+import { NetworkError, request, RequestError } from "./request";
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_INTERVAL_MS = 5_000;
@@ -10,6 +10,14 @@ const SLOW_DOWN_MS = 5_000;
 const MAX_BACKOFF_MS = 60_000;
 
 export type Auth0Config = { auth0Domain: string; clientId: string };
+
+export type DeviceFlowErrorReason =
+	| "expired"
+	| "declined"
+	| "email-unverified"
+	| "invalid-grant"
+	| "misconfigured"
+	| "unavailable";
 
 export const PendingLoginSchema = z.object({
 	auth0Domain: z.string(),
@@ -20,10 +28,11 @@ export const PendingLoginSchema = z.object({
 	verificationUriComplete: z.optional(z.string()),
 	expiresAt: z.number(),
 	intervalMs: z.number(),
+	startedAt: z.number(),
 });
 export type PendingLogin = z.infer<typeof PendingLoginSchema>;
 
-type DeviceLoginTokens = {
+export type DeviceLoginTokens = {
 	accessToken: string;
 	refreshToken: string;
 	expiresAt: number;
@@ -46,7 +55,7 @@ export async function startDeviceLogin(
 	const response = await request(url, {
 		method: "POST",
 		body: new URLSearchParams({ client_id: config.clientId, ...params }),
-		signal: getRequestSignal(),
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		schema: DeviceCodeSchema,
 	}).catch((error) => {
 		const reason = getFailureReason(error) ?? (isTransient(error) ? "unavailable" : undefined);
@@ -61,18 +70,7 @@ export async function startDeviceLogin(
 		verificationUriComplete: response.verification_uri_complete,
 		expiresAt: Date.now() + response.expires_in * 1000,
 		intervalMs: response.interval !== undefined ? response.interval * 1000 : DEFAULT_INTERVAL_MS,
-	};
-}
-
-export function getDeviceLoginPrompt(pending: PendingLogin): {
-	url: string;
-	userCode: string;
-	codeInUrl: boolean;
-} {
-	return {
-		url: pending.verificationUriComplete ?? pending.verificationUri,
-		userCode: pending.userCode,
-		codeInUrl: pending.verificationUriComplete !== undefined,
+		startedAt: Date.now(),
 	};
 }
 
@@ -87,15 +85,18 @@ const DeviceTokenSchema = z.object({
 export async function pollDeviceLogin(
 	pending: PendingLogin,
 	options: {
-		signal?: AbortSignal;
-		onUpdate?: (pending: PendingLogin) => void | Promise<void>;
-	} = {},
+		signal: AbortSignal | undefined;
+		onUpdate: (pending: PendingLogin) => void | Promise<void>;
+	},
 ): Promise<DeviceLoginTokens> {
 	const { signal, onUpdate } = options;
 	let current = pending;
 	let delayMs = current.intervalMs;
 
+	// The signal stops the wait between requests, not a request in flight, which
+	// may have used up the code.
 	while (true) {
+		signal?.throwIfAborted();
 		if (Date.now() >= current.expiresAt) throw new DeviceFlowError("expired");
 
 		try {
@@ -107,7 +108,7 @@ export async function pollDeviceLogin(
 					device_code: current.deviceCode,
 					client_id: current.clientId,
 				}),
-				signal: getRequestSignal(signal),
+				signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 				schema: DeviceTokenSchema,
 			});
 			return {
@@ -116,14 +117,13 @@ export async function pollDeviceLogin(
 				expiresAt: Date.now() + tokens.expires_in * 1000,
 			};
 		} catch (error) {
-			signal?.throwIfAborted();
 			const retryAfterMs = getRetryAfterMs(error);
 			const code = getOAuthError(error)?.error;
 			if (code === "authorization_pending") {
 				delayMs = Math.max(current.intervalMs, retryAfterMs);
 			} else if (code === "slow_down") {
 				current = { ...current, intervalMs: current.intervalMs + SLOW_DOWN_MS };
-				await onUpdate?.(current);
+				await onUpdate(current);
 				delayMs = Math.max(current.intervalMs, retryAfterMs);
 			} else {
 				const reason = getFailureReason(error);
@@ -148,8 +148,8 @@ const RefreshedTokenSchema = z.object({
 	expires_in: z.number(),
 });
 
-// Returns nothing when Auth0 refuses the refresh token, since the session has
-// ended.
+// Returns nothing when Auth0 refuses the refresh token, or an Auth0 Action
+// denies it, since the session has ended.
 export async function refreshAccessToken(
 	refreshToken: string,
 	config: Auth0Config,
@@ -162,10 +162,11 @@ export async function refreshAccessToken(
 			refresh_token: refreshToken,
 			client_id: config.clientId,
 		}),
-		signal: getRequestSignal(),
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 		schema: RefreshedTokenSchema,
 	}).catch((error) => {
-		if (getOAuthError(error)?.error === "invalid_grant") return undefined;
+		const code = getOAuthError(error)?.error;
+		if (code === "invalid_grant" || code === "access_denied") return undefined;
 		throw new DeviceFlowError(isTransient(error) ? "unavailable" : "misconfigured", error);
 	});
 	if (!tokens) return;
@@ -181,13 +182,10 @@ export async function revokeRefreshToken(refreshToken: string, config: Auth0Conf
 	await request(url, {
 		method: "POST",
 		body: new URLSearchParams({ client_id: config.clientId, token: refreshToken }),
-		signal: getRequestSignal(),
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+	}).catch((error) => {
+		throw new DeviceFlowError(isTransient(error) ? "unavailable" : "misconfigured", error);
 	});
-}
-
-function getRequestSignal(signal?: AbortSignal): AbortSignal {
-	const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
-	return signal ? AbortSignal.any([timeout, signal]) : timeout;
 }
 
 // Tests use a local server over HTTP.
@@ -215,9 +213,9 @@ function getFailureReason(error: unknown): DeviceFlowErrorReason | undefined {
 
 function isTransient(error: unknown): boolean {
 	if (error instanceof RequestError) return error.status === 429 || error.status >= 500;
-	// fetch throws a TypeError on network errors.
 	return (
-		error instanceof TypeError || (error instanceof DOMException && error.name === "TimeoutError")
+		error instanceof NetworkError ||
+		(error instanceof DOMException && error.name === "TimeoutError")
 	);
 }
 
@@ -242,14 +240,6 @@ function getRetryAfterMs(error: unknown): number {
 	return 0;
 }
 
-type DeviceFlowErrorReason =
-	| "expired"
-	| "declined"
-	| "email-unverified"
-	| "invalid-grant"
-	| "misconfigured"
-	| "unavailable";
-
 // `error` isn't kept as `cause`, since Sentry reports causes and they can hold
 // response details. `detail` is the Auth0 error code or HTTP status.
 export class DeviceFlowError extends Error {
@@ -259,32 +249,15 @@ export class DeviceFlowError extends Error {
 
 	constructor(reason: DeviceFlowErrorReason, error?: unknown) {
 		const detail = error === undefined ? undefined : getDetail(error);
-		super(getMessage(reason, detail));
+		super(detail ? `${reason} (${detail})` : reason);
 		this.reason = reason;
 		this.detail = detail;
-	}
-}
-
-function getMessage(reason: DeviceFlowErrorReason, detail: string | undefined): string {
-	switch (reason) {
-		case "expired":
-			return "The device code expired.";
-		case "declined":
-			return "The login was declined.";
-		case "email-unverified":
-			return "The login was declined because the email address isn't verified.";
-		case "invalid-grant":
-			return "The device code is unknown or was already used.";
-		case "misconfigured":
-			return `Auth0 rejected the request (${detail}).`;
-		case "unavailable":
-			return `Auth0 can't be reached (${detail}).`;
 	}
 }
 
 function getDetail(error: unknown): string {
 	if (error instanceof RequestError) return getOAuthError(error)?.error ?? `HTTP ${error.status}`;
 	if (error instanceof DOMException && error.name === "TimeoutError") return "timeout";
-	if (error instanceof TypeError) return "network error";
+	if (error instanceof NetworkError) return "network error";
 	return "unexpected response";
 }
