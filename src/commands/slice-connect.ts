@@ -46,7 +46,13 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const sliceZoneField = allFields[sliceZone];
 	if (!sliceZoneField || sliceZoneField.type !== "Slices") {
-		throw new CommandError(`Slice zone "${sliceZone}" not found in "${to}".`);
+		const sliceZoneIds = Object.keys(allFields).filter((key) => allFields[key].type === "Slices");
+		const [firstTab = "Main"] = Object.keys(customType.json);
+		const hint =
+			sliceZoneIds.length > 0
+				? `Use --slice-zone with one of: ${sliceZoneIds.join(", ")}.`
+				: `"${to}" has no slice zone. Add one with \`prismic type edit-tab "${firstTab}" --from-type ${to} --with-slice-zone\`, then run this command again.`;
+		throw new CommandError(`Slice zone "${sliceZone}" not found in "${to}". ${hint}`);
 	}
 
 	sliceZoneField.config ??= {};

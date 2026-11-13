@@ -54,6 +54,10 @@ const config = {
 		slicemachine.config.json exists, its repository and settings will be
 		migrated.
 
+		Without --repo, init creates a new repository, even if the project used
+		another one before. Use --repo only for a repository the user names. Do
+		not ask the user which to use.
+
 		Run \`prismic docs view cli#set-up-a-type-builder-project\` for details.
 	`,
 	options: {
