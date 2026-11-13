@@ -83,3 +83,43 @@ it("errors for an unknown slice", async ({ expect, prismic }) => {
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain('Slice "CallToAction" does not exist.');
 });
+
+it("adds a text field to a slice's legacy items zone", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	slice.variations[0].items = { label: { type: "Text", config: { label: "Label" } } };
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"text",
+		"subtitle",
+		"--to-slice",
+		slice.id,
+		"--legacy-items-zone",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	expect(updated!.variations[0].items!.subtitle).toMatchObject({ type: "Text" });
+	expect(updated!.variations[0].primary).toEqual({});
+});
+
+it("errors when the variation has no legacy items zone", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"text",
+		"subtitle",
+		"--to-slice",
+		slice.id,
+		"--legacy-items-zone",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(
+		`Variation "default" of slice "${slice.id}" has no legacy items zone. To add repeatable fields, add a repeatable group to the slice.`,
+	);
+	expect(stderr).toContain(`Hint: prismic field add group items --to-slice ${slice.id}`);
+	expect(stderr).toContain(`prismic field add text items.<field_id> --to-slice ${slice.id}`);
+});

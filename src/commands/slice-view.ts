@@ -33,5 +33,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 		console.info("");
 		console.info(`${variation.id}:`);
 		console.info(formatFieldTable(variation.primary ?? {}));
+		if (variation.items && Object.keys(variation.items).length > 0) {
+			console.info("");
+			console.info(`${variation.id} (legacy items zone):`);
+			console.info(formatFieldTable(variation.items));
+		}
 	}
 });

@@ -110,3 +110,21 @@ it("removes a nested field using dot notation", async ({ expect, prismic, projec
 	expect(group.config?.fields).toMatchObject({});
 	expect(group.config?.fields?.subtitle).toBeUndefined();
 });
+
+it("removes a field from a slice's legacy items zone", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	slice.variations[0].items = { label: { type: "Text", config: { label: "Label" } } };
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"remove",
+		"label",
+		"--from-slice",
+		slice.id,
+		"--legacy-items-zone",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	expect(updated!.variations[0].items).toEqual({});
+});
