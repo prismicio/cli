@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.28.0](https://github.com/prismicio/cli/compare/v1.27.0...v1.28.0) (2026-11-13)
+
+
+### Features
+
+* **auth:** log in with a code from any device ([#480](https://github.com/prismicio/cli/issues/480)) ([5eface2](https://github.com/prismicio/cli/commit/5eface2b67cc6b8cc25a5ae066f2817b505dcbee))
+* **auth:** send the CLI version and OS to Auth0 ([#485](https://github.com/prismicio/cli/issues/485)) ([30624f0](https://github.com/prismicio/cli/commit/30624f0c0a28d71dc39e68852625310663c95f7c))
+* log in again when a request is unauthorized ([ffa8dd0](https://github.com/prismicio/cli/commit/ffa8dd0e371b0c4a8fa16e8470d46881c4a33265))
+
+
+### Bug Fixes
+
+* **auth:** don't call a login cancelled when it saved before Ctrl-C ([#484](https://github.com/prismicio/cli/issues/484)) ([a228b58](https://github.com/prismicio/cli/commit/a228b58e25527fe329212c03c79653637b2aa545))
+* include a task ID in the missing --task-id error ([#456](https://github.com/prismicio/cli/issues/456)) ([6780b49](https://github.com/prismicio/cli/commit/6780b490da3d2426d9e02b7a5c44efd676b56492))
+* print the login URL once when port 5555 is in use ([#475](https://github.com/prismicio/cli/issues/475)) ([61918c9](https://github.com/prismicio/cli/commit/61918c967d6c4ff92d4b2a31a94b19d2e9440cb7))
+* show a clear error when Prismic can't be reached ([#483](https://github.com/prismicio/cli/issues/483)) ([669d0a3](https://github.com/prismicio/cli/commit/669d0a3596dd45013f9adfd64a42ba010d88b7bd))
+* type the port-blocking promise in the login test ([#477](https://github.com/prismicio/cli/issues/477)) ([869fa15](https://github.com/prismicio/cli/commit/869fa1517c615c520bfbd84de6549fcfcb3452a6))
+
 ## [1.27.0](https://github.com/prismicio/cli/compare/v1.26.0...v1.27.0) (2026-11-06)
 
 
