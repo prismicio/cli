@@ -2,7 +2,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 
 import * as z from "zod/mini";
 
-import { request, RequestError } from "./request";
+import { NetworkError, request, RequestError } from "./request";
 
 const REQUEST_TIMEOUT_MS = 10_000;
 const DEFAULT_INTERVAL_MS = 5_000;
@@ -213,9 +213,9 @@ function getFailureReason(error: unknown): DeviceFlowErrorReason | undefined {
 
 function isTransient(error: unknown): boolean {
 	if (error instanceof RequestError) return error.status === 429 || error.status >= 500;
-	// fetch throws a TypeError on network errors.
 	return (
-		error instanceof TypeError || (error instanceof DOMException && error.name === "TimeoutError")
+		error instanceof NetworkError ||
+		(error instanceof DOMException && error.name === "TimeoutError")
 	);
 }
 
@@ -258,6 +258,6 @@ export class DeviceFlowError extends Error {
 function getDetail(error: unknown): string {
 	if (error instanceof RequestError) return getOAuthError(error)?.error ?? `HTTP ${error.status}`;
 	if (error instanceof DOMException && error.name === "TimeoutError") return "timeout";
-	if (error instanceof TypeError) return "network error";
+	if (error instanceof NetworkError) return "network error";
 	return "unexpected response";
 }
