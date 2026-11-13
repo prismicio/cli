@@ -34,7 +34,13 @@ export async function request<T = unknown>(
 
 	const body = "json" in init ? JSON.stringify(json) : init.body;
 
-	const response = await fetch(input, { ...requestInit, body, headers });
+	const response = await fetch(input, { ...requestInit, body, headers }).catch((error) => {
+		// fetch throws this when the server can't be reached: offline, DNS, refused connection.
+		if (error instanceof TypeError && error.message === "fetch failed") {
+			throw new NetworkError(error.message, { cause: error });
+		}
+		throw error;
+	});
 
 	const rawBody = await response.text();
 	let value: unknown;
@@ -71,6 +77,10 @@ export async function request<T = unknown>(
 		default:
 			throw new UnknownRequestError(response, value, unknownErrorMessage);
 	}
+}
+
+export class NetworkError extends Error {
+	name = "NetworkError";
 }
 
 export class RequestError extends Error {

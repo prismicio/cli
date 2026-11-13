@@ -33,6 +33,7 @@ import {
 import {
 	BadRequestError,
 	ForbiddenRequestError,
+	NetworkError,
 	NotFoundRequestError,
 	UnauthorizedRequestError,
 	UnknownRequestError,
@@ -81,6 +82,7 @@ const KNOWN_ERRORS = [
 	InvalidLegacySliceMachineConfigError,
 	MissingPackageJson,
 	UnknownProjectRootError,
+	NetworkError,
 	NotFoundRequestError,
 	UnauthorizedRequestError,
 	ForbiddenRequestError,
