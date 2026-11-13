@@ -93,6 +93,23 @@ it.skipIf(process.platform === "win32")(
 	},
 );
 
+it.skipIf(process.platform === "win32")(
+	"reports a login that saved before Ctrl-C as saved",
+	async ({ expect, prismic, login, auth0 }) => {
+		// The new login revokes this session while it still holds the lock after saving.
+		await login({ refreshToken: auth0.issueRefreshToken() });
+		auth0.respondOnce("/oauth/revoke", { status: 200, delayMs: 2000 });
+		const proc = prismic("login");
+		const output = captureOutput(proc);
+		await approveLogin(expect, output, auth0);
+		await expect.poll(() => auth0.requestsTo("/oauth/revoke")).toHaveLength(1);
+		proc.kill("SIGINT");
+		expect((await proc).exitCode).toBe(130);
+		expect(output()).toContain("Logged in to Prismic.");
+		expect(output()).not.toContain("Login cancelled.");
+	},
+);
+
 it("makes another command wait for the login in progress", async ({
 	expect,
 	prismic,

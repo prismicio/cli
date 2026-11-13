@@ -1,13 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { setTimeout as sleep } from "node:timers/promises";
 
 // A fake Auth0 tenant for login tests. A real device login needs a person to
 // approve it in a browser, so automated tests can't use Auth0 itself.
 
 const INTERVAL = 0.1;
 
-type FakeAuth0Response = { status: number; body?: unknown };
+type FakeAuth0Response = { status: number; body?: unknown; delayMs?: number };
 
 export type FakeAuth0 = {
 	auth0Domain: string;
@@ -53,6 +54,7 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 
 		const response = responses.get(path)?.shift();
 		if (response) {
+			await sleep(response.delayMs ?? 0);
 			send(res, response.status, response.body);
 			return;
 		}

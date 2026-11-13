@@ -58,6 +58,8 @@ type Login = {
 	pending?: PendingLogin;
 	/** Set on Ctrl-C, so its cleanup doesn't read as a logout. */
 	cancelled?: boolean;
+	/** Set once the login is saved, so a later Ctrl-C doesn't call it cancelled. */
+	saved?: SavedLogin;
 };
 
 type SavedLogin = Pick<StoredLogin, "store" | "storeReason"> & { token: string };
@@ -214,9 +216,18 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	process.once("SIGINT", async () => {
 		login.cancelled = true;
 		console.error();
+		// Waits for a save in progress, which holds the lock.
 		if (login.pending) await setPendingLogin(login.pending, undefined);
-		recordLogin({ result: "cancelled", resumed: login.resumed, startedAt: login.startedAt });
-		await endCommand("Login cancelled.", 130);
+		const { resumed, startedAt, saved } = login;
+		const result = saved ? "success" : "cancelled";
+		recordLogin({
+			result,
+			resumed,
+			startedAt,
+			store: saved?.store,
+			storeReason: saved?.storeReason,
+		});
+		await endCommand(saved ? "Logged in to Prismic." : "Login cancelled.", 130);
 	});
 
 	let outcome: LoginOutcome;
@@ -464,13 +475,14 @@ async function saveLogin(
 			: await prepareLogin(lock);
 		const session = { host: login.host, ...login.auth0, ...tokens };
 		await writeCredentials(lock, { ...store, session });
+		login.saved = { ...store, token: tokens.accessToken };
 		// The new login is saved first, so a failed revoke only leaves the
 		// previous session to expire.
 		const previous = stored?.login?.session;
 		if (previous?.refreshToken) {
 			await revokeRefreshToken(previous.refreshToken, previous).catch(() => {});
 		}
-		return { ...store, token: tokens.accessToken };
+		return login.saved;
 	});
 }
 
