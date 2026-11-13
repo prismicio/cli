@@ -22,7 +22,6 @@ import { acquireLock, type Lock, LockTimeoutError } from "./lib/lock";
 const KEYCHAIN_SERVICE = "prismic-cli";
 const KEYCHAIN_ACCOUNT = `cli:${createHash("sha256").update(fileURLToPath(CONFIG_DIR)).digest("hex").slice(0, 16)}`;
 const KEYCHAIN_LOGIN_TIMEOUT_MS = 5_000;
-// A holder keeps this lock for about one request.
 const CREDENTIALS_LOCK_TIMEOUT_MS = 30_000;
 // Leaves time to answer the keychain's unlock dialog.
 const KEYCHAIN_TIMEOUT_MS = 30_000;
@@ -58,8 +57,7 @@ export type FallbackReason = z.infer<typeof FallbackReasonSchema>;
 const StoreModeSchema = z.enum(["keyring", "file"]);
 export type StoreMode = z.infer<typeof StoreModeSchema>;
 
-// Every login keeps these fields in plain text. A field that doesn't match
-// reads as missing.
+// Every login keeps these fields in plain text.
 const LoginSummarySchema = z.object({
 	version: z.optional(z.unknown()),
 	host: z.catch(z.optional(z.string()), undefined),
@@ -100,8 +98,7 @@ export async function readCredentials(): Promise<{ login?: StoredLogin }> {
 	return { login: { store, storeReason, session: session.data } };
 }
 
-// Reads only the plain-text fields, so it never needs the keychain. A file it
-// can't read counts as empty.
+// Reads only the plain-text fields, so it never needs the keychain.
 export async function readLoginSummary(): Promise<LoginSummary> {
 	const json = parseJson(await readPrivateFile(CREDENTIALS_PATH).catch(() => undefined));
 	return z.safeParse(LoginSummarySchema, json).data ?? {};
@@ -115,9 +112,8 @@ const FALLBACK_REASONS: Record<KeyringErrorReason, FallbackReason> = {
 	timeout: "timeout",
 };
 
-// Picks where a new login is saved, and creates the key if needed. Call it in
-// the same lock hold as the write, so no other login or logout can change the
-// key in between.
+// Call it in the same lock hold as the write that uses its key, so no other
+// login or logout can change the key in between.
 export async function prepareLogin(
 	lock: Lock,
 ): Promise<{ store: "keyring" } | { store: "file"; storeReason: FallbackReason }> {
@@ -168,8 +164,8 @@ export async function writeCredentials(lock: Lock, login: StoredLogin): Promise<
 	);
 }
 
-// Deletes the login and its key, but keeps the host. A key the keychain won't
-// delete only gets a warning, since the login is gone either way.
+// A key the keychain won't delete only gets a warning, since the login is gone
+// either way.
 export async function clearCredentials(lock: Lock): Promise<void> {
 	const { host, store } = await readLoginSummary();
 	const hadKey = store === "keyring" || (await exists(ENCRYPTED_CREDENTIALS_PATH));

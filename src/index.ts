@@ -182,8 +182,8 @@ async function main(): Promise<void> {
 			if (knownUserId) {
 				sentrySetUser({ id: knownUserId });
 			} else {
-				// Runs once after each login, which forgets the tracked user. Unlike the
-				// summary above, it can read the keychain or refresh the token.
+				// Unlike the summary above, this can read the keychain, so it runs once per
+				// login.
 				getUserProfile({ getToken, host })
 					.then((profile) => {
 						trackUser(profile);

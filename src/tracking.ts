@@ -56,8 +56,6 @@ let storeReason: FallbackReason | undefined;
 let login: { result: LoginResult; resumed: boolean; durationS: number } | undefined;
 let revoked: boolean | undefined;
 let ids: AnalyticsIds | undefined;
-// Set by trackCommandStart() and cleared by trackCommandEnd(), so End is sent
-// once.
 let command: { type: string; watch?: boolean } | undefined;
 
 export async function initTracking(config: {

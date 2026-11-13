@@ -260,7 +260,7 @@ export async function failInstall(project: URL): Promise<void> {
 	await writeFile(new URL("npm.cmd", bin), "@exit /b 1\r\n");
 }
 
-// Collects output as it arrives. After this, tinyexec's own result can miss some.
+// tinyexec's own result can miss output that this collects.
 export function captureOutput(proc: Result, options: { stderr?: boolean } = {}): () => string {
 	const { stderr = true } = options;
 	let output = "";
@@ -276,7 +276,6 @@ export async function waitForLoginPrompt(
 	await expect.poll(output, { timeout: 15_000 }).toContain("Waiting for the login");
 }
 
-// Approves the login a command waits for, as a person would in the browser.
 export async function approveLogin(
 	expect: ExpectStatic,
 	output: () => string,

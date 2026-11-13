@@ -51,7 +51,6 @@ it("stops an agent at its wait limit, and its next run continues the login", asy
 	await logout();
 	const { stdout: taskId } = await prismic("task-id");
 	const args = ["--task-id", taskId.trim(), "--user-intent", "Log in to Prismic"];
-	// Cuts the 90-second agent wait to 1 second.
 	const env = { AI_AGENT: "test-agent", PRISMIC_AGENT_WAIT_MS: "1000" };
 
 	const first = await prismic("login", args, { nodeOptions: { env } });
@@ -97,7 +96,6 @@ it("makes another command wait for the login in progress", async ({
 	repo,
 }) => {
 	await logout();
-	// Both start before either has a code.
 	const login = prismic("login");
 	const repos = prismic("repo", ["list", "--json"], { nodeOptions: { env: { CI: "" } } });
 	const loginOutput = captureOutput(login);

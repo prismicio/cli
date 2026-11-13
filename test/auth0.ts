@@ -5,7 +5,6 @@ import type { AddressInfo } from "node:net";
 // A fake Auth0 tenant for login tests. A real device login needs a person to
 // approve it in a browser, so automated tests can't use Auth0 itself.
 
-// Tests poll every 100 ms, so they don't wait.
 const INTERVAL = 0.1;
 
 type FakeAuth0Response = { status: number; body?: unknown };
@@ -13,7 +12,6 @@ type FakeAuth0Response = { status: number; body?: unknown };
 export type FakeAuth0 = {
 	auth0Domain: string;
 	clientId: string;
-	/** The form fields of each request to this path, in order. */
 	requestsTo: (path: string) => Record<string, string>[];
 	/** Approves the latest code. `expiresIn` sets the token's lifetime in seconds. */
 	approve: (options?: { expiresIn?: number }) => void;
@@ -134,7 +132,6 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 		});
 	}
 
-	// Like a person, tests answer the latest code.
 	function latestCode(): DeviceCode {
 		const code = codes.at(-1);
 		if (!code) throw new Error("No device code issued yet");

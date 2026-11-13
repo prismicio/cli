@@ -51,13 +51,10 @@ type Login = {
 	deadline: number;
 	startedAt: number;
 	resumed: boolean;
-	/** The saved token at the start. A login saved by another command changes it. */
+	/** A login saved by another command meanwhile changes it. */
 	tokenBefore?: string;
-	/** Whether this command waited for another command's login. */
 	waited: boolean;
-	/** The other command's pending login, once this command showed it. */
 	shown?: PendingLogin;
-	/** Set once this command polls Auth0. */
 	pending?: PendingLogin;
 	/** Set on Ctrl-C, so its cleanup doesn't read as a logout. */
 	cancelled?: boolean;
@@ -75,7 +72,6 @@ type StartedLogin =
 	| { status: "logged-out" };
 
 let renewal: Promise<string | undefined> | undefined;
-// Set when Auth0 ends the saved session, so the login prompt can say why.
 let ended = false;
 
 let reauthentication: Promise<string> | undefined;
@@ -93,8 +89,6 @@ export async function getHost(): Promise<string> {
 	return (await savedHost) || DEFAULT_PRISMIC_HOST;
 }
 
-// Returns the session's token, renewed when it's about to expire, or when
-// `forceRefresh` is set because a server refused it.
 async function getSessionToken(
 	options: { forceRefresh?: boolean } = {},
 ): Promise<string | undefined> {
@@ -106,7 +100,6 @@ async function getSessionToken(
 	const freshToken = getUnexpiredToken(session, REFRESH_MARGIN_MS);
 	if (freshToken && !forceRefresh) return freshToken;
 
-	// Parallel calls share one renewal.
 	renewal ??= withCredentialsLock(async (lock) => {
 		const { login } = await readCredentials();
 		return renewLogin(lock, login, session.accessToken, { canRetry: true });
@@ -130,7 +123,6 @@ async function renewLogin(
 	options: { canRetry: boolean },
 ): Promise<string | undefined> {
 	const session = storedLogin?.session;
-	// Another command may have saved a login for another host meanwhile.
 	if (!storedLogin || !session?.refreshToken || session.host !== (await getHost())) return;
 
 	// Another process renewed it while this one waited for the lock.
@@ -151,7 +143,6 @@ async function renewLogin(
 		return renewLogin(lock, latest, staleToken, { canRetry: false });
 	}
 
-	// The write fails if another process took the lock over.
 	await writeCredentials(lock, {
 		...storedLogin,
 		session: { host, auth0Domain, clientId, pendingLogin: session.pendingLogin },
@@ -189,8 +180,6 @@ async function isTokenRejected(token: string | undefined): Promise<boolean> {
 	}
 }
 
-// Refreshes a refused token, and logs in only when the session is over, never
-// when Auth0 can't be reached.
 export async function reauthenticate(options: { browser?: boolean } = {}): Promise<string> {
 	const token = await getSessionToken({ forceRefresh: true });
 	if (token) return token;
@@ -198,8 +187,6 @@ export async function reauthenticate(options: { browser?: boolean } = {}): Promi
 	return logIn(options);
 }
 
-// Logs in with a link and a code on stderr, so a command that logs in on its own
-// keeps its output clean.
 export async function logIn(options: { browser?: boolean } = {}): Promise<string> {
 	const { browser = false } = options;
 	const host = await getHost();
@@ -333,9 +320,6 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 	return { ...saved, status: "logged-in", email };
 }
 
-// Takes the login lock, so one command polls Auth0 per config folder. Others
-// show its code and wait as long as their own login would. Returns nothing
-// when an agent's wait ends first.
 async function lockLoginAfterOthers(login: Login): Promise<Lock | undefined> {
 	const waitUntil = Math.min(login.deadline, Date.now() + LOGIN_WAIT_MS);
 	while (true) {
@@ -346,7 +330,6 @@ async function lockLoginAfterOthers(login: Login): Promise<Lock | undefined> {
 		} catch (error) {
 			if (!(error instanceof LockTimeoutError)) throw error;
 			if (Date.now() >= login.deadline) return;
-			// The other command's code expired by now.
 			if (Date.now() >= waitUntil) throw new DeviceFlowError("expired");
 		}
 
@@ -358,8 +341,7 @@ async function lockLoginAfterOthers(login: Login): Promise<Lock | undefined> {
 	}
 }
 
-// Resumes the pending login, or starts and saves a new one so a later run can
-// continue it. Both happen under the lock, so a Ctrl-C right after can delete it.
+// Sets `login.pending` under the lock, so a Ctrl-C right after can delete it.
 async function startLogin(login: Login): Promise<StartedLogin> {
 	return withCredentialsLock(async (lock) => {
 		// A saved login that can't be read doesn't stop a new one.
@@ -394,8 +376,6 @@ async function startLogin(login: Login): Promise<StartedLogin> {
 	});
 }
 
-// Returns the pending login if it matches this host, Auth0 domain and client
-// ID, and hasn't expired. Resuming it never moves its expiry.
 function getResumableLogin(session: Session, login: Login): PendingLogin | undefined {
 	const { pendingLogin } = session;
 	if (
@@ -420,8 +400,6 @@ function printLoginPrompt(pending: PendingLogin): void {
 	`);
 }
 
-// Polls until the login is approved. Stops early when an agent's wait ends,
-// keeping the pending login for the next run, or when a logout deletes it.
 async function pollUntilApproved(
 	login: Login,
 	pending: PendingLogin,
@@ -444,7 +422,6 @@ async function pollUntilApproved(
 		});
 	} catch (error) {
 		if (error instanceof DeviceFlowError) {
-			// The code can't be used anymore.
 			await setPendingLogin(pending, undefined);
 			throw error;
 		}
@@ -456,8 +433,6 @@ async function pollUntilApproved(
 	}
 }
 
-// Updates or deletes the pending login, unless another command replaced it.
-// Errors are ignored.
 async function setPendingLogin(
 	current: PendingLogin,
 	next: Session["pendingLogin"],
@@ -469,7 +444,6 @@ async function setPendingLogin(
 	}).catch(() => {});
 }
 
-// Saves the login. Returns nothing when a logout deleted the pending login.
 async function saveLogin(
 	login: Login,
 	pending: PendingLogin,
