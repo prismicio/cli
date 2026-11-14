@@ -2,7 +2,7 @@ import { getActiveRepositoryName, getAdapter, NoSupportedFrameworkError } from "
 import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { MissingPackageJson } from "../lib/packageJson";
-import { addPreview } from "../lib/prismic/client";
+import { addPreview, getSimulatorUrl } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic preview add",
@@ -50,7 +50,28 @@ export default createCommand(config, async ({ positionals, values }) => {
 	);
 
 	console.info(`Preview added: ${previewUrl}`);
-	console.info("Run `prismic preview set-simulator <url>` to set the slice simulator URL.");
+
+	// A repository has one simulator URL but can have many previews, so this is only a hint.
+	const { simulator_url: simulatorUrl } = await getSimulatorUrl({
+		repo,
+		getToken,
+		host,
+		onUnauthorized,
+	});
+	if (!simulatorUrl) {
+		const suggestedUrl = new URL("/slice-simulator", parsed.origin);
+		console.info(
+			`NOTE: The repository has no simulator URL. You can set it with: prismic preview set-simulator ${suggestedUrl}`,
+		);
+	} else if (URL.canParse(simulatorUrl)) {
+		const simulator = new URL(simulatorUrl);
+		if (simulator.host !== parsed.host) {
+			const suggestedUrl = new URL(simulator.pathname, parsed.origin);
+			console.info(
+				`NOTE: The simulator URL is still ${simulatorUrl}. If this preview is for production, you can update it with: prismic preview set-simulator ${suggestedUrl}`,
+			);
+		}
+	}
 
 	// A preview URL is useless until setup is finished, for example until the website renders the preview component.
 	try {

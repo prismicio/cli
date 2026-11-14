@@ -1,7 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 
+import { describe } from "vitest";
+
 import { it, useSvelteKit } from "./it";
-import { getPreviews } from "./prismic";
+import { getPreviews, setSimulatorUrl } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("preview", ["add", "--help"]);
@@ -76,4 +78,34 @@ it("asks for a SvelteKit server layout when the project has none", async ({
 	expect(stdout).toContain("Return repositoryName from load in src/routes/+layout.server.js");
 	expect(stdout).toContain('export const prerender = "auto";');
 	expect(stdout).toContain("return { repositoryName };");
+});
+
+describe("with an isolated repository", () => {
+	it.scoped({ isolateRepo: true });
+
+	it("notes a simulator URL on another host", async ({ expect, prismic, repo, token, host }) => {
+		await setSimulatorUrl("http://localhost:3000/slice-simulator", { repo, token, host });
+		const origin = `https://test-${crypto.randomUUID()}.example.com`;
+
+		const { stdout, stderr, exitCode } = await prismic("preview", ["add", `${origin}/api/preview`]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(
+			`NOTE: The simulator URL is still http://localhost:3000/slice-simulator. If this preview is for production, you can update it with: prismic preview set-simulator ${origin}/slice-simulator`,
+		);
+	});
+
+	it("skips the simulator note when the hosts match", async ({
+		expect,
+		prismic,
+		repo,
+		token,
+		host,
+	}) => {
+		const origin = `https://test-${crypto.randomUUID()}.example.com`;
+		await setSimulatorUrl(`${origin}/slice-simulator`, { repo, token, host });
+
+		const { stdout, stderr, exitCode } = await prismic("preview", ["add", `${origin}/api/preview`]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).not.toContain("NOTE:");
+	});
 });
