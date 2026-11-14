@@ -91,7 +91,7 @@ describe("with an isolated repository", () => {
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain(
 			[
-				"NOTE: The simulator URL is still http://localhost:3000/slice-simulator. If this preview is for production, you can update it with:",
+				"NOTE: The Page Builder loads slice previews from the simulator URL, which is still http://localhost:3000/slice-simulator. If this preview is for production, update it with:",
 				`  prismic preview set-simulator ${origin}/slice-simulator`,
 			].join("\n"),
 		);

@@ -68,7 +68,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		if (simulator.host !== parsed.host) {
 			const suggestedUrl = new URL(simulator.pathname, parsed.origin);
 			console.info(
-				`NOTE: The simulator URL is still ${simulatorUrl}. If this preview is for production, you can update it with:\n  prismic preview set-simulator ${suggestedUrl}`,
+				`NOTE: The Page Builder loads slice previews from the simulator URL, which is still ${simulatorUrl}. If this preview is for production, update it with:\n  prismic preview set-simulator ${suggestedUrl}`,
 			);
 		}
 	}
