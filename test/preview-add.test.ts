@@ -90,7 +90,11 @@ describe("with an isolated repository", () => {
 		const { stdout, stderr, exitCode } = await prismic("preview", ["add", `${origin}/api/preview`]);
 		expect(exitCode, stderr).toBe(0);
 		expect(stdout).toContain(
-			`NOTE: The simulator URL is still http://localhost:3000/slice-simulator. If this preview is for production, you can update it with: prismic preview set-simulator ${origin}/slice-simulator`,
+			[
+				"NOTE: The simulator URL is still http://localhost:3000/slice-simulator. If this",
+				"preview is for production, you can update it with:",
+				`  prismic preview set-simulator ${origin}/slice-simulator`,
+			].join("\n"),
 		);
 	});
 
