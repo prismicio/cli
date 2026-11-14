@@ -61,14 +61,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 	if (!simulatorUrl) {
 		const suggestedUrl = new URL("/slice-simulator", parsed.origin);
 		console.info(
-			`${wrap("NOTE: The repository has no simulator URL. You can set it with:")}\n  prismic preview set-simulator ${suggestedUrl}`,
+			`NOTE: The repository has no simulator URL. You can set it with:\n  prismic preview set-simulator ${suggestedUrl}`,
 		);
 	} else if (URL.canParse(simulatorUrl)) {
 		const simulator = new URL(simulatorUrl);
 		if (simulator.host !== parsed.host) {
 			const suggestedUrl = new URL(simulator.pathname, parsed.origin);
 			console.info(
-				`${wrap(`NOTE: The simulator URL is still ${simulatorUrl}. If this preview is for production, you can update it with:`)}\n  prismic preview set-simulator ${suggestedUrl}`,
+				`NOTE: The simulator URL is still ${simulatorUrl}. If this preview is for production, you can update it with:\n  prismic preview set-simulator ${suggestedUrl}`,
 			);
 		}
 	}
@@ -85,19 +85,3 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 	}
 });
-
-// Wraps text at word boundaries. A word longer than the width, such as a URL, stays whole.
-function wrap(text: string, width = 80): string {
-	const lines: string[] = [];
-	let line = "";
-	for (const word of text.split(" ")) {
-		if (line && line.length + 1 + word.length > width) {
-			lines.push(line);
-			line = word;
-		} else {
-			line = line ? `${line} ${word}` : word;
-		}
-	}
-	lines.push(line);
-	return lines.join("\n");
-}
