@@ -1,4 +1,5 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 import packageJson from "../package.json" with { type: "json" };
 import { it } from "./it";
@@ -124,4 +125,33 @@ it("shows the agent options and `task-id` in help only when an agent is detected
 	expect(agentHelp.indexOf("AGENTS")).toBeLessThan(agentHelp.indexOf("USAGE"));
 	expect(humanHelp).not.toContain("AGENTS");
 	expect(agentHelp).not.toContain("--analytics-task-id");
+});
+
+it("gives each run one invocationId on its Start and End events", async ({
+	expect,
+	prismic,
+	home,
+}) => {
+	const eventsFile = fileURLToPath(new URL("segment-events.jsonl", home));
+	const env = {
+		PRISMIC_TELEMETRY_ENABLED: "true",
+		NODE_OPTIONS: `--import ${new URL("segment.ts", import.meta.url)}`,
+		SEGMENT_EVENTS_FILE: eventsFile,
+	};
+
+	await prismic("task-id", [], { nodeOptions: { env } });
+	await prismic("task-id", [], { nodeOptions: { env } });
+
+	const runs = (await readFile(eventsFile, "utf8"))
+		.trim()
+		.split("\n")
+		.map((line): { event: string; properties: { invocationId?: string } }[] => JSON.parse(line));
+	const [first, second] = runs.map((events) =>
+		events.filter((e) => e.event.startsWith("Prismic CLI ")),
+	);
+	expect(first.map((e) => e.event)).toEqual(["Prismic CLI Start", "Prismic CLI End"]);
+	expect(first[0].properties.invocationId).toBeTruthy();
+	expect(first[1].properties.invocationId).toBe(first[0].properties.invocationId);
+	expect(second[0].properties.invocationId).toBe(second[1].properties.invocationId);
+	expect(second[0].properties.invocationId).not.toBe(first[0].properties.invocationId);
 });
