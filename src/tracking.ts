@@ -56,8 +56,6 @@ let storeReason: FallbackReason | undefined;
 let login: { result: LoginResult; resumed: boolean; durationS: number } | undefined;
 let revoked: boolean | undefined;
 let ids: AnalyticsIds | undefined;
-// The anonymous ID is shared by every command on the machine, so this pairs a
-// command's Start and End events.
 const invocationId = crypto.randomUUID();
 let command: { type: string; watch?: boolean } | undefined;
 
