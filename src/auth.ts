@@ -33,7 +33,13 @@ import { getUserProfile, validateToken } from "./lib/prismic/client";
 import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
-import { forgetTrackedUser, getLoginResult, recordLogin, trackCommandEnd } from "./tracking";
+import {
+	forgetTrackedUser,
+	getLoginResult,
+	recordLogin,
+	trackCommandEnd,
+	trackUser,
+} from "./tracking";
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000;
 // Agents stop before Claude Code's 2-minute command timeout.
@@ -327,8 +333,9 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 	// The profile request also creates the Prismic user for a new social or SSO
 	// signup, so it runs right after a login saves its tokens.
 	await forgetTrackedUser();
-	const { email } = await getUserProfile({ getToken: async () => saved.token, host: login.host });
-	return { ...saved, status: "logged-in", email };
+	const profile = await getUserProfile({ getToken: async () => saved.token, host: login.host });
+	trackUser(profile);
+	return { ...saved, status: "logged-in", email: profile.email };
 }
 
 async function lockLoginAfterOthers(login: Login): Promise<Lock | undefined> {

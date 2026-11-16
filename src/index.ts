@@ -144,17 +144,6 @@ async function main(): Promise<void> {
 		!help && command !== "" && command !== "task-id" && detectAgent() !== undefined;
 	const agentOptionsError = agentNeedsTaskId ? getAgentOptionsError(taskId, userIntent) : undefined;
 
-	if (agentOptionsError) {
-		const id = taskId && isTaskId(taskId) ? taskId : genTaskId();
-		console.error(
-			`error: ${agentOptionsError}\n` +
-				`rerun with --task-id ${id} --user-intent "<what the user asked for>", ` +
-				"and pass both on every command until the user asks for something else",
-		);
-		process.exitCode = 1;
-		return;
-	}
-
 	if (!help) {
 		const host = await getHost();
 		// Reads only the plain-text fields, so commands that don't use the login
@@ -200,6 +189,19 @@ async function main(): Promise<void> {
 
 	// sync runs until SIGINT and tracks itself with watch: true.
 	const isTracked = !help && command && command !== "sync";
+
+	if (agentOptionsError) {
+		const id = taskId && isTaskId(taskId) ? taskId : genTaskId();
+		console.error(
+			`error: ${agentOptionsError}\n` +
+				`rerun with --task-id ${id} --user-intent "<what the user asked for>", ` +
+				"and pass both on every command until the user asks for something else",
+		);
+		process.exitCode = 1;
+		trackCommandStart(command);
+		trackCommandEnd({ error: agentOptionsError });
+		return;
+	}
 
 	try {
 		if (isTracked) trackCommandStart(command);
