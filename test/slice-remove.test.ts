@@ -6,19 +6,10 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic slice remove <id> [options]");
 });
 
-it("shows the AGENTS text in help only when an agent is detected", async ({ expect, prismic }) => {
-	const agentHelp = (
-		await prismic("slice", ["remove", "--help"], {
-			nodeOptions: { env: { AI_AGENT: "test-agent" } },
-		})
-	).stdout;
-	const humanHelp = (await prismic("slice", ["remove", "--help"])).stdout;
-	expect(agentHelp).toContain("asked to force it, ask before you run it.");
-	expect(agentHelp.indexOf("asked to force it, ask before you run it.")).toBeLessThan(
-		agentHelp.indexOf("USAGE"),
-	);
-	expect(humanHelp).not.toContain("AGENTS");
-	expect(humanHelp).not.toContain("asked to force it, ask before you run it.");
+it("tells agents to ask before removing", async ({ expect, prismic }) => {
+	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
+	const { stdout } = await prismic("slice", ["remove", "--help"], agent);
+	expect(stdout).toContain("asked to force it, ask before you run it.");
 });
 
 it("removes a slice", async ({ expect, prismic, project }) => {

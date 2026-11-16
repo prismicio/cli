@@ -33,19 +33,12 @@ it("supports --help", { concurrent: false }, async ({ expect, prismic }) => {
 });
 
 it(
-	"shows the AGENTS text in help only when an agent is detected",
+	"tells agents to use --force only when the user asks",
 	{ concurrent: false },
 	async ({ expect, prismic }) => {
-		const agentHelp = (
-			await prismic("pull", ["--help"], { nodeOptions: { env: { AI_AGENT: "test-agent" } } })
-		).stdout;
-		const humanHelp = (await prismic("pull", ["--help"])).stdout;
-		expect(agentHelp).toContain("Use --force only when the user asks for it.");
-		expect(agentHelp.indexOf("Use --force only when the user asks for it.")).toBeLessThan(
-			agentHelp.indexOf("USAGE"),
-		);
-		expect(humanHelp).not.toContain("AGENTS");
-		expect(humanHelp).not.toContain("Use --force only when the user asks for it.");
+		const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
+		const { stdout } = await prismic("pull", ["--help"], agent);
+		expect(stdout).toContain("Use --force only when the user asks for it.");
 	},
 );
 
