@@ -1,6 +1,6 @@
-import { getCredentials } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { setRepositoryName } from "../lib/prismic/clients/wroom";
+import { setRepositoryName } from "../lib/prismic/client";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -23,9 +23,14 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [displayName] = positionals;
 	const { repo = await getRepositoryName() } = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
-	const confirmedName = await setRepositoryName(displayName, { repo, token, host });
+	const { repository } = await setRepositoryName(displayName, {
+		repo,
+		getToken,
+		host,
+		onUnauthorized,
+	});
 
-	console.info(`Repository name set to: ${confirmedName}`);
+	console.info(`Repository name set to: ${repository.name}`);
 });

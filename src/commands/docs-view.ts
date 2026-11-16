@@ -3,7 +3,7 @@ import GithubSlugger from "github-slugger";
 import { env } from "../env";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getDocsPageContent } from "../lib/prismic/clients/docs";
+import { getDocsPageContent } from "../lib/prismic/client";
 import { getAnalyticsHeaders } from "../tracking";
 
 const config = {

@@ -24,9 +24,9 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic dev [options]");
 });
 
-it("fails when not logged in", async ({ expect, prismic, logout }) => {
+it("fails without a login when not logged in on CI", async ({ expect, prismic, logout }) => {
 	await logout();
-	const { stderr, exitCode } = await prismic("dev");
+	const { stderr, exitCode } = await prismic("dev", [], { nodeOptions: { env: { CI: "true" } } });
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Not logged in");
 });

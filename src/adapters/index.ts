@@ -7,7 +7,7 @@ import { pascalCase } from "change-case";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
 
-import { getCredentials } from "../auth";
+import { getHost, getToken } from "../auth";
 import { CommandError } from "../lib/command";
 import {
 	exists,
@@ -19,12 +19,7 @@ import {
 } from "../lib/file";
 import { stringify } from "../lib/json";
 import { getInstalledMajor, readPackageJson } from "../lib/packageJson";
-import {
-	addPreview,
-	getPreviews,
-	getSimulatorUrl,
-	setSimulatorUrl,
-} from "../lib/prismic/clients/core";
+import { addPreview, getPreviews, getSimulatorUrl, setSimulatorUrl } from "../lib/prismic/client";
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,
@@ -171,11 +166,11 @@ export abstract class Adapter {
 		}
 		if (setup) await this.setupProject();
 
-		const config = { repo: await getRepositoryName(), ...(await getCredentials()) };
-		if (!(await getSimulatorUrl(config))) {
+		const config = { repo: await getRepositoryName(), getToken, host: await getHost() };
+		if (!(await getSimulatorUrl(config)).simulator_url) {
 			await setSimulatorUrl(this.localSimulatorUrl, config);
 		}
-		if ((await getPreviews(config)).length === 0) {
+		if ((await getPreviews(config)).results.length === 0) {
 			await addPreview(this.localPreviewConfig, config);
 		}
 	}

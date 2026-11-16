@@ -1,9 +1,8 @@
 import { FRAMEWORKS, getAdapter } from "../adapters";
-import { getCredentials } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { upsertLocale } from "../lib/prismic/clients/locale";
-import { checkIsDomainAvailable, createRepository } from "../lib/prismic/clients/wroom";
+import { checkIsDomainAvailable, createRepository, upsertLocale } from "../lib/prismic/client";
 import { completeOnboardingSteps } from "../lib/prismic/onboarding";
 
 const MAX_DOMAIN_TRIES = 5;
@@ -52,8 +51,8 @@ export default createCommand(config, async ({ values }) => {
 		);
 	}
 
-	const { token, host } = await getCredentials();
-	const domain = await createRepo({ name, lang, framework, token, host });
+	const host = await getHost();
+	const domain = await createRepo({ name, lang, framework, host });
 
 	console.info(`Repository created: ${domain}`);
 	console.info(`URL: https://${domain}.${host}/`);
@@ -63,41 +62,53 @@ export async function createRepo(config: {
 	name?: string;
 	lang?: string;
 	framework: string;
-	token: string | undefined;
 	host: string;
 }): Promise<string> {
-	const { name, lang = "en-us", framework, token, host } = config;
+	const { name, lang = "en-us", framework, host } = config;
 
-	const domain = await findAvailableDomain({ token, host });
+	const domain = await findAvailableDomain(host);
 	if (!domain) {
 		throw new CommandError("Failed to create a repository. Please try again.");
 	}
 
 	const agent = detectAgent();
 
-	await createRepository({ domain, name: name ?? domain, framework, agent, token, host });
+	await createRepository({
+		domain,
+		name: name ?? domain,
+		framework,
+		agent,
+		getToken,
+		host,
+		onUnauthorized,
+	});
 
 	// A new repository has no locale, so set the master locale to make it usable.
-	await upsertLocale({ id: lang, isMaster: true }, { repo: domain, token, host });
+	await upsertLocale(
+		{ id: lang, isMaster: true },
+		{ repo: domain, getToken, host, onUnauthorized },
+	);
 
 	await completeOnboardingSteps(["createPrismicProject"], {
 		repo: domain,
-		token,
+		getToken,
 		host,
+		onUnauthorized,
 	}).catch(() => {});
 
 	return domain;
 }
 
-async function findAvailableDomain(config: {
-	token: string | undefined;
-	host: string;
-}): Promise<string | undefined> {
-	const { token, host } = config;
+async function findAvailableDomain(host: string): Promise<string | undefined> {
 	let domain;
 	for (let i = 0; i < MAX_DOMAIN_TRIES; i++) {
 		const candidate = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
-		const available = await checkIsDomainAvailable({ domain: candidate, token, host });
+		const available = await checkIsDomainAvailable({
+			domain: candidate,
+			getToken,
+			host,
+			onUnauthorized,
+		});
 		if (available) {
 			domain = candidate;
 			break;

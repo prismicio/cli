@@ -1,7 +1,7 @@
 import { getActiveRepositoryName } from "../adapters";
-import { getCredentials } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { createWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/clients/wroom";
+import { createWebhook, WEBHOOK_TRIGGERS } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic webhook create",
@@ -74,7 +74,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		}
 	}
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 
 	const defaultValue = trigger.length > 0 ? false : true;
 
@@ -90,7 +90,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			tagsCreated: trigger.includes("tagsCreated") || defaultValue,
 			tagsDeleted: trigger.includes("tagsDeleted") || defaultValue,
 		},
-		{ repo, token, host },
+		{ repo, getToken, host, onUnauthorized },
 	);
 
 	console.info(`Webhook created: ${webhookUrl}`);

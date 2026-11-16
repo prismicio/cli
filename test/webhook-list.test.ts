@@ -1,4 +1,4 @@
-import { it } from "./it";
+import { captureOutput, it } from "./it";
 import { createWebhook } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -26,4 +26,19 @@ it("lists webhooks as JSON", async ({ expect, prismic, repo, token, host }) => {
 	expect(exitCode, stderr).toBe(0);
 	const parsed = JSON.parse(stdout);
 	expect(parsed).toEqual(expect.arrayContaining([expect.objectContaining({ url })]));
+});
+
+it("renews a token the repository rejects, and continues without a login", async ({
+	expect,
+	prismic,
+	login,
+	auth0,
+}) => {
+	await login({ accessToken: "rejected-token" });
+	const proc = prismic("webhook", ["list"], { nodeOptions: { env: { CI: "" } } });
+	const output = captureOutput(proc);
+	const { exitCode } = await proc;
+	expect(exitCode, output()).toBe(0);
+	expect(output()).not.toContain("Open this URL");
+	expect(auth0.requestsTo("/oauth/token")).toHaveLength(1);
 });

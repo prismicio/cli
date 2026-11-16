@@ -1,10 +1,9 @@
-import { getCredentials } from "../auth";
+import { getHost, getToken, onUnauthorized } from "../auth";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { isInvalidAuthContextError } from "../lib/prismic/auth";
-import { getRepository } from "../lib/prismic/clients/repository";
-import { getRepositoryAccess } from "../lib/prismic/clients/wroom";
+import { getRepository, getRepositoryApiAccess } from "../lib/prismic/client";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -25,7 +24,7 @@ const config = {
 export default createCommand(config, async ({ values }) => {
 	const { repo = await getRepositoryName(), web, json } = values;
 
-	const { token, host } = await getCredentials();
+	const host = await getHost();
 	const url = `https://${repo}.${host}/`;
 
 	if (web) {
@@ -34,9 +33,9 @@ export default createCommand(config, async ({ values }) => {
 		return;
 	}
 
-	const [repository, access] = await Promise.all([
-		getRepository({ repo, token, host }),
-		getRepositoryAccess({ repo, token, host }).catch((error) => {
+	const [repository, syncState] = await Promise.all([
+		getRepository({ repo, getToken, host, onUnauthorized }),
+		getRepositoryApiAccess({ repo, getToken, host, onUnauthorized }).catch((error) => {
 			if (!isInvalidAuthContextError(error)) throw error;
 		}),
 	]);
@@ -47,7 +46,7 @@ export default createCommand(config, async ({ values }) => {
 				domain: repo,
 				name: repository.name ?? null,
 				url,
-				apiAccess: access ?? null,
+				apiAccess: syncState?.repository.api_access ?? null,
 			}),
 		);
 		return;
@@ -56,5 +55,5 @@ export default createCommand(config, async ({ values }) => {
 	const name = repository.name || "(no name)";
 	console.info(`Name: ${name}`);
 	console.info(`URL: ${url}`);
-	console.info(`Content API: ${access ?? "(unavailable)"}`);
+	console.info(`Content API: ${syncState?.repository.api_access ?? "(unavailable)"}`);
 });

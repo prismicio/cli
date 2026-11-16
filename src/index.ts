@@ -10,17 +10,17 @@ import {
 	NoSupportedFrameworkError,
 	SliceNotFoundError,
 } from "./adapters";
-import { cleanupLegacyAuthFile, getCredentials, spawnTokenRefresh } from "./auth";
+import { cleanupLegacyAuthFile, getHost, getToken } from "./auth";
 import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
+import { CredentialsError, readLoginSummary } from "./credentials";
 import { env } from "./env";
 import { getErrorMessage } from "./error";
 import { detectAgent } from "./lib/ai";
+import { DeviceFlowError } from "./lib/auth0";
 import { CommandError } from "./lib/command";
-import { decodePayload } from "./lib/jwt";
 import { MissingPackageJson } from "./lib/packageJson";
-import { UnsupportedFileTypeError } from "./lib/prismic/clients/custom-types";
-import { getProfile } from "./lib/prismic/clients/user";
+import { getUserProfile, UnsupportedFileTypeError } from "./lib/prismic/client";
 import { InvalidEnvironmentError } from "./lib/prismic/environments";
 import {
 	FieldExistsError,
@@ -34,6 +34,7 @@ import {
 import {
 	BadRequestError,
 	ForbiddenRequestError,
+	NetworkError,
 	NotFoundRequestError,
 	UnauthorizedRequestError,
 	UnknownRequestError,
@@ -45,7 +46,7 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { isTaskId } from "./lib/task-id";
+import { genTaskId, isTaskId } from "./lib/task-id";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import {
 	InvalidLegacySliceMachineConfigError,
@@ -83,11 +84,14 @@ const KNOWN_ERRORS = [
 	InvalidLegacySliceMachineConfigError,
 	MissingPackageJson,
 	UnknownProjectRootError,
+	NetworkError,
 	NotFoundRequestError,
 	UnauthorizedRequestError,
 	ForbiddenRequestError,
 	BadRequestError,
 	UnknownRequestError,
+	DeviceFlowError,
+	CredentialsError,
 ];
 
 const REPORTED_KNOWN_ERRORS = [BadRequestError, UnknownRequestError];
@@ -141,17 +145,22 @@ async function main(): Promise<void> {
 	const agentOptionsError = agentNeedsTaskId ? getAgentOptionsError(taskId, userIntent) : undefined;
 
 	if (agentOptionsError) {
+		const id = taskId && isTaskId(taskId) ? taskId : genTaskId();
 		console.error(
 			`error: ${agentOptionsError}\n` +
-				"run `prismic task-id` once per user request, then pass --task-id <id> --user-intent " +
-				'"<what the user asked for>" on every command until the user asks for something else',
+				`rerun with --task-id ${id} --user-intent "<what the user asked for>", ` +
+				"and pass both on every command until the user asks for something else",
 		);
 		process.exitCode = 1;
 		return;
 	}
 
 	if (!help) {
-		const { token, host } = await getCredentials();
+		const host = await getHost();
+		// Reads only the plain-text fields, so commands that don't use the login
+		// never wait on the keychain.
+		const summary = env.PRISMIC_TOKEN ? {} : await readLoginSummary();
+		const loggedIn = Boolean(env.PRISMIC_TOKEN || summary.expiresAt);
 
 		const telemetryEnabled = env.PRISMIC_TELEMETRY_ENABLED ?? (await isTelemetryEnabled());
 		const sentryEnabled = env.PRISMIC_SENTRY_ENABLED ?? (telemetryEnabled && env.PROD);
@@ -160,30 +169,31 @@ async function main(): Promise<void> {
 			await initSentry({ host, repo, userIntent, taskId });
 		}
 		if (telemetryEnabled) {
-			await initTracking({ host, token, repo, userIntent, taskId });
+			await initTracking({
+				host,
+				loggedIn,
+				repo,
+				userIntent,
+				taskId,
+				store: summary.store,
+				storeReason: summary.storeReason,
+			});
 		}
 
-		if (token) {
-			const exp = decodePayload(token)?.exp;
-			const now = Date.now() / 1000;
+		if (loggedIn && (sentryEnabled || telemetryEnabled)) {
+			const knownUserId = getTrackedUserId();
 
-			if (!exp || exp - now <= 3600) {
-				process.on("exit", () => spawnTokenRefresh());
-			}
-
-			if (sentryEnabled || telemetryEnabled) {
-				const knownUserId = getTrackedUserId();
-
-				if (knownUserId) {
-					sentrySetUser({ id: knownUserId });
-				} else if (!exp || exp > now) {
-					getProfile({ token, host })
-						.then((profile) => {
-							trackUser(profile);
-							sentrySetUser({ id: profile.shortId });
-						})
-						.catch(() => {});
-				}
+			if (knownUserId) {
+				sentrySetUser({ id: knownUserId });
+			} else {
+				// Unlike the summary above, this can read the keychain, so it runs once per
+				// login.
+				getUserProfile({ getToken, host })
+					.then((profile) => {
+						trackUser(profile);
+						sentrySetUser({ id: profile.shortId });
+					})
+					.catch(() => {});
 			}
 		}
 	}
@@ -194,16 +204,16 @@ async function main(): Promise<void> {
 	try {
 		if (isTracked) trackCommandStart(command);
 		await router();
-		if (isTracked) trackCommandEnd(command);
+		if (isTracked) trackCommandEnd();
 	} catch (error) {
 		process.exitCode = 1;
 
 		const message = await getErrorMessage(error).catch(() => undefined);
-		if (isTracked) trackCommandEnd(command, { error: message ?? error });
+		if (isTracked) trackCommandEnd({ error: message ?? error });
 
 		if (KNOWN_ERRORS.some((type) => error instanceof type)) {
 			console.error(message);
-			if (REPORTED_KNOWN_ERRORS.some((type) => error instanceof type)) {
+			if (isReported(error)) {
 				await sentryCaptureError(error);
 			}
 		} else {
@@ -252,4 +262,11 @@ function getAgentOptionsError(taskId: string | undefined, userIntent: string | u
 	if (!taskId) return "missing --task-id";
 	if (!isTaskId(taskId)) return "--task-id must come from `prismic task-id`";
 	if (!userIntent) return "missing --user-intent";
+}
+
+// Reports a misconfigured login, which needs a fix on Prismic's side. Its error
+// holds only Auth0's error code, never a response body.
+function isReported(error: unknown): boolean {
+	if (error instanceof DeviceFlowError) return error.reason === "misconfigured";
+	return REPORTED_KNOWN_ERRORS.some((type) => error instanceof type);
 }
