@@ -167,9 +167,16 @@ export function resolveSliceFieldContainer(
 	path: string,
 	slice: SharedSliceModel,
 	variationId: string,
+	items = false,
 ): { fields: Fields; fieldId: string } {
 	const variation = slice.variations.find((variation) => variation.id === variationId);
 	if (!variation) throw new SliceVariationNotFoundError(variationId, slice.id);
+	if (items) {
+		if (!variation.items || Object.keys(variation.items).length === 0) {
+			throw new SliceItemsNotFoundError(variationId, slice.id);
+		}
+		return resolveNestedFieldContainer(path, variation.items);
+	}
 	variation.primary ??= {};
 	return resolveNestedFieldContainer(path, variation.primary);
 }
@@ -376,5 +383,15 @@ export class SliceVariationNotFoundError extends Error {
 
 	constructor(id: string, sliceId: string) {
 		super(`Variation "${id}" does not exist on slice "${sliceId}".`);
+	}
+}
+
+export class SliceItemsNotFoundError extends Error {
+	name = "SliceItemsNotFoundError";
+
+	constructor(variationId: string, sliceId: string) {
+		super(
+			`Variation "${variationId}" of slice "${sliceId}" has no legacy items zone. To add repeatable fields, add a repeatable group to the slice.`,
+		);
 	}
 }

@@ -1,4 +1,4 @@
-import type { DynamicWidgetModel } from "@prismicio/types-internal";
+import type { DynamicWidgetModel, SharedSliceModel } from "@prismicio/types-internal";
 
 import { getAdapter } from "./adapters";
 import { CommandError, exactlyOneOption, type CommandConfig } from "./lib/command";
@@ -6,6 +6,7 @@ import type { ContentRelationshipFieldSelection } from "./lib/prismic/models";
 import {
 	FieldExistsError,
 	FieldNotFoundError,
+	SliceItemsNotFoundError,
 	resolveCustomTypeFieldContainer,
 	resolveContentRelationshipFieldSelection,
 	resolveSliceFieldContainer,
@@ -24,6 +25,12 @@ export const TARGET_OPTIONS = {
 	variation: {
 		type: "string",
 		description: 'Slice variation ID (default: "default")',
+		dependsOn: "to-slice",
+	},
+	"legacy-items-zone": {
+		type: "boolean",
+		description:
+			"Edit the legacy repeatable zone of a slice upgraded from the Legacy Builder. New slices use a repeatable group instead.",
 		dependsOn: "to-slice",
 	},
 	tab: {
@@ -47,6 +54,12 @@ export const SOURCE_OPTIONS = {
 		description: 'Slice variation ID (default: "default")',
 		dependsOn: "from-slice",
 	},
+	"legacy-items-zone": {
+		type: "boolean",
+		description:
+			"Edit the legacy repeatable zone of a slice upgraded from the Legacy Builder. New slices use a repeatable group instead.",
+		dependsOn: "from-slice",
+	},
 } satisfies CommandConfig["options"];
 
 type ResolvedFieldTarget = {
@@ -64,13 +77,14 @@ export async function getFieldReorderTargets(
 		"from-slice"?: string;
 		"from-type"?: string;
 		variation?: string;
+		"legacy-items-zone"?: boolean;
 	},
 ): Promise<{
 	source: ResolvedFieldContainer;
 	anchor: ResolvedFieldContainer;
 	save: () => Promise<void>;
 }> {
-	const { variation = "default" } = values;
+	const { variation = "default", "legacy-items-zone": items } = values;
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const adapter = await getAdapter();
 
@@ -79,8 +93,8 @@ export async function getFieldReorderTargets(
 	let save: () => Promise<void>;
 	if (key === "from-slice") {
 		const { model } = await adapter.getSlice(value);
-		source = resolveSliceFieldContainer(sourcePath, model, variation);
-		anchor = resolveSliceFieldContainer(anchorPath, model, variation);
+		source = resolveSliceFields(sourcePath, model, variation, items);
+		anchor = resolveSliceFields(anchorPath, model, variation, items);
 		save = async () => {
 			await adapter.updateSlice(model);
 			await adapter.generateTypes();
@@ -107,6 +121,7 @@ export async function getNewFieldTarget(
 		"to-slice"?: string;
 		"to-type"?: string;
 		variation?: string;
+		"legacy-items-zone"?: boolean;
 		tab?: string;
 	},
 ): Promise<ResolvedFieldTarget> {
@@ -114,7 +129,7 @@ export async function getNewFieldTarget(
 	const { key, value } = exactlyOneOption(values, ["to-slice", "to-type"]);
 	const target =
 		key === "to-slice"
-			? await getSliceFieldTarget(path, value, variation)
+			? await getSliceFieldTarget(path, value, variation, values["legacy-items-zone"])
 			: await getCustomTypeFieldTarget(path, value, tab);
 	if (target.fieldId in target.fields) throw new FieldExistsError(path);
 	return target;
@@ -126,13 +141,14 @@ export async function getExistingField(
 		"from-slice"?: string;
 		"from-type"?: string;
 		variation?: string;
+		"legacy-items-zone"?: boolean;
 	},
 ): Promise<ResolvedFieldTarget & { field: DynamicWidgetModel }> {
 	const { variation = "default" } = values;
 	const { key, value } = exactlyOneOption(values, ["from-slice", "from-type"]);
 	const target =
 		key === "from-slice"
-			? await getSliceFieldTarget(path, value, variation)
+			? await getSliceFieldTarget(path, value, variation, values["legacy-items-zone"])
 			: await getCustomTypeFieldTarget(path, value);
 	const field = target.fields[target.fieldId];
 	if (!field) throw new FieldNotFoundError(path);
@@ -157,10 +173,11 @@ async function getSliceFieldTarget(
 	path: string,
 	sliceId: string,
 	variationId: string,
+	items?: boolean,
 ): Promise<ResolvedFieldTarget> {
 	const adapter = await getAdapter();
 	const { model } = await adapter.getSlice(sliceId);
-	const fieldContainer = resolveSliceFieldContainer(path, model, variationId);
+	const fieldContainer = resolveSliceFields(path, model, variationId, items);
 
 	return {
 		...fieldContainer,
@@ -169,6 +186,24 @@ async function getSliceFieldTarget(
 			await adapter.generateTypes();
 		},
 	};
+}
+
+function resolveSliceFields(
+	path: string,
+	slice: SharedSliceModel,
+	variationId: string,
+	items?: boolean,
+): ResolvedFieldContainer {
+	try {
+		return resolveSliceFieldContainer(path, slice, variationId, items);
+	} catch (error) {
+		if (!(error instanceof SliceItemsNotFoundError)) throw error;
+		let target = `--to-slice ${slice.id}`;
+		if (variationId !== "default") target += ` --variation ${variationId}`;
+		throw new CommandError(
+			`${error.message}\nHint: prismic field add group items ${target}\nThen add fields to the group: prismic field add text items.<field_id> ${target}`,
+		);
+	}
 }
 
 async function getCustomTypeFieldTarget(
