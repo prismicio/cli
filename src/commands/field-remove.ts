@@ -6,7 +6,7 @@ const config = {
 	description: "Remove a field from a slice or custom type.",
 	agents: `
 		This command removes a field and its settings from a slice or custom type.
-		Ask the user before you run it.
+		Unless the user asked to force it, ask before you run it.
 	`,
 	positionals: {
 		id: { description: "Field ID", required: true },

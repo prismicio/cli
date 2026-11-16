@@ -13,7 +13,7 @@ const config = {
 	`,
 	agents: `
 		This command removes a preview configuration from the Prismic repository.
-		Ask the user before you run it.
+		Unless the user asked to force it, ask before you run it.
 	`,
 	positionals: {
 		url: { description: "Preview URL to remove", required: true },

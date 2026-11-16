@@ -13,12 +13,12 @@ it("shows the AGENTS text in help only when an agent is detected", async ({ expe
 		})
 	).stdout;
 	const humanHelp = (await prismic("slice", ["remove", "--help"])).stdout;
-	expect(agentHelp).toContain("This command deletes the slice's folder");
-	expect(agentHelp.indexOf("This command deletes the slice's folder")).toBeLessThan(
+	expect(agentHelp).toContain("asked to force it, ask before you run it.");
+	expect(agentHelp.indexOf("asked to force it, ask before you run it.")).toBeLessThan(
 		agentHelp.indexOf("USAGE"),
 	);
 	expect(humanHelp).not.toContain("AGENTS");
-	expect(humanHelp).not.toContain("This command deletes the slice's folder");
+	expect(humanHelp).not.toContain("asked to force it, ask before you run it.");
 });
 
 it("removes a slice", async ({ expect, prismic, project }) => {

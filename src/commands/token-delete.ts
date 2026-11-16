@@ -17,8 +17,8 @@ const config = {
 		project root.
 	`,
 	agents: `
-		This command deletes a token, and anything that uses it loses access. Ask
-		the user before you run it.
+		This command deletes a token, and anything that uses it loses access. Unless
+		the user asked to force it, ask before you run it.
 	`,
 	positionals: {
 		token: { description: "Token value", required: true },

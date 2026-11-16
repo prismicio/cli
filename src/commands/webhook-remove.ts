@@ -12,8 +12,8 @@ const config = {
 		project root.
 	`,
 	agents: `
-		This command deletes a webhook from the Prismic repository. Ask the user
-		before you run it.
+		This command deletes a webhook from the Prismic repository. Unless the user
+		asked to force it, ask before you run it.
 	`,
 	positionals: {
 		url: { description: "Webhook URL", required: true },

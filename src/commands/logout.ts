@@ -13,8 +13,8 @@ const config = {
 	name: "prismic logout",
 	description: "Log out of Prismic.",
 	agents: `
-		This command logs the user out and revokes their session. Ask the user
-		before you run it.
+		This command logs the user out and revokes their session. Unless the user
+		asked to force it, ask before you run it.
 	`,
 } satisfies CommandConfig;
 

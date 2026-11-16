@@ -7,8 +7,8 @@ const config = {
 	name: "prismic slice disconnect",
 	description: "Disconnect a slice from a type's slice zone.",
 	agents: `
-		This command removes a slice from a type's slice zone. Ask the user before
-		you run it.
+		This command removes a slice from a type's slice zone. Unless the user asked
+		to force it, ask before you run it.
 	`,
 	positionals: {
 		id: { description: "ID of the slice", required: true },

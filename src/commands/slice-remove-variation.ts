@@ -5,8 +5,8 @@ const config = {
 	name: "prismic slice remove-variation",
 	description: "Remove a variation from a slice.",
 	agents: `
-		This command removes a variation from a slice. Ask the user before you run
-		it.
+		This command removes a variation from a slice. Unless the user asked to force
+		it, ask before you run it.
 	`,
 	positionals: {
 		id: { description: "ID of the variation", required: true },

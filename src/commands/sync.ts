@@ -23,7 +23,7 @@ const config = {
 	`,
 	agents: `
 		This command overwrites and deletes local model files to match Prismic, with
-		no git check. Ask the user before you run it.
+		no git check. Unless the user asked to force it, ask before you run it.
 	`,
 	options: {
 		watch: {
