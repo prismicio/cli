@@ -7,6 +7,12 @@ export function appendTrailingSlash(url: string | URL): URL {
 	return newURL;
 }
 
+// One DNS label: 1-63 letters, digits, or hyphens, with no hyphen at either end.
+// Check the raw string: URL parsing drops newlines and tabs without an error.
+export function isSubdomain(value: string): boolean {
+	return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(value);
+}
+
 export function relativePathname(a: URL, b: URL): string {
 	return relative(fileURLToPath(a), fileURLToPath(b));
 }

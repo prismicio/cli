@@ -20,7 +20,11 @@ import { detectAgent } from "./lib/ai";
 import { DeviceFlowError } from "./lib/auth0";
 import { CommandError } from "./lib/command";
 import { MissingPackageJson } from "./lib/packageJson";
-import { getUserProfile, UnsupportedFileTypeError } from "./lib/prismic/client";
+import {
+	getUserProfile,
+	InvalidRepositoryDomainError,
+	UnsupportedFileTypeError,
+} from "./lib/prismic/client";
 import { InvalidEnvironmentError } from "./lib/prismic/environments";
 import {
 	FieldExistsError,
@@ -47,6 +51,7 @@ import {
 } from "./lib/sentry";
 import { genTaskId, isTaskId } from "./lib/task-id";
 import { initUpdateNotifier } from "./lib/update-notifier";
+import { isSubdomain } from "./lib/url";
 import {
 	InvalidLegacySliceMachineConfigError,
 	InvalidPrismicConfigError,
@@ -72,6 +77,7 @@ const KNOWN_ERRORS = [
 	TabNotFoundError,
 	SliceVariationNotFoundError,
 	UnsupportedFileTypeError,
+	InvalidRepositoryDomainError,
 	NoSupportedFrameworkError,
 	ModelExistsError,
 	SliceNotFoundError,
@@ -134,7 +140,9 @@ async function main(): Promise<void> {
 		return;
 	}
 
-	const repo = typeof repoValue === "string" ? repoValue : undefined;
+	// A value that isn't a domain, such as a list of names, can't be a
+	// repository, so analytics leave it out.
+	const repo = typeof repoValue === "string" && isSubdomain(repoValue) ? repoValue : undefined;
 	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
 	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
 
