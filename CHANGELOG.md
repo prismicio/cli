@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.29.0](https://github.com/prismicio/cli/compare/v1.28.0...v1.29.0) (2026-11-16)
+
+
+### Features
+
+* guide agents through command help ([#487](https://github.com/prismicio/cli/issues/487)) ([e3f720a](https://github.com/prismicio/cli/commit/e3f720a69349fafbfa88c60d231a00f815f0e2c3))
+* let slice field commands target the items zone ([#463](https://github.com/prismicio/cli/issues/463)) ([ce68e95](https://github.com/prismicio/cli/commit/ce68e95655a3673529bf2e7820b75cbad351b627))
+
+
+### Bug Fixes
+
+* **analytics:** give each run an ID that pairs its Start and End events ([#490](https://github.com/prismicio/cli/issues/490)) ([07bb352](https://github.com/prismicio/cli/commit/07bb352af6b72c901bc0c6a72283b3e1b6b85ee0))
+
 ## [1.28.0](https://github.com/prismicio/cli/compare/v1.27.0...v1.28.0) (2026-11-13)
 
 
