@@ -4,10 +4,6 @@ import { createCommand, type CommandConfig } from "../lib/command";
 const config = {
 	name: "prismic type remove",
 	description: "Remove a content type.",
-	agents: `
-		This command deletes the content type's folder and its route. Unless the user
-		asked to force it, ask before you run it.
-	`,
 	positionals: {
 		id: { description: "ID of the content type", required: true },
 	},

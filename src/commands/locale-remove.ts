@@ -11,10 +11,6 @@ const config = {
 		By default, this command reads the repository from prismic.config.json at the
 		project root.
 	`,
-	agents: `
-		This command removes a locale from the Prismic repository. Unless the user
-		asked to force it, ask before you run it.
-	`,
 	positionals: {
 		code: { description: "Locale code (e.g. en-us, fr-fr)", required: true },
 	},

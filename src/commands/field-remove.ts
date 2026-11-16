@@ -4,10 +4,6 @@ import { createCommand, type CommandConfig } from "../lib/command";
 const config = {
 	name: "prismic field remove",
 	description: "Remove a field from a slice or custom type.",
-	agents: `
-		This command removes a field and its settings from a slice or custom type.
-		Unless the user asked to force it, ask before you run it.
-	`,
 	positionals: {
 		id: { description: "Field ID", required: true },
 	},

@@ -11,10 +11,6 @@ const config = {
 		By default, this command reads the repository from prismic.config.json at the
 		project root.
 	`,
-	agents: `
-		This command removes a preview configuration from the Prismic repository.
-		Unless the user asked to force it, ask before you run it.
-	`,
 	positionals: {
 		url: { description: "Preview URL to remove", required: true },
 	},

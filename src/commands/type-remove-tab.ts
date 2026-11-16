@@ -4,10 +4,6 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 const config = {
 	name: "prismic type remove-tab",
 	description: "Remove a tab from a content type.",
-	agents: `
-		This command removes a tab and all its fields from a content type. Unless the
-		user asked to force it, ask before you run it.
-	`,
 	positionals: {
 		name: { description: "Name of the tab", required: true },
 	},

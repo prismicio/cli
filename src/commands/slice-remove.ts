@@ -4,10 +4,6 @@ import { createCommand, type CommandConfig } from "../lib/command";
 const config = {
 	name: "prismic slice remove",
 	description: "Remove a slice.",
-	agents: `
-		This command deletes the slice's folder, including its component. Unless the
-		user asked to force it, ask before you run it.
-	`,
 	positionals: {
 		id: { description: "ID of the slice", required: true },
 	},

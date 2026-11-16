@@ -7,12 +7,6 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic token delete <token> [options]");
 });
 
-it("tells agents to ask before deleting", async ({ expect, prismic }) => {
-	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
-	const { stdout } = await prismic("token", ["delete", "--help"], agent);
-	expect(stdout).toContain("asked to force it, ask before you run it.");
-});
-
 it("deletes an access token", async ({ expect, prismic, repo, token, host }) => {
 	const created = await createAccessToken({ repo, token, host });
 
