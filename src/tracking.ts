@@ -56,6 +56,7 @@ let storeReason: FallbackReason | undefined;
 let login: { result: LoginResult; resumed: boolean; durationS: number } | undefined;
 let revoked: boolean | undefined;
 let ids: AnalyticsIds | undefined;
+const invocationId = crypto.randomUUID();
 let command: { type: string; watch?: boolean } | undefined;
 
 export async function initTracking(config: {
@@ -194,6 +195,7 @@ export function trackCommandStart(type: string, config: { watch?: boolean } = {}
 	trackEvent("Prismic CLI Start", {
 		properties: {
 			commandType: type,
+			invocationId,
 			fullCommand: process.argv.join(" "),
 			repository,
 			watch,
@@ -217,6 +219,7 @@ export function trackCommandEnd(config: { error?: unknown } = {}): void {
 	trackEvent("Prismic CLI End", {
 		properties: {
 			commandType: type,
+			invocationId,
 			fullCommand: process.argv.join(" "),
 			success: !process.exitCode,
 			repository,
