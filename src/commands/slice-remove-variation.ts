@@ -4,6 +4,10 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 const config = {
 	name: "prismic slice remove-variation",
 	description: "Remove a variation from a slice.",
+	agents: `
+		This command removes a variation from a slice. Ask the user before you run
+		it.
+	`,
 	positionals: {
 		id: { description: "ID of the variation", required: true },
 	},

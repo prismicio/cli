@@ -27,6 +27,10 @@ const config = {
 
 		Run \`prismic docs view cli#push-models-to-prismic\` for details.
 	`,
+	agents: `
+		Use --force only when the user asks for it. It lets push delete remote
+		models and skips the git check.
+	`,
 	options: {
 		force: {
 			type: "boolean",

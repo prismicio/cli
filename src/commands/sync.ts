@@ -21,6 +21,10 @@ const config = {
 
 		For one-time pulls, use \`prismic pull\`.
 	`,
+	agents: `
+		This command overwrites and deletes local model files to match Prismic, with
+		no git check. Ask the user before you run it.
+	`,
 	options: {
 		watch: {
 			type: "boolean",

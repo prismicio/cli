@@ -16,6 +16,10 @@ const config = {
 		By default, this command reads the repository from prismic.config.json at the
 		project root.
 	`,
+	agents: `
+		This command deletes a token, and anything that uses it loses access. Ask
+		the user before you run it.
+	`,
 	positionals: {
 		token: { description: "Token value", required: true },
 	},

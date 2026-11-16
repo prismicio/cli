@@ -11,6 +11,10 @@ const config = {
 		By default, this command reads the repository from prismic.config.json at the
 		project root.
 	`,
+	agents: `
+		This command deletes a webhook from the Prismic repository. Ask the user
+		before you run it.
+	`,
 	positionals: {
 		url: { description: "Webhook URL", required: true },
 	},

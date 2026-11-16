@@ -12,6 +12,10 @@ import { forgetTrackedUser, recordLogout } from "../tracking";
 const config = {
 	name: "prismic logout",
 	description: "Log out of Prismic.",
+	agents: `
+		This command logs the user out and revokes their session. Ask the user
+		before you run it.
+	`,
 } satisfies CommandConfig;
 
 export default createCommand(config, async () => {

@@ -19,6 +19,19 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic docs view cli#push-models-to-prismic");
 });
 
+it("shows the AGENTS text in help only when an agent is detected", async ({ expect, prismic }) => {
+	const agentHelp = (
+		await prismic("push", ["--help"], { nodeOptions: { env: { AI_AGENT: "test-agent" } } })
+	).stdout;
+	const humanHelp = (await prismic("push", ["--help"])).stdout;
+	expect(agentHelp).toContain("Use --force only when the user asks for it.");
+	expect(agentHelp.indexOf("Use --force only when the user asks for it.")).toBeLessThan(
+		agentHelp.indexOf("USAGE"),
+	);
+	expect(humanHelp).not.toContain("AGENTS");
+	expect(humanHelp).not.toContain("Use --force only when the user asks for it.");
+});
+
 describe("with an isolated repository", () => {
 	it.scoped({ isolateRepo: true });
 

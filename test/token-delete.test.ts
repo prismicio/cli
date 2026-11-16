@@ -7,6 +7,21 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic token delete <token> [options]");
 });
 
+it("shows the AGENTS text in help only when an agent is detected", async ({ expect, prismic }) => {
+	const agentHelp = (
+		await prismic("token", ["delete", "--help"], {
+			nodeOptions: { env: { AI_AGENT: "test-agent" } },
+		})
+	).stdout;
+	const humanHelp = (await prismic("token", ["delete", "--help"])).stdout;
+	expect(agentHelp).toContain("This command deletes a token");
+	expect(agentHelp.indexOf("This command deletes a token")).toBeLessThan(
+		agentHelp.indexOf("USAGE"),
+	);
+	expect(humanHelp).not.toContain("AGENTS");
+	expect(humanHelp).not.toContain("This command deletes a token");
+});
+
 it("deletes an access token", async ({ expect, prismic, repo, token, host }) => {
 	const created = await createAccessToken({ repo, token, host });
 

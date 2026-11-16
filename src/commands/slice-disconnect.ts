@@ -6,6 +6,10 @@ import { CommandError, createCommand, type CommandConfig } from "../lib/command"
 const config = {
 	name: "prismic slice disconnect",
 	description: "Disconnect a slice from a type's slice zone.",
+	agents: `
+		This command removes a slice from a type's slice zone. Ask the user before
+		you run it.
+	`,
 	positionals: {
 		id: { description: "ID of the slice", required: true },
 	},
