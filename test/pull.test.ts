@@ -35,7 +35,7 @@ it("supports --help", { concurrent: false }, async ({ expect, prismic }) => {
 it("errors when --repo is not a domain", { concurrent: false }, async ({ expect, prismic }) => {
 	const { stderr, exitCode } = await prismic("pull", ["--repo", "repo-a\nrepo-b"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain('Not a valid repository domain: "repo-a\\nrepo-b"');
+	expect(stderr).toContain('Check your repository domain: "repo-a\\nrepo-b"');
 });
 
 it(

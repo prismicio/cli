@@ -824,7 +824,7 @@ export class InvalidRepositoryDomainError extends Error {
 
 	constructor(repo: string) {
 		super(
-			`Not a valid repository domain: ${JSON.stringify(repo)}. Pass one repository domain per command, such as "my-repo".`,
+			`Check your repository domain: ${JSON.stringify(repo)}. Pass one repository domain per command, such as "my-repo".`,
 		);
 	}
 }

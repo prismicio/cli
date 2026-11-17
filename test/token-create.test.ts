@@ -132,5 +132,5 @@ it("errors when --repo is not a domain", async ({ expect, prismic }) => {
 		"repo-a\nrepo-b",
 	]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain('Not a valid repository domain: "repo-a\\nrepo-b"');
+	expect(stderr).toContain('Check your repository domain: "repo-a\\nrepo-b"');
 });
