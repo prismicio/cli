@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.30.0](https://github.com/prismicio/cli/compare/v1.29.0...v1.30.0) (2026-11-17)
+
+
+### Features
+
+* tell agents to use --force only when the user asks ([#494](https://github.com/prismicio/cli/issues/494)) ([57df309](https://github.com/prismicio/cli/commit/57df30931cef576fe882f907c129cfd38fc63b69))
+
+
+### Bug Fixes
+
+* explain an invalid --repo instead of saying Prismic can't be reached ([#488](https://github.com/prismicio/cli/issues/488)) ([f62318f](https://github.com/prismicio/cli/commit/f62318f21d75990d2a7ed652fe4db4ff8a983f02))
+* track new users and rejected agent runs in telemetry ([#493](https://github.com/prismicio/cli/issues/493)) ([67e5e74](https://github.com/prismicio/cli/commit/67e5e74928425d5bdd46d0e9661abfc8a2043553))
+
 ## [1.29.0](https://github.com/prismicio/cli/compare/v1.28.0...v1.29.0) (2026-11-16)
 
 
