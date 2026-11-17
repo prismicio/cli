@@ -17,6 +17,10 @@ const config = {
 
 		Run \`prismic docs view cli#pull-models-from-prismic\` for details.
 	`,
+	agents: `
+		Use --force only when the user asks for it. It discards uncommitted
+		local model changes.
+	`,
 	options: {
 		force: {
 			type: "boolean",

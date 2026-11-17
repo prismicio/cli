@@ -39,6 +39,16 @@ it("errors when --repo is not a domain", { concurrent: false }, async ({ expect,
 });
 
 it(
+	"tells agents to use --force only when the user asks",
+	{ concurrent: false },
+	async ({ expect, prismic }) => {
+		const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
+		const { stdout } = await prismic("pull", ["--help"], agent);
+		expect(stdout).toContain("Use --force only when the user asks for it.");
+	},
+);
+
+it(
 	"pulls slices and custom types from remote",
 	{ concurrent: false },
 	async ({ expect, project, prismic, repo, token, host }) => {
