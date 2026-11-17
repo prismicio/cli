@@ -123,3 +123,14 @@ it("errors when combining --write and --allow-releases", async ({ expect, prismi
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("--allow-releases is only valid for access tokens");
 });
+
+it("errors when --repo is not a domain", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("token", [
+		"create",
+		"--write",
+		"--repo",
+		"repo-a\nrepo-b",
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain('Check your repository domain: "repo-a\\nrepo-b"');
+});

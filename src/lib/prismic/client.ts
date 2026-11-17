@@ -4,7 +4,7 @@ import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-
 import * as z from "zod/mini";
 
 import { request, type RequestOptions } from "../request";
-import { appendTrailingSlash } from "../url";
+import { appendTrailingSlash, isSubdomain } from "../url";
 
 type Config = {
 	getToken: () => Promise<string | undefined>;
@@ -96,7 +96,7 @@ export async function getRepository(config: RepositoryConfig): Promise<Repositor
 	const url = new URL("", getRepositoryServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		headers: await getRepositoryHeaders(config),
 		onUnauthorized: config.onUnauthorized,
 		schema: RepositorySchema,
 		notFoundMessage: `Repository not found: ${config.repo}`,
@@ -112,7 +112,7 @@ export async function enableTypeBuilder(
 	await request(url, {
 		method: "PATCH",
 		json: { framework },
-		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		headers: await getRepositoryHeaders(config),
 		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
@@ -160,7 +160,7 @@ export async function getCustomTypes(config: CustomTypesConfig): Promise<Dynamic
 	const url = new URL("customtypes", getCustomTypesServiceUrl(config.host));
 	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	return request<DynamicCustomTypeModel[]>(url, {
-		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		headers: await getRepositoryHeaders(config),
 		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
@@ -170,7 +170,7 @@ export async function getSlices(config: CustomTypesConfig): Promise<SharedSliceM
 	const url = new URL("slices", getCustomTypesServiceUrl(config.host));
 	if (config.releaseId) url.searchParams.set("release", config.releaseId);
 	return request<SharedSliceModel[]>(url, {
-		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		headers: await getRepositoryHeaders(config),
 		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 	});
@@ -191,7 +191,7 @@ export async function bulkUpdateModels(
 	await request(url, {
 		method: "POST",
 		json: { changes },
-		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		headers: await getRepositoryHeaders(config),
 		onUnauthorized: config.onUnauthorized,
 		notFoundMessage: `Repository not found: ${config.repo}`,
 		unknownErrorMessage: "Failed to update models",
@@ -226,7 +226,7 @@ export async function deleteSliceScreenshots(
 	await request(url, {
 		method: "POST",
 		json: { sliceId },
-		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		headers: await getRepositoryHeaders(config),
 		onUnauthorized: config.onUnauthorized,
 	});
 }
@@ -272,7 +272,7 @@ async function getScreenshotUploadForm(
 	const url = new URL("presigned-url", getScreenshotServiceUrl(config.host));
 	url.searchParams.set("repository", config.repo);
 	return request(url, {
-		headers: { Authorization: `Bearer ${await config.getToken()}`, repository: config.repo },
+		headers: await getRepositoryHeaders(config),
 		onUnauthorized: config.onUnauthorized,
 		schema: ScreenshotPresignedUrlResponseSchema,
 	});
@@ -804,7 +804,29 @@ export async function setRepositoryName(
 }
 
 function getRepositoryDomainUrl(repo: string, host: string): URL {
-	return new URL(`https://${repo}.${host}/`);
+	return new URL(`https://${getRepositoryDomain(repo)}.${host}/`);
+}
+
+async function getRepositoryHeaders(config: RepositoryConfig): Promise<Record<string, string>> {
+	const repository = getRepositoryDomain(config.repo);
+	return { Authorization: `Bearer ${await config.getToken()}`, repository };
+}
+
+// A value that isn't a subdomain, such as a list of names, can't go in a URL
+// or a header.
+function getRepositoryDomain(repo: string): string {
+	if (!isSubdomain(repo)) throw new InvalidRepositoryDomainError(repo);
+	return repo;
+}
+
+export class InvalidRepositoryDomainError extends Error {
+	name = "InvalidRepositoryDomainError";
+
+	constructor(repo: string) {
+		super(
+			`Check your repository domain: ${JSON.stringify(repo)}. Pass one repository domain per command, such as "my-repo".`,
+		);
+	}
 }
 
 export async function checkIsDomainAvailable(
