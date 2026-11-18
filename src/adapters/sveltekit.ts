@@ -159,7 +159,6 @@ export class SvelteKitAdapter extends Adapter {
 		`;
 	}
 
-	// Routes in src/routes/[[preview=preview]] need a preview matcher in the project's params file.
 	private async getParamsStep(): Promise<string | undefined> {
 		const paramsFile = await findParamsFile();
 		if (!paramsFile) return;
