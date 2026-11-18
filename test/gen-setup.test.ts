@@ -211,6 +211,45 @@ it(
 );
 
 it(
+	"defines the preview matcher in a new SvelteKit params file",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		await expect(project).toHaveFile("src/params.js", {
+			contains: 'import { defineParams } from "@sveltejs/kit/params";',
+		});
+		await expect(project).toHaveFile("src/params.js", {
+			contains: 'preview: (param) => (param === "preview" ? param : undefined),',
+		});
+		await expect(project).not.toHaveFile("src/params/preview.js");
+		expect(stdout).not.toContain("preview matcher");
+	},
+);
+
+it(
+	"asks for the preview matcher in an existing SvelteKit params file",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await useSvelteKit(project);
+		const params =
+			'import { defineParams } from "@sveltejs/kit/params";\n' +
+			"export const params = defineParams({ id: (param) => param });\n";
+		await mkdir(new URL("src/", project), { recursive: true });
+		await writeFile(new URL("src/params.ts", project), params);
+
+		const { stdout, stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(await readFile(new URL("src/params.ts", project), "utf8")).toBe(params);
+		await expect(project).not.toHaveFile("src/params.js");
+		expect(stdout).toContain("Action required: add a preview matcher to src/params.ts.");
+		expect(stdout).toContain('  preview: (param) => (param === "preview" ? param : undefined),');
+	},
+);
+
+it(
 	"does not ask for the Prismic environment variable when the env file declares it",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
@@ -247,6 +286,10 @@ it(
 			contains: 'import { repositoryName } from "$lib/prismicio";',
 		});
 		await expect(project).not.toHaveFile("src/env.js");
+		await expect(project).toHaveFile("src/params/preview.js", {
+			contains: "export function match",
+		});
+		await expect(project).not.toHaveFile("src/params.js");
 	},
 );
 
