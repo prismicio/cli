@@ -30,6 +30,12 @@ const KEYCHAIN_TIMEOUT_MS = 30_000;
 // tag, then the ciphertext.
 const ENCRYPTED_FORMAT = Buffer.from([1]);
 
+const GuestSchema = z.object({
+	claimUrl: z.string(),
+	/** Milliseconds since the epoch. */
+	expiresAt: z.number(),
+});
+
 const SessionSchema = z.object({
 	host: z.string(),
 	auth0Domain: z.string(),
@@ -41,6 +47,8 @@ const SessionSchema = z.object({
 	// Can be for another host, because the current session stays until the new
 	// login saves.
 	pendingLogin: z.optional(z.extend(PendingLoginSchema, { host: z.string() })),
+	/** Set for a temporary account, started without signing up. */
+	guest: z.optional(GuestSchema),
 });
 export type Session = z.infer<typeof SessionSchema>;
 
@@ -65,6 +73,7 @@ const LoginSummarySchema = z.object({
 	storeReason: z.catch(z.optional(FallbackReasonSchema), undefined),
 	/** Set while a session has tokens. */
 	expiresAt: z.catch(z.optional(z.number()), undefined),
+	guest: z.catch(z.optional(GuestSchema), undefined),
 });
 type LoginSummary = z.infer<typeof LoginSummarySchema>;
 
@@ -144,11 +153,14 @@ export async function writeCredentials(lock: Lock, login: StoredLogin): Promise<
 	const { store, storeReason, session } = login;
 	let safe;
 	if (store === "keyring") {
-		const { host, expiresAt, auth0Domain, clientId } = session;
+		const { host, expiresAt, auth0Domain, clientId, guest } = session;
 		safe = await writePrivateFiles(lock, [
 			// credentials.enc is authoritative, so it's written first.
 			[ENCRYPTED_CREDENTIALS_PATH, encrypt(JSON.stringify(session), await requireKey())],
-			[CREDENTIALS_PATH, stringify({ version: 2, host, expiresAt, store, auth0Domain, clientId })],
+			[
+				CREDENTIALS_PATH,
+				stringify({ version: 2, host, expiresAt, store, auth0Domain, clientId, guest }),
+			],
 		]);
 	} else {
 		safe = await writePrivateFiles(lock, [

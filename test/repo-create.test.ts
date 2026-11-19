@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { it } from "./it";
+import { captureOutput, it, waitForLoginPrompt } from "./it";
 import { deleteRepository, getLocales, getMCPActivationStatus, getRepository } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -125,3 +125,62 @@ it("sets the master locale with --lang", async ({
 	const master = locales.find((locale) => locale.isMaster);
 	expect(master?.id).toBe("fr-fr");
 });
+
+it("starts without an account when nobody is logged in, and reuses it", async ({
+	expect,
+	prismic,
+	logout,
+	auth0,
+	token,
+	host,
+	password,
+	onTestFinished,
+}) => {
+	await logout();
+	const env = { CI: "" };
+
+	for (let i = 0; i < 2; i++) {
+		const { stdout, stderr, exitCode } = await prismic("repo", ["create"], {
+			nodeOptions: { env },
+		});
+		expect(exitCode, stderr).toBe(0);
+		const domain = stdout.match(/Repository created: (\S+)/)?.[1];
+		expect(domain).toBeDefined();
+		onTestFinished(() => deleteRepository(domain!, { token, password, host }));
+		expect(stderr).toContain(
+			"This is a temporary Prismic account. Prismic deletes it and its repositories on Thu, 01 Jan 2099 02:00:00 GMT.",
+		);
+		expect(stderr).toMatch(
+			/To keep them, open this link and sign up or log in:\n {2}http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=/,
+		);
+	}
+	expect(auth0.requestsTo("/authentication/guest")).toHaveLength(1);
+});
+
+it("logs in on CI instead of starting without an account", async ({
+	expect,
+	prismic,
+	logout,
+	auth0,
+}) => {
+	await logout();
+	const proc = prismic("repo", ["create"], { nodeOptions: { env: { CI: "true" } } });
+	const output = captureOutput(proc);
+	await waitForLoginPrompt(expect, output);
+	expect(auth0.requestsTo("/authentication/guest")).toHaveLength(0);
+});
+
+it.for([
+	[429, "Too many accounts were started without signing up from this network today."],
+	[503, "Starting without an account isn't available right now."],
+] as const)(
+	"logs in when Prismic answers %i to starting without an account",
+	async ([status, message], { expect, prismic, logout, auth0 }) => {
+		await logout();
+		auth0.respondOnce("/authentication/guest", { status, body: { error: "unavailable" } });
+		const proc = prismic("repo", ["create"], { nodeOptions: { env: { CI: "" } } });
+		const output = captureOutput(proc);
+		await waitForLoginPrompt(expect, output);
+		expect(output()).toContain(message);
+	},
+);

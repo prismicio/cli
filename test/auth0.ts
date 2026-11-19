@@ -4,9 +4,11 @@ import type { AddressInfo } from "node:net";
 import { setTimeout as sleep } from "node:timers/promises";
 
 // A fake Auth0 tenant for login tests. A real device login needs a person to
-// approve it in a browser, so automated tests can't use Auth0 itself.
+// approve it in a browser, so automated tests can't use Auth0 itself. It also
+// fakes Prismic's routes for accounts started without signing up.
 
 const INTERVAL = 0.1;
+export const GUEST_EXPIRES_AT = "2099-01-01T02:00:00.000Z";
 
 type FakeAuth0Response = { status: number; body?: unknown; delayMs?: number };
 
@@ -57,6 +59,23 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 			await sleep(response.delayMs ?? 0);
 			send(res, response.status, response.body);
 			return;
+		}
+
+		if (path === "/authentication/guest") {
+			return send(res, 201, {
+				access_token: accessToken,
+				refresh_token: issueRefreshToken(),
+				expires_in: 3600,
+				client_id: clientId,
+				claim_url: new URL(`dashboard/claim?code=${randomToken(24)}`, auth0Domain).href,
+				expires_at: GUEST_EXPIRES_AT,
+			});
+		}
+		if (path === "/authentication/guest/link") {
+			if (req.headers.authorization !== `Bearer ${accessToken}`) return send(res, 401);
+			const url = new URL("authentication/guest/enter", auth0Domain);
+			url.searchParams.set("t", randomToken(24));
+			return send(res, 200, { url: url.href });
 		}
 
 		if (params.client_id !== clientId) {

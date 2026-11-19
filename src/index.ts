@@ -50,6 +50,7 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
+import { dedent } from "./lib/string";
 import { genTaskId, isTaskId } from "./lib/task-id";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import { isSubdomain } from "./lib/url";
@@ -148,8 +149,13 @@ async function main(): Promise<void> {
 	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
 	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
 
+	// MCP clients run `mcp token` themselves, without the agent's options.
 	const agentNeedsTaskId =
-		!help && command !== "" && command !== "task-id" && detectAgent() !== undefined;
+		!help &&
+		command !== "" &&
+		command !== "task-id" &&
+		command !== "mcp" &&
+		detectAgent() !== undefined;
 	const agentOptionsError = agentNeedsTaskId ? getAgentOptionsError(taskId, userIntent) : undefined;
 
 	if (!help) {
@@ -233,6 +239,17 @@ async function main(): Promise<void> {
 			await sentryCaptureError(error);
 			throw error;
 		}
+	}
+
+	const { guest, host } = env.PRISMIC_TOKEN || help ? {} : await readLoginSummary();
+	if (guest && host === (await getHost())) {
+		console.warn(
+			`\n${dedent`
+			This is a temporary Prismic account. Prismic deletes it and its repositories on ${new Date(guest.expiresAt).toUTCString()}.
+			To keep them, open this link and sign up or log in:
+			  ${guest.claimUrl}
+		`}`,
+		);
 	}
 }
 
