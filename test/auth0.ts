@@ -133,7 +133,7 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 					if (client !== params.client_id || !refreshTokens.delete(params.refresh_token)) {
 						return sendError(res, 403, "invalid_grant", "Unknown or invalid refresh token.");
 					}
-					return sendTokens(res, undefined, client);
+					return sendTokens(res, client === guestClientId ? 60 : undefined, client);
 				}
 				return sendError(res, 400, "unsupported_grant_type", "Unsupported grant type.");
 			}
