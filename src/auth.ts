@@ -208,7 +208,6 @@ async function isTokenRejected(token: string | undefined): Promise<boolean> {
 	}
 }
 
-/** `guest` offers to start without an account when nobody is logged in. */
 export async function reauthenticate(
 	options: { browser?: boolean; guest?: boolean } = {},
 ): Promise<string> {
