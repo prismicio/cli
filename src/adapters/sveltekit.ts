@@ -22,7 +22,9 @@ import {
 	layoutServerTemplate,
 	pageServerTemplate,
 	pageTemplate,
+	paramsFileTemplate,
 	previewAPIRouteTemplate,
+	previewParamTemplate,
 	prismicIOFileTemplate,
 	rootLayoutTemplate,
 	sliceSimulatorPageTemplate,
@@ -67,14 +69,12 @@ export class SvelteKitAdapter extends Adapter {
 			new URL("src/routes/slice-simulator/+page.svelte", projectRoot),
 			sliceSimulatorPageTemplate({ extension }),
 		);
-		await writeFileIfMissing(
-			new URL(`src/params/preview.${extension}`, projectRoot),
-			dedent`
-				export function match(param) {
-					return param === 'preview';
-				}
-			`,
-		);
+		if (!(await findParamsFile())) {
+			await writeFileRecursive(
+				new URL(`src/params.${extension}`, projectRoot),
+				paramsFileTemplate(),
+			);
+		}
 		await writeFileIfMissing(
 			new URL(`src/routes/api/preview/+server.${extension}`, projectRoot),
 			previewAPIRouteTemplate({ typescript }),
@@ -130,7 +130,12 @@ export class SvelteKitAdapter extends Adapter {
 			`;
 
 		return (
-			[await this.getEnvStep(), await this.getPreviewStep(), homePageStep]
+			[
+				await this.getEnvStep(),
+				await this.getParamsStep(),
+				await this.getPreviewStep(),
+				homePageStep,
+			]
 				.filter(Boolean)
 				.join("\n\n") || undefined
 		);
@@ -151,6 +156,22 @@ export class SvelteKitAdapter extends Adapter {
 			defineEnvVars({ ... }):
 
 			${envVarTemplate().replace(/^/gm, "  ")}
+		`;
+	}
+
+	private async getParamsStep(): Promise<string | undefined> {
+		const paramsFile = await findParamsFile();
+		if (!paramsFile) return;
+		const contents = await readFile(new URL(paramsFile, await findProjectRoot()), "utf8");
+		if (contents.includes("preview")) return;
+
+		return dedent`
+			Action required: add a preview matcher to ${paramsFile}.
+
+			Your project does not build until you do this. Add this line to
+			defineParams({ ... }):
+
+			  ${previewParamTemplate()}
 		`;
 	}
 
@@ -253,6 +274,11 @@ export async function deleteStarterHomePage(): Promise<void> {
 	if (!STARTER_HOME_PAGES.includes(contents?.replace(/\s/g, "") ?? "")) return;
 
 	await rm(path);
+}
+
+// SvelteKit reads src/params/index before src/params.
+async function findParamsFile(): Promise<string | undefined> {
+	return (await findSourceFile("src/params/index")) ?? (await findSourceFile("src/params"));
 }
 
 export async function findSourceFile(path: string): Promise<string | undefined> {

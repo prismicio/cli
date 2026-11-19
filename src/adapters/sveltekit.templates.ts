@@ -87,6 +87,20 @@ export function envFileTemplate(): string {
 	`;
 }
 
+export function previewParamTemplate(): string {
+	return `preview: (param) => (param === "preview" ? param : undefined),`;
+}
+
+export function paramsFileTemplate(): string {
+	return dedent`
+		import { defineParams } from "@sveltejs/kit/params";
+
+		export const params = defineParams({
+			${previewParamTemplate()}
+		});
+	`;
+}
+
 export function sliceSimulatorPageTemplate({ extension }: { extension: string }): string {
 	return dedent`
 		<script>
