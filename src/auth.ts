@@ -161,7 +161,6 @@ async function renewLogin(
 		...storedLogin,
 		session: { host, auth0Domain, clientId, pendingLogin: session.pendingLogin },
 	});
-	// A temporary account ends when someone claims it or it expires.
 	if (session.guest) {
 		throw new CommandError(
 			session.guest.expiresAt > Date.now()
@@ -291,8 +290,7 @@ export function isPerson(): boolean {
 	);
 }
 
-// Reuses a temporary account another command started meanwhile. In CI, nobody
-// could claim it.
+// Nobody could claim an account started in CI.
 async function startGuest(): Promise<string | undefined> {
 	const host = await getHost();
 	const auth0 = getAuth0Config(host);

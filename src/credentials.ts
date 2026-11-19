@@ -32,7 +32,6 @@ const ENCRYPTED_FORMAT = Buffer.from([1]);
 
 const GuestSchema = z.object({
 	claimUrl: z.string(),
-	/** Milliseconds since the epoch. */
 	expiresAt: z.number(),
 });
 
@@ -47,7 +46,6 @@ const SessionSchema = z.object({
 	// Can be for another host, because the current session stays until the new
 	// login saves.
 	pendingLogin: z.optional(z.extend(PendingLoginSchema, { host: z.string() })),
-	/** Set for a temporary account, started without signing up. */
 	guest: z.optional(GuestSchema),
 });
 export type Session = z.infer<typeof SessionSchema>;
