@@ -5,7 +5,6 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 
 import {
-	clearCredentials,
 	CredentialsError,
 	lockLogin,
 	prepareLogin,
@@ -40,7 +39,6 @@ import {
 import { ForbiddenRequestError, RequestError, UnauthorizedRequestError } from "./lib/request";
 import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
-import { getRepositoryName } from "./project";
 import {
 	forgetTrackedUser,
 	getLoginResult,
@@ -159,22 +157,18 @@ async function renewLogin(
 		return renewLogin(lock, latest, staleToken, { canRetry: false });
 	}
 
-	// A temporary account ends when someone claims it or it expires.
-	if (session.guest) {
-		await clearCredentials(lock);
-		const repo = await getRepositoryName().catch(() => undefined);
-		const repository = repo ? `Your repository ${repo}` : "Your repository";
-		throw new CommandError(
-			session.guest.expiresAt > Date.now()
-				? `${repository} was claimed. Run \`prismic login\` with the account that claimed it to keep working.`
-				: `${repository} expired and was deleted. Run \`prismic login\` to keep working.`,
-		);
-	}
-
 	await writeCredentials(lock, {
 		...storedLogin,
 		session: { host, auth0Domain, clientId, pendingLogin: session.pendingLogin },
 	});
+	// A temporary account ends when someone claims it or it expires.
+	if (session.guest) {
+		throw new CommandError(
+			session.guest.expiresAt > Date.now()
+				? "Your temporary account was claimed, with its repositories. Run `prismic login` with the account that claimed it to keep working."
+				: "Your temporary account expired, and Prismic deleted its repositories. Run `prismic login` to keep working.",
+		);
+	}
 	ended = true;
 }
 

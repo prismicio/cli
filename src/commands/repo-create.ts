@@ -52,7 +52,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const host = await getHost();
-	if (!(await getToken())) await reauthenticate({ guest: true });
+	if (!process.env.CI && !(await getToken())) await reauthenticate({ guest: true });
 	const domain = await createRepo({ name, lang, framework, host });
 
 	console.info(`Repository created: ${domain}`);

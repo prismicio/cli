@@ -23,7 +23,7 @@ it("fails for an account that signed up", async ({ expect, prismic }) => {
 	expect(stderr).toContain("works only for an account started without signing up");
 });
 
-it("says the repository was claimed, and logs out", async ({ expect, prismic, login, repo }) => {
+it("says the temporary account was claimed, and logs out", async ({ expect, prismic, login }) => {
 	await login({
 		expiresAt: Date.now() - 1000,
 		refreshToken: "deleted-by-claim",
@@ -32,13 +32,13 @@ it("says the repository was claimed, and logs out", async ({ expect, prismic, lo
 	const { stderr, exitCode } = await prismic("open");
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain(
-		`Your repository ${repo} was claimed. Run \`prismic login\` with the account that claimed it to keep working.`,
+		"Your temporary account was claimed, with its repositories. Run `prismic login` with the account that claimed it to keep working.",
 	);
 	expect(stderr).not.toContain("temporary Prismic account");
 	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });
 
-it("says the repository expired, and logs out", async ({ expect, prismic, login, repo }) => {
+it("says the temporary account expired, and logs out", async ({ expect, prismic, login }) => {
 	await login({
 		expiresAt: Date.now() - 1000,
 		refreshToken: "deleted-by-cleanup",
@@ -46,6 +46,6 @@ it("says the repository expired, and logs out", async ({ expect, prismic, login,
 	});
 	const { stderr, exitCode } = await prismic("open");
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain(`Your repository ${repo} expired and was deleted.`);
+	expect(stderr).toContain("Your temporary account expired, and Prismic deleted its repositories.");
 	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });

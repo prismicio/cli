@@ -45,7 +45,9 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 	}[] = [];
 	const responses = new Map<string, FakeAuth0Response[]>();
 	const codes: DeviceCode[] = [];
-	const refreshTokens = new Set<string>();
+	const guestClientId = `${clientId}-guest`;
+	// Maps each refresh token to the client it was issued to.
+	const refreshTokens = new Map<string, string>();
 
 	const server = createServer(async (req, res) => {
 		const path = new URL(req.url ?? "/", "http://localhost").pathname;
@@ -64,9 +66,10 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 		if (path === "/authentication/guest") {
 			return send(res, 201, {
 				access_token: accessToken,
-				refresh_token: issueRefreshToken(),
-				expires_in: 3600,
-				client_id: clientId,
+				refresh_token: issueRefreshToken(guestClientId),
+				// Shorter than the CLI's renewal margin, so each command renews it.
+				expires_in: 60,
+				client_id: guestClientId,
 				claim_url: new URL(`dashboard/claim?code=${randomToken(24)}`, auth0Domain).href,
 				expires_at: GUEST_EXPIRES_AT,
 			});
@@ -78,7 +81,7 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 			return send(res, 200, { url: url.href });
 		}
 
-		if (params.client_id !== clientId) {
+		if (params.client_id !== clientId && params.client_id !== guestClientId) {
 			return sendError(res, 401, "invalid_client", "Unknown client.");
 		}
 
@@ -126,10 +129,11 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 				if (params.grant_type === "refresh_token") {
 					// Each refresh token works once. Auth0 accepts the previous one for 60
 					// seconds after rotation, then revokes the whole session.
-					if (!refreshTokens.delete(params.refresh_token)) {
+					const client = refreshTokens.get(params.refresh_token);
+					if (client !== params.client_id || !refreshTokens.delete(params.refresh_token)) {
 						return sendError(res, 403, "invalid_grant", "Unknown or invalid refresh token.");
 					}
-					return sendTokens(res);
+					return sendTokens(res, undefined, client);
 				}
 				return sendError(res, 400, "unsupported_grant_type", "Unsupported grant type.");
 			}
@@ -143,16 +147,16 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 		send(res, 404);
 	});
 
-	function issueRefreshToken(): string {
+	function issueRefreshToken(client = clientId): string {
 		const refreshToken = randomToken(32);
-		refreshTokens.add(refreshToken);
+		refreshTokens.set(refreshToken, client);
 		return refreshToken;
 	}
 
-	function sendTokens(res: ServerResponse, expiresIn = 3600): void {
+	function sendTokens(res: ServerResponse, expiresIn = 3600, client = clientId): void {
 		send(res, 200, {
 			access_token: accessToken,
-			refresh_token: issueRefreshToken(),
+			refresh_token: issueRefreshToken(client),
 			expires_in: expiresIn,
 			token_type: "Bearer",
 		});

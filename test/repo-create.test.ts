@@ -139,6 +139,7 @@ it("starts without an account when nobody is logged in, and reuses it", async ({
 	await logout();
 	const env = { CI: "" };
 
+	const claimLinks = new Set<string>();
 	for (let i = 0; i < 2; i++) {
 		const { stdout, stderr, exitCode } = await prismic("repo", ["create"], {
 			nodeOptions: { env },
@@ -150,23 +151,25 @@ it("starts without an account when nobody is logged in, and reuses it", async ({
 		expect(stderr).toContain(
 			"This is a temporary Prismic account. Prismic deletes it and its repositories on Thu, 01 Jan 2099 02:00:00 GMT.",
 		);
-		expect(stderr).toMatch(
-			/To keep them, open this link and sign up or log in:\n {2}http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=/,
-		);
+		const claimLink = stderr.match(
+			/To keep them, open this link and sign up or log in:\n {2}(http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
+		)?.[1];
+		expect(claimLink).toBeDefined();
+		claimLinks.add(claimLink!);
 	}
 	expect(auth0.requestsTo("/authentication/guest")).toHaveLength(1);
+	expect(claimLinks.size).toBe(1);
+	// The fake refuses a renewal from any other client.
+	expect(auth0.requestsTo("/oauth/token").length).toBeGreaterThan(0);
 });
 
-it("logs in on CI instead of starting without an account", async ({
-	expect,
-	prismic,
-	logout,
-	auth0,
-}) => {
+it("doesn't start without an account on CI", async ({ expect, prismic, logout, auth0 }) => {
 	await logout();
-	const proc = prismic("repo", ["create"], { nodeOptions: { env: { CI: "true" } } });
-	const output = captureOutput(proc);
-	await waitForLoginPrompt(expect, output);
+	const { stderr, exitCode } = await prismic("repo", ["create"], {
+		nodeOptions: { env: { CI: "true" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).not.toContain("temporary Prismic account");
 	expect(auth0.requestsTo("/authentication/guest")).toHaveLength(0);
 });
 
