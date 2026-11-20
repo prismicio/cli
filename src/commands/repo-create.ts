@@ -1,5 +1,5 @@
 import { FRAMEWORKS, getAdapter } from "../adapters";
-import { getHost, getToken, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized, reauthenticate } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { checkIsDomainAvailable, createRepository, upsertLocale } from "../lib/prismic/client";
@@ -52,6 +52,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const host = await getHost();
+	if (!process.env.CI && !(await getToken())) await reauthenticate({ guest: true });
 	const domain = await createRepo({ name, lang, framework, host });
 
 	console.info(`Repository created: ${domain}`);

@@ -265,6 +265,28 @@ it("logs in when not logged in, even on CI", async ({
 	expect(JSON.parse(configRaw).repositoryName).toBe(repo);
 }, 60_000);
 
+it("starts without an account when nobody is logged in", async ({
+	expect,
+	project,
+	prismic,
+	logout,
+	token,
+	host,
+	password,
+	onTestFinished,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	await logout();
+
+	const { stdout, stderr, exitCode } = await prismic("init", ["--no-setup"], {
+		nodeOptions: { env: { CI: "" } },
+	});
+	const name = stdout.match(/^Created repository: ([a-z0-9-]+)$/m)?.[1];
+	if (name) onTestFinished(() => deleteRepository(name, { token, password, host }));
+	expect(exitCode, stderr).toBe(0);
+	expect(stderr).toContain("This is a temporary Prismic account.");
+}, 60_000);
+
 it("renews a rejected token instead of logging in again", async ({
 	expect,
 	project,

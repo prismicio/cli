@@ -1,5 +1,6 @@
 import { readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
+import { createInterface } from "node:readline/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 
@@ -29,8 +30,13 @@ import {
 import { openBrowser } from "./lib/browser";
 import { CommandError } from "./lib/command";
 import { type Lock, LockTimeoutError } from "./lib/lock";
-import { getUserProfile, validateToken } from "./lib/prismic/client";
-import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
+import {
+	createGuest,
+	getAuthenticationUrl,
+	getUserProfile,
+	validateToken,
+} from "./lib/prismic/client";
+import { ForbiddenRequestError, RequestError, UnauthorizedRequestError } from "./lib/request";
 import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
 import {
@@ -155,6 +161,13 @@ async function renewLogin(
 		...storedLogin,
 		session: { host, auth0Domain, clientId, pendingLogin: session.pendingLogin },
 	});
+	if (session.guest) {
+		throw new CommandError(
+			session.guest.expiresAt > Date.now()
+				? "Your temporary account was claimed, with its repositories. Run `prismic login` with the account that claimed it to keep working."
+				: "Your temporary account expired, and Prismic deleted its repositories. Run `prismic login` to keep working.",
+		);
+	}
 	ended = true;
 }
 
@@ -188,8 +201,11 @@ async function isTokenRejected(token: string | undefined): Promise<boolean> {
 	}
 }
 
-export async function reauthenticate(options: { browser?: boolean } = {}): Promise<string> {
-	const token = await getSessionToken({ forceRefresh: true });
+export async function reauthenticate(
+	options: { browser?: boolean; guest?: boolean } = {},
+): Promise<string> {
+	const token =
+		(await getSessionToken({ forceRefresh: true })) ?? (options.guest && (await startGuest()));
 	if (token) return token;
 	console.error(ended ? "Your login expired." : "You are not logged in.");
 	return logIn(options);
@@ -203,12 +219,10 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 
 	// An agent stops before its command times out and runs it again to continue.
 	// Without a terminal, nobody may be there to approve, so it stops too.
-	const isPerson =
-		detectAgent() === undefined && process.stdin.isTTY === true && process.stderr.isTTY === true;
 	const login: Login = {
 		host,
 		auth0,
-		deadline: isPerson ? Infinity : Date.now() + AGENT_WAIT_MS,
+		deadline: isPerson() ? Infinity : Date.now() + AGENT_WAIT_MS,
 		startedAt: Date.now(),
 		resumed: false,
 		waited: false,
@@ -238,7 +252,7 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 
 	let outcome: LoginOutcome;
 	try {
-		outcome = await completeLogin(login, { browser: browser && isPerson });
+		outcome = await completeLogin(login, { browser: browser && isPerson() });
 	} catch (error) {
 		recordLogin({
 			result: getLoginResult(error),
@@ -268,6 +282,74 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	if (login.pending) recordLogin({ result: "success", resumed, startedAt, store, storeReason });
 	console.error(`Logged in to Prismic as ${email}`);
 	return token;
+}
+
+export function isPerson(): boolean {
+	return (
+		detectAgent() === undefined && process.stdin.isTTY === true && process.stderr.isTTY === true
+	);
+}
+
+// Nobody could claim an account started in CI.
+async function startGuest(): Promise<string | undefined> {
+	const host = await getHost();
+	const auth0 = getAuth0Config(host);
+	if (!auth0 || process.env.CI) return;
+	if ((await readCredentials().catch(() => undefined))?.login) return;
+	if (isPerson()) {
+		const prompt = createInterface({
+			input: process.stdin,
+			output: process.stderr,
+			terminal: false,
+		});
+		const answer = await prompt.question(
+			"You are not logged in. Start without an account? You can keep your work later by signing up or logging in. [Y/n] ",
+		);
+		prompt.close();
+		if (/^n/i.test(answer.trim())) return;
+	}
+
+	return withCredentialsLock(async (lock) => {
+		const current = (await readCredentials()).login?.session;
+		if (current) return current.host === host ? getUnexpiredToken(current) : undefined;
+
+		let guest;
+		try {
+			guest = await createGuest({ authenticationUrl: getAuthenticationApiUrl(host) });
+		} catch (error) {
+			if (!(error instanceof RequestError) || (error.status !== 429 && error.status !== 503)) {
+				throw error;
+			}
+			console.error(
+				error.status === 429
+					? "Too many accounts were started without signing up from this network today."
+					: "Starting without an account isn't available right now.",
+			);
+			return;
+		}
+		const store = await prepareLogin(lock);
+		await writeCredentials(lock, {
+			...store,
+			session: {
+				host,
+				auth0Domain: auth0.auth0Domain,
+				clientId: guest.client_id,
+				accessToken: guest.access_token,
+				refreshToken: guest.refresh_token,
+				expiresAt: Date.now() + guest.expires_in * 1000,
+				guest: { claimUrl: guest.claim_url, expiresAt: Date.parse(guest.expires_at) },
+			},
+		});
+		return guest.access_token;
+	});
+}
+
+export function getAuthenticationApiUrl(host: string): URL {
+	// Tests' fake Auth0 server also serves these routes.
+	if (process.env.PROD === "false" && env.PRISMIC_AUTH0_DOMAIN) {
+		return new URL("authentication/", appendTrailingSlash(env.PRISMIC_AUTH0_DOMAIN));
+	}
+	return getAuthenticationUrl(host);
 }
 
 // Native client IDs are public.

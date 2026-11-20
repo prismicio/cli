@@ -132,6 +132,7 @@ export function createCommand<T extends CommandConfig>(
 export function createCommandRouter(config: {
 	name: string;
 	description: string;
+	agents?: string;
 	sections?: Record<string, string>;
 	commands: Record<string, { handler: () => Promise<void>; description: string; hidden?: boolean }>;
 }): () => Promise<void> {
@@ -153,7 +154,7 @@ export function createCommandRouter(config: {
 		}
 
 		const blocks = {
-			...agentsBlock(config.name),
+			...agentsBlock(config.name, config.agents),
 			USAGE: `  ${config.name} <command> [options]`,
 			COMMANDS: formatTable(
 				Object.entries(config.commands)

@@ -61,6 +61,12 @@ const config = {
 	agents: `
 		Do not ask the user whether to create a new repository or connect an
 		existing one. Use --repo only for a repository the user names, and run init.
+
+		When nobody is logged in, init starts without an account. Give the user the
+		claim link and the deletion time it prints. If the user wants to use their
+		own account, run \`prismic login\` before init.
+
+		After init, follow \`prismic mcp --help\` to connect the Prismic MCP server.
 	`,
 	options: {
 		repo: {
@@ -121,19 +127,20 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
+	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
+
 	const host = await getHost();
 	try {
 		await getUserProfile({ getToken, host });
 	} catch (error) {
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			if (env.PRISMIC_TOKEN) throw error;
-			await reauthenticate({ browser: !noBrowser });
+			await reauthenticate({ browser: !noBrowser, guest: !repo });
 		} else {
 			throw error;
 		}
 	}
 
-	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
 	let connectedRepository: Repository | undefined;
 	if (repo) {
 		connectedRepository = await getRepository({ repo, getToken, host }).catch((error) => {

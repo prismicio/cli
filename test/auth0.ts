@@ -7,6 +7,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 // approve it in a browser, so automated tests can't use Auth0 itself.
 
 const INTERVAL = 0.1;
+export const GUEST_EXPIRES_AT = "2099-01-01T02:00:00.000Z";
 
 type FakeAuth0Response = { status: number; body?: unknown; delayMs?: number };
 
@@ -43,7 +44,8 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 	}[] = [];
 	const responses = new Map<string, FakeAuth0Response[]>();
 	const codes: DeviceCode[] = [];
-	const refreshTokens = new Set<string>();
+	const guestClientId = `${clientId}-guest`;
+	const refreshTokens = new Map<string, string>();
 
 	const server = createServer(async (req, res) => {
 		const path = new URL(req.url ?? "/", "http://localhost").pathname;
@@ -59,7 +61,25 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 			return;
 		}
 
-		if (params.client_id !== clientId) {
+		if (path === "/authentication/guest") {
+			return send(res, 201, {
+				access_token: accessToken,
+				refresh_token: issueRefreshToken(guestClientId),
+				// Shorter than the CLI's renewal margin, so each command renews it.
+				expires_in: 60,
+				client_id: guestClientId,
+				claim_url: new URL(`dashboard/claim?code=${randomToken(24)}`, auth0Domain).href,
+				expires_at: GUEST_EXPIRES_AT,
+			});
+		}
+		if (path === "/authentication/guest/link") {
+			if (req.headers.authorization !== `Bearer ${accessToken}`) return send(res, 401);
+			const url = new URL("authentication/guest/enter", auth0Domain);
+			url.searchParams.set("t", randomToken(24));
+			return send(res, 200, { url: url.href });
+		}
+
+		if (params.client_id !== clientId && params.client_id !== guestClientId) {
 			return sendError(res, 401, "invalid_client", "Unknown client.");
 		}
 
@@ -107,10 +127,11 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 				if (params.grant_type === "refresh_token") {
 					// Each refresh token works once. Auth0 accepts the previous one for 60
 					// seconds after rotation, then revokes the whole session.
-					if (!refreshTokens.delete(params.refresh_token)) {
+					const client = refreshTokens.get(params.refresh_token);
+					if (client !== params.client_id || !refreshTokens.delete(params.refresh_token)) {
 						return sendError(res, 403, "invalid_grant", "Unknown or invalid refresh token.");
 					}
-					return sendTokens(res);
+					return sendTokens(res, client === guestClientId ? 60 : undefined, client);
 				}
 				return sendError(res, 400, "unsupported_grant_type", "Unsupported grant type.");
 			}
@@ -124,16 +145,16 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 		send(res, 404);
 	});
 
-	function issueRefreshToken(): string {
+	function issueRefreshToken(client = clientId): string {
 		const refreshToken = randomToken(32);
-		refreshTokens.add(refreshToken);
+		refreshTokens.set(refreshToken, client);
 		return refreshToken;
 	}
 
-	function sendTokens(res: ServerResponse, expiresIn = 3600): void {
+	function sendTokens(res: ServerResponse, expiresIn = 3600, client = clientId): void {
 		send(res, 200, {
 			access_token: accessToken,
-			refresh_token: issueRefreshToken(),
+			refresh_token: issueRefreshToken(client),
 			expires_in: expiresIn,
 			token_type: "Bearer",
 		});

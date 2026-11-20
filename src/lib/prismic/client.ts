@@ -34,6 +34,45 @@ function getAuthServiceUrl(host: string): URL {
 	return new URL(`https://auth.${host}/`);
 }
 
+const GuestSchema = z.object({
+	access_token: z.string(),
+	refresh_token: z.string(),
+	expires_in: z.number(),
+	client_id: z.string(),
+	claim_url: z.string(),
+	expires_at: z.string(),
+});
+
+// The caller passes the authentication API's URL, because tests serve it
+// locally.
+export async function createGuest(config: {
+	authenticationUrl: URL;
+}): Promise<z.infer<typeof GuestSchema>> {
+	const url = new URL("guest", config.authenticationUrl);
+	return request(url, {
+		method: "POST",
+		schema: GuestSchema,
+		unknownErrorMessage: "Failed to start without an account",
+	});
+}
+
+export async function createGuestLink(
+	config: Omit<Config, "host"> & { authenticationUrl: URL },
+): Promise<{ url: string }> {
+	const url = new URL("guest/link", config.authenticationUrl);
+	return request(url, {
+		method: "POST",
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
+		schema: z.object({ url: z.string() }),
+		unknownErrorMessage: "Failed to create a link to your account",
+	});
+}
+
+export function getAuthenticationUrl(host: string): URL {
+	return new URL(`https://api.internal.${host}/authentication/`);
+}
+
 const ProfileSchema = z.object({
 	email: z.string(),
 	shortId: z.string(),
