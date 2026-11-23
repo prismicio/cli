@@ -61,6 +61,7 @@ it("makes an agent wait for approval, and a killed run's next run continues the 
 	const first = prismic("login", args, { nodeOptions: { env } });
 	const firstOutput = captureOutput(first);
 	await waitForLoginPrompt(expect, firstOutput);
+	expect(first.exitCode, "The first run is still waiting").toBeUndefined();
 	first.kill("SIGKILL");
 	await first;
 
