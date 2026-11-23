@@ -2,7 +2,7 @@ import { text } from "node:stream/consumers";
 
 import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { callMcpTool } from "../lib/prismic/client";
+import { callMcpTool, McpError } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic mcp call",
@@ -37,6 +37,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const result = await callMcpTool(name, args, { getToken, host, onUnauthorized });
 	const output = result.content.flatMap((content) => content.text ?? []).join("\n");
 
-	if (result.isError) throw new CommandError(output);
+	if (result.isError) throw new McpError(output);
 	console.info(output);
 });

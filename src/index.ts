@@ -69,6 +69,7 @@ import {
 	UnknownProjectRootError,
 } from "./project";
 import {
+	getFullCommand,
 	getTrackedUserId,
 	initTracking,
 	isTelemetryEnabled,
@@ -231,7 +232,10 @@ async function main(): Promise<void> {
 		process.exitCode = 1;
 
 		const message = await getErrorMessage(error).catch(() => undefined);
-		if (isTracked) trackCommandEnd({ error: message ?? error });
+		// The MCP server already logs tool errors, which can quote tool input.
+		if (isTracked) {
+			trackCommandEnd({ error: error instanceof McpError ? error.name : (message ?? error) });
+		}
 
 		if (KNOWN_ERRORS.some((type) => error instanceof type)) {
 			console.error(message);
@@ -271,6 +275,7 @@ async function initSentry(options: {
 		appName: packageJson.name,
 		appVersion: packageJson.version,
 		environment: env.PRISMIC_SENTRY_ENVIRONMENT,
+		command: getFullCommand(),
 	});
 
 	sentrySetTag("host", host);
