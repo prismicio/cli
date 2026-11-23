@@ -395,6 +395,11 @@ function printLoginPrompt(pending: PendingLogin): void {
 		${verificationUriComplete !== undefined ? `Check that the page shows the code ${userCode}.` : `Enter the code ${userCode}.`}
 		Waiting for the login (the code expires in ${minutes} ${minutes === 1 ? "minute" : "minutes"})...
 	`);
+	if (detectAgent() !== undefined) {
+		console.error(
+			"Give this URL to the user. If a timeout stops this command before approval, run it again.",
+		);
+	}
 }
 
 async function pollUntilApproved(

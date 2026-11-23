@@ -30,6 +30,7 @@ it("logs in with a code, and saves the login for this user only", async ({
 		/Open this URL on any device to log in:\n {2}http:\/\/127\.0\.0\.1:\d+\/activate\?user_code=/,
 	);
 	expect(output()).toContain(`Check that the page shows the code ${getUserCode(output())}.`);
+	expect(output()).not.toContain("Give this URL to the user.");
 	expect(output()).toContain(`Logged in to Prismic as ${email}`);
 	const deviceCode = auth0.requestsTo("/oauth/token")[0]?.device_code;
 	expect(deviceCode).toBeDefined();
@@ -70,6 +71,9 @@ it("makes an agent wait for approval, and a killed run's next run continues the 
 	await approveLogin(expect, secondOutput, auth0);
 	expect((await second).exitCode, secondOutput()).toBe(0);
 	expect(getUserCode(firstOutput())).toBeDefined();
+	expect(firstOutput()).toContain(
+		"Give this URL to the user. If a timeout stops this command before approval, run it again.",
+	);
 	expect(getUserCode(secondOutput())).toBe(getUserCode(firstOutput()));
 	expect(auth0.requestsTo("/oauth/device/code")).toHaveLength(1);
 });
