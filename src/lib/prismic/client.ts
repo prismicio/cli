@@ -912,6 +912,85 @@ function getDashboardUrl(host: string): URL {
 	return new URL(`https://${host}/`);
 }
 
+const McpToolSchema = z.object({
+	name: z.string(),
+	description: z.optional(z.string()),
+	inputSchema: z.unknown(),
+	_meta: z.optional(
+		z.object({ ui: z.optional(z.object({ visibility: z.optional(z.array(z.string())) })) }),
+	),
+});
+type McpTool = z.infer<typeof McpToolSchema>;
+
+const McpToolResultSchema = z.object({
+	content: z.array(z.object({ type: z.string(), text: z.optional(z.string()) })),
+	isError: z.optional(z.boolean()),
+});
+type McpToolResult = z.infer<typeof McpToolResultSchema>;
+
+export async function getMcpTools(config: Config): Promise<McpTool[]> {
+	const tools: McpTool[] = [];
+	let cursor: string | undefined;
+	do {
+		const page = await requestMcp(
+			"tools/list",
+			cursor ? { cursor } : {},
+			z.object({ tools: z.array(McpToolSchema), nextCursor: z.optional(z.string()) }),
+			config,
+		);
+		tools.push(...page.tools);
+		cursor = page.nextCursor;
+	} while (cursor);
+	return tools;
+}
+
+export async function callMcpTool(
+	name: string,
+	args: unknown,
+	config: Config,
+): Promise<McpToolResult> {
+	return requestMcp("tools/call", { name, arguments: args }, McpToolResultSchema, config);
+}
+
+async function requestMcp<T>(
+	method: string,
+	params: unknown,
+	schema: z.ZodMiniType<T>,
+	config: Config,
+): Promise<T> {
+	const body = await request(getMcpServiceUrl(config.host), {
+		method: "POST",
+		json: { jsonrpc: "2.0", id: 1, method, params },
+		headers: {
+			Authorization: `Bearer ${await config.getToken()}`,
+			Accept: "application/json, text/event-stream",
+		},
+		onUnauthorized: config.onUnauthorized,
+	});
+	// An MCP server may answer with a server-sent event stream instead of JSON.
+	const messages =
+		typeof body === "string"
+			? body
+					.split(/\r?\n/)
+					.filter((line) => line.startsWith("data:"))
+					.map((line) => JSON.parse(line.slice(5)))
+			: [body];
+	const message = z.parse(
+		z.object({ result: z.unknown(), error: z.optional(z.object({ message: z.string() })) }),
+		messages.find((message) => message?.id === 1),
+	);
+	if (message.error) throw new McpError(message.error.message);
+	return z.parse(schema, message.result);
+}
+
+export class McpError extends Error {
+	name = "McpError";
+}
+
+function getMcpServiceUrl(host: string): URL {
+	return new URL(`https://mcp.${host}/mcp`);
+}
+
 // Documentation is only published at prismic.io; the host option exists for
 // overrides only.
 const DEFAULT_DOCS_HOST = "prismic.io";

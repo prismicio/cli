@@ -1,0 +1,25 @@
+import { it } from "./it";
+
+it("supports --help", async ({ expect, prismic }) => {
+	const { stdout, stderr, exitCode } = await prismic("mcp", ["tools", "--help"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain("prismic mcp tools <name> [options]");
+});
+
+it("lists tools", async ({ expect, prismic }) => {
+	const { stdout, stderr, exitCode } = await prismic("mcp", ["tools"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain("list_locales");
+});
+
+it("prints a tool's input schema", async ({ expect, prismic }) => {
+	const { stdout, stderr, exitCode } = await prismic("mcp", ["tools", "list_locales"]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain('"repository"');
+});
+
+it("fails for an unknown tool", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("mcp", ["tools", "unknown_tool"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Unknown tool: unknown_tool");
+});

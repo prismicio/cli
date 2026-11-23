@@ -9,6 +9,7 @@ import init from "./init";
 import locale from "./locale";
 import login from "./login";
 import logout from "./logout";
+import mcp from "./mcp";
 import preview from "./preview";
 import pull from "./pull";
 import push from "./push";
@@ -136,6 +137,11 @@ export default createCommandRouter({
 		whoami: {
 			handler: whoami,
 			description: "Show the currently logged in user",
+		},
+		mcp: {
+			handler: mcp,
+			description: "Use Prismic MCP tools without the MCP server",
+			hidden: detectAgent() === undefined,
 		},
 		"task-id": {
 			handler: taskId,

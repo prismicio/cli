@@ -30,6 +30,7 @@ import { MissingPackageJson } from "./lib/packageJson";
 import {
 	getUserProfile,
 	InvalidRepositoryDomainError,
+	McpError,
 	UnsupportedFileTypeError,
 } from "./lib/prismic/client";
 import { InvalidEnvironmentError } from "./lib/prismic/environments";
@@ -87,6 +88,7 @@ const KNOWN_ERRORS = [
 	SliceItemsNotFoundError,
 	UnsupportedFileTypeError,
 	InvalidRepositoryDomainError,
+	McpError,
 	NoSupportedFrameworkError,
 	ModelExistsError,
 	SliceNotFoundError,
