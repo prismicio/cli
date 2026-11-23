@@ -10,6 +10,14 @@ it("lists tools", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("mcp", ["tools"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("list_locales");
+});
+
+it("points agents to the MCP server setup", async ({ expect, prismic }) => {
+	const { stdout: taskId } = await prismic("task-id");
+	const args = ["tools", "--task-id", taskId.trim(), "--user-intent", "List MCP tools"];
+	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
+	const { stderr, exitCode } = await prismic("mcp", args, agent);
+	expect(exitCode, stderr).toBe(0);
 	expect(stderr).toContain("set up the Prismic MCP server: see `prismic mcp --help`");
 });
 

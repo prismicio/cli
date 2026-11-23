@@ -22,12 +22,14 @@ export default createCommandRouter({
 
 		Adapt this to the client you run in:
 		- Claude Code: run \`claude mcp add --transport http --scope user prismic https://mcp.prismic.io/mcp\`.
-		  Then, in Claude Code, run \`/mcp\`, select prismic, then Authenticate.
+		  Then ask the user to run \`/mcp\` in Claude Code, select prismic, then
+		  Authenticate.
 		- Codex: run \`codex mcp add prismic --url https://mcp.prismic.io/mcp\`. It
 		  opens a browser to sign in. If it was closed, run \`codex mcp login prismic\`.
-		- Cursor: add {"mcpServers":{"Prismic":{"url":"https://mcp.prismic.io/mcp"}}}
-		  to ~/.cursor/mcp.json, or to .cursor/mcp.json to share it with the project.
-		  Then, in Cursor Settings > Tools & MCPs, click Prismic and authorize it.
+		- Cursor: merge {"mcpServers":{"Prismic":{"url":"https://mcp.prismic.io/mcp"}}}
+		  into ~/.cursor/mcp.json, or into .cursor/mcp.json to share it with the
+		  project. Then ask the user to open Cursor Settings > Tools & MCPs, click
+		  Prismic, and authorize it.
 		- Other clients: add a remote MCP server with the URL above.
 	`,
 	commands: {

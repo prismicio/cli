@@ -1,4 +1,5 @@
 import { getHost, getToken, onUnauthorized } from "../auth";
+import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { getMcpTools } from "../lib/prismic/client";
@@ -30,7 +31,9 @@ export default createCommand(config, async ({ positionals }) => {
 			tool.description?.split(/(?<=\.)\s+(?=[A-Z])/)[0] ?? "",
 		]);
 		console.info(formatTable(rows, { headers: ["NAME", "DESCRIPTION"] }));
-		console.warn("For future sessions, set up the Prismic MCP server: see `prismic mcp --help`.");
+		if (detectAgent()) {
+			console.warn("For future sessions, set up the Prismic MCP server: see `prismic mcp --help`.");
+		}
 		return;
 	}
 
