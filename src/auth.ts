@@ -226,7 +226,12 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 			store: saved?.store,
 			storeReason: saved?.storeReason,
 		});
-		await endCommand(saved ? "Logged in to Prismic." : "Login cancelled.", 130);
+		const message = saved ? "Logged in to Prismic." : "Login cancelled.";
+		process.exitCode = 130;
+		trackCommandEnd({ error: message });
+		// Exiting right after a write can drop it from a pipe.
+		await new Promise((resolve) => process.stderr.write(`${message}\n`, resolve));
+		process.exit();
 	});
 
 	let outcome: LoginOutcome;
@@ -275,16 +280,6 @@ function getAuth0Config(host: string): Auth0Config | undefined {
 			clientId: "Opbx7JjftGb5sgjIWKVx0XDBSrW37say",
 		};
 	}
-}
-
-// Ends the command at once, even inside a request whose errors the command
-// catches, like sync's loop.
-async function endCommand(message: string, exitCode: number): Promise<never> {
-	process.exitCode = exitCode;
-	trackCommandEnd({ error: message });
-	// Exiting right after a write can drop it from a pipe.
-	await new Promise((resolve) => process.stderr.write(`${message}\n`, resolve));
-	process.exit();
 }
 
 async function completeLogin(login: Login, options: { browser: boolean }): Promise<LoginOutcome> {
