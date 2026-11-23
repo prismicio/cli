@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
-import { request, type RequestOptions } from "../request";
+import { BadRequestError, request, UnknownRequestError, type RequestOptions } from "../request";
 import { appendTrailingSlash, isSubdomain } from "../url";
 
 type Config = {
@@ -910,6 +910,80 @@ export async function createRepository(
 
 function getDashboardUrl(host: string): URL {
 	return new URL(`https://${host}/`);
+}
+
+const McpToolSchema = z.object({
+	name: z.string(),
+	description: z.optional(z.string()),
+	inputSchema: z.unknown(),
+	_meta: z.optional(
+		z.object({ ui: z.optional(z.object({ visibility: z.optional(z.array(z.string())) })) }),
+	),
+});
+type McpTool = z.infer<typeof McpToolSchema>;
+
+const McpToolResultSchema = z.object({
+	content: z.array(z.object({ type: z.string(), text: z.optional(z.string()) })),
+	isError: z.optional(z.boolean()),
+});
+type McpToolResult = z.infer<typeof McpToolResultSchema>;
+
+export async function getMcpTools(config: Config): Promise<McpTool[]> {
+	const { tools } = await requestMcp(
+		"tools/list",
+		{},
+		z.object({ tools: z.array(McpToolSchema) }),
+		config,
+	);
+	return tools;
+}
+
+export async function callMcpTool(
+	name: string,
+	args: unknown,
+	config: Config,
+): Promise<McpToolResult> {
+	return requestMcp("tools/call", { name, arguments: args }, McpToolResultSchema, config);
+}
+
+const McpMessageSchema = z.object({
+	result: z.unknown(),
+	error: z.optional(z.object({ message: z.string() })),
+});
+
+async function requestMcp<T>(
+	method: string,
+	params: unknown,
+	schema: z.ZodMiniType<T>,
+	config: Config,
+): Promise<T> {
+	const message = await request(getMcpServiceUrl(config.host), {
+		method: "POST",
+		json: { jsonrpc: "2.0", id: 1, method, params },
+		headers: {
+			Authorization: `Bearer ${await config.getToken()}`,
+			// The MCP server rejects requests that don't accept both.
+			Accept: "application/json, text/event-stream",
+		},
+		onUnauthorized: config.onUnauthorized,
+		schema: McpMessageSchema,
+	}).catch((error) => {
+		if (error instanceof BadRequestError || error instanceof UnknownRequestError) {
+			const body = z.safeParse(McpMessageSchema, error.body);
+			if (body.data?.error) throw new McpError(body.data.error.message);
+		}
+		throw error;
+	});
+	if (message.error) throw new McpError(message.error.message);
+	return z.parse(schema, message.result);
+}
+
+export class McpError extends Error {
+	name = "McpError";
+}
+
+function getMcpServiceUrl(host: string): URL {
+	return new URL(`https://mcp.${host}/mcp`);
 }
 
 // Documentation is only published at prismic.io; the host option exists for

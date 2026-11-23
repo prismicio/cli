@@ -2,8 +2,7 @@ import { text } from "node:stream/consumers";
 
 import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { McpError } from "../lib/mcp";
-import { callMcpTool } from "../lib/prismic/mcp";
+import { callMcpTool, McpError } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic mcp call",

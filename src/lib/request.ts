@@ -1,6 +1,6 @@
 import * as z from "zod/mini";
 
-export const USER_AGENT = "prismic-cli";
+const USER_AGENT = "prismic-cli";
 
 export type RequestOptions<T = unknown> = Omit<RequestInit, "body"> & {
 	schema?: z.ZodMiniType<T>;
