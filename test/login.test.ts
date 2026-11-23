@@ -47,7 +47,7 @@ it("logs in with a code, and saves the login for this user only", async ({
 	if (process.platform !== "win32") expect((await stat(path)).mode & 0o777).toBe(0o600);
 });
 
-it("stops an agent at its wait limit, and its next run continues the login", async ({
+it("makes an agent wait for approval, and a killed run's next run continues the login", async ({
 	expect,
 	prismic,
 	logout,
@@ -56,21 +56,20 @@ it("stops an agent at its wait limit, and its next run continues the login", asy
 	await logout();
 	const { stdout: taskId } = await prismic("task-id");
 	const args = ["--task-id", taskId.trim(), "--user-intent", "Log in to Prismic"];
-	const env = { AI_AGENT: "test-agent", PRISMIC_AGENT_WAIT_MS: "1000" };
+	const env = { AI_AGENT: "test-agent" };
 
-	const first = await prismic("login", args, { nodeOptions: { env } });
-	expect(first.exitCode).toBe(1);
-	expect(first.stderr).toContain(
-		"Waiting for approval. After the user approves, run the same command again. It continues this login.",
-	);
+	const first = prismic("login", args, { nodeOptions: { env } });
+	const firstOutput = captureOutput(first);
+	await waitForLoginPrompt(expect, firstOutput);
+	first.kill("SIGKILL");
+	await first;
 
-	auth0.approve();
-	const second = await prismic("login", args, {
-		nodeOptions: { env: { ...env, PRISMIC_AGENT_WAIT_MS: "30000" } },
-	});
-	expect(second.exitCode, second.stderr).toBe(0);
-	expect(getUserCode(first.stderr)).toBeDefined();
-	expect(getUserCode(second.stderr)).toBe(getUserCode(first.stderr));
+	const second = prismic("login", args, { nodeOptions: { env } });
+	const secondOutput = captureOutput(second);
+	await approveLogin(expect, secondOutput, auth0);
+	expect((await second).exitCode, secondOutput()).toBe(0);
+	expect(getUserCode(firstOutput())).toBeDefined();
+	expect(getUserCode(secondOutput())).toBe(getUserCode(firstOutput()));
 	expect(auth0.requestsTo("/oauth/device/code")).toHaveLength(1);
 });
 

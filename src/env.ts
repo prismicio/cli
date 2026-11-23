@@ -21,7 +21,6 @@ const Env = z.object({
 	// check, which production builds drop, and a bad value reads as unset.
 	PRISMIC_AUTH0_DOMAIN: z.optional(z.string()),
 	PRISMIC_AUTH0_CLIENT_ID: z.optional(z.string()),
-	PRISMIC_AGENT_WAIT_MS: z.catch(z.optional(z.coerce.number().check(z.gte(1))), undefined),
 });
 
 export const env = z.parse(Env, {
