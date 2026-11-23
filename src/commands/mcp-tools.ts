@@ -30,6 +30,7 @@ export default createCommand(config, async ({ positionals }) => {
 			tool.description?.split(/(?<=\.)\s+(?=[A-Z])/)[0] ?? "",
 		]);
 		console.info(formatTable(rows, { headers: ["NAME", "DESCRIPTION"] }));
+		console.warn("For future sessions, set up the Prismic MCP server: see `prismic mcp --help`.");
 		return;
 	}
 

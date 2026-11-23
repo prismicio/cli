@@ -11,3 +11,10 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic mcp <command> [options]");
 });
+
+it("tells agents how to set up the MCP server", async ({ expect, prismic }) => {
+	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
+	const { stdout } = await prismic("mcp", ["--help"], agent);
+	expect(stdout).toContain("https://mcp.prismic.io/mcp");
+	expect(stdout).toContain("prefer it over `prismic mcp call`");
+});
