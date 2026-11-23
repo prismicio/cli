@@ -61,7 +61,11 @@ it("makes an agent wait for approval, and a killed run's next run continues the 
 
 	const first = prismic("login", args, { nodeOptions: { env } });
 	const firstOutput = captureOutput(first);
-	await waitForLoginPrompt(expect, firstOutput);
+	await expect
+		.poll(firstOutput, { timeout: 15_000 })
+		.toContain(
+			"Give this URL to the user. If a timeout stops this command before approval, run it again.",
+		);
 	expect(first.exitCode, "The first run is still waiting").toBeUndefined();
 	first.kill("SIGKILL");
 	await first;
@@ -71,9 +75,6 @@ it("makes an agent wait for approval, and a killed run's next run continues the 
 	await approveLogin(expect, secondOutput, auth0);
 	expect((await second).exitCode, secondOutput()).toBe(0);
 	expect(getUserCode(firstOutput())).toBeDefined();
-	expect(firstOutput()).toContain(
-		"Give this URL to the user. If a timeout stops this command before approval, run it again.",
-	);
 	expect(getUserCode(secondOutput())).toBe(getUserCode(firstOutput()));
 	expect(auth0.requestsTo("/oauth/device/code")).toHaveLength(1);
 });
