@@ -6,11 +6,12 @@ const config = {
 	description: `
 		Log in to Prismic. Prints a URL and a code to approve in a browser.
 
-		The command waits until the login is approved or the code expires.
+		The command waits until the login is approved, declined, or the code expires.
 	`,
 	agents: `
-		Run this command in the background and give the user the URL. If it stops
-		before the user approves, run it again. It continues the same login.
+		Run this command in the background and give the user the URL it prints. If
+		the command is killed before the user approves, run it again. It continues
+		the same login.
 	`,
 	options: {
 		"no-browser": { type: "boolean", description: "Skip opening the browser automatically" },
