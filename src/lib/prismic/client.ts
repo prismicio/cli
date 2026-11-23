@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
-import { request, type RequestOptions } from "../request";
+import { BadRequestError, request, UnknownRequestError, type RequestOptions } from "../request";
 import { appendTrailingSlash, isSubdomain } from "../url";
 
 type Config = {
@@ -946,6 +946,11 @@ export async function callMcpTool(
 	return requestMcp("tools/call", { name, arguments: args }, McpToolResultSchema, config);
 }
 
+const McpMessageSchema = z.object({
+	result: z.unknown(),
+	error: z.optional(z.object({ message: z.string() })),
+});
+
 async function requestMcp<T>(
 	method: string,
 	params: unknown,
@@ -961,10 +966,13 @@ async function requestMcp<T>(
 			Accept: "application/json, text/event-stream",
 		},
 		onUnauthorized: config.onUnauthorized,
-		schema: z.object({
-			result: z.unknown(),
-			error: z.optional(z.object({ message: z.string() })),
-		}),
+		schema: McpMessageSchema,
+	}).catch((error) => {
+		if (error instanceof BadRequestError || error instanceof UnknownRequestError) {
+			const body = z.safeParse(McpMessageSchema, error.body);
+			if (body.data?.error) throw new McpError(body.data.error.message);
+		}
+		throw error;
 	});
 	if (message.error) throw new McpError(message.error.message);
 	return z.parse(schema, message.result);
