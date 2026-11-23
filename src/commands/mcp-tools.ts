@@ -2,7 +2,7 @@ import { getHost, getToken, onUnauthorized } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
-import { getMcpTools } from "../lib/prismic/client";
+import { getMcpTools } from "../lib/prismic/mcp";
 import { formatTable } from "../lib/string";
 
 const config = {

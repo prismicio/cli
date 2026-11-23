@@ -26,11 +26,11 @@ import { getErrorMessage } from "./error";
 import { detectAgent } from "./lib/ai";
 import { DeviceFlowError } from "./lib/auth0";
 import { CommandError } from "./lib/command";
+import { McpError } from "./lib/mcp";
 import { MissingPackageJson } from "./lib/packageJson";
 import {
 	getUserProfile,
 	InvalidRepositoryDomainError,
-	McpError,
 	UnsupportedFileTypeError,
 } from "./lib/prismic/client";
 import { InvalidEnvironmentError } from "./lib/prismic/environments";
