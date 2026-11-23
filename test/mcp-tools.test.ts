@@ -23,3 +23,11 @@ it("fails for an unknown tool", async ({ expect, prismic }) => {
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Unknown tool: unknown_tool");
 });
+
+it("rejects a Write API token", async ({ expect, prismic, writeToken }) => {
+	const { stderr, exitCode } = await prismic("mcp", ["tools"], {
+		nodeOptions: { env: { PRISMIC_TOKEN: writeToken } },
+	});
+	expect(exitCode).not.toBe(0);
+	expect(stderr).toContain("MCP tools can't use a write API token.");
+});

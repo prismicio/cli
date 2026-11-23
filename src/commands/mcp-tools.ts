@@ -27,7 +27,7 @@ export default createCommand(config, async ({ positionals }) => {
 	if (!name) {
 		const rows = modelTools.map((tool) => [
 			tool.name,
-			tool.description?.split(/(?<=\.)\s/)[0] ?? "",
+			tool.description?.split(/(?<=\.)\s+(?=[A-Z])/)[0] ?? "",
 		]);
 		console.info(formatTable(rows, { headers: ["NAME", "DESCRIPTION"] }));
 		return;
