@@ -140,7 +140,7 @@ export default createCommandRouter({
 		},
 		mcp: {
 			handler: mcp,
-			description: "Use Prismic MCP tools without the MCP server",
+			description: "Use Prismic MCP tools without configuring the MCP server",
 			hidden: detectAgent() === undefined,
 		},
 		"task-id": {

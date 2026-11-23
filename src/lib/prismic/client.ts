@@ -929,18 +929,12 @@ const McpToolResultSchema = z.object({
 type McpToolResult = z.infer<typeof McpToolResultSchema>;
 
 export async function getMcpTools(config: Config): Promise<McpTool[]> {
-	const tools: McpTool[] = [];
-	let cursor: string | undefined;
-	do {
-		const page = await requestMcp(
-			"tools/list",
-			cursor ? { cursor } : {},
-			z.object({ tools: z.array(McpToolSchema), nextCursor: z.optional(z.string()) }),
-			config,
-		);
-		tools.push(...page.tools);
-		cursor = page.nextCursor;
-	} while (cursor);
+	const { tools } = await requestMcp(
+		"tools/list",
+		{},
+		z.object({ tools: z.array(McpToolSchema) }),
+		config,
+	);
 	return tools;
 }
 
@@ -958,27 +952,20 @@ async function requestMcp<T>(
 	schema: z.ZodMiniType<T>,
 	config: Config,
 ): Promise<T> {
-	const body = await request(getMcpServiceUrl(config.host), {
+	const message = await request(getMcpServiceUrl(config.host), {
 		method: "POST",
 		json: { jsonrpc: "2.0", id: 1, method, params },
 		headers: {
 			Authorization: `Bearer ${await config.getToken()}`,
+			// The MCP server rejects requests that don't accept both.
 			Accept: "application/json, text/event-stream",
 		},
 		onUnauthorized: config.onUnauthorized,
+		schema: z.object({
+			result: z.unknown(),
+			error: z.optional(z.object({ message: z.string() })),
+		}),
 	});
-	// An MCP server may answer with a server-sent event stream instead of JSON.
-	const messages =
-		typeof body === "string"
-			? body
-					.split(/\r?\n/)
-					.filter((line) => line.startsWith("data:"))
-					.map((line) => JSON.parse(line.slice(5)))
-			: [body];
-	const message = z.parse(
-		z.object({ result: z.unknown(), error: z.optional(z.object({ message: z.string() })) }),
-		messages.find((message) => message?.id === 1),
-	);
 	if (message.error) throw new McpError(message.error.message);
 	return z.parse(schema, message.result);
 }
