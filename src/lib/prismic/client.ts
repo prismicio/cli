@@ -3,8 +3,7 @@ import { createHash } from "node:crypto";
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import * as z from "zod/mini";
 
-import { decodePayload } from "../jwt";
-import { request, UnauthorizedRequestError, type RequestOptions } from "../request";
+import { request, type RequestOptions } from "../request";
 import { appendTrailingSlash, isSubdomain } from "../url";
 
 type Config = {
@@ -953,12 +952,11 @@ async function requestMcp<T>(
 	schema: z.ZodMiniType<T>,
 	config: Config,
 ): Promise<T> {
-	const token = await config.getToken();
 	const message = await request(getMcpServiceUrl(config.host), {
 		method: "POST",
 		json: { jsonrpc: "2.0", id: 1, method, params },
 		headers: {
-			Authorization: `Bearer ${token}`,
+			Authorization: `Bearer ${await config.getToken()}`,
 			// The MCP server rejects requests that don't accept both.
 			Accept: "application/json, text/event-stream",
 		},
@@ -967,18 +965,6 @@ async function requestMcp<T>(
 			result: z.unknown(),
 			error: z.optional(z.object({ message: z.string() })),
 		}),
-	}).catch((error) => {
-		// The MCP server answers 401 to valid write API tokens.
-		if (
-			error instanceof UnauthorizedRequestError &&
-			token &&
-			decodePayload(token)?.type === "machine2machine"
-		) {
-			throw new McpError(
-				"MCP tools can't use a write API token. Unset PRISMIC_TOKEN and run `prismic login`.",
-			);
-		}
-		throw error;
 	});
 	if (message.error) throw new McpError(message.error.message);
 	return z.parse(schema, message.result);

@@ -2,6 +2,7 @@ import { getHost, getToken } from "./auth";
 import { env } from "./env";
 import { detectAgent } from "./lib/ai";
 import { DeviceFlowError, type DeviceFlowErrorReason } from "./lib/auth0";
+import { decodePayload } from "./lib/jwt";
 import { isInvalidAuthContextError } from "./lib/prismic/auth";
 import {
 	BadRequestError,
@@ -40,6 +41,13 @@ export async function getErrorMessage(error: unknown): Promise<string | undefine
 		if (env.PRISMIC_TOKEN) {
 			if (isInvalidAuthContextError(error)) {
 				return "This token cannot run administrative commands. Unset PRISMIC_TOKEN and run `prismic login`.";
+			}
+			// The MCP server answers 401 to valid write API tokens.
+			if (
+				new URL(error.response.url).hostname.startsWith("mcp.") &&
+				decodePayload(env.PRISMIC_TOKEN)?.type === "machine2machine"
+			) {
+				return "MCP tools can't use a write API token. Unset PRISMIC_TOKEN and run `prismic login`.";
 			}
 			return "PRISMIC_TOKEN is invalid or expired, or doesn't have access to this repository. Unset it to log in with a browser, or replace it with a valid token.";
 		}
