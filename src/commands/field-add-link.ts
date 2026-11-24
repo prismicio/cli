@@ -17,8 +17,8 @@ const config = {
 			Add a button (writers can set its label and open it in a new tab):
 			  prismic field add link button --to-slice hero
 
-			Add a link without display text:
-			  prismic field add link canonical_url --to-type page --no-allow-text
+			Add a link without display text or new tab:
+			  prismic field add link canonical_url --to-type page --no-allow-text --no-allow-target-blank
 
 			Restrict to media links only:
 			  prismic field add link download --to-type blog_post --allow media
@@ -46,7 +46,7 @@ const config = {
 		},
 		"no-allow-target-blank": {
 			type: "boolean",
-			description: "Don't let writers open the link in a new tab",
+			description: "Don't let writers open web links in a new tab",
 		},
 		"allow-text": { type: "boolean", hidden: true, description: "On by default." },
 		"allow-target-blank": { type: "boolean", hidden: true, description: "On by default." },

@@ -142,3 +142,20 @@ it("adds a document link field without new tab", async ({ expect, prismic, proje
 	expect(field).toMatchObject({ type: "Link", config: { select: "document", allowText: true } });
 	expect(field.config).not.toHaveProperty("allowTargetBlank");
 });
+
+it("rejects a flag with its --no- form", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"link",
+		"my_link",
+		"--to-slice",
+		slice.id,
+		"--allow-text",
+		"--no-allow-text",
+	]);
+	expect(exitCode).not.toBe(0);
+	expect(stderr).toContain("Only one of --allow-text or --no-allow-text");
+});

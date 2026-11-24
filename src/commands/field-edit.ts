@@ -63,9 +63,12 @@ const config = {
 		},
 		"allow-text": {
 			type: "boolean",
-			description: "Allow custom link text (link)",
+			description: "Let writers set the link's display text, such as a button label (link)",
 		},
-		"no-allow-text": { type: "boolean", description: "Disallow custom link text (link)" },
+		"no-allow-text": {
+			type: "boolean",
+			description: "Don't let writers set the link's display text (link)",
+		},
 		repeatable: { type: "boolean", description: "Allow multiple links (link)" },
 		variant: {
 			type: "string",
