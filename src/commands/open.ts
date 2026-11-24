@@ -8,11 +8,22 @@ import { getRepositoryName } from "../project";
 const config = {
 	name: "prismic open",
 	description: `
-		Open the project's repository in a browser, or the dashboard outside a
-		project. A temporary account opens logged in.
+		Open a Prismic repository in a browser and print its URL.
+
+		By default, this command opens the repository from prismic.config.json at
+		the project root. Outside a project, or with --dashboard, it opens the
+		dashboard.
+
+		With a temporary account, the URL logs the browser in. It works once.
+	`,
+	agents: `
+		The browser opens on the machine this command runs on. If the user is on
+		another machine, give them the printed URL instead. Do not fetch a
+		temporary account's URL: that uses it up, and the user can no longer open
+		it.
 	`,
 	options: {
-		dashboard: { type: "boolean", description: "Open the dashboard, even inside a project" },
+		dashboard: { type: "boolean", description: "Open the dashboard instead of the repository" },
 	},
 } satisfies CommandConfig;
 

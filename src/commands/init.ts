@@ -56,15 +56,19 @@ const config = {
 		used another one before. If a prismic.config.json exists, init requires
 		--repo.
 
+		When nobody is logged in, init creates the repository in a temporary
+		account and prints a link to claim it. Prismic deletes the account and its
+		repositories if nobody claims it in time.
+
 		Run \`prismic docs view cli#set-up-a-type-builder-project\` for details.
 	`,
 	agents: `
 		Do not ask the user whether to create a new repository or connect an
 		existing one. Use --repo only for a repository the user names, and run init.
 
-		When nobody is logged in, init starts without an account. Give the user the
-		claim link and the deletion time it prints right away. If the user wants to
-		use their own account, run \`prismic login\` before init.
+		Give the user a temporary account's claim link and deletion time as soon as
+		init prints them. If the user wants to use their own account, run
+		\`prismic login\` before init.
 	`,
 	options: {
 		repo: {

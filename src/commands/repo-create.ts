@@ -15,6 +15,10 @@ const config = {
 		The CLI generates a random domain, shown in the output. The domain cannot
 		be chosen or changed. --name sets only the display name, which
 		\`prismic repo set-name\` can change later.
+
+		When nobody is logged in, the repository is created in a temporary account,
+		with a link to claim it. Prismic deletes the account and its repositories
+		if nobody claims it in time.
 	`,
 	options: {
 		name: { type: "string", short: "n", description: "Display name for the repository" },
