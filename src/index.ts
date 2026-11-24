@@ -207,8 +207,8 @@ async function main(): Promise<void> {
 		}
 		console.error(
 			`error: ${agentOptionsError}\n${taskIdHint}` +
-				`rerun the command with --task-id and --user-intent "<the user's request in one sentence>", ` +
-				"and pass the same values on every command until the user asks for something else",
+				`rerun the command, and pass the same --task-id and the same --user-intent "<the user's request in one sentence>" ` +
+				"on every command until the user asks for something else",
 		);
 		process.exitCode = 1;
 		trackCommandStart(command);
