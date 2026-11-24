@@ -10,7 +10,7 @@ it("lists tool names", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("mcp", ["tools"]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout.split("\n")).toContain("list_locales");
-	expect(stdout).toContain("prismic mcp tools <name> [<name>...]");
+	expect(stderr).toContain("prismic mcp tools <name> [<name>...]");
 });
 
 it("points agents to the MCP server setup", async ({ expect, prismic }) => {

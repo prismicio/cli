@@ -42,10 +42,11 @@ export default createCommand(config, async ({ positionals, values }) => {
 		output = result.content.flatMap((content) => content.text ?? []).join("\n");
 		if (result.isError) throw new McpError(output);
 	} catch (error) {
-		if (!(error instanceof McpError) || !/-32602|invalid arguments/i.test(error.message)) {
+		if (!(error instanceof McpError) || !/-32602|Invalid arguments for tool/.test(error.message)) {
 			throw error;
 		}
-		const tool = (await getMcpTools(mcpConfig)).find((tool) => tool.name === name);
+		const tools = await getMcpTools(mcpConfig).catch(() => []);
+		const tool = tools.find((tool) => tool.name === name);
 		if (!tool) throw error;
 		throw new McpError(
 			`${error.message}\n\n${JSON.stringify({ ...tool, _meta: undefined })}\n\nFix the input to match this definition.`,

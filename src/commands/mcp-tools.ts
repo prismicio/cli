@@ -12,7 +12,7 @@ const config = {
 		JSON line. Load a tool's definition before you call it.
 	`,
 	positionals: {
-		name: { description: "Tool names to load", required: false },
+		name: { description: "One or more tool names to load", required: false },
 	},
 } satisfies CommandConfig;
 
@@ -24,7 +24,7 @@ export default createCommand(config, async ({ positionals }) => {
 
 	if (positionals.length === 0) {
 		for (const tool of modelTools) console.info(tool.name);
-		console.info(
+		console.warn(
 			"Load a tool's definition before calling it: prismic mcp tools <name> [<name>...]",
 		);
 		if (detectAgent()) {
@@ -36,11 +36,13 @@ export default createCommand(config, async ({ positionals }) => {
 	const unknown = positionals.filter((name) => !modelTools.some((tool) => tool.name === name));
 	if (unknown.length > 0) {
 		const messages = unknown.map((name) => {
-			const words = name.split("_").filter(Boolean);
+			const words = name.toLowerCase().split(/[_-]/).filter(Boolean);
 			const matches = modelTools
 				.map((tool) => ({
 					name: tool.name,
-					score: tool.name.split("_").filter((word) => words.some((part) => word.startsWith(part)))
+					score: tool.name
+						.split("_")
+						.filter((word) => words.some((part) => word.startsWith(part) || part.startsWith(word)))
 						.length,
 				}))
 				.filter((match) => match.score > 0)
@@ -54,7 +56,7 @@ export default createCommand(config, async ({ positionals }) => {
 		throw new CommandError(messages.join("\n"));
 	}
 
-	for (const name of positionals) {
+	for (const name of new Set(positionals)) {
 		const tool = modelTools.find((tool) => tool.name === name);
 		console.info(JSON.stringify({ ...tool, _meta: undefined }));
 	}
