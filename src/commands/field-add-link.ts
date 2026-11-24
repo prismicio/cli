@@ -2,7 +2,7 @@ import type { LinkModel } from "@prismicio/types-internal";
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
 import { addField } from "../lib/prismic/models";
 
 const config = {
@@ -75,6 +75,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		"custom-type": customtypes,
 	} = values;
 
+	exclusiveOptions(values, ["allow-text", "no-allow-text"]);
+	exclusiveOptions(values, ["allow-target-blank", "no-allow-target-blank"]);
 	if (allow?.includes(",")) {
 		throw new CommandError(
 			"--allow accepts a single link type. Prismic links allow either one type or all types.",
@@ -98,7 +100,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			select,
 			allowTargetBlank: noAllowTargetBlank
 				? undefined
-				: allowTargetBlank || select !== "media" || undefined,
+				: allowTargetBlank || !select || select === "web" || undefined,
 			allowText: noAllowText ? undefined : true,
 			repeat,
 			variants,

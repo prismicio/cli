@@ -57,10 +57,15 @@ const config = {
 			type: "boolean",
 			description: "Allow opening in new tab (link/rich-text)",
 		},
+		"no-allow-target-blank": {
+			type: "boolean",
+			description: "Disallow opening in new tab (link/rich-text)",
+		},
 		"allow-text": {
 			type: "boolean",
 			description: "Allow custom link text (link)",
 		},
+		"no-allow-text": { type: "boolean", description: "Disallow custom link text (link)" },
 		repeatable: { type: "boolean", description: "Allow multiple links (link)" },
 		variant: {
 			type: "string",
@@ -110,6 +115,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	if ("placeholder" in values)
 		(field.config as Record<string, unknown>).placeholder = values.placeholder;
 
+	exclusiveOptions(values, ["allow-target-blank", "no-allow-target-blank"]);
+	exclusiveOptions(values, ["allow-text", "no-allow-text"]);
+
 	switch (field.type) {
 		case "Boolean": {
 			exclusiveOptions(values, ["default-true", "default-false"]);
@@ -143,6 +151,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 			if ("allow-target-blank" in values) {
 				field.config.allowTargetBlank = values["allow-target-blank"];
 			}
+			if ("no-allow-target-blank" in values) delete field.config.allowTargetBlank;
 			if ("labels" in values) {
 				if (values.labels) {
 					field.config.labels = values.labels.split(",");
@@ -170,7 +179,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 			if ("allow-target-blank" in values) {
 				field.config.allowTargetBlank = values["allow-target-blank"];
 			}
+			if ("no-allow-target-blank" in values) delete field.config.allowTargetBlank;
 			if ("allow-text" in values) field.config.allowText = values["allow-text"];
+			if ("no-allow-text" in values) delete field.config.allowText;
 			if ("repeatable" in values) field.config.repeat = values.repeatable;
 			if ("variant" in values) field.config.variants = values.variant;
 			if ("tag" in values) field.config.tags = values.tag;

@@ -121,3 +121,24 @@ it("adds a media link field with --allow media", async ({ expect, prismic, proje
 	expect(field).toMatchObject({ type: "Link", config: { select: "media", allowText: true } });
 	expect(field.config).not.toHaveProperty("allowTargetBlank");
 });
+
+it("adds a document link field without new tab", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"link",
+		"my_doc",
+		"--to-slice",
+		slice.id,
+		"--allow",
+		"document",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	const field = updated!.variations[0].primary!.my_doc;
+	expect(field).toMatchObject({ type: "Link", config: { select: "document", allowText: true } });
+	expect(field.config).not.toHaveProperty("allowTargetBlank");
+});
