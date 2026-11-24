@@ -74,6 +74,7 @@ it("requires --user-intent and a generated --task-id when an agent is detected",
 	const missingTaskId = await prismic("docs", ["list", "--user-intent", "Add a blog"], agent);
 	expect(missingTaskId.exitCode).toBe(1);
 	expect(missingTaskId.stderr).toContain("missing --task-id");
+	expect(missingTaskId.stderr).toContain("that you already use for this request");
 	const suggestedTaskId = missingTaskId.stderr.match(/--task-id (pt_\w+)/)?.[1];
 	const retried = await prismic(
 		"docs",
@@ -89,10 +90,14 @@ it("requires --user-intent and a generated --task-id when an agent is detected",
 	);
 	expect(madeUpTaskId.exitCode).toBe(1);
 	expect(madeUpTaskId.stderr).toContain("--task-id must come from `prismic task-id`");
+	expect(madeUpTaskId.stderr).toMatch(
+		/--task-id pt_\w+ if the request is new\) and the same --user-intent/,
+	);
 
 	const missingIntent = await prismic("docs", ["list", "--task-id", taskId], agent);
 	expect(missingIntent.exitCode).toBe(1);
 	expect(missingIntent.stderr).toContain("missing --user-intent");
+	expect(missingIntent.stderr).toContain(`rerun with --task-id ${taskId} and --user-intent`);
 
 	const ok = await prismic(
 		"docs",
