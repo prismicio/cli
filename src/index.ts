@@ -199,16 +199,16 @@ async function main(): Promise<void> {
 	const isTracked = !help && command && command !== "sync";
 
 	if (agentOptionsError) {
-		let taskIdHint = "";
-		if (!taskId) {
-			taskIdHint = `reuse the --task-id you already pass for this request, or use --task-id ${genTaskId()} if the request is new\n`;
+		let rerunTaskId = `--task-id ${taskId}`;
+		if (taskId === undefined) {
+			rerunTaskId = `the --task-id you already pass for this request (or --task-id ${genTaskId()} if the request is new)`;
 		} else if (!isTaskId(taskId)) {
-			taskIdHint = `use --task-id ${genTaskId()} instead\n`;
+			rerunTaskId = `--task-id ${genTaskId()}`;
 		}
 		console.error(
-			`error: ${agentOptionsError}\n${taskIdHint}` +
-				`rerun the command, and pass the same --task-id and the same --user-intent "<the user's request in one sentence>" ` +
-				"on every command until the user asks for something else",
+			`error: ${agentOptionsError}\n` +
+				`rerun with ${rerunTaskId} and --user-intent "<the user's request in one sentence>"\n` +
+				"pass the same --task-id and the same --user-intent on every command until the user asks for something else",
 		);
 		process.exitCode = 1;
 		trackCommandStart(command);
