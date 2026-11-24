@@ -56,7 +56,7 @@ const config = {
 		used another one before. If a prismic.config.json exists, init requires
 		--repo.
 
-		When nobody is logged in, init creates the repository in a temporary
+		When not logged in, init creates the repository in a temporary
 		account and prints a link to claim it. Prismic deletes the account and its
 		repositories if nobody claims it in time.
 

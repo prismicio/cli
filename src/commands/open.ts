@@ -14,40 +14,49 @@ const config = {
 		the project root. Outside a project, or with --dashboard, it opens the
 		dashboard.
 
-		With a temporary account, the URL logs the browser in. It works once.
+		With a temporary account, this command opens no browser. It prints a link
+		that logs in to the account and works once.
 	`,
 	agents: `
-		The browser opens on the machine this command runs on. If the user is on
-		another machine, give them the printed URL instead. Do not fetch a
-		temporary account's URL: that uses it up, and the user can no longer open
-		it.
+		Give a temporary account's link to the user. Do not fetch it: that uses it
+		up. Use --no-browser when the user's browser is on another machine.
 	`,
 	options: {
 		dashboard: { type: "boolean", description: "Open the dashboard instead of the repository" },
+		"no-browser": { type: "boolean", description: "Skip opening the browser automatically" },
 	},
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
 	const host = await getHost();
 	const repo = values.dashboard ? undefined : await getRepositoryName().catch(() => undefined);
-	let url = repo ? `https://${repo}.${host}/` : `https://${host}/dashboard`;
-	if (await getGuest()) {
-		try {
-			({ url } = await createGuestLink({
-				authenticationUrl: getAuthenticationApiUrl(host),
-				redirectUri: repo && url,
-				getToken,
-				onUnauthorized,
-			}));
-		} catch (error) {
-			if (!(error instanceof BadRequestError)) throw error;
-			const reason = (error.body as { error?: string } | undefined)?.error;
-			console.warn(`Prismic can't open ${url} logged in (${reason}), so it opens logged out.`);
+	const url = repo ? `https://${repo}.${host}/` : `https://${host}/dashboard`;
+
+	if (!(await getGuest())) {
+		if (values["no-browser"]) {
+			console.info(url);
+		} else {
+			openBrowser(new URL(url));
+			console.info(`Opening ${url}`);
 		}
+		return;
 	}
 
-	console.info(`Opening ${url}`);
-	// openBrowser() runs a shell, so the URL can't contain shell syntax,
-	// including cmd.exe's %NAME%.
-	if (/^https:\/\/[\w\-.:/?=&~+]+$/.test(url) && URL.canParse(url)) openBrowser(new URL(url));
+	// The link works once, so a browser on this machine would use it up for a
+	// user on another one.
+	try {
+		const link = await createGuestLink({
+			authenticationUrl: getAuthenticationApiUrl(host),
+			redirectUri: repo && url,
+			getToken,
+			onUnauthorized,
+		});
+		console.info(link.url);
+		console.warn("This link logs in to your temporary account. It works once.");
+	} catch (error) {
+		if (!(error instanceof BadRequestError)) throw error;
+		const reason = (error.body as { error?: string } | undefined)?.error;
+		console.info(url);
+		console.warn(`Prismic can't log in to this page (${reason}), so the link opens logged out.`);
+	}
 });
