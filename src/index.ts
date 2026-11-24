@@ -199,12 +199,10 @@ async function main(): Promise<void> {
 	const isTracked = !help && command && command !== "sync";
 
 	if (agentOptionsError) {
-		let rerunTaskId = `--task-id ${taskId}`;
-		if (!taskId) {
-			rerunTaskId = `the --task-id you already pass for this request (or --task-id ${genTaskId()} if the request is new)`;
-		} else if (!isTaskId(taskId)) {
-			rerunTaskId = `--task-id ${genTaskId()}`;
-		}
+		const rerunTaskId =
+			taskId && isTaskId(taskId)
+				? `--task-id ${taskId}`
+				: `the --task-id from \`prismic task-id\` that you already use for this request (or --task-id ${genTaskId()} if the request is new)`;
 		console.error(
 			`error: ${agentOptionsError}\n` +
 				`rerun with ${rerunTaskId} and ${userIntent ? "the same --user-intent" : `--user-intent "<the user's request in one sentence>"`}\n` +
