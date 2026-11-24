@@ -42,6 +42,3 @@ coverage
 *.code-workspace
 
 .claude
-
-# Latest eval run, including filtered ones; results.json only records full runs
-evals/results.local.json

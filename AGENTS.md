@@ -70,10 +70,3 @@ End-to-end tests organized by command, mirroring `src/commands/` filenames
 one-to-one: `repo-create.test.ts` tests `repo-create.ts`. Never organized by
 feature or concern. Non-test files are shared helpers; helpers never import
 from `src/`.
-
-## `evals/`
-
-AI agent evaluations. One `*.eval.ts` file per agent capability, named as a
-behavior phrase like `sync-models.eval.ts`. Organized by what an agent should
-be able to do, not by command. Non-eval files are the shared harness; eval
-files may reuse `test/` helpers.
