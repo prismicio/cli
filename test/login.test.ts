@@ -211,11 +211,8 @@ it("refuses to replace a temporary account, even with PRISMIC_TOKEN set", async 
 	});
 	const { stderr, exitCode } = await prismic("login");
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain(
-		"This is a temporary account. Claim it first, or run `prismic logout` to abandon it.",
-	);
-	expect(stderr).toContain(
-		"Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT. Keep it: https://example.com/claim",
+	expect(stderr.trim()).toBe(
+		"You're logged in to a temporary account. Claim it first (https://example.com/claim), or run `prismic logout` to abandon it.",
 	);
 	expect(stderr).not.toContain("Open this URL");
 
@@ -223,7 +220,7 @@ it("refuses to replace a temporary account, even with PRISMIC_TOKEN set", async 
 		nodeOptions: { env: { PRISMIC_TOKEN: "other" } },
 	});
 	expect(withToken.exitCode).toBe(1);
-	expect(withToken.stderr).toContain("This is a temporary account.");
+	expect(withToken.stderr).toContain("You're logged in to a temporary account.");
 });
 
 function getUserCode(output: string): string | undefined {

@@ -12,9 +12,10 @@ const config = {
 
 export default createCommand(config, async ({ values }) => {
 	// Logging in replaces the temporary account, which strands its repositories.
-	if ((await readLoginSummary()).guest) {
+	const { guest } = await readLoginSummary();
+	if (guest) {
 		throw new CommandError(
-			"This is a temporary account. Claim it first, or run `prismic logout` to abandon it.",
+			`You're logged in to a temporary account. Claim it first (${guest.claimUrl}), or run \`prismic logout\` to abandon it.`,
 		);
 	}
 	await logIn({ browser: !values["no-browser"] });

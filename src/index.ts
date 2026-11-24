@@ -235,8 +235,9 @@ async function main(): Promise<void> {
 		}
 	}
 
-	// whoami and status show it in their own output.
-	const guest = help || command === "whoami" || command === "status" ? undefined : await getGuest();
+	// These commands show it in their own output.
+	const guest =
+		help || ["whoami", "status", "login"].includes(command) ? undefined : await getGuest();
 	if (guest) console.warn(formatGuest(guest));
 }
 
