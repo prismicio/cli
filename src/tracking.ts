@@ -189,9 +189,10 @@ export function getFullCommand(): string {
 	const mcp = process.argv.indexOf("mcp", 2);
 	const call = mcp === -1 ? -1 : process.argv.indexOf("call", mcp + 1);
 	if (call !== -1) {
+		// Drop everything between `mcp` and `call` too, as it can hold `--input`.
 		const name = process.argv[call + 1];
-		const end = name && !name.startsWith("-") ? call + 2 : call + 1;
-		return [...process.argv.slice(0, end), "<redacted>"].join(" ");
+		const tool = name && !name.startsWith("-") ? [name] : [];
+		return [...process.argv.slice(0, mcp + 1), "call", ...tool, "<redacted>"].join(" ");
 	}
 	return process.argv.join(" ");
 }
