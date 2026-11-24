@@ -56,9 +56,9 @@ const config = {
 		used another one before. If a prismic.config.json exists, init requires
 		--repo.
 
-		When not logged in, init creates the repository in a temporary
-		account and prints a link to claim it. Prismic deletes the account and its
-		repositories if nobody claims it in time.
+		When not logged in, init creates the repository in a temporary account, so
+		you can try Prismic before signing up. To keep your work, claim the account
+		with the link init prints before the account is deleted.
 
 		Run \`prismic docs view cli#set-up-a-type-builder-project\` for details.
 	`,
@@ -66,9 +66,11 @@ const config = {
 		Do not ask the user whether to create a new repository or connect an
 		existing one. Use --repo only for a repository the user names, and run init.
 
-		Give the user a temporary account's claim link and deletion time as soon as
-		init prints them. If the user wants to use their own account, run
-		\`prismic login\` before init.
+		If init sets up a temporary account, tell the user right away. Pass on the
+		claim link and when the account will be deleted, so they don't lose their
+		work. They can open the repository without signing up if you run
+		\`prismic repo view --web\`. If they would rather use their own Prismic
+		account, run \`prismic login\` before init.
 	`,
 	options: {
 		repo: {

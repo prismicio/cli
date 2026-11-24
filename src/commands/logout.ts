@@ -1,3 +1,4 @@
+import { formatGuestDeadline, hasGuestEnded } from "../auth";
 import {
 	clearCredentials,
 	CredentialsError,
@@ -17,6 +18,7 @@ const config = {
 
 export default createCommand(config, async () => {
 	const { guest } = await readLoginSummary();
+	const claimable = guest && !(await hasGuestEnded());
 	let revoked = false;
 	await withCredentialsLock(async (lock) => {
 		try {
@@ -35,9 +37,9 @@ export default createCommand(config, async () => {
 		await forgetTrackedUser();
 	});
 	recordLogout({ revoked });
-	if (guest) {
+	if (claimable) {
 		console.warn(
-			`You were logged in to a temporary account, and the CLI can't log back in to it. Claim it before ${new Date(guest.expiresAt).toUTCString()} to keep its repositories: ${guest.claimUrl}`,
+			`You were on a temporary account, and the CLI can't log back in to it. It will be deleted ${formatGuestDeadline(guest)} unless you claim it: ${guest.claimUrl}`,
 		);
 	}
 	if (env.PRISMIC_TOKEN) console.warn("PRISMIC_TOKEN is still set, so commands still use it.");

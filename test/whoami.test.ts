@@ -172,18 +172,45 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
 	},
 );
 
-it("shows a temporary account with its deletion time and claim link", async ({
+it("shows a temporary account with when it gets deleted and its claim link", async ({
 	expect,
 	prismic,
 	login,
 }) => {
-	await login({
-		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.parse("2099-01-01T02:00:00Z") },
-	});
+	const expiresAt = Date.now() + 3 * 60 * 60 * 1000;
+	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt } });
 	const { stdout, stderr, exitCode } = await prismic("whoami");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(
-		"Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT. Keep it: https://example.com/claim",
+		`Temporary account, deleted in 3 hours (${new Date(expiresAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
 	);
 	expect(stderr).not.toContain("Temporary account");
+});
+
+it("says the temporary account was claimed, and logs out", async ({ expect, prismic, login }) => {
+	await login({
+		expiresAt: Date.now() - 1000,
+		refreshToken: "deleted-by-claim",
+		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 },
+	});
+	const { stderr, exitCode } = await prismic("whoami");
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toBe(
+		"Your temporary account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
+	);
+	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
+});
+
+it("says the temporary account expired, and logs out", async ({ expect, prismic, login }) => {
+	await login({
+		expiresAt: Date.now() - 1000,
+		refreshToken: "deleted-by-cleanup",
+		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() - 60_000 },
+	});
+	const { stderr, exitCode } = await prismic("whoami");
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toBe(
+		"Your temporary account has expired and its repositories were deleted. Run `prismic login` to start again.",
+	);
+	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });

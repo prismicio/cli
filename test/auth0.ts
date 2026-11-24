@@ -73,10 +73,9 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 		}
 		if (path === "/authentication/guest/magic-link") {
 			if (req.headers.authorization !== `Bearer ${accessToken}`) return send(res, 401);
-			const url = new URL("authentication/guest/login", auth0Domain);
+			const url = new URL("dashboard/guest/open", auth0Domain);
 			url.searchParams.set("t", randomToken(24));
-			const { redirect_uri } = JSON.parse(body || "{}");
-			if (redirect_uri) url.searchParams.set("redirect_uri", redirect_uri);
+			url.searchParams.set("redirect_uri", JSON.parse(body).redirect_uri);
 			return send(res, 200, { url: url.href });
 		}
 

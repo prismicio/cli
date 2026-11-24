@@ -223,6 +223,20 @@ it("refuses to replace a temporary account, even with PRISMIC_TOKEN set", async 
 	expect(withToken.stderr).toContain("You're logged in to a temporary account.");
 });
 
+it("logs in once the temporary account was claimed", async ({ expect, prismic, login, auth0 }) => {
+	await login({
+		expiresAt: Date.now() - 1000,
+		refreshToken: "deleted-by-claim",
+		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 },
+	});
+	const proc = prismic("login");
+	const output = captureOutput(proc);
+	await approveLogin(expect, output, auth0);
+	expect((await proc).exitCode, output()).toBe(0);
+	expect(output()).toContain("Logged in to Prismic as");
+	expect(output()).not.toContain("temporary account");
+});
+
 function getUserCode(output: string): string | undefined {
 	return output.match(/the code ([A-Z0-9]{4}-[A-Z0-9]{4})/)?.[1];
 }

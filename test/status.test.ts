@@ -196,18 +196,17 @@ it("compares with remote using a Write API token", async ({
 	expect(stdout).toContain(`(Write API token for ${repo})`);
 });
 
-it("shows a temporary account with its deletion time and claim link", async ({
+it("shows a temporary account with when it gets deleted and its claim link", async ({
 	expect,
 	prismic,
 	login,
 }) => {
-	await login({
-		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.parse("2099-01-01T02:00:00Z") },
-	});
+	const expiresAt = Date.now() + 3 * 60 * 60 * 1000;
+	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt } });
 	const { stdout, stderr, exitCode } = await prismic("status");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(
-		"Authenticated as: Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT. Keep it: https://example.com/claim",
+		`Authenticated as: Temporary account, deleted in 3 hours (${new Date(expiresAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
 	);
 	expect(stderr).not.toContain("Temporary account");
 });

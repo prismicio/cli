@@ -52,21 +52,21 @@ export async function createGuest(config: {
 		// The caller holds the credentials lock, which other commands wait on.
 		signal: AbortSignal.timeout(10_000),
 		schema: GuestSchema,
-		unknownErrorMessage: "Failed to start without an account",
+		unknownErrorMessage: "Failed to start a temporary account",
 	});
 }
 
 export async function createGuestLink(
-	config: Omit<Config, "host"> & { authenticationUrl: URL; redirectUri?: string },
+	config: Omit<Config, "host"> & { authenticationUrl: URL; redirectUri: string },
 ): Promise<{ url: string }> {
 	const url = new URL("guest/magic-link", config.authenticationUrl);
 	return request(url, {
 		method: "POST",
-		json: config.redirectUri && { redirect_uri: config.redirectUri },
+		json: { redirect_uri: config.redirectUri },
 		headers: { Authorization: `Bearer ${await config.getToken()}` },
 		onUnauthorized: config.onUnauthorized,
 		schema: z.object({ url: z.string() }),
-		unknownErrorMessage: "Failed to create a link to your account",
+		unknownErrorMessage: "Failed to create a login link",
 	});
 }
 
@@ -94,6 +94,18 @@ export async function getUserProfile(config: Config): Promise<Profile> {
 		schema: ProfileSchema,
 		unknownErrorMessage: "Failed to load your profile",
 	});
+}
+
+export async function getGuestStatus(config: {
+	token: string;
+	host: string;
+}): Promise<string | undefined> {
+	const url = new URL("user/profile", getUserServiceUrl(config.host));
+	const profile = await request(url, {
+		headers: { Authorization: `Bearer ${config.token}` },
+		schema: z.object({ guest: z.optional(z.object({ status: z.string() })) }),
+	});
+	return profile.guest?.status;
 }
 
 export async function getUserRepositories(

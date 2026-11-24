@@ -25,6 +25,21 @@ it("views repository details as JSON", async ({ expect, prismic, repo }) => {
 	);
 });
 
+it("opens a temporary account's repository with a link that logs in", async ({
+	expect,
+	prismic,
+	login,
+	repo,
+	host,
+}) => {
+	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 } });
+	const { stdout, stderr, exitCode } = await prismic("repo", ["view", "--web"]);
+	expect(exitCode, stderr).toBe(0);
+	const link = new URL(stdout.match(/Opening (\S+)/)![1]);
+	expect(link.pathname).toBe("/dashboard/guest/open");
+	expect(link.searchParams.get("redirect_uri")).toBe(`https://${repo}.${host}/`);
+});
+
 it("views repository details with a Write API token", async ({
 	expect,
 	prismic,

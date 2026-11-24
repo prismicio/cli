@@ -9,7 +9,6 @@ import init from "./init";
 import locale from "./locale";
 import login from "./login";
 import logout from "./logout";
-import open from "./open";
 import preview from "./preview";
 import pull from "./pull";
 import push from "./push";
@@ -137,10 +136,6 @@ export default createCommandRouter({
 		whoami: {
 			handler: whoami,
 			description: "Show the currently logged in user",
-		},
-		open: {
-			handler: open,
-			description: "Open the repository or dashboard in a browser",
 		},
 		"task-id": {
 			handler: taskId,

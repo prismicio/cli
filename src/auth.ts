@@ -29,8 +29,8 @@ import {
 import { openBrowser } from "./lib/browser";
 import { CommandError } from "./lib/command";
 import { type Lock, LockTimeoutError } from "./lib/lock";
-import { createGuest, getUserProfile, validateToken } from "./lib/prismic/client";
-import { ForbiddenRequestError, RequestError, UnauthorizedRequestError } from "./lib/request";
+import { createGuest, getGuestStatus, getUserProfile, validateToken } from "./lib/prismic/client";
+import { ForbiddenRequestError, UnauthorizedRequestError } from "./lib/request";
 import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
 import {
@@ -78,6 +78,11 @@ type StartedLogin =
 	| { status: "pending"; pending: PendingLogin }
 	| ({ status: "saved" } & SavedLogin)
 	| { status: "logged-out" };
+
+const GUEST_CLAIMED =
+	"Your temporary account has been claimed. Run `prismic login` to carry on with the account that claimed it.";
+
+class GuestEndedError extends CommandError {}
 
 let renewal: Promise<string | undefined> | undefined;
 let ended = false;
@@ -156,10 +161,10 @@ async function renewLogin(
 		session: { host, auth0Domain, clientId, pendingLogin: session.pendingLogin },
 	});
 	if (session.guest) {
-		throw new CommandError(
+		throw new GuestEndedError(
 			session.guest.expiresAt > Date.now()
-				? "Your temporary account was claimed, with its repositories. Run `prismic login` with the account that claimed it to keep working."
-				: "Your temporary account expired, and Prismic deleted its repositories. Run `prismic login` to keep working.",
+				? GUEST_CLAIMED
+				: "Your temporary account has expired and its repositories were deleted. Run `prismic login` to start again.",
 		);
 	}
 	ended = true;
@@ -180,6 +185,7 @@ export async function onUnauthorized<T>(
 	if (current && sent.get("Authorization") !== `Bearer ${current}`) {
 		return retry({ headers: { Authorization: `Bearer ${current}` } });
 	}
+	if (await hasGuestEnded()) throw new GuestEndedError(GUEST_CLAIMED);
 	if (!reauthentication && !(await isTokenRejected(current))) return;
 	reauthentication ??= reauthenticate().finally(() => (reauthentication = undefined));
 	const token = await reauthentication;
@@ -286,8 +292,40 @@ export async function getGuest(): Promise<Session["guest"]> {
 	if (host === (await getHost())) return guest;
 }
 
+// Prismic closes a claimed account, but its saved token can outlive the claim.
+export async function hasGuestEnded(): Promise<boolean> {
+	if (!(await readLoginSummary()).guest) return false;
+	try {
+		const token = await getSessionToken();
+		if (!token || (await getGuestStatus({ token, host: await getHost() })) !== "claimed") {
+			return false;
+		}
+	} catch (error) {
+		return error instanceof GuestEndedError;
+	}
+	await withCredentialsLock(async (lock) => {
+		const { login } = await readCredentials();
+		if (!login?.session.guest) return;
+		const { host, auth0Domain, clientId } = login.session;
+		await writeCredentials(lock, { ...login, session: { host, auth0Domain, clientId } });
+	});
+	return true;
+}
+
 export function formatGuest(guest: NonNullable<Session["guest"]>): string {
-	return `Temporary account, deleted on ${new Date(guest.expiresAt).toUTCString()}. Keep it: ${guest.claimUrl}`;
+	return `Temporary account, deleted ${formatGuestDeadline(guest)}. Claim it to keep your work: ${guest.claimUrl}`;
+}
+
+export function formatGuestDeadline(guest: NonNullable<Session["guest"]>): string {
+	const minutes = Math.max(0, (guest.expiresAt - Date.now()) / 60_000);
+	const [value, unit] =
+		minutes < 60
+			? ([minutes, "minute"] as const)
+			: minutes < 48 * 60
+				? ([minutes / 60, "hour"] as const)
+				: ([minutes / 60 / 24, "day"] as const);
+	const relative = new Intl.RelativeTimeFormat("en").format(Math.round(value), unit);
+	return `${relative} (${new Date(guest.expiresAt).toISOString().slice(0, 16)}Z)`;
 }
 
 // Nobody could claim an account started in CI.
@@ -304,15 +342,8 @@ async function startGuest(): Promise<string | undefined> {
 		let guest;
 		try {
 			guest = await createGuest({ authenticationUrl: getAuthenticationApiUrl(host) });
-		} catch (error) {
-			const status = error instanceof RequestError ? error.status : undefined;
-			const isTimeout = error instanceof DOMException && error.name === "TimeoutError";
-			if (status !== 429 && status !== 503 && !isTimeout) throw error;
-			console.error(
-				status === 429
-					? "Too many accounts were started without signing up from this network today."
-					: "Starting without an account isn't available right now.",
-			);
+		} catch {
+			console.error("Couldn't start a temporary account.");
 			return;
 		}
 		const store = await prepareLogin(lock);

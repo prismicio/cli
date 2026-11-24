@@ -148,7 +148,7 @@ it("starts a temporary account when not logged in, and reuses it", async ({
 		onTestFinished(() => deleteRepository(domain!, { token, password, host }));
 		claimLinks.push(
 			stderr.match(
-				/Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT\. Keep it: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
+				/Temporary account, deleted in [\d,]+ days \(2099-01-01T02:00Z\)\. Claim it to keep your work: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
 			)?.[1],
 		);
 	}
@@ -172,18 +172,13 @@ it("logs in when Prismic can't start a temporary account", async ({
 	logout,
 	auth0,
 }) => {
-	const answers = [
-		[429, "Too many accounts were started without signing up from this network today."],
-		[503, "Starting without an account isn't available right now."],
-	] as const;
-
-	for (const [status, message] of answers) {
+	for (const status of [429, 409, 500]) {
 		await logout();
-		auth0.respondOnce("/authentication/guest", { status, body: { error: "unavailable" } });
+		auth0.respondOnce("/authentication/guest", { status });
 		const proc = prismic("repo", ["create"], { nodeOptions: { env: { CI: "" } } });
 		const output = captureOutput(proc);
 		await waitForLoginPrompt(expect, output);
-		expect(output()).toContain(message);
+		expect(output()).toContain("Couldn't start a temporary account.");
 		proc.kill();
 	}
 });

@@ -71,14 +71,25 @@ it("warns that a temporary account can't be logged back in to, and logs out", as
 	prismic,
 	login,
 }) => {
-	await login({
-		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.parse("2099-01-01T02:00:00Z") },
-	});
+	const expiresAt = Date.now() + 3 * 60 * 60 * 1000;
+	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt } });
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
 	expect(stderr).toContain(
-		"You were logged in to a temporary account, and the CLI can't log back in to it. Claim it before Thu, 01 Jan 2099 02:00:00 GMT to keep its repositories: https://example.com/claim",
+		`You were on a temporary account, and the CLI can't log back in to it. It will be deleted in 3 hours (${new Date(expiresAt).toISOString().slice(0, 16)}Z) unless you claim it: https://example.com/claim`,
 	);
 	expect(stdout).toContain("Logged out of Prismic");
 	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
+});
+
+it("doesn't warn once the temporary account was claimed", async ({ expect, prismic, login }) => {
+	await login({
+		expiresAt: Date.now() - 1000,
+		refreshToken: "deleted-by-claim",
+		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 },
+	});
+	const { stdout, stderr, exitCode } = await prismic("logout");
+	expect(exitCode, stderr).toBe(0);
+	expect(stderr).not.toContain("temporary account");
+	expect(stdout).toContain("Logged out of Prismic");
 });
