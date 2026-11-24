@@ -24,7 +24,8 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const [name] = positionals;
+	const [name, ...extra] = positionals;
+	if (extra.length > 0) throw new CommandError("Pass the tool input with --input.");
 	const { input = "{}" } = values;
 
 	const json = input === "-" ? await text(process.stdin) : input;
