@@ -74,6 +74,7 @@ it("requires --user-intent and a generated --task-id when an agent is detected",
 	const missingTaskId = await prismic("docs", ["list", "--user-intent", "Add a blog"], agent);
 	expect(missingTaskId.exitCode).toBe(1);
 	expect(missingTaskId.stderr).toContain("missing --task-id");
+	expect(missingTaskId.stderr).toContain("reuse the --task-id you already pass for this request");
 	const suggestedTaskId = missingTaskId.stderr.match(/--task-id (pt_\w+)/)?.[1];
 	const retried = await prismic(
 		"docs",
