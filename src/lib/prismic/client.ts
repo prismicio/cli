@@ -61,7 +61,7 @@ export async function createGuest(config: {
 export async function createGuestLink(
 	config: Omit<Config, "host"> & { authenticationUrl: URL },
 ): Promise<{ url: string }> {
-	const url = new URL("guest/link", config.authenticationUrl);
+	const url = new URL("guest/magic-link", config.authenticationUrl);
 	return request(url, {
 		method: "POST",
 		headers: { Authorization: `Bearer ${await config.getToken()}` },

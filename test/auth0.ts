@@ -72,9 +72,9 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 				expires_at: GUEST_EXPIRES_AT,
 			});
 		}
-		if (path === "/authentication/guest/link") {
+		if (path === "/authentication/guest/magic-link") {
 			if (req.headers.authorization !== `Bearer ${accessToken}`) return send(res, 401);
-			const url = new URL("authentication/guest/enter", auth0Domain);
+			const url = new URL("authentication/guest/login", auth0Domain);
 			url.searchParams.set("t", randomToken(24));
 			return send(res, 200, { url: url.href });
 		}

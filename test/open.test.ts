@@ -13,7 +13,7 @@ it("prints a link that opens the temporary account", async ({ expect, prismic, l
 	const { stdout, stderr, exitCode } = await prismic("open");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toMatch(
-		/Open this link within 10 minutes\. It works once:\n {2}http:\/\/127\.0\.0\.1:\d+\/authentication\/guest\/enter\?t=/,
+		/Open this link within 10 minutes\. It works once:\n {2}http:\/\/127\.0\.0\.1:\d+\/authentication\/guest\/login\?t=/,
 	);
 });
 
