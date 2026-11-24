@@ -118,11 +118,13 @@ it("adds a media link field with --allow media", async ({ expect, prismic, proje
 
 	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.my_media;
-	expect(field).toMatchObject({ type: "Link", config: { select: "media", allowText: true } });
-	expect(field.config).not.toHaveProperty("allowTargetBlank");
+	expect(field).toMatchObject({
+		type: "Link",
+		config: { select: "media", allowText: true, allowTargetBlank: true },
+	});
 });
 
-it("adds a document link field without new tab", async ({ expect, prismic, project }) => {
+it("adds a document link field with text and new tab", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	await writeLocalSlice(project, slice);
 
@@ -139,45 +141,8 @@ it("adds a document link field without new tab", async ({ expect, prismic, proje
 
 	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.my_doc;
-	expect(field).toMatchObject({ type: "Link", config: { select: "document", allowText: true } });
-	expect(field.config).not.toHaveProperty("allowTargetBlank");
-});
-
-it("rejects a flag with its --no- form", async ({ expect, prismic, project }) => {
-	const slice = buildSlice();
-	await writeLocalSlice(project, slice);
-
-	const { stderr, exitCode } = await prismic("field", [
-		"add",
-		"link",
-		"my_link",
-		"--to-slice",
-		slice.id,
-		"--allow-text",
-		"--no-allow-text",
-	]);
-	expect(exitCode).not.toBe(0);
-	expect(stderr).toContain("Only one of --allow-text or --no-allow-text");
-});
-
-it("still accepts --allow-text and --allow-target-blank", async ({ expect, prismic, project }) => {
-	const slice = buildSlice();
-	await writeLocalSlice(project, slice);
-
-	const { stderr, exitCode } = await prismic("field", [
-		"add",
-		"link",
-		"my_doc",
-		"--to-slice",
-		slice.id,
-		"--allow",
-		"document",
-		"--allow-text",
-		"--allow-target-blank",
-	]);
-	expect(exitCode, stderr).toBe(0);
-
-	const updated = await readLocalSlice(project, slice.id);
-	const field = updated!.variations[0].primary!.my_doc;
-	expect(field.config).toMatchObject({ allowText: true, allowTargetBlank: true });
+	expect(field).toMatchObject({
+		type: "Link",
+		config: { select: "document", allowText: true, allowTargetBlank: true },
+	});
 });

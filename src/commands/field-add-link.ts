@@ -2,7 +2,7 @@ import type { LinkModel } from "@prismicio/types-internal";
 import { capitalCase } from "change-case";
 
 import { getNewFieldTarget, TARGET_OPTIONS } from "../fields";
-import { CommandError, createCommand, exclusiveOptions, type CommandConfig } from "../lib/command";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { addField } from "../lib/prismic/models";
 
 const config = {
@@ -46,13 +46,7 @@ const config = {
 		},
 		"no-allow-target-blank": {
 			type: "boolean",
-			description: "Don't let writers open web links in a new tab",
-		},
-		"allow-text": { type: "boolean", hidden: true, description: "On by default." },
-		"allow-target-blank": {
-			type: "boolean",
-			hidden: true,
-			description: "On by default for web links.",
+			description: "Don't let writers open the link in a new tab",
 		},
 		repeatable: { type: "boolean", description: "Allow multiple links" },
 		variant: { type: "string", multiple: true, description: "Allowed variant (can be repeated)" },
@@ -73,14 +67,11 @@ export default createCommand(config, async ({ positionals, values }) => {
 		allow,
 		"no-allow-text": noAllowText,
 		"no-allow-target-blank": noAllowTargetBlank,
-		"allow-target-blank": allowTargetBlank,
 		repeatable: repeat,
 		variant: variants,
 		"custom-type": customtypes,
 	} = values;
 
-	exclusiveOptions(values, ["allow-text", "no-allow-text"]);
-	exclusiveOptions(values, ["allow-target-blank", "no-allow-target-blank"]);
 	if (allow?.includes(",")) {
 		throw new CommandError(
 			"--allow accepts a single link type. Prismic links allow either one type or all types.",
@@ -102,9 +93,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		config: {
 			label: label ?? capitalCase(fieldId),
 			select,
-			allowTargetBlank: noAllowTargetBlank
-				? undefined
-				: allowTargetBlank || !select || select === "web" || undefined,
+			allowTargetBlank: noAllowTargetBlank ? undefined : true,
 			allowText: noAllowText ? undefined : true,
 			repeat,
 			variants,
