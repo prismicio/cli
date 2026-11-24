@@ -49,7 +49,11 @@ const config = {
 			description: "Don't let writers open web links in a new tab",
 		},
 		"allow-text": { type: "boolean", hidden: true, description: "On by default." },
-		"allow-target-blank": { type: "boolean", hidden: true, description: "On by default." },
+		"allow-target-blank": {
+			type: "boolean",
+			hidden: true,
+			description: "On by default for web links.",
+		},
 		repeatable: { type: "boolean", description: "Allow multiple links" },
 		variant: { type: "string", multiple: true, description: "Allowed variant (can be repeated)" },
 		"custom-type": {

@@ -159,3 +159,25 @@ it("rejects a flag with its --no- form", async ({ expect, prismic, project }) =>
 	expect(exitCode).not.toBe(0);
 	expect(stderr).toContain("Only one of --allow-text or --no-allow-text");
 });
+
+it("still accepts --allow-text and --allow-target-blank", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"link",
+		"my_doc",
+		"--to-slice",
+		slice.id,
+		"--allow",
+		"document",
+		"--allow-text",
+		"--allow-target-blank",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	const field = updated!.variations[0].primary!.my_doc;
+	expect(field.config).toMatchObject({ allowText: true, allowTargetBlank: true });
+});
