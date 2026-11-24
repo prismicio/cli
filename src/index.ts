@@ -207,7 +207,7 @@ async function main(): Promise<void> {
 		}
 		console.error(
 			`error: ${agentOptionsError}\n` +
-				`rerun with ${rerunTaskId} and --user-intent "${userIntent || "<the user's request in one sentence>"}"\n` +
+				`rerun with ${rerunTaskId} and ${userIntent ? "the same --user-intent" : `--user-intent "<the user's request in one sentence>"`}\n` +
 				"pass the same --task-id and the same --user-intent on every command until the user asks for something else",
 		);
 		process.exitCode = 1;
