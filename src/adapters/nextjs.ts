@@ -235,5 +235,9 @@ async function getSourceRoot(): Promise<URL> {
 }
 
 async function checkHasSrc(): Promise<boolean> {
-	return exists(new URL("src/", await findProjectRoot()));
+	const projectRoot = await findProjectRoot();
+	// Next.js ignores src/app and src/pages when app or pages is at the project root.
+	if (await exists(new URL("app/", projectRoot))) return false;
+	if (await exists(new URL("pages/", projectRoot))) return false;
+	return exists(new URL("src/", projectRoot));
 }
