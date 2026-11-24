@@ -1,8 +1,9 @@
-import { formatGuest, getGuest } from "../auth";
+import { formatGuest } from "../auth";
 import {
 	clearCredentials,
 	CredentialsError,
 	readCredentials,
+	readLoginSummary,
 	withCredentialsLock,
 } from "../credentials";
 import { env } from "../env";
@@ -16,7 +17,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async () => {
-	const guest = await getGuest();
+	const { guest } = await readLoginSummary();
 	let revoked = false;
 	await withCredentialsLock(async (lock) => {
 		try {

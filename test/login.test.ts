@@ -212,7 +212,11 @@ function getUserCode(output: string): string | undefined {
 	return output.match(/the code ([A-Z0-9]{4}-[A-Z0-9]{4})/)?.[1];
 }
 
-it("refuses to replace a temporary account", async ({ expect, prismic, login }) => {
+it("refuses to replace a temporary account, even with PRISMIC_TOKEN set", async ({
+	expect,
+	prismic,
+	login,
+}) => {
 	await login({ guest: GUEST });
 	const { stderr, exitCode } = await prismic("login");
 	expect(exitCode).toBe(1);
@@ -221,4 +225,10 @@ it("refuses to replace a temporary account", async ({ expect, prismic, login }) 
 	);
 	expect(stderr).toContain(GUEST_LINE);
 	expect(stderr).not.toContain("Open this URL");
+
+	const withToken = await prismic("login", [], {
+		nodeOptions: { env: { PRISMIC_TOKEN: "other" } },
+	});
+	expect(withToken.exitCode).toBe(1);
+	expect(withToken.stderr).toContain("This is a temporary account.");
 });
