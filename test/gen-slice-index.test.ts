@@ -19,6 +19,18 @@ it("generates a slice index file", async ({ expect, project, prismic }) => {
 	await expect(project).toHaveFile("slices/index.js", { contains: slice.id });
 });
 
+it("uses src/slices when app/ is at the project root", async ({ expect, project, prismic }) => {
+	const slice = buildSlice();
+	const path = new URL(`src/slices/${slice.name}/model.json`, project);
+	await mkdir(new URL(".", path), { recursive: true });
+	await writeFile(path, JSON.stringify(slice));
+
+	const { stderr, exitCode } = await prismic("gen", ["slice-index"]);
+	expect(exitCode, stderr).toBe(0);
+
+	await expect(project).toHaveFile("src/slices/index.js", { contains: slice.id });
+});
+
 it("generates an index file for each slice library", async ({ expect, project, prismic }) => {
 	const sliceA = buildSlice();
 	const sliceB = buildSlice();
