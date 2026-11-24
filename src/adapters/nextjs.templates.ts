@@ -558,15 +558,17 @@ export function loadingTemplate(): string {
 export function sliceSimulatorPageTemplate({
 	typescript,
 	appRouter,
+	slicesImportPath,
 }: {
 	typescript: boolean;
 	appRouter: boolean;
+	slicesImportPath: string;
 }): string {
 	const appTS = dedent`
 		import { SliceSimulator, SliceSimulatorParams, getSlices } from "@prismicio/next";
 		import { SliceZone } from "@prismicio/react";
 
-		import { components } from "../../slices";
+		import { components } from "${slicesImportPath}";
 
 		export default async function SliceSimulatorPage({
 			searchParams,
@@ -586,7 +588,7 @@ export function sliceSimulatorPageTemplate({
 		import { SliceSimulator, getSlices } from "@prismicio/next";
 		import { SliceZone } from "@prismicio/react";
 
-		import { components } from "../../slices";
+		import { components } from "${slicesImportPath}";
 
 		export default async function SliceSimulatorPage({ searchParams }) {
 			const { state } = await searchParams
@@ -604,7 +606,7 @@ export function sliceSimulatorPageTemplate({
 		import { SliceSimulator } from "@prismicio/next/pages";
 		import { SliceZone } from "@prismicio/react";
 
-		import { components } from "../slices";
+		import { components } from "${slicesImportPath}";
 
 		export default function SliceSimulatorPage() {
 			return (

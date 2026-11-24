@@ -36,7 +36,9 @@ it(
 		expect(exitCode, stderr).toBe(0);
 
 		await expect(project).toHaveFile("prismicio.js", { contains: `"./prismic.config.json"` });
-		await expect(project).toHaveFile("app/slice-simulator/page.jsx");
+		await expect(project).toHaveFile("app/slice-simulator/page.jsx", {
+			contains: `"../../src/slices"`,
+		});
 		await expect(project).toHaveFile("app/api/preview/route.js");
 		await expect(project).not.toHaveFile("src/prismicio.js");
 		await expect(project).not.toHaveFile("src/pages/api/preview.js");
@@ -54,7 +56,9 @@ it(
 		expect(exitCode, stderr).toBe(0);
 
 		await expect(project).toHaveFile("src/prismicio.js", { contains: `"../prismic.config.json"` });
-		await expect(project).toHaveFile("src/app/slice-simulator/page.jsx");
+		await expect(project).toHaveFile("src/app/slice-simulator/page.jsx", {
+			contains: `"../../slices"`,
+		});
 		await expect(project).toHaveFile("src/app/api/preview/route.js");
 		await expect(project).not.toHaveFile("prismicio.js");
 	},

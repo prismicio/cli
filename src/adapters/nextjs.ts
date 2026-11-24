@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { relative } from "node:path";
+import { posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
@@ -61,14 +61,21 @@ export class NextJsAdapter extends Adapter {
 				hasSrcDirectory: await checkHasSrc(),
 			}),
 		);
+		const sliceSimulatorPath = new URL(
+			appRouter ? `app/slice-simulator/page.${extension}x` : `pages/slice-simulator.${extension}x`,
+			sourceRoot,
+		);
+		const [sliceLibrary] = await this.getSliceLibraries();
 		await writeFileIfMissing(
-			new URL(
-				appRouter
-					? `app/slice-simulator/page.${extension}x`
-					: `pages/slice-simulator.${extension}x`,
-				sourceRoot,
-			),
-			sliceSimulatorPageTemplate({ typescript, appRouter }),
+			sliceSimulatorPath,
+			sliceSimulatorPageTemplate({
+				typescript,
+				appRouter,
+				slicesImportPath: posix.relative(
+					new URL(".", sliceSimulatorPath).pathname,
+					sliceLibrary.pathname,
+				),
+			}),
 		);
 		if (cacheComponents) {
 			await writeFileIfMissing(
