@@ -30,12 +30,7 @@ import {
 import { openBrowser } from "./lib/browser";
 import { CommandError } from "./lib/command";
 import { type Lock, LockTimeoutError } from "./lib/lock";
-import {
-	createGuest,
-	getAuthenticationUrl,
-	getUserProfile,
-	validateToken,
-} from "./lib/prismic/client";
+import { createGuest, getUserProfile, validateToken } from "./lib/prismic/client";
 import { ForbiddenRequestError, RequestError, UnauthorizedRequestError } from "./lib/request";
 import { dedent } from "./lib/string";
 import { appendTrailingSlash } from "./lib/url";
@@ -295,7 +290,7 @@ async function startGuest(): Promise<string | undefined> {
 	const host = await getHost();
 	const auth0 = getAuth0Config(host);
 	if (!auth0 || process.env.CI) return;
-	if ((await readCredentials().catch(() => undefined))?.login) return;
+	if ((await readCredentials()).login) return;
 	if (isPerson()) {
 		const prompt = createInterface({
 			input: process.stdin,
@@ -317,12 +312,11 @@ async function startGuest(): Promise<string | undefined> {
 		try {
 			guest = await createGuest({ authenticationUrl: getAuthenticationApiUrl(host) });
 		} catch (error) {
+			const status = error instanceof RequestError ? error.status : undefined;
 			const isTimeout = error instanceof DOMException && error.name === "TimeoutError";
-			const isRefused =
-				error instanceof RequestError && (error.status === 429 || error.status === 503);
-			if (!isTimeout && !isRefused) throw error;
+			if (status !== 429 && status !== 503 && !isTimeout) throw error;
 			console.error(
-				error instanceof RequestError && error.status === 429
+				status === 429
 					? "Too many accounts were started without signing up from this network today."
 					: "Starting without an account isn't available right now.",
 			);
@@ -350,7 +344,7 @@ export function getAuthenticationApiUrl(host: string): URL {
 	if (process.env.PROD === "false" && env.PRISMIC_AUTH0_DOMAIN) {
 		return new URL("authentication/", appendTrailingSlash(env.PRISMIC_AUTH0_DOMAIN));
 	}
-	return getAuthenticationUrl(host);
+	return new URL(`https://api.internal.${host}/authentication/`);
 }
 
 // Native client IDs are public.

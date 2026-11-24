@@ -43,8 +43,6 @@ const GuestSchema = z.object({
 	expires_at: z.string(),
 });
 
-// The caller passes the authentication API's URL, because tests serve it
-// locally.
 export async function createGuest(config: {
 	authenticationUrl: URL;
 }): Promise<z.infer<typeof GuestSchema>> {
@@ -69,10 +67,6 @@ export async function createGuestLink(
 		schema: z.object({ url: z.string() }),
 		unknownErrorMessage: "Failed to create a link to your account",
 	});
-}
-
-export function getAuthenticationUrl(host: string): URL {
-	return new URL(`https://api.internal.${host}/authentication/`);
 }
 
 const ProfileSchema = z.object({

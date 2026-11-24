@@ -7,7 +7,6 @@ import { setTimeout as sleep } from "node:timers/promises";
 // approve it in a browser, so automated tests can't use Auth0 itself.
 
 const INTERVAL = 0.1;
-export const GUEST_EXPIRES_AT = "2099-01-01T02:00:00.000Z";
 
 type FakeAuth0Response = { status: number; body?: unknown; delayMs?: number };
 
@@ -69,7 +68,7 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 				expires_in: 60,
 				client_id: guestClientId,
 				claim_url: new URL(`dashboard/claim?code=${randomToken(24)}`, auth0Domain).href,
-				expires_at: GUEST_EXPIRES_AT,
+				expires_at: "2099-01-01T02:00:00.000Z",
 			});
 		}
 		if (path === "/authentication/guest/magic-link") {

@@ -136,12 +136,11 @@ it("starts without an account when nobody is logged in, and reuses it", async ({
 	onTestFinished,
 }) => {
 	await logout();
-	const env = { CI: "" };
 
-	const claimLinks = new Set<string>();
+	const claimLinks = [];
 	for (let i = 0; i < 2; i++) {
 		const { stdout, stderr, exitCode } = await prismic("repo", ["create"], {
-			nodeOptions: { env },
+			nodeOptions: { env: { CI: "" } },
 		});
 		expect(exitCode, stderr).toBe(0);
 		const domain = stdout.match(/Repository created: (\S+)/)?.[1];
@@ -150,13 +149,13 @@ it("starts without an account when nobody is logged in, and reuses it", async ({
 		expect(stderr).toContain(
 			"This is a temporary Prismic account. Prismic deletes it and its repositories on Thu, 01 Jan 2099 02:00:00 GMT.",
 		);
-		const claimLink = stderr.match(
-			/To keep them, open this link and sign up or log in:\n {2}(http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
-		)?.[1];
-		expect(claimLink).toBeDefined();
-		claimLinks.add(claimLink!);
+		claimLinks.push(
+			stderr.match(
+				/To keep them, open this link and sign up or log in:\n {2}(http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
+			)?.[1],
+		);
 	}
-	expect(claimLinks.size).toBe(1);
+	expect(claimLinks).toEqual([expect.any(String), claimLinks[0]]);
 });
 
 it("doesn't start without an account on CI", async ({ expect, prismic, logout }) => {
