@@ -265,7 +265,7 @@ it("logs in when not logged in, even on CI", async ({
 	expect(JSON.parse(configRaw).repositoryName).toBe(repo);
 }, 60_000);
 
-it("starts without an account when nobody is logged in", async ({
+it("starts a temporary account when not logged in", async ({
 	expect,
 	project,
 	prismic,

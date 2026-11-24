@@ -126,7 +126,7 @@ it("sets the master locale with --lang", async ({
 	expect(master?.id).toBe("fr-fr");
 });
 
-it("starts without an account when nobody is logged in, and reuses it", async ({
+it("starts a temporary account when not logged in, and reuses it", async ({
 	expect,
 	prismic,
 	logout,
@@ -152,10 +152,11 @@ it("starts without an account when nobody is logged in, and reuses it", async ({
 			)?.[1],
 		);
 	}
-	expect(claimLinks).toEqual([expect.any(String), claimLinks[0]]);
+	expect(claimLinks[0]).toBeDefined();
+	expect(claimLinks[1]).toBe(claimLinks[0]);
 });
 
-it("doesn't start without an account on CI", async ({ expect, prismic, logout }) => {
+it("doesn't start a temporary account on CI", async ({ expect, prismic, logout }) => {
 	await logout();
 	const { stderr, exitCode } = await prismic("repo", ["create"], {
 		nodeOptions: { env: { CI: "true" } },
@@ -165,17 +166,24 @@ it("doesn't start without an account on CI", async ({ expect, prismic, logout })
 	expect(stderr).toContain("Not logged in. Run `prismic login` first.");
 });
 
-it.for([
-	[429, "Too many accounts were started without signing up from this network today."],
-	[503, "Starting without an account isn't available right now."],
-] as const)(
-	"logs in when Prismic answers %i to starting without an account",
-	async ([status, message], { expect, prismic, logout, auth0 }) => {
+it("logs in when Prismic can't start a temporary account", async ({
+	expect,
+	prismic,
+	logout,
+	auth0,
+}) => {
+	const answers = [
+		[429, "Too many accounts were started without signing up from this network today."],
+		[503, "Starting without an account isn't available right now."],
+	] as const;
+
+	for (const [status, message] of answers) {
 		await logout();
 		auth0.respondOnce("/authentication/guest", { status, body: { error: "unavailable" } });
 		const proc = prismic("repo", ["create"], { nodeOptions: { env: { CI: "" } } });
 		const output = captureOutput(proc);
 		await waitForLoginPrompt(expect, output);
 		expect(output()).toContain(message);
-	},
-);
+		proc.kill();
+	}
+});

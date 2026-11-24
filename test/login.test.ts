@@ -3,13 +3,6 @@ import { readFile, stat } from "node:fs/promises";
 import packageJson from "../package.json" with { type: "json" };
 import { approveLogin, captureOutput, it, waitForLoginPrompt } from "./it";
 
-const GUEST = {
-	claimUrl: "https://example.com/claim",
-	expiresAt: Date.parse("2099-01-01T02:00:00Z"),
-};
-const GUEST_LINE =
-	"Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT. Keep it: https://example.com/claim";
-
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("login", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
@@ -208,22 +201,22 @@ it("revokes the previous session after a new login", async ({ expect, prismic, l
 	expect(revokes.map((params) => params.token)).toEqual([refreshToken]);
 });
 
-function getUserCode(output: string): string | undefined {
-	return output.match(/the code ([A-Z0-9]{4}-[A-Z0-9]{4})/)?.[1];
-}
-
 it("refuses to replace a temporary account, even with PRISMIC_TOKEN set", async ({
 	expect,
 	prismic,
 	login,
 }) => {
-	await login({ guest: GUEST });
+	await login({
+		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.parse("2099-01-01T02:00:00Z") },
+	});
 	const { stderr, exitCode } = await prismic("login");
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain(
 		"This is a temporary account. Claim it first, or run `prismic logout` to abandon it.",
 	);
-	expect(stderr).toContain(GUEST_LINE);
+	expect(stderr).toContain(
+		"Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT. Keep it: https://example.com/claim",
+	);
 	expect(stderr).not.toContain("Open this URL");
 
 	const withToken = await prismic("login", [], {
@@ -232,3 +225,7 @@ it("refuses to replace a temporary account, even with PRISMIC_TOKEN set", async 
 	expect(withToken.exitCode).toBe(1);
 	expect(withToken.stderr).toContain("This is a temporary account.");
 });
+
+function getUserCode(output: string): string | undefined {
+	return output.match(/the code ([A-Z0-9]{4}-[A-Z0-9]{4})/)?.[1];
+}

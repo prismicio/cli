@@ -3,20 +3,6 @@ import { fileURLToPath } from "node:url";
 
 import { it } from "./it";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Records the URL instead of opening a browser. Windows opens it with a shell
-// builtin, which PATH can't replace.
-async function stubBrowser(bin: URL): Promise<() => Promise<string>> {
-	const log = new URL("opened.txt", bin);
-	for (const name of ["open", "xdg-open"]) {
-		await writeFile(new URL(name, bin), `#!/bin/sh\necho "$1" >> "${fileURLToPath(log)}"\n`, {
-			mode: 0o755,
-		});
-	}
-	return () => readFile(log, "utf8").catch(() => "");
-}
-
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("open", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
@@ -64,7 +50,7 @@ it("prints a temporary account's login link to the project's repository", async 
 	repo,
 	host,
 }) => {
-	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + DAY_MS } });
+	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 } });
 	const { stdout, stderr, exitCode } = await prismic("open");
 	expect(exitCode, stderr).toBe(0);
 	const url = new URL(stdout.trim());
@@ -78,7 +64,7 @@ it("prints a temporary account's login link to the dashboard with --dashboard", 
 	prismic,
 	login,
 }) => {
-	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + DAY_MS } });
+	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 } });
 	const { stdout, stderr, exitCode } = await prismic("open", ["--dashboard"]);
 	expect(exitCode, stderr).toBe(0);
 	const url = new URL(stdout.trim());
@@ -94,7 +80,7 @@ it("prints a logged-out link for a temporary account when Prismic refuses the ta
 	repo,
 	host,
 }) => {
-	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + DAY_MS } });
+	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 } });
 	auth0.respondOnce("/authentication/guest/magic-link", {
 		status: 400,
 		body: { error: "invalid_redirect_uri" },
@@ -111,7 +97,7 @@ it("says the temporary account was claimed, and logs out", async ({ expect, pris
 	await login({
 		expiresAt: Date.now() - 1000,
 		refreshToken: "deleted-by-claim",
-		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + DAY_MS },
+		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 },
 	});
 	const { stderr, exitCode } = await prismic("open");
 	expect(exitCode).toBe(1);
@@ -126,10 +112,22 @@ it("says the temporary account expired, and logs out", async ({ expect, prismic,
 	await login({
 		expiresAt: Date.now() - 1000,
 		refreshToken: "deleted-by-cleanup",
-		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() - DAY_MS },
+		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() - 60_000 },
 	});
 	const { stderr, exitCode } = await prismic("open");
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Your temporary account expired, and Prismic deleted its repositories.");
 	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });
+
+// Records the URL instead of opening a browser. Windows opens it with a shell
+// builtin, which PATH can't replace.
+async function stubBrowser(bin: URL): Promise<() => Promise<string>> {
+	const log = new URL("opened.txt", bin);
+	for (const name of ["open", "xdg-open"]) {
+		await writeFile(new URL(name, bin), `#!/bin/sh\necho "$1" >> "${fileURLToPath(log)}"\n`, {
+			mode: 0o755,
+		});
+	}
+	return () => readFile(log, "utf8").catch(() => "");
+}
