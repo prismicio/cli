@@ -77,7 +77,7 @@ it("warns that a temporary account can't be logged back in to, and logs out", as
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
 	expect(stderr).toContain(
-		"The CLI can't log back in to this temporary account. Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT. Keep it: https://example.com/claim",
+		"You were logged in to a temporary account, and the CLI can't log back in to it. Claim it before Thu, 01 Jan 2099 02:00:00 GMT to keep its repositories: https://example.com/claim",
 	);
 	expect(stdout).toContain("Logged out of Prismic");
 	expect((await prismic("whoami")).stderr).toContain("Not logged in.");

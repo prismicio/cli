@@ -1,4 +1,3 @@
-import { formatGuest } from "../auth";
 import {
 	clearCredentials,
 	CredentialsError,
@@ -37,7 +36,9 @@ export default createCommand(config, async () => {
 	});
 	recordLogout({ revoked });
 	if (guest) {
-		console.warn(`The CLI can't log back in to this temporary account. ${formatGuest(guest)}`);
+		console.warn(
+			`You were logged in to a temporary account, and the CLI can't log back in to it. Claim it before ${new Date(guest.expiresAt).toUTCString()} to keep its repositories: ${guest.claimUrl}`,
+		);
 	}
 	if (env.PRISMIC_TOKEN) console.warn("PRISMIC_TOKEN is still set, so commands still use it.");
 	console.info("Logged out of Prismic");
