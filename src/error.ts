@@ -1,5 +1,6 @@
 import { getHost, getToken } from "./auth";
 import { env } from "./env";
+import { detectAgent } from "./lib/ai";
 import { DeviceFlowError, type DeviceFlowErrorReason } from "./lib/auth0";
 import { isInvalidAuthContextError } from "./lib/prismic/auth";
 import {
@@ -25,6 +26,9 @@ export async function getErrorMessage(error: unknown): Promise<string | undefine
 	if (error instanceof DeviceFlowError) {
 		if (error.reason === "misconfigured") {
 			return `Login isn't set up correctly for ${await getHost()} (${error.detail}). Report this: https://github.com/prismicio/cli/issues`;
+		}
+		if (error.reason === "expired" && detectAgent() !== undefined) {
+			return "The login code expired. Ask the user before you start a new login.";
 		}
 		return DEVICE_FLOW_MESSAGES[error.reason];
 	}

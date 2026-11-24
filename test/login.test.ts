@@ -173,6 +173,24 @@ it("explains a login that Auth0 refused", async ({ expect, prismic, logout, auth
 	}
 });
 
+it("tells an agent to ask the user before a new login when the code expires", async ({
+	expect,
+	prismic,
+	logout,
+	auth0,
+}) => {
+	await logout();
+	const { stdout: taskId } = await prismic("task-id");
+	const args = ["--task-id", taskId.trim(), "--user-intent", "Log in to Prismic"];
+	const proc = prismic("login", args, { nodeOptions: { env: { AI_AGENT: "test-agent" } } });
+	const output = captureOutput(proc);
+	await waitForLoginPrompt(expect, output);
+	auth0.expire();
+	expect((await proc).exitCode).toBe(1);
+	expect(output()).toContain("The login code expired. Ask the user before you start a new login.");
+	expect(output()).not.toContain("Run the command again.");
+});
+
 it("stops a login when another command logs out", async ({ expect, prismic, logout }) => {
 	await logout();
 	const proc = prismic("login");
