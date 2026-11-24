@@ -947,7 +947,8 @@ export async function callMcpTool(
 }
 
 const McpMessageSchema = z.object({
-	result: z.unknown(),
+	// JSON-RPC error responses have no result.
+	result: z.optional(z.unknown()),
 	error: z.optional(z.object({ message: z.string() })),
 });
 
