@@ -2,14 +2,15 @@ import { text } from "node:stream/consumers";
 
 import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { callMcpTool, McpError } from "../lib/prismic/client";
+import { callMcpTool, getMcpTools, McpError } from "../lib/prismic/client";
 
 const config = {
 	name: "prismic mcp call",
 	description: `
 		Call a Prismic MCP server tool and print its result.
 
-		Run \`prismic mcp tools <name>\` to see the tool's input schema.
+		Load the tool's definition first with \`prismic mcp tools <name>\`, and
+		pass input that matches its input schema.
 	`,
 	positionals: {
 		name: { description: "Tool name", required: true },
@@ -34,9 +35,21 @@ export default createCommand(config, async ({ positionals, values }) => {
 	}
 
 	const host = await getHost();
-	const result = await callMcpTool(name, args, { getToken, host, onUnauthorized });
-	const output = result.content.flatMap((content) => content.text ?? []).join("\n");
-
-	if (result.isError) throw new McpError(output);
+	const mcpConfig = { getToken, host, onUnauthorized };
+	let output: string;
+	try {
+		const result = await callMcpTool(name, args, mcpConfig);
+		output = result.content.flatMap((content) => content.text ?? []).join("\n");
+		if (result.isError) throw new McpError(output);
+	} catch (error) {
+		if (!(error instanceof McpError) || !/-32602|invalid arguments/i.test(error.message)) {
+			throw error;
+		}
+		const tool = (await getMcpTools(mcpConfig)).find((tool) => tool.name === name);
+		if (!tool) throw error;
+		throw new McpError(
+			`${error.message}\n\n${JSON.stringify({ ...tool, _meta: undefined })}\n\nFix the input to match this definition.`,
+		);
+	}
 	console.info(output);
 });

@@ -11,6 +11,9 @@ export default createCommandRouter({
 		is configured, use it instead.
 	`,
 	agents: `
+		Run \`prismic mcp tools\` to list tool names. Load the definitions of the tools
+		you need with \`prismic mcp tools <name> [<name>...]\` before you call them.
+
 		Set up the Prismic MCP server so the next sessions use its tools directly.
 		Once it is set up, prefer it over \`prismic mcp call\`. The server loads in
 		the next session. Until then, use \`prismic mcp\`.
@@ -35,7 +38,7 @@ export default createCommandRouter({
 	commands: {
 		tools: {
 			handler: mcpTools,
-			description: "List MCP tools or view one",
+			description: "List MCP tool names or load tool definitions",
 		},
 		call: {
 			handler: mcpCall,

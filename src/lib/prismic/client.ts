@@ -912,7 +912,7 @@ function getDashboardUrl(host: string): URL {
 	return new URL(`https://${host}/`);
 }
 
-const McpToolSchema = z.object({
+const McpToolSchema = z.looseObject({
 	name: z.string(),
 	description: z.optional(z.string()),
 	inputSchema: z.unknown(),

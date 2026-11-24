@@ -6,10 +6,11 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic mcp tools <name> [options]");
 });
 
-it("lists tools", async ({ expect, prismic }) => {
+it("lists tool names", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("mcp", ["tools"]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("list_locales");
+	expect(stdout.split("\n")).toContain("list_locales");
+	expect(stdout).toContain("prismic mcp tools <name> [<name>...]");
 });
 
 it("points agents to the MCP server setup", async ({ expect, prismic }) => {
@@ -21,16 +22,33 @@ it("points agents to the MCP server setup", async ({ expect, prismic }) => {
 	expect(stderr).toContain("set up the Prismic MCP server: see `prismic mcp --help`");
 });
 
-it("prints a tool's input schema", async ({ expect, prismic }) => {
-	const { stdout, stderr, exitCode } = await prismic("mcp", ["tools", "list_locales"]);
+it("prints the definitions of tools", async ({ expect, prismic }) => {
+	const { stdout, stderr, exitCode } = await prismic("mcp", [
+		"tools",
+		"list_locales",
+		"list_releases",
+	]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain('"repository"');
+	const definitions = stdout
+		.trim()
+		.split("\n")
+		.map((line) => JSON.parse(line));
+	expect(definitions).toMatchObject([
+		{ name: "list_locales", inputSchema: { properties: { repository: {} } } },
+		{ name: "list_releases" },
+	]);
 });
 
 it("fails for an unknown tool", async ({ expect, prismic }) => {
 	const { stderr, exitCode } = await prismic("mcp", ["tools", "unknown_tool"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Unknown tool: unknown_tool");
+});
+
+it("suggests close matches for an unknown tool", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("mcp", ["tools", "list_locale"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("list_locales");
 });
 
 it("rejects a Write API token", async ({ expect, prismic, writeToken }) => {

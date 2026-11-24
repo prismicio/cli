@@ -26,8 +26,10 @@ it("reads the input from stdin", async ({ expect, prismic, repo }) => {
 	expect(stdout).toContain("en-us");
 });
 
-it("fails when the tool returns an error", async ({ expect, prismic }) => {
+it("prints the tool's definition for invalid input", async ({ expect, prismic }) => {
 	const { stderr, exitCode } = await prismic("mcp", ["call", "list_locales"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("repository");
+	expect(stderr).toContain("Invalid arguments");
+	expect(stderr).toContain('{"name":"list_locales"');
+	expect(stderr).toContain("Fix the input to match this definition.");
 });
