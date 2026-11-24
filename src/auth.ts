@@ -1,6 +1,5 @@
 import { readFile, rm } from "node:fs/promises";
 import { homedir } from "node:os";
-import { createInterface } from "node:readline/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 
@@ -214,10 +213,12 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 
 	// An agent stops before its command times out and runs it again to continue.
 	// Without a terminal, nobody may be there to approve, so it stops too.
+	const isPerson =
+		detectAgent() === undefined && process.stdin.isTTY === true && process.stderr.isTTY === true;
 	const login: Login = {
 		host,
 		auth0,
-		deadline: isPerson() ? Infinity : Date.now() + AGENT_WAIT_MS,
+		deadline: isPerson ? Infinity : Date.now() + AGENT_WAIT_MS,
 		startedAt: Date.now(),
 		resumed: false,
 		waited: false,
@@ -247,7 +248,7 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 
 	let outcome: LoginOutcome;
 	try {
-		outcome = await completeLogin(login, { browser: browser && isPerson() });
+		outcome = await completeLogin(login, { browser: browser && isPerson });
 	} catch (error) {
 		recordLogin({
 			result: getLoginResult(error),
@@ -279,12 +280,6 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	return token;
 }
 
-function isPerson(): boolean {
-	return (
-		detectAgent() === undefined && process.stdin.isTTY === true && process.stderr.isTTY === true
-	);
-}
-
 export async function getGuest(): Promise<Session["guest"]> {
 	if (env.PRISMIC_TOKEN) return;
 	const { guest, host } = await readLoginSummary();
@@ -301,18 +296,6 @@ async function startGuest(): Promise<string | undefined> {
 	const auth0 = getAuth0Config(host);
 	if (!auth0 || process.env.CI) return;
 	if ((await readCredentials()).login) return;
-	if (isPerson()) {
-		const prompt = createInterface({
-			input: process.stdin,
-			output: process.stderr,
-			terminal: false,
-		});
-		const answer = await prompt.question(
-			"You are not logged in. Start without an account? You can keep your work later by signing up or logging in. [Y/n] ",
-		);
-		prompt.close();
-		if (/^n/i.test(answer.trim())) return;
-	}
 
 	return withCredentialsLock(async (lock) => {
 		const current = (await readCredentials()).login?.session;
