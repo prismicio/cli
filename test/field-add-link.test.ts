@@ -13,6 +13,8 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add link <id> [options]");
 	expect(stdout).toContain("prismic docs view fields/link");
+	expect(stdout).toContain("--no-allow-text");
+	expect(stdout).toContain("--no-allow-target-blank");
 });
 
 it("adds a link field to a slice", async ({ expect, prismic, project }) => {
@@ -31,7 +33,31 @@ it("adds a link field to a slice", async ({ expect, prismic, project }) => {
 
 	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.my_link;
-	expect(field).toMatchObject({ type: "Link" });
+	expect(field).toMatchObject({
+		type: "Link",
+		config: { allowText: true, allowTargetBlank: true },
+	});
+});
+
+it("adds a link field without text or new tab", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"link",
+		"my_link",
+		"--to-slice",
+		slice.id,
+		"--no-allow-text",
+		"--no-allow-target-blank",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	const field = updated!.variations[0].primary!.my_link;
+	expect(field.config).not.toHaveProperty("allowText");
+	expect(field.config).not.toHaveProperty("allowTargetBlank");
 });
 
 it("adds a link field to a custom type", async ({ expect, prismic, project }) => {
@@ -92,5 +118,31 @@ it("adds a media link field with --allow media", async ({ expect, prismic, proje
 
 	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.my_media;
-	expect(field).toMatchObject({ type: "Link", config: { select: "media" } });
+	expect(field).toMatchObject({
+		type: "Link",
+		config: { select: "media", allowText: true, allowTargetBlank: true },
+	});
+});
+
+it("adds a document link field with text and new tab", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"link",
+		"my_doc",
+		"--to-slice",
+		slice.id,
+		"--allow",
+		"document",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	const field = updated!.variations[0].primary!.my_doc;
+	expect(field).toMatchObject({
+		type: "Link",
+		config: { select: "document", allowText: true, allowTargetBlank: true },
+	});
 });

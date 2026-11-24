@@ -10,18 +10,23 @@ const config = {
 	description: `
 		Add a link field to a slice or custom type. Use for navigational links to URLs, documents, or media. For data-level relations between documents, use content-relationship instead.
 
+		By default, writers can set the link's display text and open it in a new tab.
+
 		Run \`prismic docs view fields/link\` for details.
 	`,
 	sections: {
 		EXAMPLES: `
-			Add a link that opens in a new tab:
-			  prismic field add link cta --to-type landing_page --allow-target-blank
+			Add a button (writers can set its label and open it in a new tab):
+			  prismic field add link button --to-slice hero
+
+			Add a link without display text or new tab:
+			  prismic field add link canonical_url --to-type page --no-allow-text --no-allow-target-blank
 
 			Restrict to media links only:
 			  prismic field add link download --to-type blog_post --allow media
 
-			Add a repeatable link with custom text:
-			  prismic field add link nav_item --to-type navigation --repeatable --allow-text
+			Add a repeatable link:
+			  prismic field add link nav_item --to-type navigation --repeatable
 
 			Allow any link type, but restrict document links to a type:
 			  prismic field add link cta --to-type landing_page --custom-type page
@@ -37,8 +42,14 @@ const config = {
 			type: "string",
 			description: "Restrict to a link type: document, media, or web",
 		},
-		"allow-target-blank": { type: "boolean", description: "Allow opening in new tab" },
-		"allow-text": { type: "boolean", description: "Allow custom link text" },
+		"no-allow-text": {
+			type: "boolean",
+			description: "Don't let writers set the link's display text, such as a button label",
+		},
+		"no-allow-target-blank": {
+			type: "boolean",
+			description: "Don't let writers open the link in a new tab",
+		},
 		repeatable: { type: "boolean", description: "Allow multiple links" },
 		variant: { type: "string", multiple: true, description: "Allowed variant (can be repeated)" },
 		"custom-type": {
@@ -56,8 +67,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const {
 		label,
 		allow,
-		"allow-target-blank": allowTargetBlank,
-		"allow-text": allowText,
+		"no-allow-text": noAllowText,
+		"no-allow-target-blank": noAllowTargetBlank,
 		repeatable: repeat,
 		variant: variants,
 		"custom-type": customtypes,
@@ -84,8 +95,8 @@ export default createCommand(config, async ({ positionals, values }) => {
 		config: {
 			label: label ?? capitalCase(fieldId),
 			select,
-			allowTargetBlank,
-			allowText,
+			allowTargetBlank: noAllowTargetBlank ? undefined : true,
+			allowText: noAllowText ? undefined : true,
 			repeat,
 			variants,
 			customtypes,
