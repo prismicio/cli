@@ -51,6 +51,8 @@ export async function createGuest(config: {
 	const url = new URL("guest", config.authenticationUrl);
 	return request(url, {
 		method: "POST",
+		// The caller holds the credentials lock, which other commands wait on.
+		signal: AbortSignal.timeout(10_000),
 		schema: GuestSchema,
 		unknownErrorMessage: "Failed to start without an account",
 	});

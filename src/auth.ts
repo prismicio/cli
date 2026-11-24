@@ -317,11 +317,12 @@ async function startGuest(): Promise<string | undefined> {
 		try {
 			guest = await createGuest({ authenticationUrl: getAuthenticationApiUrl(host) });
 		} catch (error) {
-			if (!(error instanceof RequestError) || (error.status !== 429 && error.status !== 503)) {
-				throw error;
-			}
+			const isTimeout = error instanceof DOMException && error.name === "TimeoutError";
+			const isRefused =
+				error instanceof RequestError && (error.status === 429 || error.status === 503);
+			if (!isTimeout && !isRefused) throw error;
 			console.error(
-				error.status === 429
+				error instanceof RequestError && error.status === 429
 					? "Too many accounts were started without signing up from this network today."
 					: "Starting without an account isn't available right now.",
 			);

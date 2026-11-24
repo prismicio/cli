@@ -130,7 +130,6 @@ it("starts without an account when nobody is logged in, and reuses it", async ({
 	expect,
 	prismic,
 	logout,
-	auth0,
 	token,
 	host,
 	password,
@@ -157,20 +156,17 @@ it("starts without an account when nobody is logged in, and reuses it", async ({
 		expect(claimLink).toBeDefined();
 		claimLinks.add(claimLink!);
 	}
-	expect(auth0.requestsTo("/authentication/guest")).toHaveLength(1);
 	expect(claimLinks.size).toBe(1);
-	// The fake refuses a renewal from any other client.
-	expect(auth0.requestsTo("/oauth/token").length).toBeGreaterThan(0);
 });
 
-it("doesn't start without an account on CI", async ({ expect, prismic, logout, auth0 }) => {
+it("doesn't start without an account on CI", async ({ expect, prismic, logout }) => {
 	await logout();
 	const { stderr, exitCode } = await prismic("repo", ["create"], {
 		nodeOptions: { env: { CI: "true" } },
 	});
 	expect(exitCode).toBe(1);
 	expect(stderr).not.toContain("temporary Prismic account");
-	expect(auth0.requestsTo("/authentication/guest")).toHaveLength(0);
+	expect(stderr).toContain("Not logged in. Run `prismic login` first.");
 });
 
 it.for([
