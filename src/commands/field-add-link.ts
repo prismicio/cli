@@ -14,17 +14,17 @@ const config = {
 	`,
 	sections: {
 		EXAMPLES: `
-			Add a button whose label writers can edit:
-			  prismic field add link button --to-slice hero --allow-text
+			Add a button (writers can set its label and open it in a new tab):
+			  prismic field add link button --to-slice hero
 
-			Add a link that opens in a new tab:
-			  prismic field add link cta --to-type landing_page --allow-target-blank
+			Add a link without display text:
+			  prismic field add link canonical_url --to-type page --no-allow-text
 
 			Restrict to media links only:
 			  prismic field add link download --to-type blog_post --allow media
 
-			Add a repeatable link with custom text:
-			  prismic field add link nav_item --to-type navigation --repeatable --allow-text
+			Add a repeatable link:
+			  prismic field add link nav_item --to-type navigation --repeatable
 
 			Allow any link type, but restrict document links to a type:
 			  prismic field add link cta --to-type landing_page --custom-type page
@@ -40,11 +40,16 @@ const config = {
 			type: "string",
 			description: "Restrict to a link type: document, media, or web",
 		},
-		"allow-target-blank": { type: "boolean", description: "Allow opening in new tab" },
-		"allow-text": {
+		"no-allow-text": {
 			type: "boolean",
-			description: "Let writers set the link's display text, such as a button label",
+			description: "Don't let writers set the link's display text, such as a button label",
 		},
+		"no-allow-target-blank": {
+			type: "boolean",
+			description: "Don't let writers open the link in a new tab",
+		},
+		"allow-text": { type: "boolean", hidden: true, description: "On by default." },
+		"allow-target-blank": { type: "boolean", hidden: true, description: "On by default." },
 		repeatable: { type: "boolean", description: "Allow multiple links" },
 		variant: { type: "string", multiple: true, description: "Allowed variant (can be repeated)" },
 		"custom-type": {
@@ -62,8 +67,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const {
 		label,
 		allow,
+		"no-allow-text": noAllowText,
+		"no-allow-target-blank": noAllowTargetBlank,
 		"allow-target-blank": allowTargetBlank,
-		"allow-text": allowText,
 		repeatable: repeat,
 		variant: variants,
 		"custom-type": customtypes,
@@ -90,8 +96,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 		config: {
 			label: label ?? capitalCase(fieldId),
 			select,
-			allowTargetBlank,
-			allowText,
+			allowTargetBlank: noAllowTargetBlank
+				? undefined
+				: allowTargetBlank || select !== "media" || undefined,
+			allowText: noAllowText ? undefined : true,
 			repeat,
 			variants,
 			customtypes,
