@@ -60,6 +60,40 @@ it("opens a temporary account logged in, on the project's repository", async ({
 	expect(url.searchParams.get("redirect_uri")).toBe(`https://${repo}.${host}/`);
 });
 
+it("opens a temporary account logged in, on the dashboard with --dashboard", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + DAY_MS } });
+	const { stdout, stderr, exitCode } = await prismic("open", ["--dashboard"]);
+	expect(exitCode, stderr).toBe(0);
+	const url = new URL(stdout.match(/Opening (\S+)/)![1]);
+	expect(url.pathname).toBe("/authentication/guest/login");
+	expect(url.searchParams.has("redirect_uri")).toBe(false);
+});
+
+it.skipIf(process.platform === "win32")(
+	"opens a temporary account logged out when Prismic refuses the target",
+	async ({ expect, prismic, login, auth0, bin, repo, host }) => {
+		const opened = await stubBrowser(bin);
+		await login({
+			guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + DAY_MS },
+		});
+		auth0.respondOnce("/authentication/guest/magic-link", {
+			status: 400,
+			body: { error: "invalid_redirect_uri" },
+		});
+		const { stdout, stderr, exitCode } = await prismic("open");
+		expect(exitCode, stderr).toBe(0);
+		expect(stderr).toContain(
+			`Prismic can't open https://${repo}.${host}/ logged in (invalid_redirect_uri), so it opens logged out.`,
+		);
+		expect(stdout).toContain(`Opening https://${repo}.${host}/`);
+		await expect.poll(opened).toContain(`https://${repo}.${host}/`);
+	},
+);
+
 it("says the temporary account was claimed, and logs out", async ({ expect, prismic, login }) => {
 	await login({
 		expiresAt: Date.now() - 1000,

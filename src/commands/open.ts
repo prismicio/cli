@@ -2,6 +2,7 @@ import { getAuthenticationApiUrl, getGuest, getHost, getToken, onUnauthorized } 
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { createGuestLink } from "../lib/prismic/client";
+import { BadRequestError } from "../lib/request";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -20,12 +21,18 @@ export default createCommand(config, async ({ values }) => {
 	const repo = values.dashboard ? undefined : await getRepositoryName().catch(() => undefined);
 	let url = repo ? `https://${repo}.${host}/` : `https://${host}/dashboard`;
 	if (await getGuest()) {
-		({ url } = await createGuestLink({
-			authenticationUrl: getAuthenticationApiUrl(host),
-			redirectUri: url,
-			getToken,
-			onUnauthorized,
-		}));
+		try {
+			({ url } = await createGuestLink({
+				authenticationUrl: getAuthenticationApiUrl(host),
+				redirectUri: repo && url,
+				getToken,
+				onUnauthorized,
+			}));
+		} catch (error) {
+			if (!(error instanceof BadRequestError)) throw error;
+			const reason = (error.body as { error?: string } | undefined)?.error;
+			console.warn(`Prismic can't open ${url} logged in (${reason}), so it opens logged out.`);
+		}
 	}
 
 	console.info(`Opening ${url}`);

@@ -57,12 +57,12 @@ export async function createGuest(config: {
 }
 
 export async function createGuestLink(
-	config: Omit<Config, "host"> & { authenticationUrl: URL; redirectUri: string },
+	config: Omit<Config, "host"> & { authenticationUrl: URL; redirectUri?: string },
 ): Promise<{ url: string }> {
 	const url = new URL("guest/magic-link", config.authenticationUrl);
 	return request(url, {
 		method: "POST",
-		json: { redirect_uri: config.redirectUri },
+		json: config.redirectUri && { redirect_uri: config.redirectUri },
 		headers: { Authorization: `Bearer ${await config.getToken()}` },
 		onUnauthorized: config.onUnauthorized,
 		schema: z.object({ url: z.string() }),
