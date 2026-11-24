@@ -177,7 +177,9 @@ export class NextJsAdapter extends Adapter {
 	}
 
 	protected async getDefaultSliceLibrary(): Promise<URL> {
-		return new URL((await checkHasSrc()) ? "src/slices/" : "slices/", await findProjectRoot());
+		const srcSlices = new URL("src/slices/", await findProjectRoot());
+		if (await exists(srcSlices)) return srcSlices;
+		return new URL("slices/", await getSourceRoot());
 	}
 
 	protected async createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void> {
@@ -236,7 +238,7 @@ async function getSourceRoot(): Promise<URL> {
 
 async function checkHasSrc(): Promise<boolean> {
 	const projectRoot = await findProjectRoot();
-	// Next.js ignores src/app and src/pages when app or pages is at the project root.
+	// Next.js looks for app/ and pages/ at the project root before src/.
 	if (await exists(new URL("app/", projectRoot))) return false;
 	if (await exists(new URL("pages/", projectRoot))) return false;
 	return exists(new URL("src/", projectRoot));

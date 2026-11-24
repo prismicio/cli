@@ -27,7 +27,7 @@ it("generates setup files", { timeout: 30_000 }, async ({ expect, project, prism
 });
 
 it(
-	"generates App Router files at the root when src/ has no app directory",
+	"generates App Router files at the root when src/ also exists",
 	{ timeout: 30_000 },
 	async ({ expect, project, prismic }) => {
 		await mkdir(new URL("src/slices/", project), { recursive: true });
