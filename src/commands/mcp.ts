@@ -7,8 +7,8 @@ export default createCommandRouter({
 	description: `
 		Use the Prismic MCP server's tools with your CLI login.
 
-		For coding agents that don't have the Prismic MCP server configured. If it
-		is configured, use it instead.
+		For coding agents that can't use the Prismic MCP server's tools in this
+		session. If its tools are available, use them instead.
 	`,
 	agents: `
 		Run \`prismic mcp tools\` to list tool names. Load the definitions of the tools

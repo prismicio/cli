@@ -17,8 +17,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals }) => {
-	const host = await getHost();
-	const tools = await getMcpTools({ getToken, host, onUnauthorized });
+	const tools = await getMcpTools({ getToken, host: await getHost(), onUnauthorized });
 	// MCP Apps hide their UI-only tools from models.
 	const modelTools = tools.filter((tool) => tool._meta?.ui?.visibility?.includes("model") ?? true);
 

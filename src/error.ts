@@ -4,6 +4,7 @@ import { detectAgent } from "./lib/ai";
 import { DeviceFlowError, type DeviceFlowErrorReason } from "./lib/auth0";
 import { decodePayload } from "./lib/jwt";
 import { isInvalidAuthContextError } from "./lib/prismic/auth";
+import { McpError } from "./lib/prismic/client";
 import {
 	BadRequestError,
 	ForbiddenRequestError,
@@ -73,6 +74,10 @@ export async function getErrorMessage(error: unknown): Promise<string | undefine
 			  URL:     ${url}
 			  Report:  https://github.com/prismicio/cli/issues
 		`;
+	}
+
+	if (error instanceof McpError) {
+		return error.message;
 	}
 
 	if (error instanceof Error) {

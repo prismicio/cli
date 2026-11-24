@@ -27,19 +27,21 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const [name] = positionals;
 	const { input = "{}" } = values;
 
+	const json = input === "-" ? await text(process.stdin) : input;
 	let args: unknown;
 	try {
-		args = JSON.parse(input === "-" ? await text(process.stdin) : input);
+		args = JSON.parse(json);
 	} catch {
 		throw new CommandError("The input must be a JSON object.");
 	}
 
-	const host = await getHost();
-	const mcpConfig = { getToken, host, onUnauthorized };
+	const mcpConfig = { getToken, host: await getHost(), onUnauthorized };
 	let output: string;
 	try {
 		const result = await callMcpTool(name, args, mcpConfig);
-		output = result.content.flatMap((content) => content.text ?? []).join("\n");
+		output = result.content
+			.map((content) => (content.type === "text" ? content.text : JSON.stringify(content)))
+			.join("\n");
 		if (result.isError) throw new McpError(output);
 	} catch (error) {
 		if (!(error instanceof McpError) || !/-32602|Invalid arguments for tool/.test(error.message)) {

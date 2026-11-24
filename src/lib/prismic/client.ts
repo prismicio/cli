@@ -923,7 +923,7 @@ const McpToolSchema = z.looseObject({
 type McpTool = z.infer<typeof McpToolSchema>;
 
 const McpToolResultSchema = z.object({
-	content: z.array(z.object({ type: z.string(), text: z.optional(z.string()) })),
+	content: z.array(z.looseObject({ type: z.string(), text: z.optional(z.string()) })),
 	isError: z.optional(z.boolean()),
 });
 type McpToolResult = z.infer<typeof McpToolResultSchema>;
