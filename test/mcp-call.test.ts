@@ -39,3 +39,9 @@ it("prints the tool's definition for invalid input", async ({ expect, prismic })
 	expect(stderr).toContain('{"name":"list_locales"');
 	expect(stderr).toContain("Fix the input to match this definition.");
 });
+
+it("refuses a gated tool without --user-confirmed", async ({ expect, prismic }) => {
+	const { stderr, exitCode } = await prismic("mcp", ["call", "publish_release"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Ask the user to confirm, then rerun with --user-confirmed.");
+});

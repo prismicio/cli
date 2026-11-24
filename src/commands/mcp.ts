@@ -13,6 +13,8 @@ export default createCommandRouter({
 	agents: `
 		Run \`prismic mcp tools\` to list tool names. Load the definitions of the tools
 		you need with \`prismic mcp tools <name> [<name>...]\` before you call them.
+		If \`prismic mcp call\` asks for --user-confirmed, pass it only after the user
+		explicitly agrees.
 
 		Set up the Prismic MCP server so the next sessions use its tools directly.
 		Once it is set up, prefer it over \`prismic mcp call\`. The server loads in

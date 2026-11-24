@@ -20,13 +20,30 @@ const config = {
 			type: "string",
 			description: "Tool input as a JSON object, or - to read it from stdin",
 		},
+		"user-confirmed": {
+			type: "boolean",
+			description: "Confirm that the user approved this call",
+		},
 	},
 } satisfies CommandConfig;
+
+// The server's destructiveHint also flags routine staged edits, so only gate live or irreversible changes.
+const TOOLS_REQUIRING_CONFIRMATION = [
+	"publish_release",
+	"app_confirm_publish_release",
+	"delete_releases",
+	"archive_documents",
+];
 
 export default createCommand(config, async ({ positionals, values }) => {
 	const [name, ...extra] = positionals;
 	if (extra.length > 0) throw new CommandError("Pass the tool input with --input.");
 	const { input = "{}" } = values;
+	if (TOOLS_REQUIRING_CONFIRMATION.includes(name) && !values["user-confirmed"]) {
+		throw new CommandError(
+			`${name} changes the live site or can't be undone. Ask the user to confirm, then rerun with --user-confirmed.`,
+		);
+	}
 
 	const json = input === "-" ? await text(process.stdin) : input;
 	let args: unknown;
