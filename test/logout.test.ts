@@ -2,6 +2,13 @@ import { readFile } from "node:fs/promises";
 
 import { approveLogin, captureOutput, it } from "./it";
 
+const GUEST = {
+	claimUrl: "https://example.com/claim",
+	expiresAt: Date.parse("2099-01-01T02:00:00Z"),
+};
+const GUEST_LINE =
+	"Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT. Keep it: https://example.com/claim";
+
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("logout", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
@@ -64,4 +71,17 @@ it("succeeds when not logged in", async ({ expect, prismic, logout }) => {
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Logged out of Prismic");
+});
+
+it("warns that a temporary account can't be logged back in to, and logs out", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	await login({ guest: GUEST });
+	const { stdout, stderr, exitCode } = await prismic("logout");
+	expect(exitCode, stderr).toBe(0);
+	expect(stderr).toContain(`The CLI can't log back in to this temporary account. ${GUEST_LINE}`);
+	expect(stdout).toContain("Logged out of Prismic");
+	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });

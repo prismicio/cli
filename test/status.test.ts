@@ -13,6 +13,13 @@ import {
 } from "./it";
 import { insertCustomType, insertSlice } from "./prismic";
 
+const GUEST = {
+	claimUrl: "https://example.com/claim",
+	expiresAt: Date.parse("2099-01-01T02:00:00Z"),
+};
+const GUEST_LINE =
+	"Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT. Keep it: https://example.com/claim";
+
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("status", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
@@ -194,4 +201,16 @@ it("compares with remote using a Write API token", async ({
 	});
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`(Write API token for ${repo})`);
+});
+
+it("shows a temporary account with its deletion time and claim link", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	await login({ guest: GUEST });
+	const { stdout, stderr, exitCode } = await prismic("status");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(`Authenticated as: ${GUEST_LINE}`);
+	expect(stderr).not.toContain(GUEST_LINE);
 });

@@ -1,36 +1,35 @@
-import { getAuthenticationApiUrl, getHost, getToken, isPerson, onUnauthorized } from "../auth";
-import { readLoginSummary } from "../credentials";
-import { env } from "../env";
+import { getAuthenticationApiUrl, getGuest, getHost, getToken, onUnauthorized } from "../auth";
 import { openBrowser } from "../lib/browser";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { createCommand, type CommandConfig } from "../lib/command";
 import { createGuestLink } from "../lib/prismic/client";
+import { getRepositoryName } from "../project";
 
 const config = {
 	name: "prismic open",
 	description: `
-		Open your temporary account in a browser. There, you can keep its
-		repositories by signing up or logging in.
+		Open the project's repository in a browser, or the dashboard outside a
+		project. A temporary account opens logged in.
 	`,
+	options: {
+		dashboard: { type: "boolean", description: "Open the dashboard, even inside a project" },
+	},
 } satisfies CommandConfig;
 
-export default createCommand(config, async () => {
+export default createCommand(config, async ({ values }) => {
 	const host = await getHost();
-	const summary = await readLoginSummary();
-	if (env.PRISMIC_TOKEN || !summary.guest || summary.host !== host) {
-		throw new CommandError(
-			`\`prismic open\` works only for an account started without signing up. Open https://${host}/dashboard instead.`,
-		);
+	const repo = values.dashboard ? undefined : await getRepositoryName().catch(() => undefined);
+	let url = repo ? `https://${repo}.${host}/` : `https://${host}/dashboard`;
+	if (await getGuest()) {
+		({ url } = await createGuestLink({
+			authenticationUrl: getAuthenticationApiUrl(host),
+			redirectUri: url,
+			getToken,
+			onUnauthorized,
+		}));
 	}
 
-	const { url } = await createGuestLink({
-		authenticationUrl: getAuthenticationApiUrl(host),
-		getToken,
-		onUnauthorized,
-	});
-	console.info(`Open this link within 10 minutes. It works once:\n  ${url}`);
+	console.info(`Opening ${url}`);
 	// openBrowser() runs a shell, so the URL can't contain shell syntax,
 	// including cmd.exe's %NAME%.
-	if (isPerson() && /^https:\/\/[\w\-.:/?=&~+]+$/.test(url) && URL.canParse(url)) {
-		openBrowser(new URL(url));
-	}
+	if (/^https:\/\/[\w\-.:/?=&~+]+$/.test(url) && URL.canParse(url)) openBrowser(new URL(url));
 });

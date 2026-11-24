@@ -1,5 +1,5 @@
 import { getAdapter } from "../adapters";
-import { getHost, getToken } from "../auth";
+import { formatGuest, getGuest, getHost, getToken } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
@@ -54,12 +54,14 @@ export default createCommand(config, async ({ values }) => {
 	let authenticatedAs: string | undefined;
 	let diff: ModelsDiff | undefined;
 	if (token) {
-		const [session, remote] = await Promise.all([
+		const [session, remote, guest] = await Promise.all([
 			validateToken(token, { host }),
 			getRemoteModels({ repo, getToken, host }),
+			getGuest(),
 		]);
-		authenticatedAs =
-			session.type === "USER"
+		authenticatedAs = guest
+			? formatGuest(guest)
+			: session.type === "USER"
 				? session.email
 				: `${session.appName} (Write API token for ${session.domain})`;
 		diff = diffModels(local, remote);

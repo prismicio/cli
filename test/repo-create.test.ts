@@ -146,12 +146,9 @@ it("starts without an account when nobody is logged in, and reuses it", async ({
 		const domain = stdout.match(/Repository created: (\S+)/)?.[1];
 		expect(domain).toBeDefined();
 		onTestFinished(() => deleteRepository(domain!, { token, password, host }));
-		expect(stderr).toContain(
-			"This is a temporary Prismic account. Prismic deletes it and its repositories on Thu, 01 Jan 2099 02:00:00 GMT.",
-		);
 		claimLinks.push(
 			stderr.match(
-				/To keep them, open this link and sign up or log in:\n {2}(http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
+				/Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT\. Keep it: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
 			)?.[1],
 		);
 	}
@@ -164,7 +161,7 @@ it("doesn't start without an account on CI", async ({ expect, prismic, logout })
 		nodeOptions: { env: { CI: "true" } },
 	});
 	expect(exitCode).toBe(1);
-	expect(stderr).not.toContain("temporary Prismic account");
+	expect(stderr).not.toContain("Temporary account");
 	expect(stderr).toContain("Not logged in. Run `prismic login` first.");
 });
 

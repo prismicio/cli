@@ -284,7 +284,7 @@ it("starts without an account when nobody is logged in", async ({
 	const name = stdout.match(/^Created repository: ([a-z0-9-]+)$/m)?.[1];
 	if (name) onTestFinished(() => deleteRepository(name, { token, password, host }));
 	expect(exitCode, stderr).toBe(0);
-	expect(stderr).toContain("This is a temporary Prismic account.");
+	expect(stderr).toMatch(/Temporary account, deleted on .+\. Keep it: http/);
 }, 60_000);
 
 it("renews a rejected token instead of logging in again", async ({

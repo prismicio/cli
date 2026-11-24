@@ -1,5 +1,5 @@
-import { logIn } from "../auth";
-import { createCommand, type CommandConfig } from "../lib/command";
+import { getGuest, logIn } from "../auth";
+import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 
 const config = {
 	name: "prismic login",
@@ -10,5 +10,11 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ values }) => {
+	// Logging in replaces the temporary account, which strands its repositories.
+	if (await getGuest()) {
+		throw new CommandError(
+			"This is a temporary account. Claim it first, or run `prismic logout` to abandon it.",
+		);
+	}
 	await logIn({ browser: !values["no-browser"] });
 });

@@ -1,4 +1,4 @@
-import { getHost, getToken } from "../auth";
+import { formatGuest, getGuest, getHost, getToken } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { validateToken } from "../lib/prismic/client";
 
@@ -10,6 +10,11 @@ const config = {
 export default createCommand(config, async () => {
 	const host = await getHost();
 	const session = await validateToken(await getToken(), { host });
+	const guest = await getGuest();
+	if (guest) {
+		console.info(formatGuest(guest));
+		return;
+	}
 
 	if (session.type === "Machine2Machine") {
 		console.info(`${session.appName} (Write API token for ${session.domain})`);

@@ -9,7 +9,6 @@ import init from "./init";
 import locale from "./locale";
 import login from "./login";
 import logout from "./logout";
-import mcp from "./mcp";
 import open from "./open";
 import preview from "./preview";
 import pull from "./pull";
@@ -141,11 +140,7 @@ export default createCommandRouter({
 		},
 		open: {
 			handler: open,
-			description: "Open your temporary account in a browser",
-		},
-		mcp: {
-			handler: mcp,
-			description: "Connect the Prismic MCP server",
+			description: "Open the repository or dashboard in a browser",
 		},
 		"task-id": {
 			handler: taskId,

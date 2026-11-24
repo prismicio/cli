@@ -10,7 +10,7 @@ import {
 	NoSupportedFrameworkError,
 	SliceNotFoundError,
 } from "./adapters";
-import { cleanupLegacyAuthFile, getHost, getToken } from "./auth";
+import { cleanupLegacyAuthFile, formatGuest, getGuest, getHost, getToken } from "./auth";
 import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { CredentialsError, readLoginSummary } from "./credentials";
@@ -50,7 +50,6 @@ import {
 	sentrySetUser,
 	setupSentry,
 } from "./lib/sentry";
-import { dedent } from "./lib/string";
 import { genTaskId, isTaskId } from "./lib/task-id";
 import { initUpdateNotifier } from "./lib/update-notifier";
 import { isSubdomain } from "./lib/url";
@@ -149,13 +148,8 @@ async function main(): Promise<void> {
 	const userIntent = typeof intentValue === "string" ? intentValue : undefined;
 	const taskId = typeof taskIdValue === "string" ? taskIdValue : undefined;
 
-	// MCP clients run `mcp token` themselves, without the agent's options.
 	const agentNeedsTaskId =
-		!help &&
-		command !== "" &&
-		command !== "task-id" &&
-		command !== "mcp" &&
-		detectAgent() !== undefined;
+		!help && command !== "" && command !== "task-id" && detectAgent() !== undefined;
 	const agentOptionsError = agentNeedsTaskId ? getAgentOptionsError(taskId, userIntent) : undefined;
 
 	if (!help) {
@@ -241,16 +235,9 @@ async function main(): Promise<void> {
 		}
 	}
 
-	const { guest, host } = env.PRISMIC_TOKEN || help ? {} : await readLoginSummary();
-	if (guest && host === (await getHost())) {
-		console.warn(
-			`\n${dedent`
-			This is a temporary Prismic account. Prismic deletes it and its repositories on ${new Date(guest.expiresAt).toUTCString()}.
-			To keep them, open this link and sign up or log in:
-			  ${guest.claimUrl}
-		`}`,
-		);
-	}
+	// whoami and status show it in their own output.
+	const guest = help || command === "whoami" || command === "status" ? undefined : await getGuest();
+	if (guest) console.warn(formatGuest(guest));
 }
 
 async function initSentry(options: {

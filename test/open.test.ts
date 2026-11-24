@@ -1,6 +1,21 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+
 import { it } from "./it";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Records the URL instead of opening a browser. Windows opens it with a shell
+// builtin, which PATH can't replace.
+async function stubBrowser(bin: URL): Promise<() => Promise<string>> {
+	const log = new URL("opened.txt", bin);
+	for (const name of ["open", "xdg-open"]) {
+		await writeFile(new URL(name, bin), `#!/bin/sh\necho "$1" >> "${fileURLToPath(log)}"\n`, {
+			mode: 0o755,
+		});
+	}
+	return () => readFile(log, "utf8").catch(() => "");
+}
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("open", ["--help"]);
@@ -8,19 +23,41 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(stdout).toContain("prismic open [options]");
 });
 
-it("prints a link that opens the temporary account", async ({ expect, prismic, login }) => {
+it.skipIf(process.platform === "win32")(
+	"opens the project's repository",
+	async ({ expect, prismic, bin, repo, host }) => {
+		const opened = await stubBrowser(bin);
+		const { stdout, stderr, exitCode } = await prismic("open");
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(`Opening https://${repo}.${host}/`);
+		await expect.poll(opened).toContain(`https://${repo}.${host}/`);
+	},
+);
+
+it.skipIf(process.platform === "win32")(
+	"opens the dashboard with --dashboard",
+	async ({ expect, prismic, bin, host }) => {
+		const opened = await stubBrowser(bin);
+		const { stdout, stderr, exitCode } = await prismic("open", ["--dashboard"]);
+		expect(exitCode, stderr).toBe(0);
+		expect(stdout).toContain(`Opening https://${host}/dashboard`);
+		await expect.poll(opened).toContain(`https://${host}/dashboard`);
+	},
+);
+
+it("opens a temporary account logged in, on the project's repository", async ({
+	expect,
+	prismic,
+	login,
+	repo,
+	host,
+}) => {
 	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + DAY_MS } });
 	const { stdout, stderr, exitCode } = await prismic("open");
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toMatch(
-		/Open this link within 10 minutes\. It works once:\n {2}http:\/\/127\.0\.0\.1:\d+\/authentication\/guest\/login\?t=/,
-	);
-});
-
-it("fails for an account that signed up", async ({ expect, prismic }) => {
-	const { stderr, exitCode } = await prismic("open");
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain("works only for an account started without signing up");
+	const url = new URL(stdout.match(/Opening (\S+)/)![1]);
+	expect(url.pathname).toBe("/authentication/guest/login");
+	expect(url.searchParams.get("redirect_uri")).toBe(`https://${repo}.${host}/`);
 });
 
 it("says the temporary account was claimed, and logs out", async ({ expect, prismic, login }) => {
@@ -34,7 +71,7 @@ it("says the temporary account was claimed, and logs out", async ({ expect, pris
 	expect(stderr).toContain(
 		"Your temporary account was claimed, with its repositories. Run `prismic login` with the account that claimed it to keep working.",
 	);
-	expect(stderr).not.toContain("temporary Prismic account");
+	expect(stderr).not.toContain("Keep it:");
 	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });
 

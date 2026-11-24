@@ -2,6 +2,13 @@ import { chmod, readFile } from "node:fs/promises";
 
 import { captureOutput, it, waitForLoginPrompt } from "./it";
 
+const GUEST = {
+	claimUrl: "https://example.com/claim",
+	expiresAt: Date.parse("2099-01-01T02:00:00Z"),
+};
+const GUEST_LINE =
+	"Temporary account, deleted on Thu, 01 Jan 2099 02:00:00 GMT. Keep it: https://example.com/claim";
+
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("whoami", ["--help"]);
 	expect(exitCode, stderr).toBe(0);
@@ -171,3 +178,15 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
 		}
 	},
 );
+
+it("shows a temporary account with its deletion time and claim link", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	await login({ guest: GUEST });
+	const { stdout, stderr, exitCode } = await prismic("whoami");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(GUEST_LINE);
+	expect(stderr).not.toContain(GUEST_LINE);
+});

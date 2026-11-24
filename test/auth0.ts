@@ -75,6 +75,7 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 			if (req.headers.authorization !== `Bearer ${accessToken}`) return send(res, 401);
 			const url = new URL("authentication/guest/login", auth0Domain);
 			url.searchParams.set("t", randomToken(24));
+			url.searchParams.set("redirect_uri", JSON.parse(body).redirect_uri);
 			return send(res, 200, { url: url.href });
 		}
 

@@ -279,10 +279,20 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	return token;
 }
 
-export function isPerson(): boolean {
+function isPerson(): boolean {
 	return (
 		detectAgent() === undefined && process.stdin.isTTY === true && process.stderr.isTTY === true
 	);
+}
+
+export async function getGuest(): Promise<Session["guest"]> {
+	if (env.PRISMIC_TOKEN) return;
+	const { guest, host } = await readLoginSummary();
+	if (host === (await getHost())) return guest;
+}
+
+export function formatGuest(guest: NonNullable<Session["guest"]>): string {
+	return `Temporary account, deleted on ${new Date(guest.expiresAt).toUTCString()}. Keep it: ${guest.claimUrl}`;
 }
 
 // Nobody could claim an account started in CI.

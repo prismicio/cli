@@ -1,3 +1,4 @@
+import { formatGuest, getGuest } from "../auth";
 import {
 	clearCredentials,
 	CredentialsError,
@@ -15,6 +16,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async () => {
+	const guest = await getGuest();
 	let revoked = false;
 	await withCredentialsLock(async (lock) => {
 		try {
@@ -33,6 +35,9 @@ export default createCommand(config, async () => {
 		await forgetTrackedUser();
 	});
 	recordLogout({ revoked });
+	if (guest) {
+		console.warn(`The CLI can't log back in to this temporary account. ${formatGuest(guest)}`);
+	}
 	if (env.PRISMIC_TOKEN) console.warn("PRISMIC_TOKEN is still set, so commands still use it.");
 	console.info("Logged out of Prismic");
 });

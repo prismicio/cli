@@ -63,10 +63,8 @@ const config = {
 		existing one. Use --repo only for a repository the user names, and run init.
 
 		When nobody is logged in, init starts without an account. Give the user the
-		claim link and the deletion time it prints. If the user wants to use their
-		own account, run \`prismic login\` before init.
-
-		After init, follow \`prismic mcp --help\` to connect the Prismic MCP server.
+		claim link and the deletion time it prints right away. If the user wants to
+		use their own account, run \`prismic login\` before init.
 	`,
 	options: {
 		repo: {
