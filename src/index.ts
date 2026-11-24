@@ -200,14 +200,14 @@ async function main(): Promise<void> {
 
 	if (agentOptionsError) {
 		let rerunTaskId = `--task-id ${taskId}`;
-		if (taskId === undefined) {
+		if (!taskId) {
 			rerunTaskId = `the --task-id you already pass for this request (or --task-id ${genTaskId()} if the request is new)`;
 		} else if (!isTaskId(taskId)) {
 			rerunTaskId = `--task-id ${genTaskId()}`;
 		}
 		console.error(
 			`error: ${agentOptionsError}\n` +
-				`rerun with ${rerunTaskId} and --user-intent "<the user's request in one sentence>"\n` +
+				`rerun with ${rerunTaskId} and --user-intent "${userIntent || "<the user's request in one sentence>"}"\n` +
 				"pass the same --task-id and the same --user-intent on every command until the user asks for something else",
 		);
 		process.exitCode = 1;
