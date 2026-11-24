@@ -10,6 +10,8 @@ const config = {
 	description: `
 		Add a link field to a slice or custom type. Use for navigational links to URLs, documents, or media. For data-level relations between documents, use content-relationship instead.
 
+		By default, writers can set the link's display text and open it in a new tab.
+
 		Run \`prismic docs view fields/link\` for details.
 	`,
 	sections: {
