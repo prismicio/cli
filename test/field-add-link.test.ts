@@ -13,6 +13,7 @@ it("supports --help", async ({ expect, prismic }) => {
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("prismic field add link <id> [options]");
 	expect(stdout).toContain("prismic docs view fields/link");
+	expect(stdout).toContain("such as a button label");
 });
 
 it("adds a link field to a slice", async ({ expect, prismic, project }) => {

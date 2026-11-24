@@ -14,6 +14,9 @@ const config = {
 	`,
 	sections: {
 		EXAMPLES: `
+			Add a button whose label writers can edit:
+			  prismic field add link button --to-slice hero --allow-text
+
 			Add a link that opens in a new tab:
 			  prismic field add link cta --to-type landing_page --allow-target-blank
 
@@ -38,7 +41,10 @@ const config = {
 			description: "Restrict to a link type: document, media, or web",
 		},
 		"allow-target-blank": { type: "boolean", description: "Allow opening in new tab" },
-		"allow-text": { type: "boolean", description: "Allow custom link text" },
+		"allow-text": {
+			type: "boolean",
+			description: "Let writers set the link's display text, such as a button label",
+		},
 		repeatable: { type: "boolean", description: "Allow multiple links" },
 		variant: { type: "string", multiple: true, description: "Allowed variant (can be repeated)" },
 		"custom-type": {
