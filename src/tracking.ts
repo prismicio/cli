@@ -185,9 +185,13 @@ async function saveIds(nextIds: AnalyticsIds): Promise<void> {
 // `prismic mcp call` arguments can hold repository content, and the MCP
 // server already logs them.
 export function getFullCommand(): string {
-	const call = process.argv.indexOf("call");
-	if (process.argv[2] === "mcp" && call !== -1) {
-		return [...process.argv.slice(0, call + 2), "<redacted>"].join(" ");
+	// Options can come before `mcp` or before the tool name.
+	const mcp = process.argv.indexOf("mcp", 2);
+	const call = mcp === -1 ? -1 : process.argv.indexOf("call", mcp + 1);
+	if (call !== -1) {
+		const name = process.argv[call + 1];
+		const end = name && !name.startsWith("-") ? call + 2 : call + 1;
+		return [...process.argv.slice(0, end), "<redacted>"].join(" ");
 	}
 	return process.argv.join(" ");
 }
