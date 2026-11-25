@@ -42,7 +42,7 @@ it("opens a temporary account's repository with a link that logs in", async ({
 	const { stdout, stderr, exitCode } = await prismic("repo", ["view", "--web"]);
 	expect(exitCode, stderr).toBe(0);
 	const link = new URL(stdout.match(/Opening (\S+)/)![1]);
-	expect(link.pathname).toBe("/dashboard/guest/open");
+	expect(link.pathname).toBe("/dashboard/guest/login");
 	expect(link.searchParams.get("redirect_uri")).toBe(`https://${repo}.${host}/`);
 });
 
