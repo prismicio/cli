@@ -64,7 +64,6 @@ export function createCommand<T extends CommandConfig>(
 ): () => Promise<void> {
 	return async function () {
 		const { positionals = {}, options = {} } = config;
-		const names = Object.keys(positionals);
 		const labels = Object.entries(positionals).map(
 			([name, { multiple }]) => `<${name}${multiple ? "..." : ""}>`,
 		);
@@ -96,7 +95,7 @@ export function createCommand<T extends CommandConfig>(
 				...agentsBlock(config.name, config.agents),
 				USAGE: `  ${usage}`,
 			};
-			if (names.length > 0) {
+			if (labels.length > 0) {
 				blocks.ARGUMENTS = formatTable(
 					Object.values(positionals).map((positional, index) => [
 						`  ${labels[index]}`,
@@ -111,7 +110,7 @@ export function createCommand<T extends CommandConfig>(
 			return;
 		}
 
-		const extra = result.positionals.slice(names.length);
+		const extra = result.positionals.slice(labels.length);
 		if (extra.length > 0 && !Object.values(positionals).at(-1)?.multiple) {
 			throw usageError(
 				`Unexpected argument${extra.length > 1 ? "s" : ""}: ${extra.map((arg) => JSON.stringify(arg)).join(" ")}`,
