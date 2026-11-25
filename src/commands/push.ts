@@ -180,6 +180,7 @@ function explainRejectedModels(error: BadRequestError): Error {
 		...details.slices.map(({ id, error }) => `Slice "${id}": ${error}`),
 	];
 	if (message) lines.unshift(message);
+	if (lines.length === 0) return error;
 	lines.unshift("Prismic rejected these models:");
 	return new CommandError(lines.map((line) => line.replace(/\s+/g, " ").trim()).join("\n"));
 }
