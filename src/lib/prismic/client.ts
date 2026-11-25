@@ -44,10 +44,8 @@ const GuestSchema = z.object({
 	deletes_at: z.string(),
 });
 
-export async function createGuest(config: {
-	authenticationUrl: URL;
-}): Promise<z.infer<typeof GuestSchema>> {
-	const url = new URL("guest", config.authenticationUrl);
+export async function createGuest(config: { apiUrl: URL }): Promise<z.infer<typeof GuestSchema>> {
+	const url = new URL("authentication/guest", config.apiUrl);
 	return request(url, {
 		method: "POST",
 		// The caller holds the credentials lock, which other commands wait on.
@@ -58,9 +56,9 @@ export async function createGuest(config: {
 }
 
 export async function createGuestLink(
-	config: Omit<Config, "host"> & { authenticationUrl: URL; redirectUri: string },
+	config: Omit<Config, "host"> & { apiUrl: URL; redirectUri: string },
 ): Promise<{ url: string }> {
-	const url = new URL("guest/magic-link", config.authenticationUrl);
+	const url = new URL("authentication/guest/magic-link", config.apiUrl);
 	return request(url, {
 		method: "POST",
 		json: { redirect_uri: config.redirectUri },
@@ -97,11 +95,8 @@ export async function getUserProfile(config: Config): Promise<Profile> {
 	});
 }
 
-export async function isGuestClaimed(config: {
-	token: string;
-	authenticationUrl: URL;
-}): Promise<boolean> {
-	const url = new URL("../user/profile", config.authenticationUrl);
+export async function isGuestClaimed(config: { token: string; apiUrl: URL }): Promise<boolean> {
+	const url = new URL("user/profile", config.apiUrl);
 	const profile = await request(url, {
 		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ guest: z.optional(z.object({ status: z.string() })) }),

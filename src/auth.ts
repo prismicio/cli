@@ -320,8 +320,8 @@ async function endGuestIfOver(): Promise<void> {
 	const deleted = guest.deletesAt <= Date.now();
 	if (!deleted) {
 		const token = await getSessionToken();
-		const authenticationUrl = getAuthenticationApiUrl(await getHost());
-		if (!token || !(await isGuestClaimed({ token, authenticationUrl }).catch(() => false))) return;
+		const apiUrl = getApiUrl(await getHost());
+		if (!token || !(await isGuestClaimed({ token, apiUrl }).catch(() => false))) return;
 	}
 	await withCredentialsLock(async (lock) => {
 		const { login } = await readCredentials();
@@ -351,12 +351,10 @@ export async function printParkedGuest(): Promise<void> {
 				const { auth0Domain, host } = login.session;
 				const { clientId } = parked;
 				const tokens = await refreshAccessToken(parked.refreshToken, { auth0Domain, clientId });
-				const authenticationUrl = getAuthenticationApiUrl(host);
+				const apiUrl = getApiUrl(host);
 				const claimed =
 					tokens &&
-					(await isGuestClaimed({ token: tokens.accessToken, authenticationUrl }).catch(
-						() => false,
-					));
+					(await isGuestClaimed({ token: tokens.accessToken, apiUrl }).catch(() => false));
 				// Auth0 may have rotated its token.
 				if (tokens && !claimed) guest = { ...parked, refreshToken: tokens.refreshToken };
 			} catch {
@@ -425,7 +423,7 @@ async function startGuest(): Promise<string | undefined> {
 
 		let guest;
 		try {
-			guest = await createGuest({ authenticationUrl: getAuthenticationApiUrl(host) });
+			guest = await createGuest({ apiUrl: getApiUrl(host) });
 		} catch {
 			console.error("Couldn't start a guest account.");
 			return;
@@ -453,12 +451,12 @@ async function startGuest(): Promise<string | undefined> {
 	return getToken();
 }
 
-export function getAuthenticationApiUrl(host: string): URL {
+export function getApiUrl(host: string): URL {
 	// Tests' fake Auth0 server also serves these routes.
 	if (process.env.PROD === "false" && env.PRISMIC_AUTH0_DOMAIN) {
-		return new URL("authentication/", appendTrailingSlash(env.PRISMIC_AUTH0_DOMAIN));
+		return new URL(appendTrailingSlash(env.PRISMIC_AUTH0_DOMAIN));
 	}
-	return new URL(`https://api.internal.${host}/authentication/`);
+	return new URL(`https://api.internal.${host}/`);
 }
 
 // Native client IDs are public.

@@ -1,4 +1,4 @@
-import { getAuthenticationApiUrl, getGuest, getHost, getToken, onUnauthorized } from "../auth";
+import { getApiUrl, getGuest, getHost, getToken, onUnauthorized } from "../auth";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
@@ -33,7 +33,7 @@ export default createCommand(config, async ({ values }) => {
 		let link = url;
 		if (await getGuest()) {
 			({ url: link } = await createGuestLink({
-				authenticationUrl: getAuthenticationApiUrl(host),
+				apiUrl: getApiUrl(host),
 				redirectUri: url,
 				getToken,
 				onUnauthorized,
