@@ -45,5 +45,17 @@ export default createCommand(config, async ({ positionals, values }) => {
 	addField(fields, fieldId, field);
 	await save();
 
+	const target = [
+		values["to-slice"] && `--to-slice ${values["to-slice"]}`,
+		values.variation && `--variation ${values.variation}`,
+		values["to-type"] && `--to-type ${values["to-type"]}`,
+		values.tab && `--tab ${JSON.stringify(values.tab)}`,
+	]
+		.filter(Boolean)
+		.join(" ");
+
 	console.info(`Field added: ${id}`);
+	console.info(
+		`Run \`prismic field add <type> ${id}.<field_id> ${target}\` to add fields inside the group.`,
+	);
 });
