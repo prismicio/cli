@@ -19,6 +19,7 @@ it("creates a slice", async ({ expect, prismic, project }) => {
 	expect(stdout).toContain(`Created slice "${name}"`);
 
 	const id = snakeCase(name);
+	expect(stdout).toContain(`prismic field add <type> <field_id> --to-slice ${id}`);
 	const created = await readLocalSlice(project, id);
 	expect(created).toBeDefined();
 	expect(created?.name).toBe(name);
