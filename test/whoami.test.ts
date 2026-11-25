@@ -249,7 +249,7 @@ it("says a temporary account that was set aside was deleted, and forgets it", as
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(email);
 	expect(stderr.trim()).toBe(
-		"You also had an unclaimed temporary account. It was deleted, along with its repositories.",
+		"You also had an unclaimed temporary account that was deleted, along with its repositories.",
 	);
 	expect((await prismic("whoami")).stderr).not.toContain("temporary account");
 });

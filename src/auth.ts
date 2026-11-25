@@ -337,7 +337,7 @@ export async function printSavedGuest(): Promise<void> {
 		let savedGuest: typeof saved | undefined;
 		if (saved.deletesAt <= Date.now()) {
 			console.error(
-				"You also had an unclaimed temporary account. It was deleted, along with its repositories.",
+				"You also had an unclaimed temporary account that was deleted, along with its repositories.",
 			);
 		} else {
 			try {
