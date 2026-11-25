@@ -30,6 +30,7 @@ it("adds a group field to a slice", async ({ expect, prismic, project }) => {
 	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field added: my_group");
+	expect(stdout).toContain(`prismic field add <type> my_group.<field_id> --to-slice ${slice.id}`);
 
 	const updated = await readLocalSlice(project, slice.id);
 	const field = updated!.variations[0].primary!.my_group;
@@ -49,6 +50,9 @@ it("adds a group field to a custom type", async ({ expect, prismic, project }) =
 	]);
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Field added: my_group");
+	expect(stdout).toContain(
+		`prismic field add <type> my_group.<field_id> --to-type ${customType.id}`,
+	);
 
 	const updated = await readLocalCustomType(project, customType.id);
 	const field = updated.json.Main.my_group;

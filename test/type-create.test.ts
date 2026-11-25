@@ -19,6 +19,7 @@ it("creates a custom type", async ({ expect, prismic, project }) => {
 	expect(stdout).toContain(`Created type "${label}"`);
 
 	const id = snakeCase(label!);
+	expect(stdout).toContain(`prismic field add <type> <field_id> --to-type ${id}`);
 	const created = await readLocalCustomType(project, id);
 	expect(created).toMatchObject({ label, format: "custom", repeatable: true });
 	expect(created.json.Main.uid).toEqual({ type: "UID", config: { label: "UID" } });
@@ -34,9 +35,12 @@ it("creates a page type with --format page", async ({ expect, prismic, project }
 		"page",
 	]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain(`Created type "${label}"`);
-
 	const id = snakeCase(label!);
+	expect(stdout).toContain(
+		`Created type "${label}" (id: "${id}", format: "page") with a UID field and a slice zone`,
+	);
+	expect(stdout).toContain(`prismic slice connect <slice> --to ${id}`);
+
 	const created = await readLocalCustomType(project, id);
 	expect(created).toMatchObject({ format: "page", repeatable: true });
 	expect(created.json).toHaveProperty("SEO & Metadata");
@@ -47,10 +51,11 @@ it("creates a page type with --format page", async ({ expect, prismic, project }
 it("creates a single custom type", async ({ expect, prismic, project }) => {
 	const { label } = buildCustomType({ format: "custom" });
 
-	const { stderr, exitCode } = await prismic("type", ["create", label!, "--single"]);
+	const { stdout, stderr, exitCode } = await prismic("type", ["create", label!, "--single"]);
 	expect(exitCode, stderr).toBe(0);
 
 	const id = snakeCase(label!);
+	expect(stdout).toContain(`Created type "${label}" (id: "${id}", format: "custom")\n`);
 	const created = await readLocalCustomType(project, id);
 	expect(created).toMatchObject({ format: "custom", repeatable: false });
 	expect(created.json.Main).not.toHaveProperty("uid");

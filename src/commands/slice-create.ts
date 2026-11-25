@@ -61,7 +61,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 	await adapter.generateTypes();
 
 	console.info(`Created slice "${name}" (id: "${id}")`);
-	console.info(`Run \`prismic field add <type> --to-slice ${id}\` to add fields.`);
+	console.info(`Run \`prismic field add <type> <field_id> --to-slice ${id}\` to add fields.`);
 	if (to) {
 		console.info(`Connected slice "${id}" to "${to}"`);
 	} else {
