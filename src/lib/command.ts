@@ -10,7 +10,7 @@ export type CommandConfig = {
 	/** Help shown only to detected agents, after the shared text in the AGENTS section. */
 	agents?: string;
 	sections?: Record<string, string>;
-	positionals?: Record<string, { description: string; required?: boolean }>;
+	positionals?: Record<string, { description: string; required?: boolean; multiple?: boolean }>;
 	options?: Record<
 		string,
 		ParseArgsOptionDescriptor & {
@@ -65,7 +65,10 @@ export function createCommand<T extends CommandConfig>(
 	return async function () {
 		const { positionals = {}, options = {} } = config;
 		const names = Object.keys(positionals);
-		const usage = [config.name, ...names.map((name) => `<${name}>`), "[options]"].join(" ");
+		const labels = Object.entries(positionals).map(
+			([name, { multiple }]) => `<${name}${multiple ? "..." : ""}>`,
+		);
+		const usage = [config.name, ...labels, "[options]"].join(" ");
 		const usageError = (message: string) => new CommandError(`${message}\nUsage: ${usage}`);
 
 		let result;
@@ -95,8 +98,8 @@ export function createCommand<T extends CommandConfig>(
 			};
 			if (names.length > 0) {
 				blocks.ARGUMENTS = formatTable(
-					Object.entries(positionals).map(([name, positional]) => [
-						`  <${name}>`,
+					Object.values(positionals).map((positional, index) => [
+						`  ${labels[index]}`,
 						positional.description + (positional.required ? " (required)" : ""),
 					]),
 				);
@@ -109,7 +112,7 @@ export function createCommand<T extends CommandConfig>(
 		}
 
 		const extra = result.positionals.slice(names.length);
-		if (extra.length > 0) {
+		if (extra.length > 0 && !Object.values(positionals).at(-1)?.multiple) {
 			throw usageError(
 				`Unexpected argument${extra.length > 1 ? "s" : ""}: ${extra.map((arg) => JSON.stringify(arg)).join(" ")}`,
 			);

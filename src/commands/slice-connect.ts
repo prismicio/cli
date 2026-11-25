@@ -1,22 +1,24 @@
-import type { DynamicWidgetModel } from "@prismicio/types-internal";
-
 import { getAdapter } from "../adapters";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
+import { getSliceZoneChoices } from "../slices";
 
 const config = {
 	name: "prismic slice connect",
-	description: "Connect a slice to a type's slice zone.",
+	description: "Connect slices to a type's slice zone.",
 	sections: {
 		EXAMPLES: `
 			Connect a slice to a type's default slice zone:
 			  prismic slice connect hero --to blog_post
+
+			Connect several slices at once:
+			  prismic slice connect hero features cta --to blog_post
 
 			Connect to a named slice zone:
 			  prismic slice connect hero --to blog_post --slice-zone page_slices
 		`,
 	},
 	positionals: {
-		id: { description: "ID of the slice", required: true },
+		id: { description: "IDs of the slices", required: true, multiple: true },
 	},
 	options: {
 		to: {
@@ -32,45 +34,27 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async ({ positionals, values }) => {
-	const [id] = positionals;
+	const ids = new Set(positionals);
 	const { to, "slice-zone": sliceZone = "slices" } = values;
 
 	const adapter = await getAdapter();
-	const { model: slice } = await adapter.getSlice(id);
 	const { model: customType } = await adapter.getCustomType(to);
+	const choices = getSliceZoneChoices(customType, sliceZone);
 
-	const allFields: Record<string, DynamicWidgetModel> = Object.assign(
-		{},
-		...Object.values(customType.json),
-	);
-
-	const sliceZoneField = allFields[sliceZone];
-	if (!sliceZoneField || sliceZoneField.type !== "Slices") {
-		const sliceZoneIds = Object.keys(allFields).filter((key) => allFields[key].type === "Slices");
-		if (sliceZoneIds.length === 0) {
-			const [firstTab = "Main"] = Object.keys(customType.json);
+	for (const id of ids) {
+		const { model: slice } = await adapter.getSlice(id);
+		if (slice.id in choices) {
 			throw new CommandError(
-				`"${to}" has no slice zone. Add one with \`prismic type edit-tab "${firstTab}" --from-type ${to} --with-slice-zone\`, then run this command again.`,
+				`Slice "${slice.id}" is already connected to "${to}" in slice zone "${sliceZone}".`,
 			);
 		}
-		throw new CommandError(
-			`Slice zone "${sliceZone}" not found in "${to}". Use --slice-zone with one of: ${sliceZoneIds.join(", ")}.`,
-		);
+		choices[slice.id] = { type: "SharedSlice" };
 	}
-
-	sliceZoneField.config ??= {};
-	sliceZoneField.config.choices ??= {};
-
-	if (slice.id in sliceZoneField.config.choices) {
-		throw new CommandError(
-			`Slice "${slice.id}" is already connected to "${to}" in slice zone "${sliceZone}".`,
-		);
-	}
-
-	sliceZoneField.config.choices[slice.id] = { type: "SharedSlice" };
 
 	await adapter.updateCustomType(customType);
 	await adapter.generateTypes();
 
-	console.info(`Connected slice "${id}" to "${to}"`);
+	for (const id of ids) {
+		console.info(`Connected slice "${id}" to "${to}"`);
+	}
 });

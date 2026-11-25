@@ -12,7 +12,7 @@ import {
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("slice", ["connect", "--help"]);
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain("prismic slice connect <id> [options]");
+	expect(stdout).toContain("prismic slice connect <id...> [options]");
 });
 
 it("connects a slice to a type", async ({ expect, prismic, project }) => {
@@ -77,27 +77,66 @@ it("lists the slice zones when --slice-zone matches none", async ({ expect, pris
 	);
 });
 
-it("rejects extra slice ids", async ({ expect, prismic, project }) => {
-	const slice = buildSlice();
+it("connects several slices to a type", async ({ expect, prismic, project }) => {
+	const hero = buildSlice();
+	const features = buildSlice();
 	const customType = buildCustomType({
 		format: "page",
 		json: { Main: { slices: { type: "Slices", config: { choices: {} } } } },
 	});
 
-	await writeLocalSlice(project, slice);
+	await writeLocalSlice(project, hero);
+	await writeLocalSlice(project, features);
+	await writeLocalCustomType(project, customType);
+
+	const { stdout, stderr, exitCode } = await prismic("slice", [
+		"connect",
+		hero.id,
+		features.id,
+		"--to",
+		customType.id,
+	]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(`Connected slice "${hero.id}" to "${customType.id}"`);
+	expect(stdout).toContain(`Connected slice "${features.id}" to "${customType.id}"`);
+
+	const updated = await readLocalCustomType(project, customType.id);
+	expect((updated.json.Main.slices as DynamicSlicesModel).config!.choices).toEqual({
+		[hero.id]: { type: "SharedSlice" },
+		[features.id]: { type: "SharedSlice" },
+	});
+});
+
+it("connects no slice when one is already connected", async ({ expect, prismic, project }) => {
+	const hero = buildSlice();
+	const features = buildSlice();
+	const customType = buildCustomType({
+		format: "page",
+		json: {
+			Main: {
+				slices: { type: "Slices", config: { choices: { [features.id]: { type: "SharedSlice" } } } },
+			},
+		},
+	});
+
+	await writeLocalSlice(project, hero);
+	await writeLocalSlice(project, features);
 	await writeLocalCustomType(project, customType);
 
 	const { stderr, exitCode } = await prismic("slice", [
 		"connect",
-		slice.id,
-		"other",
+		hero.id,
+		features.id,
 		"--to",
 		customType.id,
 	]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain('Unexpected argument: "other"');
-	expect(stderr).toContain("Usage: prismic slice connect <id> [options]");
+	expect(stderr).toContain(
+		`Slice "${features.id}" is already connected to "${customType.id}" in slice zone "slices".`,
+	);
 
 	const updated = await readLocalCustomType(project, customType.id);
-	expect((updated.json.Main.slices as DynamicSlicesModel).config!.choices).toEqual({});
+	expect((updated.json.Main.slices as DynamicSlicesModel).config!.choices).toEqual({
+		[features.id]: { type: "SharedSlice" },
+	});
 });
