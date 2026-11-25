@@ -104,10 +104,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const upgraded = toVariation(legacySlice, variationId);
 	let summary: string;
 	if (slice) {
+		await adapter.getSlice(sliceId);
 		if (!to) {
 			throw new CommandError(getSliceExistsMessage(slice, legacySlice, upgraded));
 		}
-		await adapter.getSlice(sliceId);
 		const target = slice.variations.find((v) => v.id === variationId);
 		if (target && !hasSameFields(target, upgraded)) {
 			throw new CommandError(

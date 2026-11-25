@@ -299,7 +299,10 @@ async function syncModels(
 	},
 ): Promise<Models> {
 	const { push, onPull, onPush, onDelete } = options;
-	const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
+	const [local, remote] = await Promise.all([
+		adapter.getModels({ validate: push }),
+		getRemoteModels(release),
+	]);
 	const localFingerprints = fingerprint(local);
 	const remoteFingerprints = fingerprint(remote);
 	const changes = plan(localFingerprints, remoteFingerprints, session.synced);

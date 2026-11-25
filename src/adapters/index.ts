@@ -390,15 +390,16 @@ async function readModels<T extends { id: string }>(
 					if (!(error instanceof SyntaxError)) throw error;
 					throw new CommandError(error.message, { cause: error });
 				});
-				return { library, directory: new URL(".", modelPath), modelPath, model };
+				const meta = { library, directory: new URL(".", modelPath), modelPath, model };
+				return validateModel(meta, ModelIdSchema);
 			}),
 		);
 		models.push(...libraryModels);
 	}
-	return models.sort((a, b) =>
-		String(a.model.id).toLowerCase().localeCompare(String(b.model.id).toLowerCase()),
-	);
+	return models.sort((a, b) => a.model.id.toLowerCase().localeCompare(b.model.id.toLowerCase()));
 }
+
+const ModelIdSchema = z.looseObject({ id: z.string() });
 
 function validateModel<T>(meta: ModelMeta<T>, schema: z.ZodMiniType): ModelMeta<T> {
 	const result = z.safeParse(schema, meta.model, { error: z.locales.en().localeError });
