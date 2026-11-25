@@ -322,7 +322,6 @@ export async function hasGuestEnded(): Promise<boolean> {
 	return true;
 }
 
-// Forgets a temporary account that was set aside once it's claimed or deleted.
 export async function getSavedGuest(): Promise<Guest | undefined> {
 	const stored = await readCredentials().catch(() => undefined);
 	if (!stored?.login?.session.savedGuest) return;

@@ -48,7 +48,6 @@ const SessionSchema = z.object({
 	// login saves.
 	pendingLogin: z.optional(z.extend(PendingLoginSchema, { host: z.string() })),
 	guest: z.optional(GuestSchema),
-	// A temporary account that a logout or a login set aside.
 	savedGuest: z.optional(z.extend(GuestSchema, { clientId: z.string(), refreshToken: z.string() })),
 });
 export type Session = z.infer<typeof SessionSchema>;
