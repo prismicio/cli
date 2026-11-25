@@ -19,6 +19,7 @@ it("creates a custom type", async ({ expect, prismic, project }) => {
 	expect(stdout).toContain(`Created type "${label}"`);
 
 	const id = snakeCase(label!);
+	expect(stdout).toContain(`prismic field add <type> <field_id> --to-type ${id}`);
 	const created = await readLocalCustomType(project, id);
 	expect(created).toMatchObject({ label, format: "custom", repeatable: true });
 	expect(created.json.Main.uid).toEqual({ type: "UID", config: { label: "UID" } });

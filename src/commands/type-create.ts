@@ -119,7 +119,7 @@ export default createCommand(config, async ({ positionals, values }) => {
 		`Created type "${name}" (id: "${id}", format: "${format}")${included && ` with ${included}`}`,
 	);
 	for (const notice of notices) console.info(notice);
-	console.info(`Run \`prismic field add <type> --to-type ${id}\` to add fields.`);
+	console.info(`Run \`prismic field add <type> <field_id> --to-type ${id}\` to add fields.`);
 	if (format === "page") {
 		console.info(
 			`Run \`prismic slice connect <slice> --to ${id}\` to add slices to its slice zone.`,
