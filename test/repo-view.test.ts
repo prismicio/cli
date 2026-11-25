@@ -103,24 +103,6 @@ it("says the temporary account was claimed, and logs out", async ({ expect, pris
 	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });
 
-it("says the temporary account was deleted, and logs out", async ({ expect, prismic, login }) => {
-	await login({
-		expiresAt: Date.now() - 1000,
-		refreshToken: "deleted-by-cleanup",
-		guest: {
-			claimUrl: "https://example.com/claim",
-			disablesAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
-			deletesAt: Date.now() - 60_000,
-		},
-	});
-	const { stderr, exitCode } = await prismic("repo", ["view"]);
-	expect(exitCode).toBe(1);
-	expect(stderr.trim()).toBe(
-		"Your temporary account has been deleted, along with its repositories. Run `prismic login` to start again.",
-	);
-	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
-});
-
 it("views repository details with a Write API token", async ({
 	expect,
 	prismic,

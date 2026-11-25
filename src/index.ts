@@ -13,11 +13,10 @@ import {
 import {
 	cleanupLegacyAuthFile,
 	formatGuest,
-	formatSavedGuest,
 	getGuest,
 	getHost,
-	getSavedGuest,
 	getToken,
+	printSavedGuest,
 } from "./auth";
 import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
@@ -250,8 +249,7 @@ async function main(): Promise<void> {
 		return;
 	}
 	// whoami and status show the one in use in their own output.
-	const saved = await getSavedGuest().catch(() => undefined);
-	if (saved) console.warn(formatSavedGuest(saved));
+	await printSavedGuest().catch(() => {});
 }
 
 async function initSentry(options: {

@@ -97,16 +97,16 @@ export async function getUserProfile(config: Config): Promise<Profile> {
 	});
 }
 
-export async function getGuestStatus(config: {
+export async function isGuestClaimed(config: {
 	token: string;
 	authenticationUrl: URL;
-}): Promise<string | undefined> {
+}): Promise<boolean> {
 	const url = new URL("../user/profile", config.authenticationUrl);
 	const profile = await request(url, {
 		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ guest: z.optional(z.object({ status: z.string() })) }),
 	});
-	return profile.guest?.status;
+	return profile.guest?.status === "claimed";
 }
 
 export async function getUserRepositories(
