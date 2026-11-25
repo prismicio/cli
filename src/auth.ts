@@ -216,6 +216,8 @@ export async function reauthenticate(
 		(await getSessionToken({ forceRefresh: true })) ?? (options.guest && (await startGuest()));
 	if (token) return token;
 	console.error(ended ? "Your login expired." : "You are not logged in.");
+	const saved = options.guest && (await getSavedGuest().catch(() => undefined));
+	if (saved) console.error(formatGuest(saved, "You also have a temporary account"));
 	return logIn(options);
 }
 
@@ -379,10 +381,12 @@ async function startGuest(): Promise<string | undefined> {
 	await withCredentialsLock(async (lock) => {
 		const { login } = await readCredentials();
 		if (login) {
-			// One that was set aside comes back, frozen or not, so nobody gets a
-			// new one to get around a freeze.
+			// One that a logout set aside comes back, frozen or not, so nobody gets
+			// a new one to get around a freeze. A logout leaves its client ID, and
+			// an expired login doesn't, so that one asks to log in again.
 			const { savedGuest, refreshToken: current, auth0Domain } = login.session;
 			if (!savedGuest || current || login.session.host !== host) return;
+			if (login.session.clientId !== savedGuest.clientId) return;
 			const { clientId, refreshToken, ...guest } = savedGuest;
 			await writeCredentials(lock, {
 				...login,

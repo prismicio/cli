@@ -178,6 +178,31 @@ it("doesn't start a new temporary account to get around a frozen one", async ({
 	expect(stderr).toContain("Claim it to keep your work: https://example.com/claim");
 });
 
+it("asks to log in again when the login expired, even with a temporary account set aside", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	// Auth0 no longer knows this refresh token.
+	await login({
+		refreshToken: "ended",
+		expiresAt: Date.now() - 1000,
+		savedGuest: {
+			claimUrl: "https://example.com/claim",
+			expiresAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+			clientId: "guest",
+			refreshToken: "guest",
+		},
+	});
+	const proc = prismic("repo", ["create"], { nodeOptions: { env: { CI: "" } } });
+	const output = captureOutput(proc);
+	await waitForLoginPrompt(expect, output);
+	expect(output()).toContain("Your login expired.");
+	expect(output()).toContain("You also have a temporary account, frozen in 3 hours");
+	expect(output()).toContain("Claim it to keep your work: https://example.com/claim");
+});
+
 it("doesn't start a temporary account on CI", async ({ expect, prismic, logout }) => {
 	await logout();
 	const { stderr, exitCode } = await prismic("repo", ["create"], {

@@ -40,7 +40,9 @@ export default createCommand(config, async () => {
 		}
 		const savedGuest = login && setGuestAside(login.session);
 		if (login && savedGuest) {
-			const { host, auth0Domain, clientId } = login.session;
+			// Its client ID tells `init` and `repo create` to pick it up again.
+			const { host, auth0Domain } = login.session;
+			const { clientId } = savedGuest;
 			await writeCredentials(lock, {
 				...login,
 				session: { host, auth0Domain, clientId, savedGuest },
