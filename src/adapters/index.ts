@@ -342,14 +342,20 @@ async function getEnvLocalPath(): Promise<URL> {
 	return new URL(".env.local", await findProjectRoot());
 }
 
-const SliceFileSchema = z.looseObject({
-	id: z.string({ error: "id must be a string" }),
-	variations: z.array(z.unknown(), { error: "variations must be an array" }),
-});
-const CustomTypeFileSchema = z.looseObject({
-	id: z.string({ error: "id must be a string" }),
-	json: z.record(z.string(), z.unknown(), { error: "json must be an object" }),
-});
+const SliceFileSchema = z.looseObject(
+	{
+		id: z.string({ error: "id must be a string" }),
+		variations: z.array(z.unknown(), { error: "variations must be an array" }),
+	},
+	{ error: "must be a JSON object" },
+);
+const CustomTypeFileSchema = z.looseObject(
+	{
+		id: z.string({ error: "id must be a string" }),
+		json: z.record(z.string(), z.unknown(), { error: "json must be an object" }),
+	},
+	{ error: "must be a JSON object" },
+);
 
 async function readModels<T extends { id: string }>(
 	libraries: URL[],
@@ -362,14 +368,14 @@ async function readModels<T extends { id: string }>(
 		const libraryModels = await Promise.all(
 			paths.map(async (path) => {
 				const modelPath = pathToFileURL(path);
-				const model = await readJsonFile<T>(modelPath).catch((error: Error) => {
-					throw new CommandError(error.message);
+				const model = await readJsonFile<T>(modelPath).catch((error) => {
+					if (!(error instanceof SyntaxError)) throw error;
+					throw new CommandError(error.message, { cause: error });
 				});
 				const result = z.safeParse(schema, model);
 				if (!result.success) {
-					throw new CommandError(
-						`${relative(process.cwd(), path)}: ${result.error.issues[0].message}`,
-					);
+					const problem = result.error.issues[0].message;
+					throw new CommandError(`${relative(process.cwd(), path)}: ${problem}`);
 				}
 				return { library, directory: new URL(".", modelPath), modelPath, model };
 			}),

@@ -198,6 +198,12 @@ export async function bulkUpdateModels(
 	});
 }
 
+const RejectedModelsSchema = z.array(z.object({ id: z.string(), error: z.string() }));
+export const BulkUpdateErrorSchema = z.object({
+	message: z.optional(z.string()),
+	details: z.object({ customTypes: RejectedModelsSchema, slices: RejectedModelsSchema }),
+});
+
 function getCustomTypesServiceUrl(host: string): URL {
 	return new URL(`https://customtypes.${host}/`);
 }

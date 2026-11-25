@@ -6,7 +6,11 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { deleteSliceScreenshots, getDocumentTotalByCustomType } from "../lib/prismic/client";
+import {
+	BulkUpdateErrorSchema,
+	deleteSliceScreenshots,
+	getDocumentTotalByCustomType,
+} from "../lib/prismic/client";
 import { diffModels, getRemoteModels, writeRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
 import { BadRequestError, ForbiddenRequestError } from "../lib/request";
@@ -167,28 +171,16 @@ export default createCommand(config, async ({ values }) => {
 	}
 });
 
-const RejectedModelSchema = z.object({ id: z.string(), error: z.string() });
-const RejectedModelsErrorSchema = z.object({
-	message: z.string(),
-	details: z.optional(
-		z.object({
-			customTypes: z.optional(z.array(RejectedModelSchema)),
-			slices: z.optional(z.array(RejectedModelSchema)),
-		}),
-	),
-});
-
 function explainRejectedModels(error: BadRequestError): Error {
-	const result = z.safeParse(RejectedModelsErrorSchema, error.body);
-	if (!result.success) return error;
-	const { message, details } = result.data;
+	const body = z.safeParse(BulkUpdateErrorSchema, error.body).data;
+	if (!body) return error;
+	const { message, details } = body;
 	const lines = [
-		...(details?.customTypes ?? []).map(({ id, error }) => `Type "${id}": ${error}`),
-		...(details?.slices ?? []).map(({ id, error }) => `Slice "${id}": ${error}`),
+		...details.customTypes.map(({ id, error }) => `Type "${id}": ${error}`),
+		...details.slices.map(({ id, error }) => `Slice "${id}": ${error}`),
 	];
-	return new CommandError(
-		[message, ...lines].map((line) => line.replace(/\s+/g, " ").trim()).join("\n"),
-	);
+	if (message) lines.unshift(message);
+	return new CommandError(lines.map((line) => line.replace(/\s+/g, " ").trim()).join("\n"));
 }
 
 const ExistingDocumentsErrorSchema = z.object({ hasExistingDocuments: z.literal(true) });
