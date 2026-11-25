@@ -1,10 +1,11 @@
-import { formatGuestDeadline, hasGuestEnded } from "../auth";
+import { formatGuest, hasGuestEnded, setGuestAside } from "../auth";
 import {
 	clearCredentials,
 	CredentialsError,
 	readCredentials,
-	readLoginSummary,
+	type Session,
 	withCredentialsLock,
+	writeCredentials,
 } from "../credentials";
 import { env } from "../env";
 import { DeviceFlowError, revokeRefreshToken } from "../lib/auth0";
@@ -17,13 +18,17 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async () => {
-	const { guest } = await readLoginSummary();
-	const claimable = guest && !(await hasGuestEnded());
+	// A claimed temporary account isn't worth keeping.
+	await hasGuestEnded().catch(() => {});
+	let kept: Session["guest"];
 	let revoked = false;
 	await withCredentialsLock(async (lock) => {
+		let login;
 		try {
-			const session = (await readCredentials()).login?.session;
-			if (session?.refreshToken) {
+			({ login } = await readCredentials());
+			const session = login?.session;
+			// A temporary account keeps its token, so the CLI can pick it up again.
+			if (session?.refreshToken && !session.guest) {
 				await revokeRefreshToken(session.refreshToken, session);
 				revoked = true;
 			}
@@ -33,15 +38,21 @@ export default createCommand(config, async () => {
 				`Couldn't revoke your session because ${getProblem(error)}. It stays valid until it expires.`,
 			);
 		}
-		await clearCredentials(lock);
+		const savedGuest = login && setGuestAside(login.session);
+		if (login && savedGuest) {
+			const { host, auth0Domain, clientId } = login.session;
+			await writeCredentials(lock, {
+				...login,
+				session: { host, auth0Domain, clientId, savedGuest },
+			});
+			kept = login.session.guest;
+		} else {
+			await clearCredentials(lock);
+		}
 		await forgetTrackedUser();
 	});
 	recordLogout({ revoked });
-	if (claimable) {
-		console.warn(
-			`You were on a temporary account, and the CLI can't log back in to it. It will be deleted ${formatGuestDeadline(guest)} unless you claim it: ${guest.claimUrl}`,
-		);
-	}
+	if (kept) console.warn(formatGuest(kept, "Your temporary account stays on this machine"));
 	if (env.PRISMIC_TOKEN) console.warn("PRISMIC_TOKEN is still set, so commands still use it.");
 	console.info("Logged out of Prismic");
 });

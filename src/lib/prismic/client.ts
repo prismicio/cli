@@ -41,6 +41,7 @@ const GuestSchema = z.object({
 	client_id: z.string(),
 	claim_url: z.string(),
 	expires_at: z.string(),
+	deletes_at: z.string(),
 });
 
 export async function createGuest(config: {

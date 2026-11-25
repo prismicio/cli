@@ -126,7 +126,7 @@ it("sets the master locale with --lang", async ({
 	expect(master?.id).toBe("fr-fr");
 });
 
-it("starts a temporary account when not logged in, and reuses it", async ({
+it("starts a temporary account when not logged in, and picks it up again after a logout", async ({
 	expect,
 	prismic,
 	logout,
@@ -148,12 +148,34 @@ it("starts a temporary account when not logged in, and reuses it", async ({
 		onTestFinished(() => deleteRepository(domain!, { token, password, host }));
 		claimLinks.push(
 			stderr.match(
-				/Temporary account, deleted in [\d,]+ days \(2099-01-01T02:00Z\)\. Claim it to keep your work: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
+				/Temporary account, frozen in [\d,]+ days \(2099-01-01T02:00Z\), deleted in [\d,]+ days \(2099-01-15T02:00Z\)\. Claim it to keep your work: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
 			)?.[1],
 		);
+		await prismic("logout");
 	}
 	expect(claimLinks[0]).toBeDefined();
 	expect(claimLinks[1]).toBe(claimLinks[0]);
+});
+
+it("doesn't start a new temporary account to get around a frozen one", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			expiresAt: Date.now() - 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	await prismic("logout");
+	const { stderr, exitCode } = await prismic("repo", ["create"], {
+		nodeOptions: { env: { CI: "" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Your temporary account is frozen. Claim it to carry on.");
+	expect(stderr).toContain("Claim it to keep your work: https://example.com/claim");
 });
 
 it("doesn't start a temporary account on CI", async ({ expect, prismic, logout }) => {

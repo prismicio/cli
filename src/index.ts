@@ -10,7 +10,14 @@ import {
 	NoSupportedFrameworkError,
 	SliceNotFoundError,
 } from "./adapters";
-import { cleanupLegacyAuthFile, formatGuest, getGuest, getHost, getToken } from "./auth";
+import {
+	cleanupLegacyAuthFile,
+	formatGuest,
+	getGuest,
+	getHost,
+	getSavedGuest,
+	getToken,
+} from "./auth";
 import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { CredentialsError, readLoginSummary } from "./credentials";
@@ -235,10 +242,15 @@ async function main(): Promise<void> {
 		}
 	}
 
-	// These commands show it in their own output.
-	const guest =
-		help || ["whoami", "status", "login"].includes(command) ? undefined : await getGuest();
-	if (guest) console.warn(formatGuest(guest));
+	if (help) return;
+	if (!["whoami", "status", "login"].includes(command)) {
+		const guest = await getGuest();
+		if (guest) console.warn(formatGuest(guest));
+		return;
+	}
+	// whoami and status show the one in use in their own output.
+	const saved = await getSavedGuest().catch(() => undefined);
+	if (saved) console.warn(formatGuest(saved, "You also have a temporary account"));
 }
 
 async function initSentry(options: {

@@ -41,7 +41,14 @@ export type Fixtures = {
 		accessToken?: string;
 		refreshToken?: string;
 		expiresAt?: number;
-		guest?: { claimUrl: string; expiresAt: number };
+		guest?: { claimUrl: string; expiresAt: number; deletesAt: number };
+		savedGuest?: {
+			claimUrl: string;
+			expiresAt: number;
+			deletesAt: number;
+			clientId: string;
+			refreshToken: string;
+		};
 	}) => Promise<{ email: string }>;
 	logout: () => Promise<void>;
 	token: string;

@@ -68,6 +68,8 @@ type Login = {
 	saved?: SavedLogin;
 };
 
+type Guest = NonNullable<Session["guest"]>;
+
 type SavedLogin = Pick<StoredLogin, "store" | "storeReason"> & { token: string };
 type LoginOutcome =
 	| ({ status: "logged-in"; email: string } & SavedLogin)
@@ -91,7 +93,12 @@ let reauthentication: Promise<string> | undefined;
 let savedHost: Promise<string | undefined> | undefined;
 
 export async function getToken(): Promise<string | undefined> {
-	return env.PRISMIC_TOKEN || getSessionToken();
+	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
+	const guest = await getGuest();
+	if (guest && guest.expiresAt <= Date.now() && Date.now() < guest.deletesAt) {
+		throw new CommandError("Your temporary account is frozen. Claim it to carry on.");
+	}
+	return getSessionToken();
 }
 
 export async function getHost(): Promise<string> {
@@ -156,15 +163,16 @@ async function renewLogin(
 		return renewLogin(lock, latest, staleToken, { canRetry: false });
 	}
 
+	const { pendingLogin, savedGuest } = session;
 	await writeCredentials(lock, {
 		...storedLogin,
-		session: { host, auth0Domain, clientId, pendingLogin: session.pendingLogin },
+		session: { host, auth0Domain, clientId, pendingLogin, savedGuest },
 	});
 	if (session.guest) {
 		throw new GuestEndedError(
-			session.guest.expiresAt > Date.now()
+			session.guest.deletesAt > Date.now()
 				? GUEST_CLAIMED
-				: "Your temporary account has expired and its repositories were deleted. Run `prismic login` to start again.",
+				: "Your temporary account has been deleted, along with its repositories. Run `prismic login` to start again.",
 		);
 	}
 	ended = true;
@@ -286,7 +294,7 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	return token;
 }
 
-export async function getGuest(): Promise<Session["guest"]> {
+export async function getGuest(): Promise<Guest | undefined> {
 	if (env.PRISMIC_TOKEN) return;
 	const { guest, host } = await readLoginSummary();
 	if (host === (await getHost())) return guest;
@@ -312,12 +320,46 @@ export async function hasGuestEnded(): Promise<boolean> {
 	return true;
 }
 
-export function formatGuest(guest: NonNullable<Session["guest"]>): string {
-	return `Temporary account, deleted ${formatGuestDeadline(guest)}. Claim it to keep your work: ${guest.claimUrl}`;
+// Forgets a temporary account that was set aside once it's claimed or deleted.
+export async function getSavedGuest(): Promise<Guest | undefined> {
+	const stored = await readCredentials().catch(() => undefined);
+	if (!stored?.login?.session.savedGuest) return;
+
+	return withCredentialsLock(async (lock) => {
+		const { login } = await readCredentials();
+		const saved = login?.session.savedGuest;
+		if (!saved) return;
+		const { auth0Domain, host } = login.session;
+		const { clientId } = saved;
+		// A failure to reach Auth0 or Prismic says nothing about the account.
+		const tokens = await refreshAccessToken(saved.refreshToken, { auth0Domain, clientId }).catch(
+			() => "unknown" as const,
+		);
+		if (tokens === "unknown") return saved;
+		const status =
+			tokens && (await getGuestStatus({ token: tokens.accessToken, host }).catch(() => undefined));
+		// Auth0 may have rotated its token.
+		const savedGuest =
+			tokens && status !== "claimed" ? { ...saved, refreshToken: tokens.refreshToken } : undefined;
+		await writeCredentials(lock, { ...login, session: { ...login.session, savedGuest } });
+		return savedGuest;
+	});
 }
 
-export function formatGuestDeadline(guest: NonNullable<Session["guest"]>): string {
-	const minutes = Math.max(0, (guest.expiresAt - Date.now()) / 60_000);
+// A logout or a login sets a temporary account aside instead of ending it, so
+// `init` and `repo create` can pick it up again.
+export function setGuestAside(session: Session): Session["savedGuest"] {
+	const { guest, clientId, refreshToken, savedGuest } = session;
+	return guest && refreshToken ? { ...guest, clientId, refreshToken } : savedGuest;
+}
+
+export function formatGuest(guest: Guest, lead = "Temporary account"): string {
+	const freeze = guest.expiresAt > Date.now() ? `frozen ${formatTime(guest.expiresAt)}` : "frozen";
+	return `${lead}, ${freeze}, deleted ${formatTime(guest.deletesAt)}. Claim it to keep your work: ${guest.claimUrl}`;
+}
+
+function formatTime(time: number): string {
+	const minutes = Math.max(0, (time - Date.now()) / 60_000);
 	const [value, unit] =
 		minutes < 60
 			? ([minutes, "minute"] as const)
@@ -325,7 +367,7 @@ export function formatGuestDeadline(guest: NonNullable<Session["guest"]>): strin
 				? ([minutes / 60, "hour"] as const)
 				: ([minutes / 60 / 24, "day"] as const);
 	const relative = new Intl.RelativeTimeFormat("en").format(Math.round(value), unit);
-	return `${relative} (${new Date(guest.expiresAt).toISOString().slice(0, 16)}Z)`;
+	return `${relative} (${new Date(time).toISOString().slice(0, 16)}Z)`;
 }
 
 // Nobody could claim an account started in CI.
@@ -333,11 +375,21 @@ async function startGuest(): Promise<string | undefined> {
 	const host = await getHost();
 	const auth0 = getAuth0Config(host);
 	if (!auth0 || process.env.CI) return;
-	if ((await readCredentials()).login) return;
 
-	return withCredentialsLock(async (lock) => {
-		const current = (await readCredentials()).login?.session;
-		if (current) return current.host === host ? getUnexpiredToken(current) : undefined;
+	await withCredentialsLock(async (lock) => {
+		const { login } = await readCredentials();
+		if (login) {
+			// One that was set aside comes back, frozen or not, so nobody gets a
+			// new one to get around a freeze.
+			const { savedGuest, refreshToken: current, auth0Domain } = login.session;
+			if (!savedGuest || current || login.session.host !== host) return;
+			const { clientId, refreshToken, ...guest } = savedGuest;
+			await writeCredentials(lock, {
+				...login,
+				session: { host, auth0Domain, clientId, refreshToken, guest },
+			});
+			return;
+		}
 
 		let guest;
 		try {
@@ -356,11 +408,15 @@ async function startGuest(): Promise<string | undefined> {
 				accessToken: guest.access_token,
 				refreshToken: guest.refresh_token,
 				expiresAt: Date.now() + guest.expires_in * 1000,
-				guest: { claimUrl: guest.claim_url, expiresAt: Date.parse(guest.expires_at) },
+				guest: {
+					claimUrl: guest.claim_url,
+					expiresAt: Date.parse(guest.expires_at),
+					deletesAt: Date.parse(guest.deletes_at),
+				},
 			},
 		});
-		return guest.access_token;
 	});
+	return getToken();
 }
 
 export function getAuthenticationApiUrl(host: string): URL {
@@ -581,13 +637,14 @@ async function saveLogin(
 		const store = stored?.login
 			? { store: stored.login.store, storeReason: stored.login.storeReason }
 			: await prepareLogin(lock);
-		const session = { host: login.host, ...login.auth0, ...tokens };
+		const previous = stored?.login?.session;
+		const savedGuest = previous?.host === login.host ? setGuestAside(previous) : undefined;
+		const session = { host: login.host, ...login.auth0, ...tokens, savedGuest };
 		await writeCredentials(lock, { ...store, session });
 		login.saved = { ...store, token: tokens.accessToken };
 		// The new login is saved first, so a failed revoke only leaves the
 		// previous session to expire.
-		const previous = stored?.login?.session;
-		if (previous?.refreshToken) {
+		if (previous?.refreshToken && !previous.guest) {
 			await revokeRefreshToken(previous.refreshToken, previous).catch(() => {});
 		}
 		return login.saved;

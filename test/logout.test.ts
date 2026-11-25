@@ -66,30 +66,35 @@ it("succeeds when not logged in", async ({ expect, prismic, logout }) => {
 	expect(stdout).toContain("Logged out of Prismic");
 });
 
-it("warns that a temporary account can't be logged back in to, and logs out", async ({
-	expect,
-	prismic,
-	login,
-}) => {
+it("keeps a temporary account for later, and says so", async ({ expect, prismic, login }) => {
 	const expiresAt = Date.now() + 3 * 60 * 60 * 1000;
-	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt } });
+	const deletesAt = expiresAt + 14 * 24 * 60 * 60 * 1000;
+	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt, deletesAt } });
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
 	expect(stderr).toContain(
-		`You were on a temporary account, and the CLI can't log back in to it. It will be deleted in 3 hours (${new Date(expiresAt).toISOString().slice(0, 16)}Z) unless you claim it: https://example.com/claim`,
+		`Your temporary account stays on this machine, frozen in 3 hours (${new Date(expiresAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
 	);
 	expect(stdout).toContain("Logged out of Prismic");
-	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
+
+	const whoami = await prismic("whoami");
+	expect(whoami.stderr).toContain("Not logged in.");
+	expect(whoami.stderr).toContain("You also have a temporary account, frozen in 3 hours");
 });
 
-it("doesn't warn once the temporary account was claimed", async ({ expect, prismic, login }) => {
+it("forgets a temporary account that was claimed", async ({ expect, prismic, login }) => {
 	await login({
 		expiresAt: Date.now() - 1000,
 		refreshToken: "deleted-by-claim",
-		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 },
+		guest: {
+			claimUrl: "https://example.com/claim",
+			expiresAt: Date.now() + 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
 	});
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
 	expect(stderr).not.toContain("temporary account");
 	expect(stdout).toContain("Logged out of Prismic");
+	expect((await prismic("whoami")).stderr).not.toContain("temporary account");
 });

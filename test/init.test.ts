@@ -284,7 +284,9 @@ it("starts a temporary account when not logged in", async ({
 	const name = stdout.match(/^Created repository: ([a-z0-9-]+)$/m)?.[1];
 	if (name) onTestFinished(() => deleteRepository(name, { token, password, host }));
 	expect(exitCode, stderr).toBe(0);
-	expect(stderr).toMatch(/Temporary account, deleted in .+\. Claim it to keep your work: http/);
+	expect(stderr).toMatch(
+		/Temporary account, frozen in .+, deleted in .+\. Claim it to keep your work: http/,
+	);
 }, 60_000);
 
 it("renews a rejected token instead of logging in again", async ({

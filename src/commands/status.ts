@@ -41,7 +41,9 @@ export default createCommand(config, async ({ values }) => {
 	const { env, repo = env ?? activeEnvironment ?? repositoryName } = values;
 
 	const host = await getHost();
-	const token = await getToken();
+	const guest = await getGuest();
+	// A frozen temporary account still shows the local changes.
+	const token = guest && guest.expiresAt <= Date.now() ? undefined : await getToken();
 	const projectRoot = await findProjectRoot();
 
 	const [gitRoot, customTypeLibraries, sliceLibraries, local] = await Promise.all([
@@ -51,17 +53,15 @@ export default createCommand(config, async ({ values }) => {
 		adapter.getModels(),
 	]);
 
-	let authenticatedAs: string | undefined;
+	let authenticatedAs = guest && formatGuest(guest);
 	let diff: ModelsDiff | undefined;
 	if (token) {
-		const [session, remote, guest] = await Promise.all([
+		const [session, remote] = await Promise.all([
 			validateToken(token, { host }),
 			getRemoteModels({ repo, getToken, host }),
-			getGuest(),
 		]);
-		authenticatedAs = guest
-			? formatGuest(guest)
-			: session.type === "USER"
+		authenticatedAs ??=
+			session.type === "USER"
 				? session.email
 				: `${session.appName} (Write API token for ${session.domain})`;
 		diff = diffModels(local, remote);

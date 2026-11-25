@@ -32,12 +32,69 @@ it("opens a temporary account's repository with a link that logs in", async ({
 	repo,
 	host,
 }) => {
-	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 } });
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			expiresAt: Date.now() + 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
 	const { stdout, stderr, exitCode } = await prismic("repo", ["view", "--web"]);
 	expect(exitCode, stderr).toBe(0);
 	const link = new URL(stdout.match(/Opening (\S+)/)![1]);
 	expect(link.pathname).toBe("/dashboard/guest/open");
 	expect(link.searchParams.get("redirect_uri")).toBe(`https://${repo}.${host}/`);
+});
+
+it("refuses to work on a frozen temporary account", async ({ expect, prismic, login }) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			expiresAt: Date.now() - 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stderr, exitCode } = await prismic("repo", ["view"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain("Your temporary account is frozen. Claim it to carry on.");
+	expect(stderr).toContain("Temporary account, frozen, deleted in 14 days");
+	expect(stderr).toContain("Claim it to keep your work: https://example.com/claim");
+});
+
+it("says the temporary account was claimed, and logs out", async ({ expect, prismic, login }) => {
+	await login({
+		expiresAt: Date.now() - 1000,
+		refreshToken: "deleted-by-claim",
+		guest: {
+			claimUrl: "https://example.com/claim",
+			expiresAt: Date.now() + 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stderr, exitCode } = await prismic("repo", ["view"]);
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toBe(
+		"Your temporary account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
+	);
+	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
+});
+
+it("says the temporary account was deleted, and logs out", async ({ expect, prismic, login }) => {
+	await login({
+		expiresAt: Date.now() - 1000,
+		refreshToken: "deleted-by-cleanup",
+		guest: {
+			claimUrl: "https://example.com/claim",
+			expiresAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+			deletesAt: Date.now() - 60_000,
+		},
+	});
+	const { stderr, exitCode } = await prismic("repo", ["view"]);
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toBe(
+		"Your temporary account has been deleted, along with its repositories. Run `prismic login` to start again.",
+	);
+	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });
 
 it("views repository details with a Write API token", async ({

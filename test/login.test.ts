@@ -201,33 +201,34 @@ it("revokes the previous session after a new login", async ({ expect, prismic, l
 	expect(revokes.map((params) => params.token)).toEqual([refreshToken]);
 });
 
-it("refuses to replace a temporary account, even with PRISMIC_TOKEN set", async ({
+it("sets a temporary account aside, and shows its claim link", async ({
 	expect,
 	prismic,
 	login,
+	auth0,
 }) => {
-	await login({
-		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.parse("2099-01-01T02:00:00Z") },
-	});
-	const { stderr, exitCode } = await prismic("login");
-	expect(exitCode).toBe(1);
-	expect(stderr.trim()).toBe(
-		"You're logged in to a temporary account. Claim it first (https://example.com/claim), or run `prismic logout` to abandon it.",
+	const expiresAt = Date.now() + 3 * 60 * 60 * 1000;
+	const deletesAt = expiresAt + 14 * 24 * 60 * 60 * 1000;
+	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt, deletesAt } });
+	const proc = prismic("login");
+	const output = captureOutput(proc);
+	await approveLogin(expect, output, auth0);
+	expect((await proc).exitCode, output()).toBe(0);
+	expect(output()).toContain("Logged in to Prismic as");
+	expect(output()).toContain(
+		`You also have a temporary account, frozen in 3 hours (${new Date(expiresAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
 	);
-	expect(stderr).not.toContain("Open this URL");
-
-	const withToken = await prismic("login", [], {
-		nodeOptions: { env: { PRISMIC_TOKEN: "other" } },
-	});
-	expect(withToken.exitCode).toBe(1);
-	expect(withToken.stderr).toContain("You're logged in to a temporary account.");
 });
 
 it("logs in once the temporary account was claimed", async ({ expect, prismic, login, auth0 }) => {
 	await login({
 		expiresAt: Date.now() - 1000,
 		refreshToken: "deleted-by-claim",
-		guest: { claimUrl: "https://example.com/claim", expiresAt: Date.now() + 60_000 },
+		guest: {
+			claimUrl: "https://example.com/claim",
+			expiresAt: Date.now() + 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
 	});
 	const proc = prismic("login");
 	const output = captureOutput(proc);
