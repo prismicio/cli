@@ -174,8 +174,8 @@ it("doesn't start a new temporary account to get around a disabled one", async (
 		nodeOptions: { env: { CI: "" } },
 	});
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain(
-		"Your temporary account is disabled. Claim it to carry on: https://example.com/claim",
+	expect(stderr.trim()).toMatch(
+		/^Your temporary account is disabled and will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to carry on: https:\/\/example\.com\/claim$/,
 	);
 });
 

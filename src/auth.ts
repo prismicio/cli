@@ -99,7 +99,7 @@ export async function getToken(): Promise<string | undefined> {
 	const guest = await getGuest();
 	if (guest && guest.disablesAt <= Date.now()) {
 		throw new CommandError(
-			`Your temporary account is disabled. Claim it to carry on: ${guest.claimUrl}`,
+			`Your temporary account is disabled and will be deleted ${formatTime(guest.deletesAt)}. Claim it to carry on: ${guest.claimUrl}`,
 		);
 	}
 	return getSessionToken();
