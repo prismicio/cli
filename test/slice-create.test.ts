@@ -96,3 +96,13 @@ it("refuses to replace an existing slice", async ({ expect, prismic, project }) 
 	expect(await readLocalSlice(project, `${id}_two`)).toBeUndefined();
 	await expect(project).toHaveFile(`slices/${name}/index.jsx`, { contains: "// edited" });
 });
+
+it("rejects an unquoted name with spaces", async ({ expect, prismic, project }) => {
+	const { name } = buildSlice();
+
+	const { stderr, exitCode } = await prismic("slice", ["create", name, "Block"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain('Unexpected argument: "Block"');
+	expect(stderr).toContain("Usage: prismic slice create <name> [options]");
+	expect(await readLocalSlice(project, snakeCase(name))).toBeUndefined();
+});

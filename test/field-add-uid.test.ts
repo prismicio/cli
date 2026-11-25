@@ -42,3 +42,22 @@ it("adds a uid field to a page type", async ({ expect, prismic, project }) => {
 	const field = updated.json.Main.uid;
 	expect(field).toMatchObject({ type: "UID" });
 });
+
+it("rejects a field id", async ({ expect, prismic, project }) => {
+	const customType = buildCustomType();
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"add",
+		"uid",
+		"uid",
+		"--to-type",
+		customType.id,
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain('Unexpected argument: "uid"');
+	expect(stderr).toContain("Usage: prismic field add uid [options]");
+
+	const updated = await readLocalCustomType(project, customType.id);
+	expect(updated.json.Main.uid).toBeUndefined();
+});

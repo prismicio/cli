@@ -64,13 +64,16 @@ export function createCommand<T extends CommandConfig>(
 ): () => Promise<void> {
 	return async function () {
 		const { positionals = {}, options = {} } = config;
+		const names = Object.keys(positionals);
+		const usage = [config.name, ...names.map((name) => `<${name}>`), "[options]"].join(" ");
+		const usageError = (message: string) => new CommandError(`${message}\nUsage: ${usage}`);
 
 		let result;
 		try {
 			result = parseArgs({
 				args: process.argv.slice(1 + config.name.split(" ").length),
 				options: { ...options, ...AGENT_OPTIONS, help: { type: "boolean", short: "h" } },
-				allowPositionals: Object.keys(positionals).length > 0,
+				allowPositionals: true,
 				strict: true,
 			});
 		} catch (error) {
@@ -80,16 +83,15 @@ export function createCommand<T extends CommandConfig>(
 				typeof error.code === "string" &&
 				error.code.startsWith("ERR_PARSE_ARGS_")
 			) {
-				throw new CommandError(error.message);
+				throw usageError(error.message);
 			}
 			throw error;
 		}
 
 		if (result.values.help) {
-			const names = Object.keys(positionals);
 			const blocks: Record<string, string> = {
 				...agentsBlock(config.name, config.agents),
-				USAGE: `  ${[config.name, ...names.map((name) => `<${name}>`), "[options]"].join(" ")}`,
+				USAGE: `  ${usage}`,
 			};
 			if (names.length > 0) {
 				blocks.ARGUMENTS = formatTable(
@@ -106,22 +108,29 @@ export function createCommand<T extends CommandConfig>(
 			return;
 		}
 
+		const extra = result.positionals.slice(names.length);
+		if (extra.length > 0) {
+			throw usageError(
+				`Unexpected argument${extra.length > 1 ? "s" : ""}: ${extra.map((arg) => `"${arg}"`).join(" ")}`,
+			);
+		}
+
 		for (const [index, [name, positional]] of Object.entries(positionals).entries()) {
 			if (positional.required && !result.positionals[index]) {
-				throw new CommandError(`Missing required argument: <${name}>`);
+				throw usageError(`Missing required argument: <${name}>`);
 			}
 		}
 
 		for (const [name, option] of Object.entries(options)) {
 			if (option.required && !(name in result.values)) {
-				throw new CommandError(`Missing required option: --${name}`);
+				throw usageError(`Missing required option: --${name}`);
 			}
 			if (!(name in result.values)) continue;
 			if (option.deprecated) {
 				console.warn(`--${name} is deprecated. ${option.deprecated}`);
 			}
 			if (option.dependsOn && !(option.dependsOn in result.values)) {
-				throw new CommandError(`--${name} can only be used with --${option.dependsOn}.`);
+				throw usageError(`--${name} can only be used with --${option.dependsOn}.`);
 			}
 		}
 

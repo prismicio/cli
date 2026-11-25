@@ -76,3 +76,28 @@ it("lists the slice zones when --slice-zone matches none", async ({ expect, pris
 		`Slice zone "slices" not found in "${customType.id}". Use --slice-zone with one of: body.`,
 	);
 });
+
+it("rejects extra slice ids", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	const customType = buildCustomType({
+		format: "page",
+		json: { Main: { slices: { type: "Slices", config: { choices: {} } } } },
+	});
+
+	await writeLocalSlice(project, slice);
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("slice", [
+		"connect",
+		slice.id,
+		"other",
+		"--to",
+		customType.id,
+	]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain('Unexpected argument: "other"');
+	expect(stderr).toContain("Usage: prismic slice connect <id> [options]");
+
+	const updated = await readLocalCustomType(project, customType.id);
+	expect((updated.json.Main.slices as DynamicSlicesModel).config!.choices).toEqual({});
+});
