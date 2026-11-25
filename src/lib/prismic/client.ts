@@ -200,7 +200,7 @@ export async function bulkUpdateModels(
 
 const RejectedModelsSchema = z.array(z.object({ id: z.string(), error: z.string() }));
 export const BulkUpdateErrorSchema = z.object({
-	message: z.optional(z.string()),
+	message: z.nullish(z.string()),
 	details: z.object({ customTypes: RejectedModelsSchema, slices: RejectedModelsSchema }),
 });
 
