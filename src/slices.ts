@@ -30,7 +30,7 @@ export function connectSlices(
 	sliceZoneField.config.choices ??= {};
 
 	for (const id of ids) {
-		if (id in sliceZoneField.config.choices) {
+		if (Object.hasOwn(sliceZoneField.config.choices, id)) {
 			throw new CommandError(
 				`Slice "${id}" is already connected to "${customType.id}" in slice zone "${sliceZone}".`,
 			);
