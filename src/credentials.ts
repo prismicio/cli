@@ -32,7 +32,7 @@ const ENCRYPTED_FORMAT = Buffer.from([1]);
 
 const GuestSchema = z.object({
 	claimUrl: z.string(),
-	freezesAt: z.number(),
+	disablesAt: z.number(),
 	deletesAt: z.number(),
 });
 

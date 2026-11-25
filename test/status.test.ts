@@ -204,7 +204,7 @@ it("shows a temporary account with when it gets disabled and its claim link", as
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() + 3 * 60 * 60 * 1000,
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 		},
 	});

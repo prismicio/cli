@@ -35,7 +35,7 @@ it("opens a temporary account's repository with a link that logs in", async ({
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() + 60_000,
+			disablesAt: Date.now() + 60_000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 		},
 	});
@@ -50,7 +50,7 @@ it("refuses to work on a disabled temporary account", async ({ expect, prismic, 
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() - 60_000,
+			disablesAt: Date.now() - 60_000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 		},
 	});
@@ -68,7 +68,7 @@ it("says the temporary account was claimed, and logs out", async ({ expect, pris
 		refreshToken: "deleted-by-claim",
 		guest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() + 60_000,
+			disablesAt: Date.now() + 60_000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 		},
 	});
@@ -86,7 +86,7 @@ it("says the temporary account was deleted, and logs out", async ({ expect, pris
 		refreshToken: "deleted-by-cleanup",
 		guest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+			disablesAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
 			deletesAt: Date.now() - 60_000,
 		},
 	});

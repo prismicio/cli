@@ -180,7 +180,7 @@ it("shows a temporary account with when it gets disabled and its claim link", as
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() + 3 * 60 * 60 * 1000,
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 		},
 	});
@@ -196,7 +196,7 @@ it("shows a disabled temporary account", async ({ expect, prismic, login }) => {
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() - 24 * 60 * 60 * 1000,
+			disablesAt: Date.now() - 24 * 60 * 60 * 1000,
 			deletesAt: Date.now() + 13 * 24 * 60 * 60 * 1000,
 		},
 	});
@@ -216,7 +216,7 @@ it("shows the claim link of a temporary account that was set aside", async ({
 	const { email } = await login({
 		savedGuest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() + 3 * 60 * 60 * 1000,
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 			clientId: auth0.clientId,
 			refreshToken: auth0.issueRefreshToken(),

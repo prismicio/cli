@@ -95,7 +95,7 @@ let savedHost: Promise<string | undefined> | undefined;
 export async function getToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
 	const guest = await getGuest();
-	if (guest && guest.freezesAt <= Date.now() && Date.now() < guest.deletesAt) {
+	if (guest && guest.disablesAt <= Date.now() && Date.now() < guest.deletesAt) {
 		throw new CommandError("Your temporary account is disabled. Claim it to carry on.");
 	}
 	return getSessionToken();
@@ -356,8 +356,8 @@ export function setGuestAside(session: Session): Session["savedGuest"] {
 
 export function formatGuest(guest: Guest, lead = "Temporary account"): string {
 	const state =
-		guest.freezesAt > Date.now()
-			? `disabled ${formatTime(guest.freezesAt)}`
+		guest.disablesAt > Date.now()
+			? `disabled ${formatTime(guest.disablesAt)}`
 			: `disabled, deleted ${formatTime(guest.deletesAt)}`;
 	return `${lead}, ${state}. Claim it to keep your work: ${guest.claimUrl}`;
 }
@@ -419,7 +419,7 @@ async function startGuest(): Promise<string | undefined> {
 				expiresAt: Date.now() + guest.expires_in * 1000,
 				guest: {
 					claimUrl: guest.claim_url,
-					freezesAt: Date.parse(guest.freezes_at),
+					disablesAt: Date.parse(guest.disables_at),
 					deletesAt: Date.parse(guest.deletes_at),
 				},
 			},

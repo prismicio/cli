@@ -68,7 +68,7 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 				expires_in: 60,
 				client_id: guestClientId,
 				claim_url: new URL(`dashboard/claim?code=${randomToken(24)}`, auth0Domain).href,
-				freezes_at: "2099-01-01T02:00:00.000Z",
+				disables_at: "2099-01-01T02:00:00.000Z",
 				deletes_at: "2099-01-15T02:00:00.000Z",
 			});
 		}

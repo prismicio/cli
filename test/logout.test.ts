@@ -70,7 +70,7 @@ it("keeps a temporary account for later, and says so", async ({ expect, prismic,
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() + 3 * 60 * 60 * 1000,
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 		},
 	});
@@ -94,7 +94,7 @@ it("forgets a temporary account that was claimed", async ({ expect, prismic, log
 		refreshToken: "deleted-by-claim",
 		guest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() + 60_000,
+			disablesAt: Date.now() + 60_000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 		},
 	});
