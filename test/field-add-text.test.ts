@@ -1,6 +1,3 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { sep } from "node:path";
-
 import {
 	buildCustomType,
 	buildSlice,
@@ -125,24 +122,4 @@ it("errors when the variation has no legacy items zone", async ({ expect, prismi
 	);
 	expect(stderr).toContain(`Hint: prismic field add group items --to-slice ${slice.id}`);
 	expect(stderr).toContain(`prismic field add text items.<field_id> --to-slice ${slice.id}`);
-});
-
-it("adds a field when another slice is invalid", async ({ expect, prismic, project }) => {
-	const slice = buildSlice();
-	await writeLocalSlice(project, slice);
-	const invalidSlice = buildSlice();
-	const invalidPath = new URL(`slices/${invalidSlice.name}/model.json`, project);
-	await mkdir(new URL(".", invalidPath), { recursive: true });
-	await writeFile(invalidPath, JSON.stringify({ ...invalidSlice, description: 1 }));
-
-	const added = await prismic("field", ["add", "text", "subtitle", "--to-slice", slice.id]);
-	expect(added.exitCode, added.stderr).toBe(0);
-	const updated = await readLocalSlice(project, slice.id);
-	expect(updated!.variations[0].primary!.subtitle).toMatchObject({ type: "Text" });
-
-	const invalid = await prismic("field", ["add", "text", "title", "--to-slice", invalidSlice.id]);
-	expect(invalid.exitCode).toBe(1);
-	expect(invalid.stderr).toContain(
-		`${["slices", invalidSlice.name, "model.json"].join(sep)}:\n✖ Invalid input: expected string, received number\n→ at description`,
-	);
 });

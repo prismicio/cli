@@ -87,8 +87,8 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const [localCustomTypes, localSlices, remote] = await Promise.all([
-		adapter.getCustomTypes({ validate: true }),
-		adapter.getSlices({ validate: true }),
+		adapter.getCustomTypes(),
+		adapter.getSlices(),
 		getRemoteModels({ repo, getToken, host, onUnauthorized }),
 	]);
 	const diff = diffModels(

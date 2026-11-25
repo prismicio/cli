@@ -7,6 +7,7 @@ import { parseEnv } from "node:util";
 
 import * as z from "zod/mini";
 
+import { CommandError } from "./command";
 import { appendTrailingSlash, getExtension } from "./url";
 
 // Searches the current directory and its ancestors. The search ends without a
@@ -86,7 +87,7 @@ export async function readJsonFile<T = unknown>(
 		json = JSON.parse(file);
 	} catch (cause) {
 		const message = `${relative(process.cwd(), fileURLToPath(path))}: ${(cause as Error).message}`;
-		throw new SyntaxError(message, { cause });
+		throw new CommandError(message, { cause });
 	}
 	if (schema) return z.parse(schema, json);
 	return json as T;

@@ -81,7 +81,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	if (!customType) {
 		throw new CommandError(`Type "${from}" not found.`);
 	}
-	await adapter.getCustomType(from);
 	const legacySlice = legacySlices.find(
 		(s) => s.customTypeId === from && s.sliceZoneId === sliceZoneId && s.id === id,
 	);
@@ -104,7 +103,6 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const upgraded = toVariation(legacySlice, variationId);
 	let summary: string;
 	if (slice) {
-		await adapter.getSlice(sliceId);
 		if (!to) {
 			throw new CommandError(getSliceExistsMessage(slice, legacySlice, upgraded));
 		}

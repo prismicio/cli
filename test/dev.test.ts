@@ -80,19 +80,14 @@ it("fails to continue without a session", async ({ expect, prismic }) => {
 	expect(stderr).toContain("no session to continue");
 });
 
-it("explains an invalid local model before it starts a session", async ({
-	expect,
-	prismic,
-	project,
-}) => {
-	const { variations: _, ...slice } = buildSlice();
-	const slicePath = new URL(`slices/${slice.name}/model.json`, project);
+it("reads local models before it starts a session", async ({ expect, prismic, project }) => {
+	const slicePath = new URL("slices/Invalid/model.json", project);
 	await mkdir(new URL(".", slicePath), { recursive: true });
-	await writeFile(slicePath, JSON.stringify(slice));
+	await writeFile(slicePath, "{");
 
 	const { stderr, exitCode } = await prismic("dev");
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain(["slices", slice.name, "model.json:"].join(sep));
+	expect(stderr).toContain(["slices", "Invalid", "model.json:"].join(sep));
 	expect(stderr).not.toContain("Could not end the session");
 });
 

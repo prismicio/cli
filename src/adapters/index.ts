@@ -1,16 +1,11 @@
 import { readFile, rm } from "node:fs/promises";
-import { relative, sep } from "node:path";
+import { sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
-import {
-	DynamicCustomTypeModelSchema,
-	SharedSliceModelSchema,
-} from "@prismicio/types-internal/zod4";
 import { pascalCase } from "change-case";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
-import * as z from "zod/mini";
 
 import { getHost, getToken } from "../auth";
 import { CommandError } from "../lib/command";
@@ -184,20 +179,11 @@ export abstract class Adapter {
 		return (await getLibraries()) ?? [await this.getDefaultSliceLibrary()];
 	}
 
-	async getSlices(options: { validate?: boolean } = {}): Promise<ModelMeta<SharedSliceModel>[]> {
-		const slices = await readModels<SharedSliceModel>(
-			await this.getSliceLibraries(),
-			"*/model.json",
-		);
-		if (options.validate) slices.forEach((slice) => validateModel(slice, SharedSliceModelSchema));
-		return slices;
+	async getSlices(): Promise<ModelMeta<SharedSliceModel>[]> {
+		return readModels(await this.getSliceLibraries(), "*/model.json");
 	}
 
 	async getSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
-		return validateModel(await this.findSlice(id), SharedSliceModelSchema);
-	}
-
-	private async findSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
 		const slice = (await this.getSlices()).find((s) => s.model.id === id);
 		if (slice) return slice;
 		const customTypes = (await this.getCustomTypes()).map((customType) => customType.model);
@@ -224,13 +210,13 @@ export abstract class Adapter {
 	}
 
 	async updateSlice(model: SharedSliceModel): Promise<void> {
-		const slice = await this.findSlice(model.id);
+		const slice = await this.getSlice(model.id);
 		await writeFileRecursive(slice.modelPath, stringify(canonicalizeSlice(model)));
 		await this.createSliceIndexFile(slice.library);
 	}
 
 	async deleteSlice(id: string): Promise<void> {
-		const slice = await this.findSlice(id);
+		const slice = await this.getSlice(id);
 		await rm(slice.directory, { recursive: true });
 		await this.createSliceIndexFile(slice.library);
 	}
@@ -239,24 +225,11 @@ export abstract class Adapter {
 		return [new URL("customtypes/", await findProjectRoot())];
 	}
 
-	async getCustomTypes(
-		options: { validate?: boolean } = {},
-	): Promise<ModelMeta<DynamicCustomTypeModel>[]> {
-		const customTypes = await readModels<DynamicCustomTypeModel>(
-			await this.getCustomTypeLibraries(),
-			"*/index.json",
-		);
-		if (options.validate) {
-			customTypes.forEach((customType) => validateModel(customType, DynamicCustomTypeModelSchema));
-		}
-		return customTypes;
+	async getCustomTypes(): Promise<ModelMeta<DynamicCustomTypeModel>[]> {
+		return readModels(await this.getCustomTypeLibraries(), "*/index.json");
 	}
 
 	async getCustomType(id: string): Promise<ModelMeta<DynamicCustomTypeModel>> {
-		return validateModel(await this.findCustomType(id), DynamicCustomTypeModelSchema);
-	}
-
-	private async findCustomType(id: string): Promise<ModelMeta<DynamicCustomTypeModel>> {
 		const customType = (await this.getCustomTypes()).find((s) => s.model.id === id);
 		if (!customType) throw new CustomTypeNotFoundError(id);
 		return customType;
@@ -298,22 +271,19 @@ export abstract class Adapter {
 	}
 
 	async updateCustomType(model: DynamicCustomTypeModel): Promise<void> {
-		const customType = await this.findCustomType(model.id);
+		const customType = await this.getCustomType(model.id);
 		await writeFileRecursive(customType.modelPath, stringify(canonicalizeCustomType(model)));
 		await updateRoute(model);
 	}
 
 	async deleteCustomType(id: string): Promise<void> {
-		const customType = await this.findCustomType(id);
+		const customType = await this.getCustomType(id);
 		await rm(customType.directory, { recursive: true });
 		await removeRoute(id);
 	}
 
-	async getModels(options: { validate?: boolean } = {}): Promise<Models> {
-		const [customTypes, slices] = await Promise.all([
-			this.getCustomTypes(options),
-			this.getSlices(options),
-		]);
+	async getModels(): Promise<Models> {
+		const [customTypes, slices] = await Promise.all([this.getCustomTypes(), this.getSlices()]);
 		return {
 			customTypes: customTypes.map((customType) => customType.model),
 			slices: slices.map((slice) => slice.model),
@@ -335,48 +305,19 @@ export abstract class Adapter {
 
 	async generateTypes(): Promise<URL> {
 		const output = new URL("prismicio-types.d.ts", await findProjectRoot());
-		const [customTypes, slices] = await Promise.all([this.getCustomTypes(), this.getSlices()]);
-		const generate = (
-			customTypeModels: DynamicCustomTypeModel[],
-			sharedSliceModels: SharedSliceModel[],
-		) =>
-			generateTypes({
-				customTypeModels: customTypeModels.map((model) => ({
-					...model,
-					label: model.label ?? null,
-				})),
-				sharedSliceModels,
-				clientIntegration: {
-					includeContentNamespace: true,
-					includeCreateClientInterface: true,
-				},
-				cache: true,
-				typesProvider: "@prismicio/client",
-			});
-		let types: string;
-		try {
-			types = generate(
-				customTypes.map(({ model }) => model),
-				slices.map(({ model }) => model),
-			);
-		} catch (error) {
-			// Name the invalid model that broke type generation.
-			for (const customType of customTypes) {
-				try {
-					generate([customType.model], []);
-				} catch {
-					validateModel(customType, DynamicCustomTypeModelSchema);
-				}
-			}
-			for (const slice of slices) {
-				try {
-					generate([], [slice.model]);
-				} catch {
-					validateModel(slice, SharedSliceModelSchema);
-				}
-			}
-			throw error;
-		}
+		const types = generateTypes({
+			customTypeModels: (await this.getCustomTypes()).map(({ model }) => ({
+				...model,
+				label: model.label ?? null,
+			})),
+			sharedSliceModels: (await this.getSlices()).map((slice) => slice.model),
+			clientIntegration: {
+				includeContentNamespace: true,
+				includeCreateClientInterface: true,
+			},
+			cache: true,
+			typesProvider: "@prismicio/client",
+		});
 		await writeFileRecursive(output, types);
 		return output;
 	}
@@ -410,24 +351,11 @@ async function readModels<T extends { id: string }>(
 		const libraryModels = await Promise.all(
 			paths.map(async (path) => {
 				const modelPath = pathToFileURL(path);
-				const model = await readJsonFile<T>(modelPath).catch((error) => {
-					if (!(error instanceof SyntaxError)) throw error;
-					throw new CommandError(error.message, { cause: error });
-				});
-				const meta = { library, directory: new URL(".", modelPath), modelPath, model };
-				return validateModel(meta, ModelIdSchema);
+				const model = await readJsonFile<T>(modelPath);
+				return { library, directory: new URL(".", modelPath), modelPath, model };
 			}),
 		);
 		models.push(...libraryModels);
 	}
 	return models.sort((a, b) => a.model.id.toLowerCase().localeCompare(b.model.id.toLowerCase()));
-}
-
-const ModelIdSchema = z.looseObject({ id: z.string() });
-
-function validateModel<T>(meta: ModelMeta<T>, schema: z.ZodMiniType): ModelMeta<T> {
-	const result = z.safeParse(schema, meta.model, { error: z.locales.en().localeError });
-	if (result.success) return meta;
-	const path = relative(process.cwd(), fileURLToPath(meta.modelPath));
-	throw new CommandError(`${path}:\n${z.prettifyError(result.error)}`);
 }

@@ -1,5 +1,3 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe } from "vitest";
@@ -25,23 +23,6 @@ it("tells agents to use --force only when the user asks", async ({ expect, prism
 	const agent = { nodeOptions: { env: { AI_AGENT: "test-agent" } } };
 	const { stdout } = await prismic("push", ["--help"], agent);
 	expect(stdout).toContain("Use --force only when the user asks for it.");
-});
-
-it("blocks on any invalid local model", async ({ expect, project, prismic, repo, token, host }) => {
-	const customType = buildCustomType();
-	await writeLocalCustomType(project, customType);
-	const { variations: _, ...slice } = buildSlice();
-	const slicePath = new URL(`slices/${slice.name}/model.json`, project);
-	await mkdir(new URL(".", slicePath), { recursive: true });
-	await writeFile(slicePath, JSON.stringify(slice));
-
-	const { stderr, exitCode } = await prismic("push", ["--repo", repo, "--force"]);
-	expect(exitCode).toBe(1);
-	expect(stderr).toContain(
-		`${["slices", slice.name, "model.json"].join(sep)}:\n✖ Invalid input: expected array, received undefined\n→ at variations`,
-	);
-	const remote = await getCustomTypes({ repo, token, host });
-	expect(remote.map((t) => t.id)).not.toContain(customType.id);
 });
 
 describe("with an isolated repository", () => {
@@ -216,7 +197,7 @@ describe("with an isolated repository", () => {
 		const { stderr, exitCode } = await prismic("push", ["--repo", repo, "--force"]);
 		expect(exitCode).toBe(1);
 		expect(stderr).toContain("Prismic rejected these models:");
-		expect(stderr).toContain(`Type "${customType.id}": api ID incorrect for uid field`);
+		expect(stderr).toContain(`${customType.id}: api ID incorrect for uid field`);
 		expect(stderr).not.toContain("unexpected error");
 	});
 

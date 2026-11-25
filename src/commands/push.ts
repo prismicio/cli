@@ -98,7 +98,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const [local, remote] = await Promise.all([
-		adapter.getModels({ validate: true }),
+		adapter.getModels(),
 		getRemoteModels({ repo, getToken, host, onUnauthorized }),
 	]);
 	const diff = diffModels(local, remote);
@@ -173,16 +173,11 @@ export default createCommand(config, async ({ values }) => {
 
 function explainRejectedModels(error: BadRequestError): Error {
 	const body = z.safeParse(BulkUpdateErrorSchema, error.body).data;
-	if (!body) return error;
-	const { message, details } = body;
-	const lines = [
-		...details.customTypes.map(({ id, error }) => `Type "${id}": ${error}`),
-		...details.slices.map(({ id, error }) => `Slice "${id}": ${error}`),
-	];
-	if (message) lines.unshift(message);
-	if (lines.length === 0) return error;
-	lines.unshift("Prismic rejected these models:");
-	return new CommandError(lines.map((line) => line.replace(/\s+/g, " ").trim()).join("\n"));
+	const rejected = [...(body?.details.customTypes ?? []), ...(body?.details.slices ?? [])];
+	if (rejected.length === 0) return error;
+	const lines = rejected.map(({ id, error }) => `${id}: ${error}`);
+	if (body?.message) lines.unshift(body.message);
+	return new CommandError(["Prismic rejected these models:", ...lines].join("\n"));
 }
 
 const ExistingDocumentsErrorSchema = z.object({ hasExistingDocuments: z.literal(true) });

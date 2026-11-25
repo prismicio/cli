@@ -87,8 +87,8 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Continuing your session for ${repo}...`);
 	} else {
 		console.info(`Preparing your session for ${repo}...`);
-		// Validate local models first, so an invalid model does not leave a release behind.
-		await adapter.getModels({ validate: true });
+		// Read local models first, so a read failure does not leave a release behind.
+		await adapter.getModels();
 		session = await createSession({ repo, getToken, host });
 	}
 	const release = { repo, getToken, host, onUnauthorized, releaseId: session.releaseId };
@@ -299,10 +299,7 @@ async function syncModels(
 	},
 ): Promise<Models> {
 	const { push, onPull, onPush, onDelete } = options;
-	const [local, remote] = await Promise.all([
-		adapter.getModels({ validate: push }),
-		getRemoteModels(release),
-	]);
+	const [local, remote] = await Promise.all([adapter.getModels(), getRemoteModels(release)]);
 	const localFingerprints = fingerprint(local);
 	const remoteFingerprints = fingerprint(remote);
 	const changes = plan(localFingerprints, remoteFingerprints, session.synced);
