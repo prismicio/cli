@@ -1,8 +1,8 @@
-import type { DynamicCustomTypeModel } from "@prismicio/types-internal";
+import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import { pascalCase } from "change-case";
 import * as z from "zod/mini";
 
-import { getAdapter } from "../adapters";
+import { type Adapter, getAdapter } from "../adapters";
 import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
@@ -127,7 +127,9 @@ export default createCommand(config, async ({ values }) => {
 	try {
 		await writeRemoteModels(diff, { repo, getToken, host, onUnauthorized });
 	} catch (error) {
-		if (error instanceof BadRequestError) throw explainRejectedModels(error);
+		if (error instanceof BadRequestError) {
+			throw await explainRejectedModels(error, adapter, projectRoot);
+		}
 		throw await explainExistingDocuments(error, diff.customTypes.delete, {
 			repo,
 			getToken,
@@ -171,16 +173,113 @@ export default createCommand(config, async ({ values }) => {
 	}
 });
 
-function explainRejectedModels(error: BadRequestError): Error {
-	const body = z.safeParse(BulkUpdateErrorSchema, error.body).data;
-	if (!body) return error;
-	const { message, details } = body;
-	const lines = [
-		...details.customTypes.map(({ id, error }) => `Type "${id}": ${error}`),
-		...details.slices.map(({ id, error }) => `Slice "${id}": ${error}`),
+async function explainRejectedModels(
+	error: BadRequestError,
+	adapter: Adapter,
+	projectRoot: URL,
+): Promise<Error> {
+	const details = z.safeParse(BulkUpdateErrorSchema, error.body).data?.details;
+	if (!details) return error;
+	const [customTypes, slices] = await Promise.all([
+		adapter.getCustomTypes(),
+		adapter.getSlices(),
+	]).catch(() => [[], []]);
+	const rejections = [
+		...details.customTypes.map((rejection) => ({
+			...rejection,
+			kind: "type" as const,
+			local: customTypes.find(({ model }) => model.id === rejection.id),
+		})),
+		...details.slices.map((rejection) => ({
+			...rejection,
+			kind: "slice" as const,
+			local: slices.find(({ model }) => model.id === rejection.id),
+		})),
 	];
-	if (message) lines.unshift(message);
-	return new CommandError(lines.map((line) => line.replace(/\s+/g, " ").trim()).join("\n"));
+	const problems = rejections.flatMap(({ kind, id, error, local }) => {
+		const where = local
+			? `${relativePathname(projectRoot, local.modelPath)} (${kind} "${id}")`
+			: `${kind === "type" ? "Type" : "Slice"} "${id}"`;
+		const descriptions = new Set(describeRejection(kind, error, local?.model));
+		return [...descriptions].map((description) => `${where}: ${description}`);
+	});
+	const summary =
+		rejections.length === 1
+			? "Prismic rejected 1 model. Fix it and run `prismic push` again:"
+			: `Prismic rejected ${rejections.length} models. Fix them and run \`prismic push\` again:`;
+	return new CommandError([summary, ...problems].join("\n"));
+}
+
+function describeRejection(
+	kind: "type" | "slice",
+	error: string,
+	model?: DynamicCustomTypeModel | SharedSliceModel,
+): string[] {
+	const paths = [...error.matchAll(/PATH: (\S*)\s+VALUE: (.*)/g)];
+	if (paths.length > 0) {
+		return paths.map(([, path, value]) => {
+			const problem = describeInvalidPath(kind, path, model);
+			return value === "undefined" ? problem : `${problem} Prismic got ${value}.`;
+		});
+	}
+	if (error.endsWith("already exists")) {
+		return ["It already exists in Prismic. The repository changed during the push."];
+	}
+	if (error.endsWith("could not be found")) {
+		return ["It no longer exists in Prismic. The repository changed during the push."];
+	}
+	if (error === "api ID incorrect for uid field") {
+		return ['The UID field must have the API ID "uid".'];
+	}
+	if (error.startsWith("You cannot update the repeatable property")) {
+		const repeatable = model && "repeatable" in model ? (model.repeatable ?? true) : undefined;
+		const fix = repeatable === undefined ? "" : ` Set it back to ${!repeatable}.`;
+		return [`"repeatable" cannot change on a type that already exists.${fix}`];
+	}
+	return [error.replace(/\s+/g, " ").trim()];
+}
+
+// Prismic writes object keys as "/key" and list indexes as "|0|".
+function describeInvalidPath(
+	kind: "type" | "slice",
+	path: string,
+	model?: DynamicCustomTypeModel | SharedSliceModel,
+): string {
+	const keys = [...path.matchAll(/\/([^/|]+)|\|(\d+)\|/g)].map(([, key, index]) =>
+		key === undefined ? Number(index) : key,
+	);
+	const [first, second, third, fourth] = keys;
+	let rest = keys;
+	let field: string | undefined;
+	let fieldKind = "field";
+	let place: string | undefined;
+	if (kind === "type" && first === "json" && typeof second === "string") {
+		place = `tab "${second}"`;
+		if (typeof third === "string") field = third;
+		rest = keys.slice(field ? 3 : 2);
+	} else if (kind === "slice" && first === "variations" && typeof second === "number") {
+		const id = model && "variations" in model ? model.variations[second]?.id : undefined;
+		place = id ? `variation "${id}"` : `variation ${second + 1}`;
+		if ((third === "primary" || third === "items") && typeof fourth === "string") {
+			field = fourth;
+			if (third === "items") fieldKind = "repeatable field";
+		}
+		rest = keys.slice(field ? 4 : 2);
+	}
+	while (field && rest[0] === "config" && rest[1] === "fields" && typeof rest[2] === "string") {
+		field += `.${rest[2]}`;
+		rest = rest.slice(3);
+	}
+	if (rest.some((key) => typeof key === "number")) {
+		return `The value at ${path} is missing or not valid.`;
+	}
+	const subject = field ? `${fieldKind} "${field}" in ${place}` : place;
+	const property = rest.length > 0 ? `The "${rest.join(".")}" property` : undefined;
+	if (!subject) {
+		return property ? `${property} is missing or not valid.` : "The model is not valid.";
+	}
+	if (!property) return `${subject[0].toUpperCase()}${subject.slice(1)} is missing or not valid.`;
+	return `${property} of ${subject} is missing or not valid.`;
 }
 
 const ExistingDocumentsErrorSchema = z.object({ hasExistingDocuments: z.literal(true) });

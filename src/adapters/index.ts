@@ -181,7 +181,7 @@ export abstract class Adapter {
 	}
 
 	async getSlices(): Promise<ModelMeta<SharedSliceModel>[]> {
-		return readModels(await this.getSliceLibraries(), "*/model.json", SliceFileSchema);
+		return readModels(await this.getSliceLibraries(), "*/model.json", SliceFileSchema, "slice");
 	}
 
 	async getSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
@@ -227,7 +227,12 @@ export abstract class Adapter {
 	}
 
 	async getCustomTypes(): Promise<ModelMeta<DynamicCustomTypeModel>[]> {
-		return readModels(await this.getCustomTypeLibraries(), "*/index.json", CustomTypeFileSchema);
+		return readModels(
+			await this.getCustomTypeLibraries(),
+			"*/index.json",
+			CustomTypeFileSchema,
+			"type",
+		);
 	}
 
 	async getCustomType(id: string): Promise<ModelMeta<DynamicCustomTypeModel>> {
@@ -344,23 +349,26 @@ async function getEnvLocalPath(): Promise<URL> {
 
 const SliceFileSchema = z.looseObject(
 	{
-		id: z.string({ error: "id must be a string" }),
-		variations: z.array(z.unknown(), { error: "variations must be an array" }),
+		id: z.string({ error: '"id" must be a string' }),
+		variations: z.array(z.unknown(), { error: '"variations" must be a list' }),
 	},
-	{ error: "must be a JSON object" },
+	{ error: "the file must contain a JSON object" },
 );
 const CustomTypeFileSchema = z.looseObject(
 	{
-		id: z.string({ error: "id must be a string" }),
-		json: z.record(z.string(), z.unknown(), { error: "json must be an object" }),
+		id: z.string({ error: '"id" must be a string' }),
+		json: z.record(z.string(), z.unknown(), { error: '"json" must be an object' }),
 	},
-	{ error: "must be a JSON object" },
+	{ error: "the file must contain a JSON object" },
 );
+
+const FIX_MODEL_FILE = "Fix the file, or restore it with git.";
 
 async function readModels<T extends { id: string }>(
 	libraries: URL[],
 	pattern: string,
 	schema: z.ZodMiniType,
+	kind: "slice" | "type",
 ): Promise<ModelMeta<T>[]> {
 	const models: ModelMeta<T>[] = [];
 	for (const library of libraries) {
@@ -370,12 +378,15 @@ async function readModels<T extends { id: string }>(
 				const modelPath = pathToFileURL(path);
 				const model = await readJsonFile<T>(modelPath).catch((error) => {
 					if (!(error instanceof SyntaxError)) throw error;
-					throw new CommandError(error.message, { cause: error });
+					throw new CommandError(`${error.message} ${FIX_MODEL_FILE}`, { cause: error });
 				});
 				const result = z.safeParse(schema, model);
 				if (!result.success) {
+					const file = relative(process.cwd(), path);
 					const problem = result.error.issues[0].message;
-					throw new CommandError(`${relative(process.cwd(), path)}: ${problem}`);
+					throw new CommandError(
+						`${file} is not a valid ${kind} model: ${problem}. ${FIX_MODEL_FILE}`,
+					);
 				}
 				return { library, directory: new URL(".", modelPath), modelPath, model };
 			}),

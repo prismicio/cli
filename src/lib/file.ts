@@ -85,9 +85,10 @@ export async function readJsonFile<T = unknown>(
 	try {
 		json = JSON.parse(file);
 	} catch (cause) {
-		throw new SyntaxError(`${relative(process.cwd(), fileURLToPath(path))} is not valid JSON.`, {
-			cause,
-		});
+		const name = relative(process.cwd(), fileURLToPath(path));
+		const [, line, column] = /\(line (\d+) column (\d+)\)/.exec(String(cause)) ?? [];
+		const location = line ? ` at line ${line}, column ${column}` : "";
+		throw new SyntaxError(`${name} is not valid JSON${location}.`, { cause });
 	}
 	if (schema) return z.parse(schema, json);
 	return json as T;
