@@ -148,7 +148,7 @@ it("starts a temporary account when not logged in, and picks it up again after a
 		onTestFinished(() => deleteRepository(domain!, { token, password, host }));
 		claimLinks.push(
 			stderr.match(
-				/Temporary account, disabled in [\d,]+ days\. Claim it to keep your work: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
+				/Temporary account, disabled in [\d,]+ days \(2099-01-01T02:00Z\)\. Claim it to keep your work: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
 			)?.[1],
 		);
 		await prismic("logout");
@@ -199,8 +199,8 @@ it("asks to log in again when the login expired, even with a temporary account s
 	const output = captureOutput(proc);
 	await waitForLoginPrompt(expect, output);
 	expect(output()).toContain("Your login expired.");
-	expect(output()).toContain(
-		"You also have a pending temporary account that will be deleted in 14 days. Claim it to keep your work: https://example.com/claim",
+	expect(output()).toMatch(
+		/You also have a pending temporary account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
 	);
 });
 

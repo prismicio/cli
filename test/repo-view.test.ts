@@ -57,8 +57,8 @@ it("refuses to work on a disabled temporary account", async ({ expect, prismic, 
 	const { stderr, exitCode } = await prismic("repo", ["view"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain("Your temporary account is disabled. Claim it to carry on.");
-	expect(stderr).toContain(
-		"Temporary account, disabled, deleted in 14 days. Claim it to keep your work: https://example.com/claim",
+	expect(stderr).toMatch(
+		/Temporary account, disabled, deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
 	);
 });
 

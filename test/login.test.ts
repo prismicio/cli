@@ -219,8 +219,8 @@ it("sets a temporary account aside, and shows its claim link", async ({
 	await approveLogin(expect, output, auth0);
 	expect((await proc).exitCode, output()).toBe(0);
 	expect(output()).toContain("Logged in to Prismic as");
-	expect(output()).toContain(
-		"You also have a pending temporary account that will be deleted in 14 days. Claim it to keep your work: https://example.com/claim",
+	expect(output()).toMatch(
+		/You also have a pending temporary account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
 	);
 });
 

@@ -76,15 +76,15 @@ it("keeps a temporary account for later, and says so", async ({ expect, prismic,
 	});
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
-	expect(stderr).toContain(
-		"Your temporary account stays on this machine, disabled in 3 hours. Claim it to keep your work: https://example.com/claim",
+	expect(stderr).toMatch(
+		/Your temporary account stays on this machine, disabled in 3 hours \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
 	);
 	expect(stdout).toContain("Logged out of Prismic");
 
 	const whoami = await prismic("whoami");
 	expect(whoami.stderr).toContain("Not logged in.");
-	expect(whoami.stderr).toContain(
-		"You also have a pending temporary account that will be deleted in 14 days. Claim it to keep your work: https://example.com/claim",
+	expect(whoami.stderr).toMatch(
+		/You also have a pending temporary account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
 	);
 });
 

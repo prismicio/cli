@@ -210,8 +210,8 @@ it("shows a temporary account with when it gets disabled and its claim link", as
 	});
 	const { stdout, stderr, exitCode } = await prismic("status");
 	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain(
-		"Authenticated as: Temporary account, disabled in 3 hours. Claim it to keep your work: https://example.com/claim",
+	expect(stdout).toMatch(
+		/Authenticated as: Temporary account, disabled in 3 hours \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
 	);
 	expect(stderr).not.toContain("Temporary account");
 });

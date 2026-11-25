@@ -374,7 +374,8 @@ function formatTime(time: number): string {
 			: minutes < 48 * 60
 				? ([minutes / 60, "hour"] as const)
 				: ([minutes / 60 / 24, "day"] as const);
-	return new Intl.RelativeTimeFormat("en").format(Math.round(value), unit);
+	const relative = new Intl.RelativeTimeFormat("en").format(Math.round(value), unit);
+	return `${relative} (${new Date(time).toISOString().slice(0, 16)}Z)`;
 }
 
 // Nobody could claim an account started in CI.
