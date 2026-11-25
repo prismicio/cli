@@ -99,9 +99,9 @@ export async function getUserProfile(config: Config): Promise<Profile> {
 
 export async function getGuestStatus(config: {
 	token: string;
-	host: string;
+	authenticationUrl: URL;
 }): Promise<string | undefined> {
-	const url = new URL("user/profile", getUserServiceUrl(config.host));
+	const url = new URL("../user/profile", config.authenticationUrl);
 	const profile = await request(url, {
 		headers: { Authorization: `Bearer ${config.token}` },
 		schema: z.object({ guest: z.optional(z.object({ status: z.string() })) }),

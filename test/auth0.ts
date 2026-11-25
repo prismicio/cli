@@ -60,6 +60,7 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 			return;
 		}
 
+		if (path === "/user/profile") return send(res, 200, {});
 		if (path === "/authentication/guest") {
 			return send(res, 201, {
 				access_token: accessToken,

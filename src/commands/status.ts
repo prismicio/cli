@@ -1,5 +1,5 @@
 import { getAdapter } from "../adapters";
-import { formatGuest, getGuest, getHost, getToken } from "../auth";
+import { checkGuest, formatGuest, getGuest, getHost, getToken } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { hasChanges } from "../lib/diff";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
@@ -42,6 +42,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const host = await getHost();
 	const guest = await getGuest();
+	if (guest) await checkGuest();
 	// A disabled temporary account still shows the local changes.
 	const token = guest && guest.disablesAt <= Date.now() ? undefined : await getToken();
 	const projectRoot = await findProjectRoot();

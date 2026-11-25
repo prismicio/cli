@@ -62,6 +62,27 @@ it("refuses to work on a disabled temporary account", async ({ expect, prismic, 
 	);
 });
 
+it("says a disabled temporary account was claimed, rather than to claim it", async ({
+	expect,
+	prismic,
+	login,
+	auth0,
+}) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() - 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	auth0.respondOnce("/user/profile", { status: 200, body: { guest: { status: "claimed" } } });
+	const { stderr, exitCode } = await prismic("repo", ["view"]);
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toBe(
+		"Your temporary account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
+	);
+});
+
 it("says the temporary account was claimed, and logs out", async ({ expect, prismic, login }) => {
 	await login({
 		expiresAt: Date.now() - 1000,

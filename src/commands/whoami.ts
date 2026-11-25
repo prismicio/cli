@@ -1,4 +1,4 @@
-import { formatGuest, getGuest, getHost, getToken } from "../auth";
+import { checkGuest, formatGuest, getGuest, getHost, getToken } from "../auth";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { validateToken } from "../lib/prismic/client";
 
@@ -10,6 +10,7 @@ const config = {
 export default createCommand(config, async () => {
 	const guest = await getGuest();
 	if (guest) {
+		await checkGuest();
 		console.info(formatGuest(guest));
 		return;
 	}

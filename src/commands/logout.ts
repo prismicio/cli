@@ -1,4 +1,4 @@
-import { formatGuest, hasGuestEnded, setGuestAside } from "../auth";
+import { checkGuest, formatGuest, setGuestAside } from "../auth";
 import {
 	clearCredentials,
 	CredentialsError,
@@ -19,7 +19,7 @@ const config = {
 
 export default createCommand(config, async () => {
 	// A claimed temporary account isn't worth keeping.
-	await hasGuestEnded().catch(() => {});
+	await checkGuest().catch(() => {});
 	let kept: Session["guest"];
 	let revoked = false;
 	await withCredentialsLock(async (lock) => {

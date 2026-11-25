@@ -88,12 +88,14 @@ class GuestEndedError extends CommandError {}
 
 let renewal: Promise<string | undefined> | undefined;
 let ended = false;
+let guestCheck: Promise<void> | undefined;
 
 let reauthentication: Promise<string> | undefined;
 let savedHost: Promise<string | undefined> | undefined;
 
 export async function getToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
+	await checkGuest();
 	const guest = await getGuest();
 	if (guest && guest.disablesAt <= Date.now() && Date.now() < guest.deletesAt) {
 		throw new CommandError("Your temporary account is disabled. Claim it to carry on.");
@@ -193,7 +195,6 @@ export async function onUnauthorized<T>(
 	if (current && sent.get("Authorization") !== `Bearer ${current}`) {
 		return retry({ headers: { Authorization: `Bearer ${current}` } });
 	}
-	if (await hasGuestEnded()) throw new GuestEndedError(GUEST_CLAIMED);
 	if (!reauthentication && !(await isTokenRejected(current))) return;
 	reauthentication ??= reauthenticate().finally(() => (reauthentication = undefined));
 	const token = await reauthentication;
@@ -303,23 +304,24 @@ export async function getGuest(): Promise<Guest | undefined> {
 }
 
 // Prismic closes a claimed account, but its saved token can outlive the claim.
-export async function hasGuestEnded(): Promise<boolean> {
-	if (!(await readLoginSummary()).guest) return false;
-	try {
+// Asked once per command, before anything else uses the token.
+export function checkGuest(): Promise<void> {
+	guestCheck ??= (async () => {
+		if (!(await readLoginSummary()).guest) return;
 		const token = await getSessionToken();
-		if (!token || (await getGuestStatus({ token, host: await getHost() })) !== "claimed") {
-			return false;
-		}
-	} catch (error) {
-		return error instanceof GuestEndedError;
-	}
-	await withCredentialsLock(async (lock) => {
-		const { login } = await readCredentials();
-		if (!login?.session.guest) return;
-		const { host, auth0Domain, clientId } = login.session;
-		await writeCredentials(lock, { ...login, session: { host, auth0Domain, clientId } });
-	});
-	return true;
+		const authenticationUrl = getAuthenticationApiUrl(await getHost());
+		const status =
+			token && (await getGuestStatus({ token, authenticationUrl }).catch(() => undefined));
+		if (status !== "claimed") return;
+		await withCredentialsLock(async (lock) => {
+			const { login } = await readCredentials();
+			if (!login?.session.guest) return;
+			const { host, auth0Domain, clientId } = login.session;
+			await writeCredentials(lock, { ...login, session: { host, auth0Domain, clientId } });
+		});
+		throw new GuestEndedError(GUEST_CLAIMED);
+	})();
+	return guestCheck;
 }
 
 export async function getSavedGuest(): Promise<Guest | undefined> {
@@ -337,8 +339,12 @@ export async function getSavedGuest(): Promise<Guest | undefined> {
 			() => "unknown" as const,
 		);
 		if (tokens === "unknown") return saved;
+		const authenticationUrl = getAuthenticationApiUrl(host);
 		const status =
-			tokens && (await getGuestStatus({ token: tokens.accessToken, host }).catch(() => undefined));
+			tokens &&
+			(await getGuestStatus({ token: tokens.accessToken, authenticationUrl }).catch(
+				() => undefined,
+			));
 		// Auth0 may have rotated its token.
 		const savedGuest =
 			tokens && status !== "claimed" ? { ...saved, refreshToken: tokens.refreshToken } : undefined;

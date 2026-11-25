@@ -289,6 +289,34 @@ it("starts a temporary account when not logged in", async ({
 	);
 }, 60_000);
 
+it("says the temporary account was claimed while its token still works", async ({
+	expect,
+	project,
+	prismic,
+	login,
+	auth0,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	auth0.respondOnce("/user/profile", { status: 200, body: { guest: { status: "claimed" } } });
+
+	const { stderr, exitCode } = await prismic("init", ["--no-setup"], {
+		nodeOptions: { env: { CI: "" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(
+		"Your temporary account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
+	);
+	expect(stderr).not.toContain("Temporary account");
+	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
+});
+
 it("renews a rejected token instead of logging in again", async ({
 	expect,
 	project,
