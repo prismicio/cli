@@ -35,14 +35,7 @@ const usesStoredUser = !env.PRISMIC_TOKEN;
 // it answers for the user who just left.
 let forgotUser = false;
 
-type LoginResult =
-	| "success"
-	| "expired"
-	| "declined"
-	| "email-unverified"
-	| "cancelled"
-	| "wait-limit"
-	| "error";
+type LoginResult = "success" | "expired" | "declined" | "email-unverified" | "cancelled" | "error";
 
 let repository: string | undefined;
 let agent: string | undefined;

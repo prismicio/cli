@@ -42,8 +42,6 @@ import {
 } from "./tracking";
 
 const REFRESH_MARGIN_MS = 5 * 60 * 1000;
-// Agents stop before Claude Code's 2-minute command timeout.
-const AGENT_WAIT_MS = (process.env.PROD === "false" && env.PRISMIC_AGENT_WAIT_MS) || 90_000;
 // Auth0's device codes expire after 15 minutes.
 const LOGIN_WAIT_MS = 15 * 60 * 1000;
 const PENDING_POLL_MS = 1000;
@@ -53,8 +51,6 @@ const LEGACY_AUTH_FILE_PATH = new URL(".prismic", appendTrailingSlash(pathToFile
 type Login = {
 	host: string;
 	auth0: Auth0Config;
-	/** Infinity for a person, who waits until the code expires. */
-	deadline: number;
 	startedAt: number;
 	resumed: boolean;
 	/** A login saved by another command meanwhile changes it. */
@@ -71,7 +67,6 @@ type Login = {
 type SavedLogin = Pick<StoredLogin, "store" | "storeReason"> & { token: string };
 type LoginOutcome =
 	| ({ status: "logged-in"; email: string } & SavedLogin)
-	| { status: "wait-limit" }
 	| { status: "logged-out" };
 
 type StartedLogin =
@@ -201,14 +196,12 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	const auth0 = getAuth0Config(host);
 	if (!auth0) throw new CommandError(`Login isn't available for ${host}. Use PRISMIC_TOKEN.`);
 
-	// An agent stops before its command times out and runs it again to continue.
-	// Without a terminal, nobody may be there to approve, so it stops too.
+	// An agent, or a run without a terminal, may not be on the user's device.
 	const isPerson =
 		detectAgent() === undefined && process.stdin.isTTY === true && process.stderr.isTTY === true;
 	const login: Login = {
 		host,
 		auth0,
-		deadline: isPerson ? Infinity : Date.now() + AGENT_WAIT_MS,
 		startedAt: Date.now(),
 		resumed: false,
 		waited: false,
@@ -233,7 +226,12 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 			store: saved?.store,
 			storeReason: saved?.storeReason,
 		});
-		await endCommand(saved ? "Logged in to Prismic." : "Login cancelled.", 130);
+		const message = saved ? "Logged in to Prismic." : "Login cancelled.";
+		process.exitCode = 130;
+		trackCommandEnd({ error: message });
+		// Exiting right after a write can drop it from a pipe.
+		await new Promise((resolve) => process.stderr.write(`${message}\n`, resolve));
+		process.exit();
 	});
 
 	let outcome: LoginOutcome;
@@ -252,13 +250,6 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 	}
 
 	const { resumed, startedAt } = login;
-	if (outcome.status === "wait-limit") {
-		recordLogin({ result: "wait-limit", resumed, startedAt });
-		return endCommand(
-			"Waiting for approval. After the user approves, run the same command again. It continues this login.",
-			1,
-		);
-	}
 	if (outcome.status === "logged-out") {
 		recordLogin({ result: "cancelled", resumed, startedAt });
 		throw new CommandError("A logout cancelled this login. Run the command again to log in.");
@@ -291,19 +282,8 @@ function getAuth0Config(host: string): Auth0Config | undefined {
 	}
 }
 
-// Ends the command at once, even inside a request whose errors the command
-// catches, like sync's loop.
-async function endCommand(message: string, exitCode: number): Promise<never> {
-	process.exitCode = exitCode;
-	trackCommandEnd({ error: message });
-	// Exiting right after a write can drop it from a pipe.
-	await new Promise((resolve) => process.stderr.write(`${message}\n`, resolve));
-	process.exit();
-}
-
 async function completeLogin(login: Login, options: { browser: boolean }): Promise<LoginOutcome> {
 	const loginLock = await lockLoginAfterOthers(login);
-	if (!loginLock) return { status: "wait-limit" };
 
 	let saved: SavedLogin;
 	try {
@@ -338,8 +318,8 @@ async function completeLogin(login: Login, options: { browser: boolean }): Promi
 	return { ...saved, status: "logged-in", email: profile.email };
 }
 
-async function lockLoginAfterOthers(login: Login): Promise<Lock | undefined> {
-	const waitUntil = Math.min(login.deadline, Date.now() + LOGIN_WAIT_MS);
+async function lockLoginAfterOthers(login: Login): Promise<Lock> {
+	const waitUntil = Date.now() + LOGIN_WAIT_MS;
 	while (true) {
 		// Until the other command saves its code, look for it between tries.
 		const timeoutMs = login.shown ? waitUntil - Date.now() : 0;
@@ -347,7 +327,6 @@ async function lockLoginAfterOthers(login: Login): Promise<Lock | undefined> {
 			return await lockLogin({ timeoutMs });
 		} catch (error) {
 			if (!(error instanceof LockTimeoutError)) throw error;
-			if (Date.now() >= login.deadline) return;
 			if (Date.now() >= waitUntil) throw new DeviceFlowError("expired");
 		}
 
@@ -416,12 +395,17 @@ function printLoginPrompt(pending: PendingLogin): void {
 		${verificationUriComplete !== undefined ? `Check that the page shows the code ${userCode}.` : `Enter the code ${userCode}.`}
 		Waiting for the login (the code expires in ${minutes} ${minutes === 1 ? "minute" : "minutes"})...
 	`);
+	if (detectAgent() !== undefined) {
+		console.error(
+			"Give this URL to the user. If a timeout stops this command before approval, run it again.",
+		);
+	}
 }
 
 async function pollUntilApproved(
 	login: Login,
 	pending: PendingLogin,
-): Promise<DeviceLoginTokens | { status: "wait-limit" | "logged-out" }> {
+): Promise<DeviceLoginTokens | { status: "logged-out" }> {
 	const loggedOut = new AbortController();
 	const watcher = setInterval(async () => {
 		const stored = await readCredentials().catch(() => undefined);
@@ -430,12 +414,9 @@ async function pollUntilApproved(
 			loggedOut.abort();
 		}
 	}, PENDING_POLL_MS);
-	const deadline = Number.isFinite(login.deadline)
-		? AbortSignal.timeout(Math.max(0, login.deadline - Date.now()))
-		: undefined;
 	try {
 		return await pollDeviceLogin(pending, {
-			signal: deadline ? AbortSignal.any([deadline, loggedOut.signal]) : loggedOut.signal,
+			signal: loggedOut.signal,
 			onUpdate: (next) => setPendingLogin(pending, { ...next, host: login.host }),
 		});
 	} catch (error) {
@@ -444,7 +425,6 @@ async function pollUntilApproved(
 			throw error;
 		}
 		if (loggedOut.signal.aborted) return { status: "logged-out" };
-		if (deadline?.aborted) return { status: "wait-limit" };
 		throw error;
 	} finally {
 		clearInterval(watcher);
