@@ -83,6 +83,8 @@ type StartedLogin =
 
 const GUEST_CLAIMED =
 	"Your temporary account has been claimed. Run `prismic login` to carry on with the account that claimed it.";
+const GUEST_DELETED =
+	"Your temporary account has been deleted, along with its repositories. Run `prismic login` to start again.";
 
 class GuestEndedError extends CommandError {}
 
@@ -97,8 +99,10 @@ export async function getToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
 	await checkGuest();
 	const guest = await getGuest();
-	if (guest && guest.disablesAt <= Date.now() && Date.now() < guest.deletesAt) {
-		throw new CommandError("Your temporary account is disabled. Claim it to carry on.");
+	if (guest && guest.disablesAt <= Date.now()) {
+		throw new CommandError(
+			`Your temporary account is disabled. Claim it to carry on: ${guest.claimUrl}`,
+		);
 	}
 	return getSessionToken();
 }
@@ -171,11 +175,7 @@ async function renewLogin(
 		session: { host, auth0Domain, clientId, pendingLogin, savedGuest },
 	});
 	if (session.guest) {
-		throw new GuestEndedError(
-			session.guest.deletesAt > Date.now()
-				? GUEST_CLAIMED
-				: "Your temporary account has been deleted, along with its repositories. Run `prismic login` to start again.",
-		);
+		throw new GuestEndedError(session.guest.deletesAt > Date.now() ? GUEST_CLAIMED : GUEST_DELETED);
 	}
 	ended = true;
 }
@@ -300,26 +300,31 @@ export async function logIn(options: { browser?: boolean } = {}): Promise<string
 export async function getGuest(): Promise<Guest | undefined> {
 	if (env.PRISMIC_TOKEN) return;
 	const { guest, host } = await readLoginSummary();
-	if (host === (await getHost())) return guest;
+	// Past that time, it's gone or about to be, so nothing offers to claim it.
+	if (guest && guest.deletesAt > Date.now() && host === (await getHost())) return guest;
 }
 
 // Prismic closes a claimed account, but its saved token can outlive the claim.
 // Asked once per command, before anything else uses the token.
 export function checkGuest(): Promise<void> {
 	guestCheck ??= (async () => {
-		if (!(await readLoginSummary()).guest) return;
-		const token = await getSessionToken();
-		const authenticationUrl = getAuthenticationApiUrl(await getHost());
-		const status =
-			token && (await getGuestStatus({ token, authenticationUrl }).catch(() => undefined));
-		if (status !== "claimed") return;
+		const { guest } = await readLoginSummary();
+		if (!guest) return;
+		const deleted = guest.deletesAt <= Date.now();
+		if (!deleted) {
+			const token = await getSessionToken();
+			const authenticationUrl = getAuthenticationApiUrl(await getHost());
+			const status =
+				token && (await getGuestStatus({ token, authenticationUrl }).catch(() => undefined));
+			if (status !== "claimed") return;
+		}
 		await withCredentialsLock(async (lock) => {
 			const { login } = await readCredentials();
 			if (!login?.session.guest) return;
 			const { host, auth0Domain, clientId } = login.session;
 			await writeCredentials(lock, { ...login, session: { host, auth0Domain, clientId } });
 		});
-		throw new GuestEndedError(GUEST_CLAIMED);
+		throw new GuestEndedError(deleted ? GUEST_DELETED : GUEST_CLAIMED);
 	})();
 	return guestCheck;
 }
@@ -332,6 +337,16 @@ export async function getSavedGuest(): Promise<Guest | undefined> {
 		const { login } = await readCredentials();
 		const saved = login?.session.savedGuest;
 		if (!saved) return;
+		if (saved.deletesAt <= Date.now()) {
+			await writeCredentials(lock, {
+				...login,
+				session: { ...login.session, savedGuest: undefined },
+			});
+			console.error(
+				"Your pending temporary account has been deleted, along with its repositories.",
+			);
+			return;
+		}
 		const { auth0Domain, host } = login.session;
 		const { clientId } = saved;
 		// A failure to reach Auth0 or Prismic says nothing about the account.
@@ -399,6 +414,7 @@ async function startGuest(): Promise<string | undefined> {
 			const { savedGuest, refreshToken: current, auth0Domain } = login.session;
 			if (!savedGuest || current || login.session.host !== host) return;
 			if (login.session.clientId !== savedGuest.clientId) return;
+			if (savedGuest.deletesAt <= Date.now()) return;
 			const { clientId, refreshToken, ...guest } = savedGuest;
 			await writeCredentials(lock, {
 				...login,

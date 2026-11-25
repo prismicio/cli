@@ -174,8 +174,9 @@ it("doesn't start a new temporary account to get around a disabled one", async (
 		nodeOptions: { env: { CI: "" } },
 	});
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Your temporary account is disabled. Claim it to carry on.");
-	expect(stderr).toContain("Claim it to keep your work: https://example.com/claim");
+	expect(stderr).toContain(
+		"Your temporary account is disabled. Claim it to carry on: https://example.com/claim",
+	);
 });
 
 it("asks to log in again when the login expired, even with a temporary account set aside", async ({

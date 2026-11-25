@@ -208,6 +208,52 @@ it("shows a disabled temporary account", async ({ expect, prismic, login }) => {
 	);
 });
 
+it("says a temporary account past its deletion time was deleted, and forgets it", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+			deletesAt: Date.now() - 60_000,
+		},
+	});
+	const { stderr, exitCode } = await prismic("whoami");
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toBe(
+		"Your temporary account has been deleted, along with its repositories. Run `prismic login` to start again.",
+	);
+	const again = await prismic("whoami");
+	expect(again.stderr).toContain("Not logged in.");
+	expect(again.stderr).not.toContain("temporary account");
+});
+
+it("says a temporary account that was set aside was deleted, and forgets it", async ({
+	expect,
+	prismic,
+	login,
+	auth0,
+}) => {
+	const { email } = await login({
+		savedGuest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+			deletesAt: Date.now() - 60_000,
+			clientId: auth0.clientId,
+			refreshToken: auth0.issueRefreshToken(),
+		},
+	});
+	const { stdout, stderr, exitCode } = await prismic("whoami");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(email);
+	expect(stderr.trim()).toBe(
+		"Your pending temporary account has been deleted, along with its repositories.",
+	);
+	expect((await prismic("whoami")).stderr).not.toContain("temporary account");
+});
+
 it("shows the claim link of a temporary account that was set aside", async ({
 	expect,
 	prismic,
