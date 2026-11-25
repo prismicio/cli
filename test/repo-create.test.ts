@@ -165,7 +165,7 @@ it("doesn't start a new temporary account to get around a frozen one", async ({
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
-			expiresAt: Date.now() - 60_000,
+			freezesAt: Date.now() - 60_000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 		},
 	});
@@ -189,7 +189,7 @@ it("asks to log in again when the login expired, even with a temporary account s
 		expiresAt: Date.now() - 1000,
 		savedGuest: {
 			claimUrl: "https://example.com/claim",
-			expiresAt: Date.now() + 3 * 60 * 60 * 1000,
+			freezesAt: Date.now() + 3 * 60 * 60 * 1000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 			clientId: "guest",
 			refreshToken: "guest",

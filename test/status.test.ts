@@ -201,13 +201,13 @@ it("shows a temporary account with when it freezes, when it's deleted, and its c
 	prismic,
 	login,
 }) => {
-	const expiresAt = Date.now() + 3 * 60 * 60 * 1000;
-	const deletesAt = expiresAt + 14 * 24 * 60 * 60 * 1000;
-	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt, deletesAt } });
+	const freezesAt = Date.now() + 3 * 60 * 60 * 1000;
+	const deletesAt = freezesAt + 14 * 24 * 60 * 60 * 1000;
+	await login({ guest: { claimUrl: "https://example.com/claim", freezesAt, deletesAt } });
 	const { stdout, stderr, exitCode } = await prismic("status");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(
-		`Authenticated as: Temporary account, frozen in 3 hours (${new Date(expiresAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
+		`Authenticated as: Temporary account, frozen in 3 hours (${new Date(freezesAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
 	);
 	expect(stderr).not.toContain("Temporary account");
 });

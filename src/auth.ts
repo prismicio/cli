@@ -95,7 +95,7 @@ let savedHost: Promise<string | undefined> | undefined;
 export async function getToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
 	const guest = await getGuest();
-	if (guest && guest.expiresAt <= Date.now() && Date.now() < guest.deletesAt) {
+	if (guest && guest.freezesAt <= Date.now() && Date.now() < guest.deletesAt) {
 		throw new CommandError("Your temporary account is frozen. Claim it to carry on.");
 	}
 	return getSessionToken();
@@ -356,7 +356,7 @@ export function setGuestAside(session: Session): Session["savedGuest"] {
 }
 
 export function formatGuest(guest: Guest, lead = "Temporary account"): string {
-	const freeze = guest.expiresAt > Date.now() ? `frozen ${formatTime(guest.expiresAt)}` : "frozen";
+	const freeze = guest.freezesAt > Date.now() ? `frozen ${formatTime(guest.freezesAt)}` : "frozen";
 	return `${lead}, ${freeze}, deleted ${formatTime(guest.deletesAt)}. Claim it to keep your work: ${guest.claimUrl}`;
 }
 
@@ -414,7 +414,7 @@ async function startGuest(): Promise<string | undefined> {
 				expiresAt: Date.now() + guest.expires_in * 1000,
 				guest: {
 					claimUrl: guest.claim_url,
-					expiresAt: Date.parse(guest.expires_at),
+					freezesAt: Date.parse(guest.freezes_at),
 					deletesAt: Date.parse(guest.deletes_at),
 				},
 			},

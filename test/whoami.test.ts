@@ -177,13 +177,13 @@ it("shows a temporary account with when it freezes, when it's deleted, and its c
 	prismic,
 	login,
 }) => {
-	const expiresAt = Date.now() + 3 * 60 * 60 * 1000;
-	const deletesAt = expiresAt + 14 * 24 * 60 * 60 * 1000;
-	await login({ guest: { claimUrl: "https://example.com/claim", expiresAt, deletesAt } });
+	const freezesAt = Date.now() + 3 * 60 * 60 * 1000;
+	const deletesAt = freezesAt + 14 * 24 * 60 * 60 * 1000;
+	await login({ guest: { claimUrl: "https://example.com/claim", freezesAt, deletesAt } });
 	const { stdout, stderr, exitCode } = await prismic("whoami");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(
-		`Temporary account, frozen in 3 hours (${new Date(expiresAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
+		`Temporary account, frozen in 3 hours (${new Date(freezesAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
 	);
 	expect(stderr).not.toContain("Temporary account");
 });
@@ -193,7 +193,7 @@ it("shows a frozen temporary account", async ({ expect, prismic, login }) => {
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
-			expiresAt: Date.now() - 24 * 60 * 60 * 1000,
+			freezesAt: Date.now() - 24 * 60 * 60 * 1000,
 			deletesAt,
 		},
 	});
@@ -210,12 +210,12 @@ it("shows the claim link of a temporary account that was set aside", async ({
 	login,
 	auth0,
 }) => {
-	const expiresAt = Date.now() + 3 * 60 * 60 * 1000;
-	const deletesAt = expiresAt + 14 * 24 * 60 * 60 * 1000;
+	const freezesAt = Date.now() + 3 * 60 * 60 * 1000;
+	const deletesAt = freezesAt + 14 * 24 * 60 * 60 * 1000;
 	const { email } = await login({
 		savedGuest: {
 			claimUrl: "https://example.com/claim",
-			expiresAt,
+			freezesAt,
 			deletesAt,
 			clientId: auth0.clientId,
 			refreshToken: auth0.issueRefreshToken(),
@@ -225,6 +225,6 @@ it("shows the claim link of a temporary account that was set aside", async ({
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(email);
 	expect(stderr).toContain(
-		`You also have a temporary account, frozen in 3 hours (${new Date(expiresAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
+		`You also have a temporary account, frozen in 3 hours (${new Date(freezesAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
 	);
 });

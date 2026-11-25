@@ -41,10 +41,10 @@ export type Fixtures = {
 		accessToken?: string;
 		refreshToken?: string;
 		expiresAt?: number;
-		guest?: { claimUrl: string; expiresAt: number; deletesAt: number };
+		guest?: { claimUrl: string; freezesAt: number; deletesAt: number };
 		savedGuest?: {
 			claimUrl: string;
-			expiresAt: number;
+			freezesAt: number;
 			deletesAt: number;
 			clientId: string;
 			refreshToken: string;

@@ -40,7 +40,7 @@ const GuestSchema = z.object({
 	expires_in: z.number(),
 	client_id: z.string(),
 	claim_url: z.string(),
-	expires_at: z.string(),
+	freezes_at: z.string(),
 	deletes_at: z.string(),
 });
 
