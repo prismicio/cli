@@ -184,11 +184,20 @@ export abstract class Adapter {
 		return (await getLibraries()) ?? [await this.getDefaultSliceLibrary()];
 	}
 
-	async getSlices(): Promise<ModelMeta<SharedSliceModel>[]> {
-		return readModels(await this.getSliceLibraries(), "*/model.json", SharedSliceModelSchema);
+	async getSlices(options: { validate?: boolean } = {}): Promise<ModelMeta<SharedSliceModel>[]> {
+		const slices = await readModels<SharedSliceModel>(
+			await this.getSliceLibraries(),
+			"*/model.json",
+		);
+		if (options.validate) slices.forEach((slice) => validateModel(slice, SharedSliceModelSchema));
+		return slices;
 	}
 
 	async getSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
+		return validateModel(await this.findSlice(id), SharedSliceModelSchema);
+	}
+
+	private async findSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
 		const slice = (await this.getSlices()).find((s) => s.model.id === id);
 		if (slice) return slice;
 		const customTypes = (await this.getCustomTypes()).map((customType) => customType.model);
@@ -215,13 +224,13 @@ export abstract class Adapter {
 	}
 
 	async updateSlice(model: SharedSliceModel): Promise<void> {
-		const slice = await this.getSlice(model.id);
+		const slice = await this.findSlice(model.id);
 		await writeFileRecursive(slice.modelPath, stringify(canonicalizeSlice(model)));
 		await this.createSliceIndexFile(slice.library);
 	}
 
 	async deleteSlice(id: string): Promise<void> {
-		const slice = await this.getSlice(id);
+		const slice = await this.findSlice(id);
 		await rm(slice.directory, { recursive: true });
 		await this.createSliceIndexFile(slice.library);
 	}
@@ -230,15 +239,24 @@ export abstract class Adapter {
 		return [new URL("customtypes/", await findProjectRoot())];
 	}
 
-	async getCustomTypes(): Promise<ModelMeta<DynamicCustomTypeModel>[]> {
-		return readModels(
+	async getCustomTypes(
+		options: { validate?: boolean } = {},
+	): Promise<ModelMeta<DynamicCustomTypeModel>[]> {
+		const customTypes = await readModels<DynamicCustomTypeModel>(
 			await this.getCustomTypeLibraries(),
 			"*/index.json",
-			DynamicCustomTypeModelSchema,
 		);
+		if (options.validate) {
+			customTypes.forEach((customType) => validateModel(customType, DynamicCustomTypeModelSchema));
+		}
+		return customTypes;
 	}
 
 	async getCustomType(id: string): Promise<ModelMeta<DynamicCustomTypeModel>> {
+		return validateModel(await this.findCustomType(id), DynamicCustomTypeModelSchema);
+	}
+
+	private async findCustomType(id: string): Promise<ModelMeta<DynamicCustomTypeModel>> {
 		const customType = (await this.getCustomTypes()).find((s) => s.model.id === id);
 		if (!customType) throw new CustomTypeNotFoundError(id);
 		return customType;
@@ -280,19 +298,22 @@ export abstract class Adapter {
 	}
 
 	async updateCustomType(model: DynamicCustomTypeModel): Promise<void> {
-		const customType = await this.getCustomType(model.id);
+		const customType = await this.findCustomType(model.id);
 		await writeFileRecursive(customType.modelPath, stringify(canonicalizeCustomType(model)));
 		await updateRoute(model);
 	}
 
 	async deleteCustomType(id: string): Promise<void> {
-		const customType = await this.getCustomType(id);
+		const customType = await this.findCustomType(id);
 		await rm(customType.directory, { recursive: true });
 		await removeRoute(id);
 	}
 
-	async getModels(): Promise<Models> {
-		const [customTypes, slices] = await Promise.all([this.getCustomTypes(), this.getSlices()]);
+	async getModels(options: { validate?: boolean } = {}): Promise<Models> {
+		const [customTypes, slices] = await Promise.all([
+			this.getCustomTypes(options),
+			this.getSlices(options),
+		]);
 		return {
 			customTypes: customTypes.map((customType) => customType.model),
 			slices: slices.map((slice) => slice.model),
@@ -314,19 +335,24 @@ export abstract class Adapter {
 
 	async generateTypes(): Promise<URL> {
 		const output = new URL("prismicio-types.d.ts", await findProjectRoot());
-		const types = generateTypes({
-			customTypeModels: (await this.getCustomTypes()).map(({ model }) => ({
-				...model,
-				label: model.label ?? null,
-			})),
-			sharedSliceModels: (await this.getSlices()).map((slice) => slice.model),
-			clientIntegration: {
-				includeContentNamespace: true,
-				includeCreateClientInterface: true,
-			},
-			cache: true,
-			typesProvider: "@prismicio/client",
-		});
+		const { customTypes, slices } = await this.getModels();
+		let types: string;
+		try {
+			types = generateTypes({
+				customTypeModels: customTypes.map((model) => ({ ...model, label: model.label ?? null })),
+				sharedSliceModels: slices,
+				clientIntegration: {
+					includeContentNamespace: true,
+					includeCreateClientInterface: true,
+				},
+				cache: true,
+				typesProvider: "@prismicio/client",
+			});
+		} catch (error) {
+			// Name the invalid model that broke type generation.
+			await this.getModels({ validate: true });
+			throw error;
+		}
 		await writeFileRecursive(output, types);
 		return output;
 	}
@@ -353,7 +379,6 @@ async function getEnvLocalPath(): Promise<URL> {
 async function readModels<T extends { id: string }>(
 	libraries: URL[],
 	pattern: string,
-	schema: z.ZodMiniType,
 ): Promise<ModelMeta<T>[]> {
 	const models: ModelMeta<T>[] = [];
 	for (const library of libraries) {
@@ -365,15 +390,19 @@ async function readModels<T extends { id: string }>(
 					if (!(error instanceof SyntaxError)) throw error;
 					throw new CommandError(error.message, { cause: error });
 				});
-				const result = z.safeParse(schema, model, { error: z.locales.en().localeError });
-				if (!result.success) {
-					const problems = z.prettifyError(result.error);
-					throw new CommandError(`${relative(process.cwd(), path)}:\n${problems}`);
-				}
 				return { library, directory: new URL(".", modelPath), modelPath, model };
 			}),
 		);
 		models.push(...libraryModels);
 	}
-	return models.sort((a, b) => a.model.id.toLowerCase().localeCompare(b.model.id.toLowerCase()));
+	return models.sort((a, b) =>
+		String(a.model.id).toLowerCase().localeCompare(String(b.model.id).toLowerCase()),
+	);
+}
+
+function validateModel<T>(meta: ModelMeta<T>, schema: z.ZodMiniType): ModelMeta<T> {
+	const result = z.safeParse(schema, meta.model, { error: z.locales.en().localeError });
+	if (result.success) return meta;
+	const path = relative(process.cwd(), fileURLToPath(meta.modelPath));
+	throw new CommandError(`${path}:\n${z.prettifyError(result.error)}`);
 }

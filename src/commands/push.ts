@@ -98,7 +98,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const [local, remote] = await Promise.all([
-		adapter.getModels(),
+		adapter.getModels({ validate: true }),
 		getRemoteModels({ repo, getToken, host, onUnauthorized }),
 	]);
 	const diff = diffModels(local, remote);

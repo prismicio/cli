@@ -87,8 +87,8 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Continuing your session for ${repo}...`);
 	} else {
 		console.info(`Preparing your session for ${repo}...`);
-		// Read local models first, so an invalid model does not leave a release behind.
-		await adapter.getModels();
+		// Validate local models first, so an invalid model does not leave a release behind.
+		await adapter.getModels({ validate: true });
 		session = await createSession({ repo, getToken, host });
 	}
 	const release = { repo, getToken, host, onUnauthorized, releaseId: session.releaseId };

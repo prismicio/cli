@@ -37,22 +37,25 @@ it("generates types with no models", async ({ expect, project, prismic }) => {
 	await expect(project).toHaveFile("prismicio-types.d.ts");
 });
 
-it("names a local model file that is invalid", async ({ expect, project, prismic }) => {
-	const { variations: _, ...slice } = buildSlice();
+it("generates types when a model is invalid", async ({ expect, project, prismic }) => {
+	const slice = buildSlice();
 	const slicePath = new URL(`slices/${slice.name}/model.json`, project);
 	await mkdir(new URL(".", slicePath), { recursive: true });
-	await writeFile(slicePath, JSON.stringify(slice));
-	const file = ["slices", slice.name, "model.json"].join(sep);
+	await writeFile(slicePath, JSON.stringify({ ...slice, description: 1 }));
+
+	const { stderr, exitCode } = await prismic("gen", ["types"]);
+	expect(exitCode, stderr).toBe(0);
+	await expect(project).toHaveFile("prismicio-types.d.ts");
+});
+
+it("names a local model file that is not valid JSON", async ({ expect, project, prismic }) => {
+	const slicePath = new URL("slices/Invalid/model.json", project);
+	await mkdir(new URL(".", slicePath), { recursive: true });
+	await writeFile(slicePath, "{");
 
 	const { stderr, exitCode } = await prismic("gen", ["types"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain(
-		`${file}:\n✖ Invalid input: expected array, received undefined\n→ at variations`,
+		`${["slices", "Invalid", "model.json"].join(sep)}: Expected property name or '}' in JSON`,
 	);
-	expect(stderr).not.toContain("reached a bug");
-
-	await writeFile(slicePath, "{");
-	const invalidJson = await prismic("gen", ["types"]);
-	expect(invalidJson.exitCode).toBe(1);
-	expect(invalidJson.stderr).toContain(`${file}: Expected property name or '}' in JSON`);
 });
