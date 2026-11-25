@@ -335,12 +335,17 @@ export abstract class Adapter {
 
 	async generateTypes(): Promise<URL> {
 		const output = new URL("prismicio-types.d.ts", await findProjectRoot());
-		const { customTypes, slices } = await this.getModels();
-		let types: string;
-		try {
-			types = generateTypes({
-				customTypeModels: customTypes.map((model) => ({ ...model, label: model.label ?? null })),
-				sharedSliceModels: slices,
+		const [customTypes, slices] = await Promise.all([this.getCustomTypes(), this.getSlices()]);
+		const generate = (
+			customTypeModels: DynamicCustomTypeModel[],
+			sharedSliceModels: SharedSliceModel[],
+		) =>
+			generateTypes({
+				customTypeModels: customTypeModels.map((model) => ({
+					...model,
+					label: model.label ?? null,
+				})),
+				sharedSliceModels,
 				clientIntegration: {
 					includeContentNamespace: true,
 					includeCreateClientInterface: true,
@@ -348,9 +353,28 @@ export abstract class Adapter {
 				cache: true,
 				typesProvider: "@prismicio/client",
 			});
+		let types: string;
+		try {
+			types = generate(
+				customTypes.map(({ model }) => model),
+				slices.map(({ model }) => model),
+			);
 		} catch (error) {
 			// Name the invalid model that broke type generation.
-			await this.getModels({ validate: true });
+			for (const customType of customTypes) {
+				try {
+					generate([customType.model], []);
+				} catch {
+					validateModel(customType, DynamicCustomTypeModelSchema);
+				}
+			}
+			for (const slice of slices) {
+				try {
+					generate([], [slice.model]);
+				} catch {
+					validateModel(slice, SharedSliceModelSchema);
+				}
+			}
 			throw error;
 		}
 		await writeFileRecursive(output, types);

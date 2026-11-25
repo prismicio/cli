@@ -70,11 +70,16 @@ it("names a local model file that types cannot be generated from", async ({
 	await mkdir(new URL(".", slicePath), { recursive: true });
 	await writeFile(slicePath, JSON.stringify(slice));
 	const file = ["slices", slice.name, "model.json"].join(sep);
+	const otherSlice = buildSlice({ id: "a_slice" });
+	const otherPath = new URL(`slices/${otherSlice.name}/model.json`, project);
+	await mkdir(new URL(".", otherPath), { recursive: true });
+	await writeFile(otherPath, JSON.stringify({ ...otherSlice, description: 1 }));
 
 	const { stderr, exitCode } = await prismic("gen", ["types"]);
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain(
 		`${file}:\n✖ Invalid input: expected array, received undefined\n→ at variations`,
 	);
+	expect(stderr).not.toContain(otherSlice.name);
 	expect(stderr).not.toContain("reached a bug");
 });
