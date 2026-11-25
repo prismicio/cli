@@ -16,7 +16,7 @@ import {
 	getGuest,
 	getHost,
 	getToken,
-	printSavedGuest,
+	printParkedGuest,
 } from "./auth";
 import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
@@ -250,7 +250,7 @@ async function main(): Promise<void> {
 		return;
 	}
 	// whoami and status show the one in use in their own output.
-	await printSavedGuest().catch(() => {});
+	await printParkedGuest().catch(() => {});
 }
 
 async function initSentry(options: {

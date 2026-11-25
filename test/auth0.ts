@@ -13,6 +13,7 @@ type FakeAuth0Response = { status: number; body?: unknown; delayMs?: number };
 export type FakeAuth0 = {
 	auth0Domain: string;
 	clientId: string;
+	guestClientId: string;
 	requestsTo: (path: string) => Record<string, string>[];
 	userAgentsTo: (path: string) => (string | undefined)[];
 	/** Approves the latest code. `expiresIn` sets the token's lifetime in seconds. */
@@ -21,7 +22,7 @@ export type FakeAuth0 = {
 	expire: () => void;
 	respondOnce: (path: string, response: FakeAuth0Response) => void;
 	/** A refresh token the server accepts, for a login a test saves itself. */
-	issueRefreshToken: () => string;
+	issueRefreshToken: (client?: string) => string;
 	close: () => Promise<void>;
 };
 
@@ -175,6 +176,7 @@ export async function createFakeAuth0(options: { accessToken: string }): Promise
 	return {
 		auth0Domain,
 		clientId,
+		guestClientId,
 		requestsTo: (path) =>
 			requests.filter((request) => request.path === path).map((request) => request.params),
 		userAgentsTo: (path) =>

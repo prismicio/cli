@@ -234,15 +234,12 @@ it("says a temporary account that was set aside was deleted, and forgets it", as
 	expect,
 	prismic,
 	login,
-	auth0,
 }) => {
 	const { email } = await login({
-		savedGuest: {
+		parkedGuest: {
 			claimUrl: "https://example.com/claim",
 			disablesAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
 			deletesAt: Date.now() - 60_000,
-			clientId: auth0.clientId,
-			refreshToken: auth0.issueRefreshToken(),
 		},
 	});
 	const { stdout, stderr, exitCode } = await prismic("whoami");
@@ -258,15 +255,12 @@ it("shows the claim link of a temporary account that was set aside", async ({
 	expect,
 	prismic,
 	login,
-	auth0,
 }) => {
 	const { email } = await login({
-		savedGuest: {
+		parkedGuest: {
 			claimUrl: "https://example.com/claim",
 			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
-			clientId: auth0.clientId,
-			refreshToken: auth0.issueRefreshToken(),
 		},
 	});
 	const { stdout, stderr, exitCode } = await prismic("whoami");

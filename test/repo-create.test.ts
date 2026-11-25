@@ -188,12 +188,10 @@ it("asks to log in again when the login expired, even with a temporary account s
 	await login({
 		refreshToken: "ended",
 		expiresAt: Date.now() - 1000,
-		savedGuest: {
+		parkedGuest: {
 			claimUrl: "https://example.com/claim",
 			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
 			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
-			clientId: "guest",
-			refreshToken: "guest",
 		},
 	});
 	const proc = prismic("repo", ["create"], { nodeOptions: { env: { CI: "" } } });

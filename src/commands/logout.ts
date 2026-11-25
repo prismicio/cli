@@ -1,4 +1,4 @@
-import { checkGuest, formatGuest, setGuestAside } from "../auth";
+import { checkGuest, formatGuest, parkGuest } from "../auth";
 import {
 	clearCredentials,
 	CredentialsError,
@@ -28,7 +28,7 @@ export default createCommand(config, async () => {
 			({ login } = await readCredentials());
 			const session = login?.session;
 			// A temporary account keeps its token, so the CLI can pick it up again.
-			if (session?.refreshToken && !session.guest) {
+			if (session?.refreshToken && session.guest?.clientId !== session.clientId) {
 				await revokeRefreshToken(session.refreshToken, session);
 				revoked = true;
 			}
@@ -38,16 +38,15 @@ export default createCommand(config, async () => {
 				`Couldn't revoke your session because ${getProblem(error)}. It stays valid until it expires.`,
 			);
 		}
-		const savedGuest = login && setGuestAside(login.session);
-		if (login && savedGuest) {
-			// Its client ID tells `init` and `repo create` to pick it up again.
-			const { host, auth0Domain } = login.session;
-			const { clientId } = savedGuest;
+		const guest = login && parkGuest(login.session);
+		if (login && guest) {
+			// With no client ID, `init` and `repo create` pick it up again.
+			const { host, auth0Domain, clientId } = login.session;
 			await writeCredentials(lock, {
 				...login,
-				session: { host, auth0Domain, clientId, savedGuest },
+				session: { host, auth0Domain, clientId: "", guest },
 			});
-			kept = login.session.guest;
+			if (guest.clientId === clientId) kept = guest;
 		} else {
 			await clearCredentials(lock);
 		}
