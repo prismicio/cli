@@ -9,7 +9,7 @@ import { getDirtyPaths, getGitRoot } from "../lib/git";
 import { deleteSliceScreenshots, getDocumentTotalByCustomType } from "../lib/prismic/client";
 import { diffModels, getRemoteModels, writeRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
-import { ForbiddenRequestError } from "../lib/request";
+import { BadRequestError, ForbiddenRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
 
@@ -123,6 +123,7 @@ export default createCommand(config, async ({ values }) => {
 	try {
 		await writeRemoteModels(diff, { repo, getToken, host, onUnauthorized });
 	} catch (error) {
+		if (error instanceof BadRequestError) throw explainRejectedModels(error);
 		throw await explainExistingDocuments(error, diff.customTypes.delete, {
 			repo,
 			getToken,
@@ -165,6 +166,30 @@ export default createCommand(config, async ({ values }) => {
 		if (totalDeletes > 0) console.info(`Deleted ${totalDeletes} model(s).`);
 	}
 });
+
+const RejectedModelSchema = z.object({ id: z.string(), error: z.string() });
+const RejectedModelsErrorSchema = z.object({
+	message: z.string(),
+	details: z.optional(
+		z.object({
+			customTypes: z.optional(z.array(RejectedModelSchema)),
+			slices: z.optional(z.array(RejectedModelSchema)),
+		}),
+	),
+});
+
+function explainRejectedModels(error: BadRequestError): Error {
+	const result = z.safeParse(RejectedModelsErrorSchema, error.body);
+	if (!result.success) return error;
+	const { message, details } = result.data;
+	const lines = [
+		...(details?.customTypes ?? []).map(({ id, error }) => `Type "${id}": ${error}`),
+		...(details?.slices ?? []).map(({ id, error }) => `Slice "${id}": ${error}`),
+	];
+	return new CommandError(
+		[message, ...lines].map((line) => line.replace(/\s+/g, " ").trim()).join("\n"),
+	);
+}
 
 const ExistingDocumentsErrorSchema = z.object({ hasExistingDocuments: z.literal(true) });
 

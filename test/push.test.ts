@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 
+import type { DynamicWidgetModel } from "@prismicio/types-internal";
 import { describe } from "vitest";
 
 import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
@@ -179,6 +180,26 @@ describe("with an isolated repository", () => {
 
 		const remote = await getCustomTypes({ repo, token, host });
 		expect(remote.map((t) => t.id)).toContain(customType.id);
+	});
+
+	it("shows Prismic's error when it rejects a local model", async ({
+		expect,
+		project,
+		prismic,
+		repo,
+	}) => {
+		const pull = await prismic("pull", ["--repo", repo, "--force"]);
+		expect(pull.exitCode, pull.stderr).toBe(0);
+
+		const customType = buildCustomType();
+		customType.json.Main.title = { type: "Txt" } as unknown as DynamicWidgetModel;
+		await writeLocalCustomType(project, customType);
+
+		const { stderr, exitCode } = await prismic("push", ["--repo", repo, "--force"]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain(`Type "${customType.id}"`);
+		expect(stderr).toContain("/json/Main/title/type");
+		expect(stderr).not.toContain("unexpected error");
 	});
 
 	it("explains that a custom type with documents cannot be deleted", async ({

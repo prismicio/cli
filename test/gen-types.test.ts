@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { sep } from "node:path";
 
 import { buildCustomType, buildSlice, it } from "./it";
 
@@ -34,4 +35,22 @@ it("generates types with no models", async ({ expect, project, prismic }) => {
 	expect(stdout).toContain("Generated types");
 
 	await expect(project).toHaveFile("prismicio-types.d.ts");
+});
+
+it("names a local model file that is invalid", async ({ expect, project, prismic }) => {
+	const { variations: _, ...slice } = buildSlice();
+	const slicePath = new URL(`slices/${slice.name}/model.json`, project);
+	await mkdir(new URL(".", slicePath), { recursive: true });
+	await writeFile(slicePath, JSON.stringify(slice));
+	const file = ["slices", slice.name, "model.json"].join(sep);
+
+	const { stderr, exitCode } = await prismic("gen", ["types"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`${file}: variations must be an array`);
+	expect(stderr).not.toContain("reached a bug");
+
+	await writeFile(slicePath, "{");
+	const invalidJson = await prismic("gen", ["types"]);
+	expect(invalidJson.exitCode).toBe(1);
+	expect(invalidJson.stderr).toContain(`${file} is not valid JSON.`);
 });

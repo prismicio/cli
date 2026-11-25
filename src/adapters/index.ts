@@ -1,11 +1,12 @@
 import { readFile, rm } from "node:fs/promises";
-import { sep } from "node:path";
+import { relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
 import { pascalCase } from "change-case";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
+import * as z from "zod/mini";
 
 import { getHost, getToken } from "../auth";
 import { CommandError } from "../lib/command";
@@ -180,7 +181,7 @@ export abstract class Adapter {
 	}
 
 	async getSlices(): Promise<ModelMeta<SharedSliceModel>[]> {
-		return readModels(await this.getSliceLibraries(), "*/model.json");
+		return readModels(await this.getSliceLibraries(), "*/model.json", SliceFileSchema);
 	}
 
 	async getSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
@@ -226,7 +227,7 @@ export abstract class Adapter {
 	}
 
 	async getCustomTypes(): Promise<ModelMeta<DynamicCustomTypeModel>[]> {
-		return readModels(await this.getCustomTypeLibraries(), "*/index.json");
+		return readModels(await this.getCustomTypeLibraries(), "*/index.json", CustomTypeFileSchema);
 	}
 
 	async getCustomType(id: string): Promise<ModelMeta<DynamicCustomTypeModel>> {
@@ -341,9 +342,19 @@ async function getEnvLocalPath(): Promise<URL> {
 	return new URL(".env.local", await findProjectRoot());
 }
 
+const SliceFileSchema = z.looseObject({
+	id: z.string({ error: "id must be a string" }),
+	variations: z.array(z.unknown(), { error: "variations must be an array" }),
+});
+const CustomTypeFileSchema = z.looseObject({
+	id: z.string({ error: "id must be a string" }),
+	json: z.record(z.string(), z.unknown(), { error: "json must be an object" }),
+});
+
 async function readModels<T extends { id: string }>(
 	libraries: URL[],
 	pattern: string,
+	schema: z.ZodMiniType,
 ): Promise<ModelMeta<T>[]> {
 	const models: ModelMeta<T>[] = [];
 	for (const library of libraries) {
@@ -351,7 +362,15 @@ async function readModels<T extends { id: string }>(
 		const libraryModels = await Promise.all(
 			paths.map(async (path) => {
 				const modelPath = pathToFileURL(path);
-				const model = await readJsonFile<T>(modelPath);
+				const model = await readJsonFile<T>(modelPath).catch((error: Error) => {
+					throw new CommandError(error.message);
+				});
+				const result = z.safeParse(schema, model);
+				if (!result.success) {
+					throw new CommandError(
+						`${relative(process.cwd(), path)}: ${result.error.issues[0].message}`,
+					);
+				}
 				return { library, directory: new URL(".", modelPath), modelPath, model };
 			}),
 		);
