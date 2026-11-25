@@ -3,7 +3,7 @@ import { snakeCase } from "change-case";
 
 import { getAdapter } from "../adapters";
 import { createCommand, type CommandConfig } from "../lib/command";
-import { getSliceZoneChoices } from "../slices";
+import { connectSlices } from "../slices";
 
 const config = {
 	name: "prismic slice create",
@@ -54,13 +54,10 @@ export default createCommand(config, async ({ positionals, values }) => {
 
 	const adapter = await getAdapter();
 	const customType = to ? (await adapter.getCustomType(to)).model : undefined;
-	const choices = customType ? getSliceZoneChoices(customType, sliceZone) : undefined;
+	if (customType) connectSlices(customType, sliceZone, [id]);
 
 	await adapter.createSlice(model);
-	if (customType && choices) {
-		choices[id] = { type: "SharedSlice" };
-		await adapter.updateCustomType(customType);
-	}
+	if (customType) await adapter.updateCustomType(customType);
 	await adapter.generateTypes();
 
 	console.info(`Created slice "${name}" (id: "${id}")`);

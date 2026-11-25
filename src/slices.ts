@@ -1,15 +1,12 @@
-import type {
-	DynamicCustomTypeModel,
-	DynamicSlicesModel,
-	DynamicWidgetModel,
-} from "@prismicio/types-internal";
+import type { DynamicCustomTypeModel, DynamicWidgetModel } from "@prismicio/types-internal";
 
 import { CommandError } from "./lib/command";
 
-export function getSliceZoneChoices(
+export function connectSlices(
 	customType: DynamicCustomTypeModel,
 	sliceZone: string,
-): NonNullable<NonNullable<DynamicSlicesModel["config"]>["choices"]> {
+	ids: Iterable<string>,
+): void {
 	const allFields: Record<string, DynamicWidgetModel> = Object.assign(
 		{},
 		...Object.values(customType.json),
@@ -30,5 +27,14 @@ export function getSliceZoneChoices(
 	}
 
 	sliceZoneField.config ??= {};
-	return (sliceZoneField.config.choices ??= {});
+	sliceZoneField.config.choices ??= {};
+
+	for (const id of ids) {
+		if (id in sliceZoneField.config.choices) {
+			throw new CommandError(
+				`Slice "${id}" is already connected to "${customType.id}" in slice zone "${sliceZone}".`,
+			);
+		}
+		sliceZoneField.config.choices[id] = { type: "SharedSlice" };
+	}
 }

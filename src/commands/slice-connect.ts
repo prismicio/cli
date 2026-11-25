@@ -1,6 +1,6 @@
 import { getAdapter } from "../adapters";
-import { CommandError, createCommand, type CommandConfig } from "../lib/command";
-import { getSliceZoneChoices } from "../slices";
+import { createCommand, type CommandConfig } from "../lib/command";
+import { connectSlices } from "../slices";
 
 const config = {
 	name: "prismic slice connect",
@@ -38,18 +38,9 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const { to, "slice-zone": sliceZone = "slices" } = values;
 
 	const adapter = await getAdapter();
+	for (const id of ids) await adapter.getSlice(id);
 	const { model: customType } = await adapter.getCustomType(to);
-	const choices = getSliceZoneChoices(customType, sliceZone);
-
-	for (const id of ids) {
-		const { model: slice } = await adapter.getSlice(id);
-		if (slice.id in choices) {
-			throw new CommandError(
-				`Slice "${slice.id}" is already connected to "${to}" in slice zone "${sliceZone}".`,
-			);
-		}
-		choices[slice.id] = { type: "SharedSlice" };
-	}
+	connectSlices(customType, sliceZone, ids);
 
 	await adapter.updateCustomType(customType);
 	await adapter.generateTypes();

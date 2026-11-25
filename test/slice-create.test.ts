@@ -149,3 +149,22 @@ it("creates no slice when --to has no slice zone", async ({ expect, prismic, pro
 	expect(stderr).toContain(`"${customType.id}" has no slice zone.`);
 	expect(await readLocalSlice(project, snakeCase(name))).toBeUndefined();
 });
+
+it("creates no slice when --to already has its id", async ({ expect, prismic, project }) => {
+	const { name } = buildSlice();
+	const id = snakeCase(name);
+	const legacy = { type: "Slice" as const, fieldset: "Legacy", "non-repeat": {}, repeat: {} };
+	const customType = buildCustomType({
+		format: "page",
+		json: { Main: { slices: { type: "Slices", config: { choices: { [id]: legacy } } } } },
+	});
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("slice", ["create", name, "--to", customType.id]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`Slice "${id}" is already connected to "${customType.id}"`);
+	expect(await readLocalSlice(project, id)).toBeUndefined();
+
+	const updated = await readLocalCustomType(project, customType.id);
+	expect((updated.json.Main.slices as DynamicSlicesModel).config!.choices![id]).toEqual(legacy);
+});
