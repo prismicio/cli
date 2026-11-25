@@ -46,15 +46,11 @@ it("names a local model file that is invalid", async ({ expect, project, prismic
 
 	const { stderr, exitCode } = await prismic("gen", ["types"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain(
-		`${file} is not a valid slice model: "variations" must be a list. Fix the file, or restore it with git.`,
-	);
+	expect(stderr).toContain(`${file}:\n✖ Invalid input\n→ at variations`);
 	expect(stderr).not.toContain("reached a bug");
 
 	await writeFile(slicePath, "{");
 	const invalidJson = await prismic("gen", ["types"]);
 	expect(invalidJson.exitCode).toBe(1);
-	expect(invalidJson.stderr).toContain(
-		`${file} is not valid JSON at line 1, column 2. Fix the file, or restore it with git.`,
-	);
+	expect(invalidJson.stderr).toContain(`${file}: Expected property name or '}' in JSON`);
 });

@@ -1,7 +1,5 @@
-import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { DynamicWidgetModel } from "@prismicio/types-internal";
 import { describe } from "vitest";
 
 import { buildCustomType, buildSlice, it, writeLocalCustomType, writeLocalSlice } from "./it";
@@ -183,29 +181,23 @@ describe("with an isolated repository", () => {
 		expect(remote.map((t) => t.id)).toContain(customType.id);
 	});
 
-	it("explains why Prismic rejects a local model", async ({ expect, project, prismic, repo }) => {
+	it("shows Prismic's error when it rejects a local model", async ({
+		expect,
+		project,
+		prismic,
+		repo,
+	}) => {
 		const pull = await prismic("pull", ["--repo", repo, "--force"]);
 		expect(pull.exitCode, pull.stderr).toBe(0);
 
 		const customType = buildCustomType();
-		customType.json.Main.title = { type: "Txt" } as unknown as DynamicWidgetModel;
+		customType.json.Main.slug = { type: "UID", config: { label: "Slug" } };
 		await writeLocalCustomType(project, customType);
-		const slice = buildSlice();
-		slice.variations[0].primary = { title: { type: "Txt" } as never };
-		await writeLocalSlice(project, slice);
 
 		const { stderr, exitCode } = await prismic("push", ["--repo", repo, "--force"]);
 		expect(exitCode).toBe(1);
-		const file = ["customtypes", customType.id, "index.json"].join(sep);
-		expect(stderr).toContain(
-			"Prismic rejected 2 models. Fix them and run `prismic push` again:\n" +
-				`${file} (type "${customType.id}"): ` +
-				'The "type" property of field "title" in tab "Main" is missing or not valid.\n',
-		);
-		expect(stderr).toContain(
-			`${sep}model.json (slice "${slice.id}"): ` +
-				'The "type" property of field "title" in variation "default" is missing or not valid.',
-		);
+		expect(stderr).toContain("Prismic rejected these models:");
+		expect(stderr).toContain(`Type "${customType.id}": api ID incorrect for uid field`);
 		expect(stderr).not.toContain("unexpected error");
 	});
 

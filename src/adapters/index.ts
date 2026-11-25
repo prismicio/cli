@@ -3,6 +3,10 @@ import { relative, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
+import {
+	DynamicCustomTypeModelSchema,
+	SharedSliceModelSchema,
+} from "@prismicio/types-internal/zod4";
 import { pascalCase } from "change-case";
 import { generateTypes } from "prismic-ts-codegen";
 import { glob } from "tinyglobby";
@@ -181,7 +185,7 @@ export abstract class Adapter {
 	}
 
 	async getSlices(): Promise<ModelMeta<SharedSliceModel>[]> {
-		return readModels(await this.getSliceLibraries(), "*/model.json", SliceFileSchema, "slice");
+		return readModels(await this.getSliceLibraries(), "*/model.json", SharedSliceModelSchema);
 	}
 
 	async getSlice(id: string): Promise<ModelMeta<SharedSliceModel>> {
@@ -230,8 +234,7 @@ export abstract class Adapter {
 		return readModels(
 			await this.getCustomTypeLibraries(),
 			"*/index.json",
-			CustomTypeFileSchema,
-			"type",
+			DynamicCustomTypeModelSchema,
 		);
 	}
 
@@ -347,28 +350,10 @@ async function getEnvLocalPath(): Promise<URL> {
 	return new URL(".env.local", await findProjectRoot());
 }
 
-const SliceFileSchema = z.looseObject(
-	{
-		id: z.string({ error: '"id" must be a string' }),
-		variations: z.array(z.unknown(), { error: '"variations" must be a list' }),
-	},
-	{ error: "the file must contain a JSON object" },
-);
-const CustomTypeFileSchema = z.looseObject(
-	{
-		id: z.string({ error: '"id" must be a string' }),
-		json: z.record(z.string(), z.unknown(), { error: '"json" must be an object' }),
-	},
-	{ error: "the file must contain a JSON object" },
-);
-
-const FIX_MODEL_FILE = "Fix the file, or restore it with git.";
-
 async function readModels<T extends { id: string }>(
 	libraries: URL[],
 	pattern: string,
 	schema: z.ZodMiniType,
-	kind: "slice" | "type",
 ): Promise<ModelMeta<T>[]> {
 	const models: ModelMeta<T>[] = [];
 	for (const library of libraries) {
@@ -378,15 +363,12 @@ async function readModels<T extends { id: string }>(
 				const modelPath = pathToFileURL(path);
 				const model = await readJsonFile<T>(modelPath).catch((error) => {
 					if (!(error instanceof SyntaxError)) throw error;
-					throw new CommandError(`${error.message} ${FIX_MODEL_FILE}`, { cause: error });
+					throw new CommandError(error.message, { cause: error });
 				});
 				const result = z.safeParse(schema, model);
 				if (!result.success) {
-					const file = relative(process.cwd(), path);
-					const problem = result.error.issues[0].message;
-					throw new CommandError(
-						`${file} is not a valid ${kind} model: ${problem}. ${FIX_MODEL_FILE}`,
-					);
+					const problems = z.prettifyError(result.error);
+					throw new CommandError(`${relative(process.cwd(), path)}:\n${problems}`);
 				}
 				return { library, directory: new URL(".", modelPath), modelPath, model };
 			}),
