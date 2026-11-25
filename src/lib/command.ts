@@ -111,7 +111,7 @@ export function createCommand<T extends CommandConfig>(
 		const extra = result.positionals.slice(names.length);
 		if (extra.length > 0) {
 			throw usageError(
-				`Unexpected argument${extra.length > 1 ? "s" : ""}: ${extra.map((arg) => `"${arg}"`).join(" ")}`,
+				`Unexpected argument${extra.length > 1 ? "s" : ""}: ${extra.map((arg) => JSON.stringify(arg)).join(" ")}`,
 			);
 		}
 
