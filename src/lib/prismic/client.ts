@@ -53,7 +53,7 @@ export async function createGuest(config: {
 		// The caller holds the credentials lock, which other commands wait on.
 		signal: AbortSignal.timeout(10_000),
 		schema: GuestSchema,
-		unknownErrorMessage: "Failed to start a temporary account",
+		unknownErrorMessage: "Failed to start a guest account",
 	});
 }
 

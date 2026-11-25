@@ -201,7 +201,7 @@ it("revokes the previous session after a new login", async ({ expect, prismic, l
 	expect(revokes.map((params) => params.token)).toEqual([refreshToken]);
 });
 
-it("sets a temporary account aside, and shows its claim link", async ({
+it("sets a guest account aside, and shows its claim link", async ({
 	expect,
 	prismic,
 	login,
@@ -220,11 +220,11 @@ it("sets a temporary account aside, and shows its claim link", async ({
 	expect((await proc).exitCode, output()).toBe(0);
 	expect(output()).toContain("Logged in to Prismic as");
 	expect(output()).toMatch(
-		/You also have a pending temporary account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
+		/You also have a pending guest account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
 	);
 });
 
-it("logs in once the temporary account was claimed", async ({ expect, prismic, login, auth0 }) => {
+it("logs in once the guest account was claimed", async ({ expect, prismic, login, auth0 }) => {
 	await login({
 		expiresAt: Date.now() - 1000,
 		refreshToken: "deleted-by-claim",
@@ -239,7 +239,7 @@ it("logs in once the temporary account was claimed", async ({ expect, prismic, l
 	await approveLogin(expect, output, auth0);
 	expect((await proc).exitCode, output()).toBe(0);
 	expect(output()).toContain("Logged in to Prismic as");
-	expect(output()).not.toContain("temporary account");
+	expect(output()).not.toContain("guest account");
 });
 
 function getUserCode(output: string): string | undefined {

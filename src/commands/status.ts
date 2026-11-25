@@ -43,7 +43,7 @@ export default createCommand(config, async ({ values }) => {
 	const host = await getHost();
 	const guest = await getGuest();
 	if (guest) await checkGuest();
-	// A disabled temporary account still shows the local changes.
+	// A disabled guest account still shows the local changes.
 	const token = guest && guest.disablesAt <= Date.now() ? undefined : await getToken();
 	const projectRoot = await findProjectRoot();
 

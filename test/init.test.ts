@@ -265,7 +265,7 @@ it("logs in when not logged in, even on CI", async ({
 	expect(JSON.parse(configRaw).repositoryName).toBe(repo);
 }, 60_000);
 
-it("starts a temporary account when not logged in", async ({
+it("starts a guest account when not logged in", async ({
 	expect,
 	project,
 	prismic,
@@ -285,11 +285,11 @@ it("starts a temporary account when not logged in", async ({
 	if (name) onTestFinished(() => deleteRepository(name, { token, password, host }));
 	expect(exitCode, stderr).toBe(0);
 	expect(stderr).toMatch(
-		/Temporary account, disabled in .+ \(.+Z\)\. Claim it to keep your work: http/,
+		/Guest account, disabled in .+ \(.+Z\)\. Claim it to keep your work: http/,
 	);
 }, 60_000);
 
-it("says the temporary account was claimed while its token still works", async ({
+it("says the guest account was claimed while its token still works", async ({
 	expect,
 	project,
 	prismic,
@@ -311,9 +311,9 @@ it("says the temporary account was claimed while its token still works", async (
 	});
 	expect(exitCode).toBe(1);
 	expect(stderr).toContain(
-		"Your temporary account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
+		"Your guest account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
 	);
-	expect(stderr).not.toContain("Temporary account");
+	expect(stderr).not.toContain("Guest account");
 	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });
 

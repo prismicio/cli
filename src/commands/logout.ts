@@ -18,7 +18,7 @@ const config = {
 } satisfies CommandConfig;
 
 export default createCommand(config, async () => {
-	// A claimed temporary account isn't worth keeping.
+	// A claimed guest account isn't worth keeping.
 	await checkGuest().catch(() => {});
 	let kept: Session["guest"];
 	let revoked = false;
@@ -27,7 +27,7 @@ export default createCommand(config, async () => {
 		try {
 			({ login } = await readCredentials());
 			const session = login?.session;
-			// A temporary account keeps its token, so the CLI can pick it up again.
+			// A guest account keeps its token, so the CLI can pick it up again.
 			if (session?.refreshToken && session.guest?.clientId !== session.clientId) {
 				await revokeRefreshToken(session.refreshToken, session);
 				revoked = true;
@@ -53,7 +53,7 @@ export default createCommand(config, async () => {
 		await forgetTrackedUser();
 	});
 	recordLogout({ revoked });
-	if (kept) console.warn(formatGuest(kept, "Your temporary account stays on this machine"));
+	if (kept) console.warn(formatGuest(kept, "Your guest account stays on this machine"));
 	if (env.PRISMIC_TOKEN) console.warn("PRISMIC_TOKEN is still set, so commands still use it.");
 	console.info("Logged out of Prismic");
 });

@@ -16,7 +16,7 @@ const config = {
 		be chosen or changed. --name sets only the display name, which
 		\`prismic repo set-name\` can change later.
 
-		When not logged in, the repository is created in a temporary account, so
+		When not logged in, the repository is created in a guest account, so
 		you can try Prismic before signing up. The account is disabled after a couple
 		of days and deleted two weeks later. To keep the repository, claim the
 		account with the link this command prints.

@@ -56,7 +56,7 @@ const config = {
 		used another one before. If a prismic.config.json exists, init requires
 		--repo.
 
-		When not logged in, init creates the repository in a temporary account, so
+		When not logged in, init creates the repository in a guest account, so
 		you can try Prismic before signing up. The account is disabled after a couple
 		of days and deleted two weeks later. To keep your work, claim it with
 		the link init prints.
@@ -67,7 +67,7 @@ const config = {
 		Do not ask the user whether to create a new repository or connect an
 		existing one. Use --repo only for a repository the user names, and run init.
 
-		If init sets up a temporary account, tell the user right away. Pass on the
+		If init sets up a guest account, tell the user right away. Pass on the
 		claim link and when the account gets disabled, so they don't lose their work.
 		They can open the repository without signing up if you run
 		\`prismic repo view --web\`. If they would rather use their own Prismic

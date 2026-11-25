@@ -126,7 +126,7 @@ it("sets the master locale with --lang", async ({
 	expect(master?.id).toBe("fr-fr");
 });
 
-it("starts a temporary account when not logged in, and picks it up again after a logout", async ({
+it("starts a guest account when not logged in, and picks it up again after a logout", async ({
 	expect,
 	prismic,
 	logout,
@@ -148,7 +148,7 @@ it("starts a temporary account when not logged in, and picks it up again after a
 		onTestFinished(() => deleteRepository(domain!, { token, password, host }));
 		claimLinks.push(
 			stderr.match(
-				/Temporary account, disabled in [\d,]+ days \(2099-01-01T02:00Z\)\. Claim it to keep your work: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
+				/Guest account, disabled in [\d,]+ days \(2099-01-01T02:00Z\)\. Claim it to keep your work: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
 			)?.[1],
 		);
 		await prismic("logout");
@@ -157,7 +157,7 @@ it("starts a temporary account when not logged in, and picks it up again after a
 	expect(claimLinks[1]).toBe(claimLinks[0]);
 });
 
-it("doesn't start a new temporary account to get around a disabled one", async ({
+it("doesn't start a new guest account to get around a disabled one", async ({
 	expect,
 	prismic,
 	login,
@@ -175,11 +175,11 @@ it("doesn't start a new temporary account to get around a disabled one", async (
 	});
 	expect(exitCode).toBe(1);
 	expect(stderr.trim()).toMatch(
-		/^Your temporary account is disabled and will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to carry on: https:\/\/example\.com\/claim$/,
+		/^Your guest account is disabled and will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to carry on: https:\/\/example\.com\/claim$/,
 	);
 });
 
-it("asks to log in again when the login expired, even with a temporary account set aside", async ({
+it("asks to log in again when the login expired, even with a guest account set aside", async ({
 	expect,
 	prismic,
 	login,
@@ -199,21 +199,21 @@ it("asks to log in again when the login expired, even with a temporary account s
 	await waitForLoginPrompt(expect, output);
 	expect(output()).toContain("Your login expired.");
 	expect(output()).toMatch(
-		/You also have a pending temporary account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
+		/You also have a pending guest account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
 	);
 });
 
-it("doesn't start a temporary account on CI", async ({ expect, prismic, logout }) => {
+it("doesn't start a guest account on CI", async ({ expect, prismic, logout }) => {
 	await logout();
 	const { stderr, exitCode } = await prismic("repo", ["create"], {
 		nodeOptions: { env: { CI: "true" } },
 	});
 	expect(exitCode).toBe(1);
-	expect(stderr).not.toContain("Temporary account");
+	expect(stderr).not.toContain("Guest account");
 	expect(stderr).toContain("Not logged in. Run `prismic login` first.");
 });
 
-it("logs in when Prismic can't start a temporary account", async ({
+it("logs in when Prismic can't start a guest account", async ({
 	expect,
 	prismic,
 	logout,
@@ -225,7 +225,7 @@ it("logs in when Prismic can't start a temporary account", async ({
 		const proc = prismic("repo", ["create"], { nodeOptions: { env: { CI: "" } } });
 		const output = captureOutput(proc);
 		await waitForLoginPrompt(expect, output);
-		expect(output()).toContain("Couldn't start a temporary account.");
+		expect(output()).toContain("Couldn't start a guest account.");
 		proc.kill();
 	}
 });

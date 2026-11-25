@@ -82,9 +82,9 @@ type StartedLogin =
 	| { status: "logged-out" };
 
 const GUEST_CLAIMED =
-	"Your temporary account has been claimed. Run `prismic login` to carry on with the account that claimed it.";
+	"Your guest account has been claimed. Run `prismic login` to carry on with the account that claimed it.";
 const GUEST_DELETED =
-	"Your temporary account has been deleted, along with its repositories. Run `prismic login` to start again.";
+	"Your guest account has been deleted, along with its repositories. Run `prismic login` to start again.";
 
 let renewal: Promise<string | undefined> | undefined;
 let ended = false;
@@ -99,7 +99,7 @@ export async function getToken(): Promise<string | undefined> {
 	const guest = await getGuest();
 	if (guest && guest.disablesAt <= Date.now()) {
 		throw new CommandError(
-			`Your temporary account is disabled and will be deleted ${formatTime(guest.deletesAt)}. Claim it to carry on: ${guest.claimUrl}`,
+			`Your guest account is disabled and will be deleted ${formatTime(guest.deletesAt)}. Claim it to carry on: ${guest.claimUrl}`,
 		);
 	}
 	return getSessionToken();
@@ -344,7 +344,7 @@ export async function printParkedGuest(): Promise<void> {
 		let guest: typeof parked | undefined;
 		if (parked.deletesAt <= Date.now()) {
 			console.error(
-				"You also had an unclaimed temporary account that was deleted, along with its repositories.",
+				"You also had an unclaimed guest account that was deleted, along with its repositories.",
 			);
 		} else {
 			try {
@@ -367,20 +367,20 @@ export async function printParkedGuest(): Promise<void> {
 		await writeCredentials(lock, { ...login, session: { ...login.session, guest } });
 		if (guest) {
 			console.error(
-				`You also have a pending temporary account that will be deleted ${formatTime(guest.deletesAt)}. Claim it to keep your work: ${guest.claimUrl}`,
+				`You also have a pending guest account that will be deleted ${formatTime(guest.deletesAt)}. Claim it to keep your work: ${guest.claimUrl}`,
 			);
 		}
 	});
 }
 
-// A logout or a login parks a temporary account instead of ending it. Auth0
+// A logout or a login parks a guest account instead of ending it. Auth0
 // may have rotated its token while it was in use.
 export function parkGuest(session: Session): Session["guest"] {
 	const { guest, clientId, refreshToken } = session;
 	return guest && refreshToken && guest.clientId === clientId ? { ...guest, refreshToken } : guest;
 }
 
-export function formatGuest(guest: Guest, lead = "Temporary account"): string {
+export function formatGuest(guest: Guest, lead = "Guest account"): string {
 	const state =
 		guest.disablesAt > Date.now()
 			? `disabled ${formatTime(guest.disablesAt)}`
@@ -409,7 +409,7 @@ async function startGuest(): Promise<string | undefined> {
 	await withCredentialsLock(async (lock) => {
 		const { login } = await readCredentials();
 		if (login) {
-			// A logout clears the client ID, so the temporary account it parked comes
+			// A logout clears the client ID, so the guest account it parked comes
 			// back, disabled or not, and nobody gets a new one to get around that. An
 			// expired login keeps its client ID, so that one asks to log in again.
 			const { guest, clientId, auth0Domain } = login.session;
@@ -427,7 +427,7 @@ async function startGuest(): Promise<string | undefined> {
 		try {
 			guest = await createGuest({ authenticationUrl: getAuthenticationApiUrl(host) });
 		} catch {
-			console.error("Couldn't start a temporary account.");
+			console.error("Couldn't start a guest account.");
 			return;
 		}
 		const store = await prepareLogin(lock);

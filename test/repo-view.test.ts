@@ -25,7 +25,7 @@ it("views repository details as JSON", async ({ expect, prismic, repo }) => {
 	);
 });
 
-it("opens a temporary account's repository with a link that logs in", async ({
+it("opens a guest account's repository with a link that logs in", async ({
 	expect,
 	prismic,
 	login,
@@ -46,7 +46,7 @@ it("opens a temporary account's repository with a link that logs in", async ({
 	expect(link.searchParams.get("redirect_uri")).toBe(`https://${repo}.${host}/`);
 });
 
-it("refuses to work on a disabled temporary account", async ({ expect, prismic, login }) => {
+it("refuses to work on a disabled guest account", async ({ expect, prismic, login }) => {
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
@@ -57,11 +57,11 @@ it("refuses to work on a disabled temporary account", async ({ expect, prismic, 
 	const { stderr, exitCode } = await prismic("repo", ["view"]);
 	expect(exitCode).toBe(1);
 	expect(stderr.trim()).toMatch(
-		/^Your temporary account is disabled and will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to carry on: https:\/\/example\.com\/claim$/,
+		/^Your guest account is disabled and will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to carry on: https:\/\/example\.com\/claim$/,
 	);
 });
 
-it("says a disabled temporary account was claimed, rather than to claim it", async ({
+it("says a disabled guest account was claimed, rather than to claim it", async ({
 	expect,
 	prismic,
 	login,
@@ -78,11 +78,11 @@ it("says a disabled temporary account was claimed, rather than to claim it", asy
 	const { stderr, exitCode } = await prismic("repo", ["view"]);
 	expect(exitCode).toBe(1);
 	expect(stderr.trim()).toBe(
-		"Your temporary account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
+		"Your guest account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
 	);
 });
 
-it("says the temporary account was claimed, and logs out", async ({ expect, prismic, login }) => {
+it("says the guest account was claimed, and logs out", async ({ expect, prismic, login }) => {
 	await login({
 		expiresAt: Date.now() - 1000,
 		refreshToken: "deleted-by-claim",
@@ -95,7 +95,7 @@ it("says the temporary account was claimed, and logs out", async ({ expect, pris
 	const { stderr, exitCode } = await prismic("repo", ["view"]);
 	expect(exitCode).toBe(1);
 	expect(stderr.trim()).toBe(
-		"Your temporary account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
+		"Your guest account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
 	);
 	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
 });

@@ -14,7 +14,7 @@ const config = {
 		By default, this command reads the repository from prismic.config.json at the
 		project root.
 
-		On a temporary account, --web logs you in before it opens the repository.
+		On a guest account, --web logs you in before it opens the repository.
 	`,
 	options: {
 		web: { type: "boolean", short: "w", description: "Open repository in browser" },

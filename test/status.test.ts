@@ -196,7 +196,7 @@ it("compares with remote using a Write API token", async ({
 	expect(stdout).toContain(`(Write API token for ${repo})`);
 });
 
-it("shows a temporary account with when it gets disabled and its claim link", async ({
+it("shows a guest account with when it gets disabled and its claim link", async ({
 	expect,
 	prismic,
 	login,
@@ -211,7 +211,7 @@ it("shows a temporary account with when it gets disabled and its claim link", as
 	const { stdout, stderr, exitCode } = await prismic("status");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toMatch(
-		/Authenticated as: Temporary account, disabled in 3 hours \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
+		/Authenticated as: Guest account, disabled in 3 hours \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
 	);
-	expect(stderr).not.toContain("Temporary account");
+	expect(stderr).not.toContain("Guest account");
 });

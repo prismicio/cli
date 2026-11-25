@@ -48,7 +48,7 @@ const SessionSchema = z.object({
 	// Can be for another host, because the current session stays until the new
 	// login saves.
 	pendingLogin: z.optional(z.extend(PendingLoginSchema, { host: z.string() })),
-	// A temporary account. The session is that account while their client IDs
+	// A guest account. The session is that account while their client IDs
 	// match. Otherwise, it waits next to the login.
 	guest: z.optional(z.extend(GuestSchema, { refreshToken: z.string() })),
 });

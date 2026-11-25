@@ -41,9 +41,9 @@ export type Fixtures = {
 		accessToken?: string;
 		refreshToken?: string;
 		expiresAt?: number;
-		/** Makes the login a temporary account's. */
+		/** Makes the login a guest account's. */
 		guest?: { claimUrl: string; disablesAt: number; deletesAt: number };
-		/** A temporary account kept next to the login. */
+		/** A guest account kept next to the login. */
 		parkedGuest?: { claimUrl: string; disablesAt: number; deletesAt: number };
 	}) => Promise<{ email: string }>;
 	logout: () => Promise<void>;
