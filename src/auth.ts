@@ -308,8 +308,8 @@ export async function checkGuest(): Promise<void> {
 }
 
 async function endGuestIfOver(): Promise<void> {
-	const { guest } = await readLoginSummary();
-	if (!guest) return;
+	const { guest, host } = await readLoginSummary();
+	if (!guest || host !== (await getHost())) return;
 	const deleted = guest.deletesAt <= Date.now();
 	if (!deleted) {
 		const token = await getSessionToken();
