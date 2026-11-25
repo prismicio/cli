@@ -68,7 +68,8 @@ const config = {
 		existing one. Use --repo only for a repository the user names, and run init.
 
 		If init sets up a temporary account, tell the user right away. Pass on the
-		claim link and when the account freezes, so they don't lose their work. They can open the repository without signing up if you run
+		claim link and when the account freezes, so they don't lose their work.
+		They can open the repository without signing up if you run
 		\`prismic repo view --web\`. If they would rather use their own Prismic
 		account, run \`prismic login\` before init.
 	`,
