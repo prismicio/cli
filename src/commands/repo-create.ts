@@ -17,8 +17,9 @@ const config = {
 		\`prismic repo set-name\` can change later.
 
 		When not logged in, the repository is created in a temporary account, so
-		you can try Prismic before signing up. To keep it, claim the account with
-		the link this command prints before the account is deleted.
+		you can try Prismic before signing up. The account freezes after a couple
+		of days and is deleted two weeks later. To keep the repository, claim the
+		account with the link this command prints.
 	`,
 	options: {
 		name: { type: "string", short: "n", description: "Display name for the repository" },
