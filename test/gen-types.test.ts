@@ -46,7 +46,9 @@ it("names a local model file that is invalid", async ({ expect, project, prismic
 
 	const { stderr, exitCode } = await prismic("gen", ["types"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain(`${file}:\n✖ Invalid input\n→ at variations`);
+	expect(stderr).toContain(
+		`${file}:\n✖ Invalid input: expected array, received undefined\n→ at variations`,
+	);
 	expect(stderr).not.toContain("reached a bug");
 
 	await writeFile(slicePath, "{");

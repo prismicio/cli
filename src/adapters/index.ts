@@ -365,7 +365,7 @@ async function readModels<T extends { id: string }>(
 					if (!(error instanceof SyntaxError)) throw error;
 					throw new CommandError(error.message, { cause: error });
 				});
-				const result = z.safeParse(schema, model);
+				const result = z.safeParse(schema, model, { error: z.locales.en().localeError });
 				if (!result.success) {
 					const problems = z.prettifyError(result.error);
 					throw new CommandError(`${relative(process.cwd(), path)}:\n${problems}`);
