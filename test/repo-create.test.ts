@@ -148,7 +148,7 @@ it("starts a temporary account when not logged in, and picks it up again after a
 		onTestFinished(() => deleteRepository(domain!, { token, password, host }));
 		claimLinks.push(
 			stderr.match(
-				/Temporary account, frozen in [\d,]+ days \(2099-01-01T02:00Z\), deleted in [\d,]+ days \(2099-01-15T02:00Z\)\. Claim it to keep your work: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
+				/Temporary account, disabled in [\d,]+ days\. Claim it to keep your work: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
 			)?.[1],
 		);
 		await prismic("logout");
@@ -157,7 +157,7 @@ it("starts a temporary account when not logged in, and picks it up again after a
 	expect(claimLinks[1]).toBe(claimLinks[0]);
 });
 
-it("doesn't start a new temporary account to get around a frozen one", async ({
+it("doesn't start a new temporary account to get around a disabled one", async ({
 	expect,
 	prismic,
 	login,
@@ -174,7 +174,7 @@ it("doesn't start a new temporary account to get around a frozen one", async ({
 		nodeOptions: { env: { CI: "" } },
 	});
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Your temporary account is frozen. Claim it to carry on.");
+	expect(stderr).toContain("Your temporary account is disabled. Claim it to carry on.");
 	expect(stderr).toContain("Claim it to keep your work: https://example.com/claim");
 });
 
@@ -199,8 +199,9 @@ it("asks to log in again when the login expired, even with a temporary account s
 	const output = captureOutput(proc);
 	await waitForLoginPrompt(expect, output);
 	expect(output()).toContain("Your login expired.");
-	expect(output()).toContain("You also have a temporary account, frozen in 3 hours");
-	expect(output()).toContain("Claim it to keep your work: https://example.com/claim");
+	expect(output()).toContain(
+		"You also have a pending temporary account that will be deleted in 14 days. Claim it to keep your work: https://example.com/claim",
+	);
 });
 
 it("doesn't start a temporary account on CI", async ({ expect, prismic, logout }) => {

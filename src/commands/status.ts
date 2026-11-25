@@ -42,7 +42,7 @@ export default createCommand(config, async ({ values }) => {
 
 	const host = await getHost();
 	const guest = await getGuest();
-	// A frozen temporary account still shows the local changes.
+	// A disabled temporary account still shows the local changes.
 	const token = guest && guest.freezesAt <= Date.now() ? undefined : await getToken();
 	const projectRoot = await findProjectRoot();
 

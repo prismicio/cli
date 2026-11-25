@@ -13,6 +13,7 @@ import {
 import {
 	cleanupLegacyAuthFile,
 	formatGuest,
+	formatSavedGuest,
 	getGuest,
 	getHost,
 	getSavedGuest,
@@ -250,7 +251,7 @@ async function main(): Promise<void> {
 	}
 	// whoami and status show the one in use in their own output.
 	const saved = await getSavedGuest().catch(() => undefined);
-	if (saved) console.warn(formatGuest(saved, "You also have a temporary account"));
+	if (saved) console.warn(formatSavedGuest(saved));
 }
 
 async function initSentry(options: {

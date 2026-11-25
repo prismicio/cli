@@ -46,7 +46,7 @@ it("opens a temporary account's repository with a link that logs in", async ({
 	expect(link.searchParams.get("redirect_uri")).toBe(`https://${repo}.${host}/`);
 });
 
-it("refuses to work on a frozen temporary account", async ({ expect, prismic, login }) => {
+it("refuses to work on a disabled temporary account", async ({ expect, prismic, login }) => {
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
@@ -56,9 +56,10 @@ it("refuses to work on a frozen temporary account", async ({ expect, prismic, lo
 	});
 	const { stderr, exitCode } = await prismic("repo", ["view"]);
 	expect(exitCode).toBe(1);
-	expect(stderr).toContain("Your temporary account is frozen. Claim it to carry on.");
-	expect(stderr).toContain("Temporary account, frozen, deleted in 14 days");
-	expect(stderr).toContain("Claim it to keep your work: https://example.com/claim");
+	expect(stderr).toContain("Your temporary account is disabled. Claim it to carry on.");
+	expect(stderr).toContain(
+		"Temporary account, disabled, deleted in 14 days. Claim it to keep your work: https://example.com/claim",
+	);
 });
 
 it("says the temporary account was claimed, and logs out", async ({ expect, prismic, login }) => {

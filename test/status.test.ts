@@ -196,18 +196,22 @@ it("compares with remote using a Write API token", async ({
 	expect(stdout).toContain(`(Write API token for ${repo})`);
 });
 
-it("shows a temporary account with when it freezes, when it's deleted, and its claim link", async ({
+it("shows a temporary account with when it gets disabled and its claim link", async ({
 	expect,
 	prismic,
 	login,
 }) => {
-	const freezesAt = Date.now() + 3 * 60 * 60 * 1000;
-	const deletesAt = freezesAt + 14 * 24 * 60 * 60 * 1000;
-	await login({ guest: { claimUrl: "https://example.com/claim", freezesAt, deletesAt } });
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			freezesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
 	const { stdout, stderr, exitCode } = await prismic("status");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(
-		`Authenticated as: Temporary account, frozen in 3 hours (${new Date(freezesAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
+		"Authenticated as: Temporary account, disabled in 3 hours. Claim it to keep your work: https://example.com/claim",
 	);
 	expect(stderr).not.toContain("Temporary account");
 });

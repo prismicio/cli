@@ -96,7 +96,7 @@ export async function getToken(): Promise<string | undefined> {
 	if (env.PRISMIC_TOKEN) return env.PRISMIC_TOKEN;
 	const guest = await getGuest();
 	if (guest && guest.freezesAt <= Date.now() && Date.now() < guest.deletesAt) {
-		throw new CommandError("Your temporary account is frozen. Claim it to carry on.");
+		throw new CommandError("Your temporary account is disabled. Claim it to carry on.");
 	}
 	return getSessionToken();
 }
@@ -217,7 +217,7 @@ export async function reauthenticate(
 	if (token) return token;
 	console.error(ended ? "Your login expired." : "You are not logged in.");
 	const saved = options.guest && (await getSavedGuest().catch(() => undefined));
-	if (saved) console.error(formatGuest(saved, "You also have a temporary account"));
+	if (saved) console.error(formatSavedGuest(saved));
 	return logIn(options);
 }
 
@@ -355,8 +355,15 @@ export function setGuestAside(session: Session): Session["savedGuest"] {
 }
 
 export function formatGuest(guest: Guest, lead = "Temporary account"): string {
-	const freeze = guest.freezesAt > Date.now() ? `frozen ${formatTime(guest.freezesAt)}` : "frozen";
-	return `${lead}, ${freeze}, deleted ${formatTime(guest.deletesAt)}. Claim it to keep your work: ${guest.claimUrl}`;
+	const state =
+		guest.freezesAt > Date.now()
+			? `disabled ${formatTime(guest.freezesAt)}`
+			: `disabled, deleted ${formatTime(guest.deletesAt)}`;
+	return `${lead}, ${state}. Claim it to keep your work: ${guest.claimUrl}`;
+}
+
+export function formatSavedGuest(guest: Guest): string {
+	return `You also have a pending temporary account that will be deleted ${formatTime(guest.deletesAt)}. Claim it to keep your work: ${guest.claimUrl}`;
 }
 
 function formatTime(time: number): string {
@@ -367,8 +374,7 @@ function formatTime(time: number): string {
 			: minutes < 48 * 60
 				? ([minutes / 60, "hour"] as const)
 				: ([minutes / 60 / 24, "day"] as const);
-	const relative = new Intl.RelativeTimeFormat("en").format(Math.round(value), unit);
-	return `${relative} (${new Date(time).toISOString().slice(0, 16)}Z)`;
+	return new Intl.RelativeTimeFormat("en").format(Math.round(value), unit);
 }
 
 // Nobody could claim an account started in CI.
@@ -380,8 +386,8 @@ async function startGuest(): Promise<string | undefined> {
 	await withCredentialsLock(async (lock) => {
 		const { login } = await readCredentials();
 		if (login) {
-			// One that a logout set aside comes back, frozen or not, so nobody gets
-			// a new one to get around a freeze. A logout leaves its client ID, and
+			// One that a logout set aside comes back, disabled or not, so nobody gets
+			// a new one to get around that. A logout leaves its client ID, and
 			// an expired login doesn't, so that one asks to log in again.
 			const { savedGuest, refreshToken: current, auth0Domain } = login.session;
 			if (!savedGuest || current || login.session.host !== host) return;

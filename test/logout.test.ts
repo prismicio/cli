@@ -67,19 +67,25 @@ it("succeeds when not logged in", async ({ expect, prismic, logout }) => {
 });
 
 it("keeps a temporary account for later, and says so", async ({ expect, prismic, login }) => {
-	const freezesAt = Date.now() + 3 * 60 * 60 * 1000;
-	const deletesAt = freezesAt + 14 * 24 * 60 * 60 * 1000;
-	await login({ guest: { claimUrl: "https://example.com/claim", freezesAt, deletesAt } });
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			freezesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
 	const { stdout, stderr, exitCode } = await prismic("logout");
 	expect(exitCode, stderr).toBe(0);
 	expect(stderr).toContain(
-		`Your temporary account stays on this machine, frozen in 3 hours (${new Date(freezesAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
+		"Your temporary account stays on this machine, disabled in 3 hours. Claim it to keep your work: https://example.com/claim",
 	);
 	expect(stdout).toContain("Logged out of Prismic");
 
 	const whoami = await prismic("whoami");
 	expect(whoami.stderr).toContain("Not logged in.");
-	expect(whoami.stderr).toContain("You also have a temporary account, frozen in 3 hours");
+	expect(whoami.stderr).toContain(
+		"You also have a pending temporary account that will be deleted in 14 days. Claim it to keep your work: https://example.com/claim",
+	);
 });
 
 it("forgets a temporary account that was claimed", async ({ expect, prismic, login }) => {

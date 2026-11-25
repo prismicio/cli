@@ -207,16 +207,20 @@ it("sets a temporary account aside, and shows its claim link", async ({
 	login,
 	auth0,
 }) => {
-	const freezesAt = Date.now() + 3 * 60 * 60 * 1000;
-	const deletesAt = freezesAt + 14 * 24 * 60 * 60 * 1000;
-	await login({ guest: { claimUrl: "https://example.com/claim", freezesAt, deletesAt } });
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			freezesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
 	const proc = prismic("login");
 	const output = captureOutput(proc);
 	await approveLogin(expect, output, auth0);
 	expect((await proc).exitCode, output()).toBe(0);
 	expect(output()).toContain("Logged in to Prismic as");
 	expect(output()).toContain(
-		`You also have a temporary account, frozen in 3 hours (${new Date(freezesAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
+		"You also have a pending temporary account that will be deleted in 14 days. Claim it to keep your work: https://example.com/claim",
 	);
 });
 

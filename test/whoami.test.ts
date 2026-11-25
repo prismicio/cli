@@ -172,35 +172,38 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
 	},
 );
 
-it("shows a temporary account with when it freezes, when it's deleted, and its claim link", async ({
+it("shows a temporary account with when it gets disabled and its claim link", async ({
 	expect,
 	prismic,
 	login,
 }) => {
-	const freezesAt = Date.now() + 3 * 60 * 60 * 1000;
-	const deletesAt = freezesAt + 14 * 24 * 60 * 60 * 1000;
-	await login({ guest: { claimUrl: "https://example.com/claim", freezesAt, deletesAt } });
-	const { stdout, stderr, exitCode } = await prismic("whoami");
-	expect(exitCode, stderr).toBe(0);
-	expect(stdout).toContain(
-		`Temporary account, frozen in 3 hours (${new Date(freezesAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
-	);
-	expect(stderr).not.toContain("Temporary account");
-});
-
-it("shows a frozen temporary account", async ({ expect, prismic, login }) => {
-	const deletesAt = Date.now() + 13 * 24 * 60 * 60 * 1000;
 	await login({
 		guest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt: Date.now() - 24 * 60 * 60 * 1000,
-			deletesAt,
+			freezesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 		},
 	});
 	const { stdout, stderr, exitCode } = await prismic("whoami");
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(
-		`Temporary account, frozen, deleted in 13 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
+		"Temporary account, disabled in 3 hours. Claim it to keep your work: https://example.com/claim",
+	);
+	expect(stderr).not.toContain("Temporary account");
+});
+
+it("shows a disabled temporary account", async ({ expect, prismic, login }) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			freezesAt: Date.now() - 24 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 13 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stdout, stderr, exitCode } = await prismic("whoami");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(
+		"Temporary account, disabled, deleted in 13 days. Claim it to keep your work: https://example.com/claim",
 	);
 });
 
@@ -210,13 +213,11 @@ it("shows the claim link of a temporary account that was set aside", async ({
 	login,
 	auth0,
 }) => {
-	const freezesAt = Date.now() + 3 * 60 * 60 * 1000;
-	const deletesAt = freezesAt + 14 * 24 * 60 * 60 * 1000;
 	const { email } = await login({
 		savedGuest: {
 			claimUrl: "https://example.com/claim",
-			freezesAt,
-			deletesAt,
+			freezesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
 			clientId: auth0.clientId,
 			refreshToken: auth0.issueRefreshToken(),
 		},
@@ -225,6 +226,6 @@ it("shows the claim link of a temporary account that was set aside", async ({
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(email);
 	expect(stderr).toContain(
-		`You also have a temporary account, frozen in 3 hours (${new Date(freezesAt).toISOString().slice(0, 16)}Z), deleted in 14 days (${new Date(deletesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
+		"You also have a pending temporary account that will be deleted in 14 days. Claim it to keep your work: https://example.com/claim",
 	);
 });

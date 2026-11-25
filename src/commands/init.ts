@@ -57,8 +57,8 @@ const config = {
 		--repo.
 
 		When not logged in, init creates the repository in a temporary account, so
-		you can try Prismic before signing up. The account freezes after a couple
-		of days and is deleted two weeks later. To keep your work, claim it with
+		you can try Prismic before signing up. The account is disabled after a couple
+		of days and deleted two weeks later. To keep your work, claim it with
 		the link init prints.
 
 		Run \`prismic docs view cli#set-up-a-type-builder-project\` for details.
@@ -68,7 +68,7 @@ const config = {
 		existing one. Use --repo only for a repository the user names, and run init.
 
 		If init sets up a temporary account, tell the user right away. Pass on the
-		claim link and when the account freezes, so they don't lose their work.
+		claim link and when the account gets disabled, so they don't lose their work.
 		They can open the repository without signing up if you run
 		\`prismic repo view --web\`. If they would rather use their own Prismic
 		account, run \`prismic login\` before init.
