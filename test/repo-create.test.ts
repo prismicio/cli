@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 
-import { it } from "./it";
+import { captureOutput, it, waitForLoginPrompt } from "./it";
 import { deleteRepository, getLocales, getMCPActivationStatus, getRepository } from "./prismic";
 
 it("supports --help", async ({ expect, prismic }) => {
@@ -124,4 +124,108 @@ it("sets the master locale with --lang", async ({
 	const locales = await getLocales({ repo: domain!, token, host });
 	const master = locales.find((locale) => locale.isMaster);
 	expect(master?.id).toBe("fr-fr");
+});
+
+it("starts a guest account when not logged in, and picks it up again after a logout", async ({
+	expect,
+	prismic,
+	logout,
+	token,
+	host,
+	password,
+	onTestFinished,
+}) => {
+	await logout();
+
+	const claimLinks = [];
+	for (let i = 0; i < 2; i++) {
+		const { stdout, stderr, exitCode } = await prismic("repo", ["create"], {
+			nodeOptions: { env: { CI: "" } },
+		});
+		expect(exitCode, stderr).toBe(0);
+		const domain = stdout.match(/Repository created: (\S+)/)?.[1];
+		expect(domain).toBeDefined();
+		onTestFinished(() => deleteRepository(domain!, { token, password, host }));
+		claimLinks.push(
+			stderr.match(
+				/Guest account, disabled in [\d,]+ days \(2099-01-01T02:00Z\)\. Claim it to keep your work: (http:\/\/127\.0\.0\.1:\d+\/dashboard\/claim\?code=\S+)/,
+			)?.[1],
+		);
+		await prismic("logout");
+	}
+	expect(claimLinks[0]).toBeDefined();
+	expect(claimLinks[1]).toBe(claimLinks[0]);
+});
+
+it("doesn't start a new guest account to get around a disabled one", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() - 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	await prismic("logout");
+	const { stderr, exitCode } = await prismic("repo", ["create"], {
+		nodeOptions: { env: { CI: "" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toMatch(
+		/^Your guest account is disabled and will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to carry on: https:\/\/example\.com\/claim$/,
+	);
+});
+
+it("asks to log in again when the login expired, even with a guest account set aside", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	// Auth0 no longer knows this refresh token.
+	await login({
+		refreshToken: "ended",
+		expiresAt: Date.now() - 1000,
+		parkedGuest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const proc = prismic("repo", ["create"], { nodeOptions: { env: { CI: "" } } });
+	const output = captureOutput(proc);
+	await waitForLoginPrompt(expect, output);
+	expect(output()).toContain("Your login expired.");
+	expect(output()).toMatch(
+		/You also have a pending guest account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
+	);
+});
+
+it("doesn't start a guest account on CI", async ({ expect, prismic, logout }) => {
+	await logout();
+	const { stderr, exitCode } = await prismic("repo", ["create"], {
+		nodeOptions: { env: { CI: "true" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).not.toContain("Guest account");
+	expect(stderr).toContain("Not logged in. Run `prismic login` first.");
+});
+
+it("logs in when Prismic can't start a guest account", async ({
+	expect,
+	prismic,
+	logout,
+	auth0,
+}) => {
+	for (const status of [429, 409, 500]) {
+		await logout();
+		auth0.respondOnce("/authentication/guest", { status });
+		const proc = prismic("repo", ["create"], { nodeOptions: { env: { CI: "" } } });
+		const output = captureOutput(proc);
+		await waitForLoginPrompt(expect, output);
+		expect(output()).toContain("Couldn't start a guest account.");
+		proc.kill();
+	}
 });

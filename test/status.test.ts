@@ -195,3 +195,23 @@ it("compares with remote using a Write API token", async ({
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain(`(Write API token for ${repo})`);
 });
+
+it("shows a guest account with when it gets disabled and its claim link", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stdout, stderr, exitCode } = await prismic("status");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toMatch(
+		/Authenticated as: Guest account, disabled in 3 hours \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
+	);
+	expect(stderr).not.toContain("Guest account");
+});

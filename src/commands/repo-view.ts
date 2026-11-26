@@ -1,9 +1,9 @@
-import { getHost, getToken, onUnauthorized } from "../auth";
+import { getApiUrl, getGuest, getHost, getToken, onUnauthorized } from "../auth";
 import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig } from "../lib/command";
 import { stringify } from "../lib/json";
 import { isInvalidAuthContextError } from "../lib/prismic/auth";
-import { getRepository, getRepositoryApiAccess } from "../lib/prismic/client";
+import { createGuestLink, getRepository, getRepositoryApiAccess } from "../lib/prismic/client";
 import { getRepositoryName } from "../project";
 
 const config = {
@@ -13,6 +13,8 @@ const config = {
 
 		By default, this command reads the repository from prismic.config.json at the
 		project root.
+
+		On a guest account, --web logs you in before it opens the repository.
 	`,
 	options: {
 		web: { type: "boolean", short: "w", description: "Open repository in browser" },
@@ -28,8 +30,21 @@ export default createCommand(config, async ({ values }) => {
 	const url = `https://${repo}.${host}/`;
 
 	if (web) {
-		openBrowser(new URL(url));
-		console.info(`Opening ${url}`);
+		let link = url;
+		if (await getGuest()) {
+			({ url: link } = await createGuestLink({
+				apiUrl: getApiUrl(host),
+				redirectUri: url,
+				getToken,
+				onUnauthorized,
+			}));
+		}
+		// openBrowser() runs a shell, so a link from Prismic can't contain shell
+		// syntax, including cmd.exe's %NAME%.
+		if (link === url || (/^https:\/\/[\w\-.:/?=&~+]+$/.test(link) && URL.canParse(link))) {
+			openBrowser(new URL(link));
+		}
+		console.info(`Opening ${link}`);
 		return;
 	}
 

@@ -1,5 +1,5 @@
 import { FRAMEWORKS, getAdapter } from "../adapters";
-import { getHost, getToken, onUnauthorized } from "../auth";
+import { getHost, getToken, onUnauthorized, reauthenticate } from "../auth";
 import { detectAgent } from "../lib/ai";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { checkIsDomainAvailable, createRepository, upsertLocale } from "../lib/prismic/client";
@@ -15,6 +15,11 @@ const config = {
 		The CLI generates a random domain, shown in the output. The domain cannot
 		be chosen or changed. --name sets only the display name, which
 		\`prismic repo set-name\` can change later.
+
+		When not logged in, the repository is created in a guest account, so
+		you can try Prismic before signing up. The account is disabled after a couple
+		of days and deleted two weeks later. To keep the repository, claim the
+		account with the link this command prints.
 	`,
 	options: {
 		name: { type: "string", short: "n", description: "Display name for the repository" },
@@ -52,6 +57,7 @@ export default createCommand(config, async ({ values }) => {
 	}
 
 	const host = await getHost();
+	if (!process.env.CI && !(await getToken())) await reauthenticate({ guest: true });
 	const domain = await createRepo({ name, lang, framework, host });
 
 	console.info(`Repository created: ${domain}`);

@@ -25,6 +25,81 @@ it("views repository details as JSON", async ({ expect, prismic, repo }) => {
 	);
 });
 
+it("opens a guest account's repository with a link that logs in", async ({
+	expect,
+	prismic,
+	login,
+	repo,
+	host,
+}) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stdout, stderr, exitCode } = await prismic("repo", ["view", "--web"]);
+	expect(exitCode, stderr).toBe(0);
+	const link = new URL(stdout.match(/Opening (\S+)/)![1]);
+	expect(link.pathname).toBe("/dashboard/guest/login");
+	expect(link.searchParams.get("redirect_uri")).toBe(`https://${repo}.${host}/`);
+});
+
+it("refuses to work on a disabled guest account", async ({ expect, prismic, login }) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() - 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stderr, exitCode } = await prismic("repo", ["view"]);
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toMatch(
+		/^Your guest account is disabled and will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to carry on: https:\/\/example\.com\/claim$/,
+	);
+});
+
+it("says a disabled guest account was claimed, rather than to claim it", async ({
+	expect,
+	prismic,
+	login,
+	auth0,
+}) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() - 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	auth0.respondOnce("/user/profile", { status: 200, body: { guest: { status: "claimed" } } });
+	const { stderr, exitCode } = await prismic("repo", ["view"]);
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toBe(
+		"Your guest account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
+	);
+});
+
+it("says the guest account was claimed, and logs out", async ({ expect, prismic, login }) => {
+	await login({
+		expiresAt: Date.now() - 1000,
+		refreshToken: "deleted-by-claim",
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stderr, exitCode } = await prismic("repo", ["view"]);
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toBe(
+		"Your guest account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
+	);
+	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
+});
+
 it("views repository details with a Write API token", async ({
 	expect,
 	prismic,

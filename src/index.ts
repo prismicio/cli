@@ -10,7 +10,14 @@ import {
 	NoSupportedFrameworkError,
 	SliceNotFoundError,
 } from "./adapters";
-import { cleanupLegacyAuthFile, getHost, getToken } from "./auth";
+import {
+	cleanupLegacyAuthFile,
+	formatGuest,
+	getGuest,
+	getHost,
+	getToken,
+	printParkedGuest,
+} from "./auth";
 import router from "./commands";
 import { UPDATE_NOTIFIER_STATE_PATH } from "./config";
 import { CredentialsError, readLoginSummary } from "./credentials";
@@ -237,6 +244,16 @@ async function main(): Promise<void> {
 			throw error;
 		}
 	}
+
+	if (help) return;
+	if (!["whoami", "status", "login"].includes(command)) {
+		const guest = await getGuest();
+		// A disabled one says so itself when it refuses a command.
+		if (guest && guest.disablesAt > Date.now()) console.warn(formatGuest(guest));
+		return;
+	}
+	// whoami and status show the one in use in their own output.
+	await printParkedGuest().catch(() => {});
 }
 
 async function initSentry(options: {

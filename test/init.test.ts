@@ -265,6 +265,58 @@ it("logs in when not logged in, even on CI", async ({
 	expect(JSON.parse(configRaw).repositoryName).toBe(repo);
 }, 60_000);
 
+it("starts a guest account when not logged in", async ({
+	expect,
+	project,
+	prismic,
+	logout,
+	token,
+	host,
+	password,
+	onTestFinished,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	await logout();
+
+	const { stdout, stderr, exitCode } = await prismic("init", ["--no-setup"], {
+		nodeOptions: { env: { CI: "" } },
+	});
+	const name = stdout.match(/^Created repository: ([a-z0-9-]+)$/m)?.[1];
+	if (name) onTestFinished(() => deleteRepository(name, { token, password, host }));
+	expect(exitCode, stderr).toBe(0);
+	expect(stderr).toMatch(
+		/Guest account, disabled in .+ \(.+Z\)\. Claim it to keep your work: http/,
+	);
+}, 60_000);
+
+it("says the guest account was claimed while its token still works", async ({
+	expect,
+	project,
+	prismic,
+	login,
+	auth0,
+}) => {
+	await rm(new URL("prismic.config.json", project));
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	auth0.respondOnce("/user/profile", { status: 200, body: { guest: { status: "claimed" } } });
+
+	const { stderr, exitCode } = await prismic("init", ["--no-setup"], {
+		nodeOptions: { env: { CI: "" } },
+	});
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(
+		"Your guest account has been claimed. Run `prismic login` to carry on with the account that claimed it.",
+	);
+	expect(stderr).not.toContain("Guest account");
+	expect((await prismic("whoami")).stderr).toContain("Not logged in.");
+});
+
 it("renews a rejected token instead of logging in again", async ({
 	expect,
 	project,

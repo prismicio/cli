@@ -34,6 +34,41 @@ function getAuthServiceUrl(host: string): URL {
 	return new URL(`https://auth.${host}/`);
 }
 
+const GuestSchema = z.object({
+	access_token: z.string(),
+	refresh_token: z.string(),
+	expires_in: z.number(),
+	client_id: z.string(),
+	claim_url: z.string(),
+	disables_at: z.string(),
+	deletes_at: z.string(),
+});
+
+export async function createGuest(config: { apiUrl: URL }): Promise<z.infer<typeof GuestSchema>> {
+	const url = new URL("authentication/guest", config.apiUrl);
+	return request(url, {
+		method: "POST",
+		// The caller holds the credentials lock, which other commands wait on.
+		signal: AbortSignal.timeout(10_000),
+		schema: GuestSchema,
+		unknownErrorMessage: "Failed to start a guest account",
+	});
+}
+
+export async function createGuestLink(
+	config: Omit<Config, "host"> & { apiUrl: URL; redirectUri: string },
+): Promise<{ url: string }> {
+	const url = new URL("authentication/guest/magic-link", config.apiUrl);
+	return request(url, {
+		method: "POST",
+		json: { redirect_uri: config.redirectUri },
+		headers: { Authorization: `Bearer ${await config.getToken()}` },
+		onUnauthorized: config.onUnauthorized,
+		schema: z.object({ url: z.string() }),
+		unknownErrorMessage: "Failed to create a login link",
+	});
+}
+
 const ProfileSchema = z.object({
 	email: z.string(),
 	shortId: z.string(),
@@ -58,6 +93,15 @@ export async function getUserProfile(config: Config): Promise<Profile> {
 		schema: ProfileSchema,
 		unknownErrorMessage: "Failed to load your profile",
 	});
+}
+
+export async function isGuestClaimed(config: { token: string; apiUrl: URL }): Promise<boolean> {
+	const url = new URL("user/profile", config.apiUrl);
+	const profile = await request(url, {
+		headers: { Authorization: `Bearer ${config.token}` },
+		schema: z.object({ guest: z.optional(z.object({ status: z.string() })) }),
+	});
+	return profile.guest?.status === "claimed";
 }
 
 export async function getUserRepositories(

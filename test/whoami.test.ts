@@ -171,3 +171,102 @@ it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
 		}
 	},
 );
+
+it("shows a guest account with when it gets disabled and its claim link", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	const disablesAt = Date.now() + 3 * 60 * 60 * 1000;
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt,
+			deletesAt: disablesAt + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stdout, stderr, exitCode } = await prismic("whoami");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(
+		`Guest account, disabled in 3 hours (${new Date(disablesAt).toISOString().slice(0, 16)}Z). Claim it to keep your work: https://example.com/claim`,
+	);
+	expect(stderr).not.toContain("Guest account");
+});
+
+it("shows a disabled guest account", async ({ expect, prismic, login }) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() - 24 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 13 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stdout, stderr, exitCode } = await prismic("whoami");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toMatch(
+		/Guest account, disabled, deleted in 13 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
+	);
+});
+
+it("says a guest account past its deletion time was deleted, and forgets it", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+			deletesAt: Date.now() - 60_000,
+		},
+	});
+	const { stderr, exitCode } = await prismic("whoami");
+	expect(exitCode).toBe(1);
+	expect(stderr.trim()).toBe(
+		"Your guest account has been deleted, along with its repositories. Run `prismic login` to start again.",
+	);
+	const again = await prismic("whoami");
+	expect(again.stderr).toContain("Not logged in.");
+	expect(again.stderr).not.toContain("guest account");
+});
+
+it("says a guest account that was set aside was deleted, and forgets it", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	const { email } = await login({
+		parkedGuest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+			deletesAt: Date.now() - 60_000,
+		},
+	});
+	const { stdout, stderr, exitCode } = await prismic("whoami");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(email);
+	expect(stderr.trim()).toBe(
+		"You also had an unclaimed guest account that was deleted, along with its repositories.",
+	);
+	expect((await prismic("whoami")).stderr).not.toContain("guest account");
+});
+
+it("shows the claim link of a guest account that was set aside", async ({
+	expect,
+	prismic,
+	login,
+}) => {
+	const { email } = await login({
+		parkedGuest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stdout, stderr, exitCode } = await prismic("whoami");
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(email);
+	expect(stderr).toMatch(
+		/You also have a pending guest account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
+	);
+});

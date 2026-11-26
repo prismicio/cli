@@ -65,3 +65,42 @@ it("succeeds when not logged in", async ({ expect, prismic, logout }) => {
 	expect(exitCode, stderr).toBe(0);
 	expect(stdout).toContain("Logged out of Prismic");
 });
+
+it("keeps a guest account for later, and says so", async ({ expect, prismic, login }) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stdout, stderr, exitCode } = await prismic("logout");
+	expect(exitCode, stderr).toBe(0);
+	expect(stderr).toMatch(
+		/Your guest account stays on this machine, disabled in 3 hours \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
+	);
+	expect(stdout).toContain("Logged out of Prismic");
+
+	const whoami = await prismic("whoami");
+	expect(whoami.stderr).toContain("Not logged in.");
+	expect(whoami.stderr).toMatch(
+		/You also have a pending guest account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
+	);
+});
+
+it("forgets a guest account that was claimed", async ({ expect, prismic, login }) => {
+	await login({
+		expiresAt: Date.now() - 1000,
+		refreshToken: "deleted-by-claim",
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const { stdout, stderr, exitCode } = await prismic("logout");
+	expect(exitCode, stderr).toBe(0);
+	expect(stderr).not.toContain("guest account");
+	expect(stdout).toContain("Logged out of Prismic");
+	expect((await prismic("whoami")).stderr).not.toContain("guest account");
+});

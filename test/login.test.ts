@@ -224,6 +224,47 @@ it("revokes the previous session after a new login", async ({ expect, prismic, l
 	expect(revokes.map((params) => params.token)).toEqual([refreshToken]);
 });
 
+it("sets a guest account aside, and shows its claim link", async ({
+	expect,
+	prismic,
+	login,
+	auth0,
+}) => {
+	await login({
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 3 * 60 * 60 * 1000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const proc = prismic("login");
+	const output = captureOutput(proc);
+	await approveLogin(expect, output, auth0);
+	expect((await proc).exitCode, output()).toBe(0);
+	expect(output()).toContain("Logged in to Prismic as");
+	expect(output()).toMatch(
+		/You also have a pending guest account that will be deleted in 14 days \(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z\)\. Claim it to keep your work: https:\/\/example\.com\/claim/,
+	);
+});
+
+it("logs in once the guest account was claimed", async ({ expect, prismic, login, auth0 }) => {
+	await login({
+		expiresAt: Date.now() - 1000,
+		refreshToken: "deleted-by-claim",
+		guest: {
+			claimUrl: "https://example.com/claim",
+			disablesAt: Date.now() + 60_000,
+			deletesAt: Date.now() + 14 * 24 * 60 * 60 * 1000,
+		},
+	});
+	const proc = prismic("login");
+	const output = captureOutput(proc);
+	await approveLogin(expect, output, auth0);
+	expect((await proc).exitCode, output()).toBe(0);
+	expect(output()).toContain("Logged in to Prismic as");
+	expect(output()).not.toContain("guest account");
+});
+
 function getUserCode(output: string): string | undefined {
 	return output.match(/the code ([A-Z0-9]{4}-[A-Z0-9]{4})/)?.[1];
 }

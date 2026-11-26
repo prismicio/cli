@@ -41,6 +41,10 @@ export type Fixtures = {
 		accessToken?: string;
 		refreshToken?: string;
 		expiresAt?: number;
+		/** Makes the login a guest account's. */
+		guest?: { claimUrl: string; disablesAt: number; deletesAt: number };
+		/** A guest account kept next to the login. */
+		parkedGuest?: { claimUrl: string; disablesAt: number; deletesAt: number };
 	}) => Promise<{ email: string }>;
 	logout: () => Promise<void>;
 	token: string;
@@ -146,9 +150,11 @@ export const it = test.extend<Fixtures>({
 		await auth0.close();
 	},
 	login: async ({ token, home, auth0, host }, use) => {
-		await use(async (session = {}) => {
+		await use(async ({ guest, parkedGuest, ...session } = {}) => {
 			const configDir = new URL(".config/prismic/", home);
 			await mkdir(configDir, { recursive: true });
+			const clientId = guest ? auth0.guestClientId : auth0.clientId;
+			const refreshToken = session.refreshToken ?? auth0.issueRefreshToken(clientId);
 			await writeFile(
 				new URL("credentials.json", configDir),
 				JSON.stringify({
@@ -156,11 +162,18 @@ export const it = test.extend<Fixtures>({
 					store: "file",
 					host,
 					auth0Domain: auth0.auth0Domain,
-					clientId: auth0.clientId,
+					clientId,
 					accessToken: token,
-					refreshToken: auth0.issueRefreshToken(),
 					expiresAt: Date.now() + 60 * 60 * 1000,
 					...session,
+					refreshToken,
+					guest: guest
+						? { ...guest, clientId, refreshToken }
+						: parkedGuest && {
+								...parkedGuest,
+								clientId: auth0.guestClientId,
+								refreshToken: auth0.issueRefreshToken(auth0.guestClientId),
+							},
 				}),
 			);
 			return { email: E2E_PRISMIC_EMAIL };

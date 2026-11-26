@@ -56,11 +56,22 @@ const config = {
 		used another one before. If a prismic.config.json exists, init requires
 		--repo.
 
+		When not logged in, init creates the repository in a guest account, so
+		you can try Prismic before signing up. The account is disabled after a couple
+		of days and deleted two weeks later. To keep your work, claim it with
+		the link init prints.
+
 		Run \`prismic docs view cli#set-up-a-type-builder-project\` for details.
 	`,
 	agents: `
 		Do not ask the user whether to create a new repository or connect an
 		existing one. Use --repo only for a repository the user names, and run init.
+
+		If init sets up a guest account, tell the user right away. Pass on the
+		claim link and when the account gets disabled, so they don't lose their work.
+		They can open the repository without signing up if you run
+		\`prismic repo view --web\`. If they would rather use their own Prismic
+		account, run \`prismic login\` before init.
 	`,
 	options: {
 		repo: {
@@ -121,19 +132,20 @@ export default createCommand(config, async ({ values }) => {
 		}
 	}
 
+	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
+
 	const host = await getHost();
 	try {
 		await getUserProfile({ getToken, host });
 	} catch (error) {
 		if (error instanceof UnauthorizedRequestError || error instanceof ForbiddenRequestError) {
 			if (env.PRISMIC_TOKEN) throw error;
-			await reauthenticate({ browser: !noBrowser });
+			await reauthenticate({ browser: !noBrowser, guest: !repo });
 		} else {
 			throw error;
 		}
 	}
 
-	let repo = (explicitRepo ?? legacySliceMachineConfig?.repositoryName)?.toLowerCase();
 	let connectedRepository: Repository | undefined;
 	if (repo) {
 		connectedRepository = await getRepository({ repo, getToken, host }).catch((error) => {
