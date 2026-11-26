@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.31.0](https://github.com/prismicio/cli/compare/v1.30.1...v1.31.0) (2026-11-26)
+
+
+### Features
+
+* allow link text and new tab by default ([#511](https://github.com/prismicio/cli/issues/511)) ([30ca7c4](https://github.com/prismicio/cli/commit/30ca7c4a92012c8982678f5b1ed01210fb180f23))
+* let agents create a repository without a Prismic account ([#500](https://github.com/prismicio/cli/issues/500)) ([b2ba2cb](https://github.com/prismicio/cli/commit/b2ba2cbfcf868e27e18b903fc4cd31439d1234bd))
+
+
+### Bug Fixes
+
+* **login:** wait for agent logins until the code expires ([#504](https://github.com/prismicio/cli/issues/504)) ([ae63278](https://github.com/prismicio/cli/commit/ae632788938a5c3321ba47d8548544cb16292973))
+* **nextjs:** use the root app and pages folders when src/ also exists ([#509](https://github.com/prismicio/cli/issues/509)) ([45896a2](https://github.com/prismicio/cli/commit/45896a2b699c969745a01c0b37b835f1ba799d1c))
+* tell agents to reuse their task ID in the missing --task-id error ([#507](https://github.com/prismicio/cli/issues/507)) ([ad87431](https://github.com/prismicio/cli/commit/ad87431359ecbe0980f768d8ea054ac71a0e2dc9))
+
 ## [1.30.1](https://github.com/prismicio/cli/compare/v1.30.0...v1.30.1) (2026-11-19)
 
 
