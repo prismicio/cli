@@ -112,8 +112,18 @@ export default createCommand(config, async ({ positionals, values }) => {
 	const notices = await adapter.createCustomType(model);
 	await adapter.generateTypes();
 
-	console.info(`Created type "${name}" (id: "${id}", format: "${format}")`);
+	const included = [!single && "a UID field", format === "page" && "a slice zone"]
+		.filter(Boolean)
+		.join(" and ");
+	console.info(
+		`Created type "${name}" (id: "${id}", format: "${format}")${included && ` with ${included}`}`,
+	);
 	for (const notice of notices) console.info(notice);
-	console.info(`Run \`prismic field add <type> --to-type ${id}\` to add fields.`);
+	console.info(`Run \`prismic field add <type> <field_id> --to-type ${id}\` to add fields.`);
+	if (format === "page") {
+		console.info(
+			`Run \`prismic slice connect <slice> --to ${id}\` to add slices to its slice zone.`,
+		);
+	}
 	console.info(`Run \`prismic type view ${id}\` to view the type.`);
 });

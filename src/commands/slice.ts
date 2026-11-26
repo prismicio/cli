@@ -41,7 +41,7 @@ export default createCommandRouter({
 		},
 		connect: {
 			handler: sliceConnect,
-			description: "Connect a slice to a type's slice zone",
+			description: "Connect slices to a type's slice zone",
 		},
 		disconnect: {
 			handler: sliceDisconnect,

@@ -1,9 +1,17 @@
 import { writeFile } from "node:fs/promises";
 import { sep } from "node:path";
 
+import type { DynamicSlicesModel } from "@prismicio/types-internal";
 import { snakeCase } from "change-case";
 
-import { buildSlice, it, readLocalSlice } from "./it";
+import {
+	buildCustomType,
+	buildSlice,
+	it,
+	readLocalCustomType,
+	readLocalSlice,
+	writeLocalCustomType,
+} from "./it";
 
 it("supports --help", async ({ expect, prismic }) => {
 	const { stdout, stderr, exitCode } = await prismic("slice", ["create", "--help"]);
@@ -19,6 +27,7 @@ it("creates a slice", async ({ expect, prismic, project }) => {
 	expect(stdout).toContain(`Created slice "${name}"`);
 
 	const id = snakeCase(name);
+	expect(stdout).toContain(`prismic field add <type> <field_id> --to-slice ${id}`);
 	const created = await readLocalSlice(project, id);
 	expect(created).toBeDefined();
 	expect(created?.name).toBe(name);
@@ -95,4 +104,68 @@ it("refuses to replace an existing slice", async ({ expect, prismic, project }) 
 	expect(await readLocalSlice(project, id)).toEqual(edited);
 	expect(await readLocalSlice(project, `${id}_two`)).toBeUndefined();
 	await expect(project).toHaveFile(`slices/${name}/index.jsx`, { contains: "// edited" });
+});
+
+it("rejects an unquoted name with spaces", async ({ expect, prismic, project }) => {
+	const { name } = buildSlice();
+
+	const { stderr, exitCode } = await prismic("slice", ["create", name, "Block"]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain('Unexpected argument: "Block"');
+	expect(stderr).toContain("Usage: prismic slice create <name> [options]");
+	expect(await readLocalSlice(project, snakeCase(name))).toBeUndefined();
+});
+
+it("connects the slice to a type with --to", async ({ expect, prismic, project }) => {
+	const { name } = buildSlice();
+	const id = snakeCase(name);
+	const customType = buildCustomType({
+		format: "page",
+		json: { Main: { slices: { type: "Slices", config: { choices: {} } } } },
+	});
+	await writeLocalCustomType(project, customType);
+
+	const { stdout, stderr, exitCode } = await prismic("slice", [
+		"create",
+		name,
+		"--to",
+		customType.id,
+	]);
+	expect(exitCode, stderr).toBe(0);
+	expect(stdout).toContain(`Connected slice "${id}" to "${customType.id}"`);
+
+	const updated = await readLocalCustomType(project, customType.id);
+	expect((updated.json.Main.slices as DynamicSlicesModel).config!.choices).toEqual({
+		[id]: { type: "SharedSlice" },
+	});
+});
+
+it("creates no slice when --to has no slice zone", async ({ expect, prismic, project }) => {
+	const { name } = buildSlice();
+	const customType = buildCustomType();
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("slice", ["create", name, "--to", customType.id]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`"${customType.id}" has no slice zone.`);
+	expect(await readLocalSlice(project, snakeCase(name))).toBeUndefined();
+});
+
+it("creates no slice when --to already has its id", async ({ expect, prismic, project }) => {
+	const { name } = buildSlice();
+	const id = snakeCase(name);
+	const legacy = { type: "Slice" as const, fieldset: "Legacy", "non-repeat": {}, repeat: {} };
+	const customType = buildCustomType({
+		format: "page",
+		json: { Main: { slices: { type: "Slices", config: { choices: { [id]: legacy } } } } },
+	});
+	await writeLocalCustomType(project, customType);
+
+	const { stderr, exitCode } = await prismic("slice", ["create", name, "--to", customType.id]);
+	expect(exitCode).toBe(1);
+	expect(stderr).toContain(`Slice "${id}" is already connected to "${customType.id}"`);
+	expect(await readLocalSlice(project, id)).toBeUndefined();
+
+	const updated = await readLocalCustomType(project, customType.id);
+	expect((updated.json.Main.slices as DynamicSlicesModel).config!.choices![id]).toEqual(legacy);
 });
