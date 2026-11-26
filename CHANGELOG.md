@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.30.1](https://github.com/prismicio/cli/compare/v1.30.0...v1.30.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **sveltekit:** define the preview matcher in src/params.ts so SvelteKit 3 projects build ([#498](https://github.com/prismicio/cli/issues/498)) ([a40d6b6](https://github.com/prismicio/cli/commit/a40d6b66d1613a7a9d396c3c7a6d48aae1b852a5))
+
 ## [1.30.0](https://github.com/prismicio/cli/compare/v1.29.0...v1.30.0) (2026-11-17)
 
 

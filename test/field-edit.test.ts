@@ -338,6 +338,30 @@ it("edits link field options", async ({ expect, prismic, project }) => {
 	});
 });
 
+it("turns off link text and new tab", async ({ expect, prismic, project }) => {
+	const slice = buildSlice();
+	slice.variations[0].primary!.cta_link = {
+		type: "Link",
+		config: { label: "CTA Link", allowText: true, allowTargetBlank: true },
+	};
+	await writeLocalSlice(project, slice);
+
+	const { stderr, exitCode } = await prismic("field", [
+		"edit",
+		"cta_link",
+		"--from-slice",
+		slice.id,
+		"--no-allow-text",
+		"--no-allow-target-blank",
+	]);
+	expect(exitCode, stderr).toBe(0);
+
+	const updated = await readLocalSlice(project, slice.id);
+	const field = updated!.variations[0].primary!.cta_link;
+	expect(field.config).not.toHaveProperty("allowText");
+	expect(field.config).not.toHaveProperty("allowTargetBlank");
+});
+
 it("edits a field in a slice's legacy items zone", async ({ expect, prismic, project }) => {
 	const slice = buildSlice();
 	slice.variations[0].items = { label: { type: "Text", config: { label: "Old Label" } } };

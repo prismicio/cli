@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { relative } from "node:path";
+import { posix, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { DynamicCustomTypeModel, SharedSliceModel } from "@prismicio/types-internal";
@@ -61,14 +61,21 @@ export class NextJsAdapter extends Adapter {
 				hasSrcDirectory: await checkHasSrc(),
 			}),
 		);
+		const sliceSimulatorPath = new URL(
+			appRouter ? `app/slice-simulator/page.${extension}x` : `pages/slice-simulator.${extension}x`,
+			sourceRoot,
+		);
+		const [sliceLibrary] = await this.getSliceLibraries();
 		await writeFileIfMissing(
-			new URL(
-				appRouter
-					? `app/slice-simulator/page.${extension}x`
-					: `pages/slice-simulator.${extension}x`,
-				sourceRoot,
-			),
-			sliceSimulatorPageTemplate({ typescript, appRouter }),
+			sliceSimulatorPath,
+			sliceSimulatorPageTemplate({
+				typescript,
+				appRouter,
+				slicesImportPath: posix.relative(
+					new URL(".", sliceSimulatorPath).pathname,
+					sliceLibrary.pathname,
+				),
+			}),
 		);
 		if (cacheComponents) {
 			await writeFileIfMissing(
@@ -177,7 +184,9 @@ export class NextJsAdapter extends Adapter {
 	}
 
 	protected async getDefaultSliceLibrary(): Promise<URL> {
-		return new URL((await checkHasSrc()) ? "src/slices/" : "slices/", await findProjectRoot());
+		const srcSlices = new URL("src/slices/", await findProjectRoot());
+		if (await exists(srcSlices)) return srcSlices;
+		return new URL("slices/", await getSourceRoot());
 	}
 
 	protected async createSliceComponent(model: SharedSliceModel, directory: URL): Promise<void> {
@@ -235,5 +244,9 @@ async function getSourceRoot(): Promise<URL> {
 }
 
 async function checkHasSrc(): Promise<boolean> {
-	return exists(new URL("src/", await findProjectRoot()));
+	const projectRoot = await findProjectRoot();
+	// Next.js looks for app/ and pages/ at the project root before src/.
+	if (await exists(new URL("app/", projectRoot))) return false;
+	if (await exists(new URL("pages/", projectRoot))) return false;
+	return exists(new URL("src/", projectRoot));
 }

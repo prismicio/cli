@@ -10,6 +10,10 @@ const config = {
 	description: `
 		Add a group field to a slice or custom type.
 
+		To add fields inside the group, use dot notation for their IDs:
+
+		  prismic field add text my_group.description --to-slice hero
+
 		Run \`prismic docs view fields/repeatable-group\` for details.
 	`,
 	positionals: {

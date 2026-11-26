@@ -26,6 +26,44 @@ it("generates setup files", { timeout: 30_000 }, async ({ expect, project, prism
 	await expect(project).toHaveFile("package-lock.json");
 });
 
+it(
+	"generates App Router files at the root when src/ also exists",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await mkdir(new URL("src/slices/", project), { recursive: true });
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+
+		await expect(project).toHaveFile("prismicio.js", { contains: `"./prismic.config.json"` });
+		await expect(project).toHaveFile("app/slice-simulator/page.jsx", {
+			contains: `"../../src/slices"`,
+		});
+		await expect(project).toHaveFile("app/api/preview/route.js");
+		await expect(project).not.toHaveFile("src/prismicio.js");
+		await expect(project).not.toHaveFile("src/pages/api/preview.js");
+	},
+);
+
+it(
+	"generates App Router files in src/app",
+	{ timeout: 30_000 },
+	async ({ expect, project, prismic }) => {
+		await rm(new URL("app/", project), { recursive: true });
+		await mkdir(new URL("src/app/", project), { recursive: true });
+
+		const { stderr, exitCode } = await prismic("gen", ["setup", "--no-install"]);
+		expect(exitCode, stderr).toBe(0);
+
+		await expect(project).toHaveFile("src/prismicio.js", { contains: `"../prismic.config.json"` });
+		await expect(project).toHaveFile("src/app/slice-simulator/page.jsx", {
+			contains: `"../../slices"`,
+		});
+		await expect(project).toHaveFile("src/app/api/preview/route.js");
+		await expect(project).not.toHaveFile("prismicio.js");
+	},
+);
+
 it("skips existing files", { timeout: 30_000 }, async ({ expect, project, prismic }) => {
 	const customContent = "// custom client file\n";
 	await writeFile(new URL("prismicio.js", project), customContent);
