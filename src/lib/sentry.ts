@@ -6,7 +6,13 @@ type SentryFrame = {
 	in_app: boolean;
 };
 
-type SentryConfig = { dsn: string; appName: string; appVersion: string; environment?: string };
+type SentryConfig = {
+	dsn: string;
+	appName: string;
+	appVersion: string;
+	environment?: string;
+	command: string;
+};
 
 type SentryScope = {
 	tags: Record<string, string>;
@@ -22,7 +28,7 @@ const scope: SentryScope = { tags: {}, contexts: {} };
 export function setupSentry(options: SentryConfig): void {
 	config = options;
 	scope.contexts.Process = {
-		command: process.argv.join(" "),
+		command: options.command,
 		cwd: process.cwd(),
 	};
 }
@@ -68,7 +74,7 @@ export async function sentryCaptureError(error: unknown): Promise<void> {
 					},
 				],
 			},
-			extra: { cause: err.cause, fullCommand: process.argv.join(" ") },
+			extra: { cause: err.cause, fullCommand: config.command },
 		};
 
 		const body = [

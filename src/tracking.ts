@@ -182,6 +182,21 @@ async function saveIds(nextIds: AnalyticsIds): Promise<void> {
 	await writeFileRecursive(ANALYTICS_IDS_PATH, stringify(nextIds)).catch(() => {});
 }
 
+// `prismic mcp call` arguments can hold repository content, and the MCP
+// server already logs them.
+export function getFullCommand(): string {
+	// Options can come before `mcp` or before the tool name.
+	const mcp = process.argv.indexOf("mcp", 2);
+	const call = mcp === -1 ? -1 : process.argv.indexOf("call", mcp + 1);
+	if (call !== -1) {
+		// Drop all other arguments, as `--input` can come anywhere.
+		const name = process.argv[call + 1];
+		const tool = name && !name.startsWith("-") ? [name] : [];
+		return [...process.argv.slice(0, 2), "mcp", "call", ...tool, "<redacted>"].join(" ");
+	}
+	return process.argv.join(" ");
+}
+
 export function trackCommandStart(type: string, config: { watch?: boolean } = {}): void {
 	const { watch } = config;
 	command = { type, watch };
@@ -189,7 +204,7 @@ export function trackCommandStart(type: string, config: { watch?: boolean } = {}
 		properties: {
 			commandType: type,
 			invocationId,
-			fullCommand: process.argv.join(" "),
+			fullCommand: getFullCommand(),
 			repository,
 			watch,
 			agent,
@@ -213,7 +228,7 @@ export function trackCommandEnd(config: { error?: unknown } = {}): void {
 		properties: {
 			commandType: type,
 			invocationId,
-			fullCommand: process.argv.join(" "),
+			fullCommand: getFullCommand(),
 			success: !process.exitCode,
 			repository,
 			watch,
