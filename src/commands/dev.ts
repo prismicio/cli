@@ -13,7 +13,12 @@ import { openBrowser } from "../lib/browser";
 import { createCommand, type CommandConfig, CommandError, exclusiveOptions } from "../lib/command";
 import { readJsonFile, watchFiles, writeFileRecursive } from "../lib/file";
 import { stringify } from "../lib/json";
-import { createRelease, type CustomTypesConfig, deleteRelease } from "../lib/prismic/client";
+import {
+	BulkUpdateErrorSchema,
+	createRelease,
+	type CustomTypesConfig,
+	deleteRelease,
+} from "../lib/prismic/client";
 import {
 	canonicalizeCustomType,
 	canonicalizeSlice,
@@ -82,6 +87,8 @@ export default createCommand(config, async ({ values }) => {
 		console.info(`Continuing your session for ${repo}...`);
 	} else {
 		console.info(`Preparing your session for ${repo}...`);
+		// Read local models first, so a read failure does not leave a release behind.
+		await adapter.getModels();
 		session = await createSession({ repo, getToken, host });
 	}
 	const release = { repo, getToken, host, onUnauthorized, releaseId: session.releaseId };
@@ -446,7 +453,7 @@ function explainRequestError(error: unknown): unknown {
 		case "LEGACY_REPOSITORY":
 			return new CommandError("Local mode does not support this repository yet.");
 	}
-	const details = z.safeParse(BulkErrorBodySchema, error.body).data?.details;
+	const details = z.safeParse(BulkUpdateErrorSchema, error.body).data?.details;
 	if (!details) return error;
 	return new CommandError(
 		[...details.customTypes, ...details.slices]
@@ -454,11 +461,6 @@ function explainRequestError(error: unknown): unknown {
 			.join("\n"),
 	);
 }
-
-const ModelErrorsSchema = z.array(z.object({ id: z.string(), error: z.string() }));
-const BulkErrorBodySchema = z.object({
-	details: z.object({ customTypes: ModelErrorsSchema, slices: ModelErrorsSchema }),
-});
 
 const SessionSchema = z.object({
 	repo: z.string(),

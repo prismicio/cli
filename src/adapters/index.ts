@@ -351,7 +351,10 @@ async function readModels<T extends { id: string }>(
 		const libraryModels = await Promise.all(
 			paths.map(async (path) => {
 				const modelPath = pathToFileURL(path);
-				const model = await readJsonFile<T>(modelPath);
+				const model = await readJsonFile<T>(modelPath).catch((error) => {
+					if (error instanceof SyntaxError) throw new CommandError(error.message, { cause: error });
+					throw error;
+				});
 				return { library, directory: new URL(".", modelPath), modelPath, model };
 			}),
 		);

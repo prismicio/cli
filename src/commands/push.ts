@@ -6,10 +6,14 @@ import { getAdapter } from "../adapters";
 import { getHost, getToken, onUnauthorized } from "../auth";
 import { CommandError, createCommand, type CommandConfig } from "../lib/command";
 import { getDirtyPaths, getGitRoot } from "../lib/git";
-import { deleteSliceScreenshots, getDocumentTotalByCustomType } from "../lib/prismic/client";
+import {
+	BulkUpdateErrorSchema,
+	deleteSliceScreenshots,
+	getDocumentTotalByCustomType,
+} from "../lib/prismic/client";
 import { diffModels, getRemoteModels, writeRemoteModels } from "../lib/prismic/models";
 import { completeOnboardingSteps, type OnboardingStep } from "../lib/prismic/onboarding";
-import { ForbiddenRequestError } from "../lib/request";
+import { BadRequestError, ForbiddenRequestError } from "../lib/request";
 import { appendTrailingSlash, isDescendant, relativePathname } from "../lib/url";
 import { findProjectRoot, getRepositoryName } from "../project";
 
@@ -123,6 +127,7 @@ export default createCommand(config, async ({ values }) => {
 	try {
 		await writeRemoteModels(diff, { repo, getToken, host, onUnauthorized });
 	} catch (error) {
+		if (error instanceof BadRequestError) throw explainRejectedModels(error);
 		throw await explainExistingDocuments(error, diff.customTypes.delete, {
 			repo,
 			getToken,
@@ -165,6 +170,15 @@ export default createCommand(config, async ({ values }) => {
 		if (totalDeletes > 0) console.info(`Deleted ${totalDeletes} model(s).`);
 	}
 });
+
+function explainRejectedModels(error: BadRequestError): Error {
+	const body = z.safeParse(BulkUpdateErrorSchema, error.body).data;
+	const rejected = [...(body?.details.customTypes ?? []), ...(body?.details.slices ?? [])];
+	if (rejected.length === 0) return error;
+	const lines = rejected.map(({ id, error }) => `${id}: ${error}`);
+	if (body?.message) lines.unshift(body.message);
+	return new CommandError(["Prismic rejected these models:", ...lines].join("\n"));
+}
 
 const ExistingDocumentsErrorSchema = z.object({ hasExistingDocuments: z.literal(true) });
 

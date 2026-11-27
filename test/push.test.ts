@@ -181,6 +181,26 @@ describe("with an isolated repository", () => {
 		expect(remote.map((t) => t.id)).toContain(customType.id);
 	});
 
+	it("shows Prismic's error when it rejects a local model", async ({
+		expect,
+		project,
+		prismic,
+		repo,
+	}) => {
+		const pull = await prismic("pull", ["--repo", repo, "--force"]);
+		expect(pull.exitCode, pull.stderr).toBe(0);
+
+		const customType = buildCustomType();
+		customType.json.Main.slug = { type: "UID", config: { label: "Slug" } };
+		await writeLocalCustomType(project, customType);
+
+		const { stderr, exitCode } = await prismic("push", ["--repo", repo, "--force"]);
+		expect(exitCode).toBe(1);
+		expect(stderr).toContain("Prismic rejected these models:");
+		expect(stderr).toContain(`${customType.id}: api ID incorrect for uid field`);
+		expect(stderr).not.toContain("unexpected error");
+	});
+
 	it("explains that a custom type with documents cannot be deleted", async ({
 		expect,
 		prismic,
